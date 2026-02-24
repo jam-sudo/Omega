@@ -1,0 +1,8 @@
+model: turnover
+signal: plasma_total
+params:
+  kin: 1.0
+  kout: 0.2
+  emax: 1.5
+  ec50_mg_per_L: 2.0
+  hill: 1.0

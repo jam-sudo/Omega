@@ -16,6 +16,7 @@ from physio_sim.config import (
     configure_random_seed,
     friendly_validation_error,
     load_compound,
+    load_qsp,
     load_subject,
 )
 from physio_sim.core.sensitivity import local_sensitivity
@@ -243,6 +244,25 @@ def simulate_cmd(
         LOGGER.error("Validation error:\n%s", friendly_validation_error(exc))
         raise typer.Exit(code=1) from exc
 
+    qsp_cfg = None
+    if qsp_model is not None or qsp_config is not None:
+        if qsp_model is None:
+            msg = "--qsp-model is required when using QSP"
+            raise typer.BadParameter(msg)
+        if qsp_config is None:
+            msg = "--qsp-config is required when using QSP"
+            raise typer.BadParameter(msg)
+        qsp_cfg = load_qsp(qsp_config)
+        if qsp_cfg.model != qsp_model:
+            msg = f"QSP config model ({qsp_cfg.model}) does not match --qsp-model ({qsp_model})"
+            raise typer.BadParameter(msg)
+        if qsp_mode not in {"posthoc", "coupled"}:
+            msg = "--qsp-mode must be one of posthoc|coupled"
+            raise typer.BadParameter(msg)
+        if qsp_model not in list_qsp_models():
+            msg = f"Unknown QSP model '{qsp_model}'"
+            raise typer.BadParameter(msg)
+
     if validate:
         physio_warnings = physiologic_sanity_check(subject_cfg, compound_cfg)
         for warning_msg in physio_warnings:
@@ -295,6 +315,18 @@ def simulate_cmd(
         "AUC0_tend_mg_h_per_L": auc,
         **e_summary,
     }
+    if qsp_cfg is not None and "B_biomarker" in df.columns:
+        b_series = df["B_biomarker"]
+        idx_max = int(b_series.idxmax())
+        summary.update(
+            {
+                "qsp_model": qsp_cfg.model,
+                "qsp_mode": qsp_mode,
+                "Bmax": float(b_series.max()),
+                "t_Bmax": float(df["time_h"].iloc[idx_max]),
+                "Bend": float(b_series.iloc[-1]),
+            }
+        )
     if validate:
         summary["validation_warnings"] = validation_warnings
     write_json(summary, out / "summary.json")

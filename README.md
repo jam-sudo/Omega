@@ -44,6 +44,24 @@ Expected outputs:
 - `outputs/run1/summary.json`
 - `outputs/run1/plots.png`
 
+
+## QSP quickstart
+
+```bash
+python -m physio_sim.cli simulate \
+  --compound examples/compound_caffeine.yaml \
+  --subject examples/subject_default.yaml \
+  --dose-mg 100 \
+  --route oral \
+  --t-end-h 24 \
+  --qsp-model turnover \
+  --qsp-config examples/qsp_turnover.yaml \
+  --qsp-mode posthoc \
+  --out outputs/run_qsp
+```
+
+See also: `docs/qsp.md` and `docs/qsp_models.md`.
+
 ## Model in scope
 
 - 13 compartments: GI lumen, gut wall, portal vein, liver, plasma, kidney, lung, muscle, fat, brain, rest, urine sink, and gut metabolism sink.
