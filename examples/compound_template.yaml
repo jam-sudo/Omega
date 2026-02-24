@@ -1,0 +1,31 @@
+# Example-only template for simulation software development.
+name: Compound-X
+mw_g_per_mol: 250.0
+logp: 1.5
+pka: 7.4
+fu_plasma: 0.2
+ka_per_h: 1.1
+f_gut: 1.0
+clint_L_per_h: 20.0
+clr_L_per_h: 3.0
+kp:
+  liver: 1.2
+  kidney: 1.0
+  muscle: 1.1
+  fat: 2.0
+  brain: 0.8
+  rest: 1.0
+  lung: 1.0
+  gut_wall: 1.0
+  portal_vein: 1.0
+pd:
+  model: emax
+  e0: 0.0
+  emax: 1.0
+  ec50_mg_per_L: 2.0
+  hill: 1.2
+  ke0_per_h: 0.8
+ddi:
+  enabled: false
+  ki_mg_per_L: 1.0
+  iu_mg_per_L: 0.2
