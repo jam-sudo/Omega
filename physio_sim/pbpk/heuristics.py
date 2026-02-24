@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
+from physio_sim.config import CompoundConfig
+
+PartitionMethod = Callable[[CompoundConfig, str], float]
+
 
 def heuristic_kp(logp: float, pka: float | None, tissue_name: str) -> float:
     """Heuristic-only Kp estimator (not validated for clinical use)."""
@@ -17,3 +23,20 @@ def heuristic_kp(logp: float, pka: float | None, tissue_name: str) -> float:
         "portal_vein": 1.0,
     }.get(tissue_name, 1.0)
     return max(0.2, base * tissue_adjust)
+
+
+def heuristic_partition_method(compound: CompoundConfig, tissue_name: str) -> float:
+    """Default modular Kp calculation method."""
+    return heuristic_kp(compound.logp, compound.pka, tissue_name)
+
+
+def get_partition_method(method_name: str) -> PartitionMethod:
+    """Return a partition method callable by name.
+
+    This provides an extension point for future methods such as
+    Rodgers & Rowland and Poulin & Theil.
+    """
+    methods: dict[str, PartitionMethod] = {
+        "heuristic": heuristic_partition_method,
+    }
+    return methods.get(method_name, heuristic_partition_method)
