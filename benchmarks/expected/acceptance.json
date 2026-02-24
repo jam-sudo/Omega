@@ -1,0 +1,12 @@
+{
+  "default": {
+    "auc_relative_error_max": 0.3,
+    "cmax_relative_error_max": 0.3,
+    "tmax_abs_error_h_max": 1.0
+  },
+  "drugs": {
+    "caffeine": {},
+    "warfarin": {},
+    "metoprolol": {}
+  }
+}

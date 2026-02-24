@@ -21,6 +21,7 @@ from physio_sim.utils.io import ensure_dir, file_sha256, write_csv, write_json
 from physio_sim.utils.metrics import auc_trapezoid, cmax_tmax, effect_summary
 from physio_sim.utils.profile import run_with_profile
 from physio_sim.validation import mass_balance_check, physiologic_sanity_check
+from physio_sim.validation.benchmarks import run_benchmark_suite
 
 app = typer.Typer(help="PBPK-like + PD simulation CLI")
 LOGGER = logging.getLogger("physio_sim")
@@ -246,6 +247,15 @@ def calibrate_cmd(
         },
         out / "calibration_summary.json",
     )
+
+
+@app.command("benchmark")
+def benchmark_cmd(
+    suite: Path = typer.Option(Path("benchmarks"), exists=True, help="Benchmark suite directory"),
+    out: Path = typer.Option(Path("outputs/benchmarks"), help="Benchmark output directory"),
+) -> None:
+    passed = run_benchmark_suite(suite, out)
+    raise typer.Exit(code=0 if passed else 1)
 
 
 if __name__ == "__main__":
