@@ -27,7 +27,22 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["physio_sim", "physio_sim.pbpk", "physio_sim.pd", "physio_sim.utils", "physio_sim.validation", "physio_sim.core", "physio_sim.pipeline", "physio_sim.risk", "omega", "omega.core", "omega.pipeline", "omega.risk"]
+packages = [
+    "physio_sim",
+    "physio_sim.pbpk",
+    "physio_sim.pd",
+    "physio_sim.qsp",
+    "physio_sim.qsp.models",
+    "physio_sim.utils",
+    "physio_sim.validation",
+    "physio_sim.core",
+    "physio_sim.pipeline",
+    "physio_sim.risk",
+    "omega",
+    "omega.core",
+    "omega.pipeline",
+    "omega.risk",
+]
 
 [tool.ruff]
 line-length = 100

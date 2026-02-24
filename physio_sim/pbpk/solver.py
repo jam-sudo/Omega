@@ -80,19 +80,38 @@ def _coupled_qsp(
     compound: CompoundConfig,
     dose_mg: float,
     route: str,
-    t_end_h: float,
-    dt_out_h: float,
+    t_eval: NDArray[np.float64],
+    qsp_cfg: QSPConfig,
     deterministic: bool = False,
     rtol: float | None = None,
     atol: float | None = None,
-) -> SimulationResult:
+) -> tuple[NDArray[np.float64], tuple[str, ...], NDArray[np.float64]]:
     params = build_params(subject, compound)
     cache = build_cache(params)
-    y0 = _initial_state(route=route, dose_mg=dose_mg)
-    n_steps = max(1, int(np.ceil(t_end_h / dt_out_h)))
-    t_eval = np.linspace(0.0, t_end_h, n_steps + 1)
+    y0_pbpk = _initial_state(route=route, dose_mg=dose_mg)
+
+    qsp_model = get_qsp_model(qsp_cfg.model)
+    y0_qsp = qsp_model.initial_state(qsp_cfg.params)
+    y0 = np.concatenate([y0_pbpk, y0_qsp])
+
+    def rhs_combined(t: float, y: NDArray[np.float64]) -> NDArray[np.float64]:
+        pbpk_state = y[: len(COMPARTMENTS)]
+        pbpk_dy = rhs(t, pbpk_state, params, cache)
+
+        c_plasma_total = max(0.0, pbpk_state[IDX["Plasma"]]) / subject.plasma_volume_L
+        c_plasma_unbound = compound.fu_plasma * c_plasma_total
+        c_signal = c_plasma_total if qsp_cfg.signal == "plasma_total" else c_plasma_unbound
+        qsp_dy = qsp_model.rhs(
+            t,
+            y[len(COMPARTMENTS) :],
+            {"C_signal": c_signal},
+            qsp_cfg.params,
+        )
+        return np.concatenate([pbpk_dy, qsp_dy])
+
     solver_rtol = 1e-8 if deterministic else (rtol if rtol is not None else 1e-6)
     solver_atol = 1e-10 if deterministic else (atol if atol is not None else 1e-9)
+
     sol = solve_ivp(
         fun=rhs_combined,
         t_span=(0.0, float(t_eval[-1])),
@@ -118,10 +137,11 @@ def simulate(
     route: str,
     t_end_h: float,
     dt_out_h: float,
+    deterministic: bool = False,
     qsp: QSPConfig | None = None,
     qsp_mode: str = "posthoc",
 ) -> SimulationResult:
-    n_steps = int(np.floor(t_end_h / dt_out_h))
+    n_steps = max(1, int(np.ceil(t_end_h / dt_out_h)))
     t_eval: NDArray[np.float64] = np.linspace(0.0, t_end_h, n_steps + 1, dtype=float)
 
     if qsp is not None and qsp_mode == "coupled":
@@ -132,20 +152,23 @@ def simulate(
             route=route,
             t_eval=t_eval,
             qsp_cfg=qsp,
+            deterministic=deterministic,
         )
         time = t_eval
     else:
         params = build_params(subject, compound)
         cache = build_cache(params)
         y0 = _initial_state(route=route, dose_mg=dose_mg)
+        solver_rtol = 1e-8 if deterministic else 1e-6
+        solver_atol = 1e-10 if deterministic else 1e-9
         sol = solve_ivp(
             fun=lambda t, y: rhs(t, y, params, cache),
             t_span=(0.0, t_end_h),
             y0=y0,
             t_eval=t_eval,
             method="BDF",
-            rtol=1e-6,
-            atol=1e-9,
+            rtol=solver_rtol,
+            atol=solver_atol,
         )
         if not sol.success:
             msg = f"ODE solve failed: {sol.message}"

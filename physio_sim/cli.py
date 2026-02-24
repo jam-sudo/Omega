@@ -22,6 +22,7 @@ from physio_sim.config import (
 from physio_sim.core.sensitivity import local_sensitivity
 from physio_sim.pbpk.solver import simulate
 from physio_sim.pipeline.candidate_evaluator import evaluate_candidate
+from physio_sim.qsp.registry import list_qsp_models
 from physio_sim.registry import get_model_metadata
 from physio_sim.risk.flags import compute_risk_flags
 from physio_sim.utils.io import ensure_dir, file_sha256, write_csv, write_json
@@ -233,6 +234,9 @@ def simulate_cmd(
     candidate: Path | None = typer.Option(
         None, help="Candidate compound.yaml for evaluation pipeline"
     ),
+    qsp_model: str | None = typer.Option(None, help="Enable QSP model (e.g. turnover)"),
+    qsp_config: Path | None = typer.Option(None, exists=True, help="QSP YAML config path"),
+    qsp_mode: str = typer.Option("posthoc", help="posthoc|coupled"),
 ) -> None:
     if deterministic and seed is None:
         seed = 0
@@ -277,6 +281,8 @@ def simulate_cmd(
             t_end_h=t_end_h,
             dt_out_h=dt_out_h,
             deterministic=deterministic,
+            qsp=qsp_cfg,
+            qsp_mode=qsp_mode,
         )
         return result.timecourse
 
