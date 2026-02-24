@@ -68,3 +68,14 @@ See docs:
 - `docs/roadmap.md`
 - `docs/uncertainty.md`
 - `docs/calibration.md`
+
+
+## Validation / Benchmarks
+
+Run the benchmark suite:
+
+```bash
+python -m physio_sim.cli benchmark --suite benchmarks --out outputs/benchmarks
+```
+
+This generates per-drug overlays/metrics plus `summary.json` and `report.md`, and returns exit code 1 when any benchmark fails acceptance thresholds. See `docs/validation.md` for dataset format and extension guidance.

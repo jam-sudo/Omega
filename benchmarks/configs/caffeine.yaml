@@ -1,0 +1,27 @@
+name: caffeine
+dataset: benchmarks/datasets/caffeine_oral_100mg.csv
+subject_file: examples/subject_default.yaml
+dose_mg: 100.0
+route: oral
+t_end_h: 24.0
+dt_out_h: 0.05
+seed: 123
+compound:
+  name: Caffeine synthetic reference
+  mw_g_per_mol: 194.19
+  logp: -0.1
+  pka: 14.0
+  fu_plasma: 0.85
+  ka_per_h: 1.25
+  f_gut: 1.0
+  clint_L_per_h: 8.0
+  clr_L_per_h: 6.0
+  pd:
+    model: emax
+    e0: 0.0
+    emax: 1.0
+    ec50_mg_per_L: 3.0
+    hill: 1.0
+    ke0_per_h: 0.6
+  ddi:
+    enabled: false
