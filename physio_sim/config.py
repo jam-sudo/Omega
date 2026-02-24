@@ -81,6 +81,7 @@ class SimulationRequest(BaseModel):
     route: Literal["oral", "iv"]
     t_end_h: float = Field(gt=0)
     dt_out_h: float = Field(default=0.1, gt=0)
+    seed: int | None = Field(default=None)
 
 
 def _read_yaml(path: Path) -> dict[str, object]:
@@ -102,3 +103,14 @@ def load_compound(path: str | Path) -> CompoundConfig:
 
 def friendly_validation_error(exc: ValidationError) -> str:
     return "\n".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors())
+
+
+def configure_random_seed(seed: int | None) -> None:
+    if seed is None:
+        return
+    import random
+
+    import numpy as np
+
+    random.seed(seed)
+    np.random.seed(seed)
