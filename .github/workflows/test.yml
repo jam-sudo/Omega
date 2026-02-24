@@ -11,14 +11,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e .[dev]
+      - name: Format check
+        run: python -m ruff format --check .
       - name: Lint
-        run: ruff check .
+        run: python -m ruff check .
       - name: Type check
-        run: mypy physio_sim
+        run: python -m mypy physio_sim
       - name: Tests
-        run: pytest
+        run: python -m pytest -q

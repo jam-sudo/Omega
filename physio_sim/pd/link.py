@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import numpy as np
+from numpy.typing import NDArray
+
+FloatArray = NDArray[np.float64]
 
 
 def effect_site_concentration(
-    time_h: np.ndarray,
-    plasma_conc_mg_per_L: np.ndarray,
+    time_h: FloatArray,
+    plasma_conc_mg_per_L: FloatArray,
     ke0_per_h: float | None,
-) -> np.ndarray:
+) -> FloatArray:
     if ke0_per_h is None:
         return plasma_conc_mg_per_L
     ce = np.zeros_like(plasma_conc_mg_per_L)

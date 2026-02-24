@@ -36,7 +36,6 @@ def test_cli_smoke(tmp_path: Path) -> None:
     assert (out / "profile.txt").exists()
 
 
-
 def test_cli_summary_has_seed(tmp_path: Path) -> None:
     out = tmp_path / "run_seed"
     cmd = [

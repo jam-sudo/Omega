@@ -5,7 +5,7 @@ logp: 1.5
 pka: 7.4
 fu_plasma: 0.2
 ka_per_h: 1.1
-f_gut: 1.0
+f_gut: 1.0 # Fraction escaping gut-wall metabolism.
 clint_L_per_h: 20.0
 clr_L_per_h: 3.0
 kp:

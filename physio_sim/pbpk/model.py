@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.typing import NDArray
 
 from physio_sim.config import CompoundConfig, SubjectConfig
 from physio_sim.pbpk.heuristics import get_partition_method
@@ -20,6 +21,7 @@ COMPARTMENTS: tuple[str, ...] = (
     "Brain",
     "Rest",
     "Urine",
+    "Gut_metabolism",
 )
 IDX = {name: i for i, name in enumerate(COMPARTMENTS)}
 EXCHANGE_TISSUES: tuple[str, ...] = ("Kidney", "Lung", "Muscle", "Fat", "Brain", "Rest")
@@ -34,21 +36,22 @@ class ModelParams:
     clh_L_per_h: float
     clr_L_per_h: float
     fu_plasma: float
-    first_pass_extraction: float | None
+    f_gut: float
 
 
 @dataclass(frozen=True)
 class ModelCache:
-    exchange_indices: np.ndarray
-    exchange_volumes: np.ndarray
-    exchange_flows: np.ndarray
-    exchange_kp: np.ndarray
+    exchange_indices: NDArray[np.int64]
+    exchange_volumes: NDArray[np.float64]
+    exchange_flows: NDArray[np.float64]
+    exchange_kp: NDArray[np.float64]
     idx_gi_lumen: int
     idx_gut_wall: int
     idx_portal_vein: int
     idx_liver: int
     idx_plasma: int
     idx_urine: int
+    idx_gut_metabolism: int
     volume_plasma: float
     volume_gut_wall: float
     volume_portal: float
@@ -79,6 +82,7 @@ def build_cache(params: ModelParams) -> ModelCache:
         idx_liver=IDX["Liver"],
         idx_plasma=IDX["Plasma"],
         idx_urine=IDX["Urine"],
+        idx_gut_metabolism=IDX["Gut_metabolism"],
         volume_plasma=params.volumes_L["Plasma"],
         volume_gut_wall=params.volumes_L["Gut_wall"],
         volume_portal=params.volumes_L["Portal_vein"],
@@ -160,16 +164,16 @@ def build_params(subject: SubjectConfig, compound: CompoundConfig) -> ModelParam
         clh_L_per_h=clh,
         clr_L_per_h=compound.clr_L_per_h,
         fu_plasma=compound.fu_plasma,
-        first_pass_extraction=compound.first_pass_extraction,
+        f_gut=compound.f_gut,
     )
 
 
 def rhs(
     _t: float,
-    y: np.ndarray,
+    y: NDArray[np.float64],
     params: ModelParams,
     cache: ModelCache | None = None,
-) -> np.ndarray:
+) -> NDArray[np.float64]:
     runtime_cache = cache if cache is not None else build_cache(params)
     y_safe = np.maximum(y, 0.0)
     dy = np.zeros_like(y_safe)
@@ -200,12 +204,13 @@ def rhs(
     dy[runtime_cache.idx_plasma] -= gut_exchange
 
     # Portal vein transfer from gut wall to liver
-    portal_in = runtime_cache.flow_portal * (c_gut / runtime_cache.kp_gut_wall)
-    if params.first_pass_extraction is not None:
-        portal_in *= 1.0 - params.first_pass_extraction
+    portal_in_raw = runtime_cache.flow_portal * (c_gut / runtime_cache.kp_gut_wall)
+    portal_in = params.f_gut * portal_in_raw
+    gut_metabolism_loss = (1.0 - params.f_gut) * portal_in_raw
     c_portal = y_safe[runtime_cache.idx_portal_vein] / runtime_cache.volume_portal
     portal_out = runtime_cache.flow_portal * c_portal
-    dy[runtime_cache.idx_gut_wall] -= portal_in
+    dy[runtime_cache.idx_gut_wall] -= portal_in_raw
+    dy[runtime_cache.idx_gut_metabolism] += gut_metabolism_loss
     dy[runtime_cache.idx_portal_vein] += portal_in - portal_out
 
     # Hepatic dual inflow: arterial + portal, venous outflow back to plasma

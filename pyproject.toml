@@ -23,6 +23,7 @@ dev = [
   "pytest>=8.0",
   "ruff>=0.6",
   "mypy>=1.8",
+  "types-PyYAML",
 ]
 
 [tool.setuptools]
@@ -44,11 +45,21 @@ warn_redundant_casts = true
 warn_return_any = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
 [[tool.mypy.overrides]]
-module = ["physio_sim.config", "physio_sim.cli"]
+module = ["physio_sim.cli"]
 ignore_errors = true
 
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]

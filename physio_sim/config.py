@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator
@@ -55,7 +56,6 @@ class CompoundConfig(BaseModel):
     fu_plasma: float
     ka_per_h: float = Field(gt=0)
     f_gut: float = Field(default=1.0)
-    first_pass_extraction: float | None = Field(default=None)
     partition_method: Literal["heuristic"] = "heuristic"
     clint_L_per_h: float = Field(ge=0)
     clr_L_per_h: float = Field(ge=0)
@@ -63,7 +63,7 @@ class CompoundConfig(BaseModel):
     pd: PDConfig
     ddi: DDIConfig | None = None
 
-    @field_validator("fu_plasma", "f_gut", "first_pass_extraction")
+    @field_validator("fu_plasma", "f_gut")
     @classmethod
     def validate_fraction(cls, value: float | None) -> float | None:
         if value is None:
@@ -90,7 +90,7 @@ def _read_yaml(path: Path) -> dict[str, object]:
     if not isinstance(data, dict):
         msg = f"YAML root must be a mapping: {path}"
         raise ValueError(msg)
-    return data
+    return cast(dict[str, object], data)
 
 
 def load_subject(path: str | Path) -> SubjectConfig:
@@ -98,11 +98,33 @@ def load_subject(path: str | Path) -> SubjectConfig:
 
 
 def load_compound(path: str | Path) -> CompoundConfig:
-    return CompoundConfig.model_validate(_read_yaml(Path(path)))
+    data = _read_yaml(Path(path))
+    first_pass_extraction = data.get("first_pass_extraction")
+    f_gut = data.get("f_gut")
+
+    if first_pass_extraction is not None:
+        if f_gut is None:
+            if not isinstance(first_pass_extraction, (float, int)):
+                msg = "first_pass_extraction must be a numeric fraction."
+                raise ValueError(msg)
+            data["f_gut"] = 1.0 - float(first_pass_extraction)
+        warnings.warn(
+            "'first_pass_extraction' is deprecated; use 'f_gut' "
+            "(fraction escaping gut-wall metabolism).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    return CompoundConfig.model_validate(data)
 
 
 def friendly_validation_error(exc: ValidationError) -> str:
-    return "\n".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors())
+    lines: list[str] = []
+    for error in exc.errors():
+        error_map = cast(dict[str, Any], error)
+        loc = cast(tuple[object, ...], error_map["loc"])
+        message = cast(str, error_map["msg"])
+        lines.append(f"{'.'.join(map(str, loc))}: {message}")
+    return "\n".join(lines)
 
 
 def configure_random_seed(seed: int | None) -> None:
