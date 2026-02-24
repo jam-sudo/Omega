@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from physio_sim.config import CompoundConfig, SubjectConfig
 from physio_sim.pbpk.solver import simulate
@@ -17,10 +18,10 @@ class CalibrationResult:
 
 
 def _log_likelihood(
-    observed_time_h: np.ndarray,
-    observed_conc: np.ndarray,
-    predicted_time_h: np.ndarray,
-    predicted_conc: np.ndarray,
+    observed_time_h: NDArray[np.float64],
+    observed_conc: NDArray[np.float64],
+    predicted_time_h: NDArray[np.float64],
+    predicted_conc: NDArray[np.float64],
     sigma: float,
 ) -> float:
     predicted_on_obs = np.interp(observed_time_h, predicted_time_h, predicted_conc)
@@ -47,7 +48,7 @@ def _simulate_concentration(
     dt_out_h: float,
     clint: float,
     ka: float,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     sampled_compound = compound.model_copy(update={"clint_L_per_h": clint, "ka_per_h": ka})
     timecourse = simulate(
         subject=subject,

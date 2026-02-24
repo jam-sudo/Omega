@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 
 from physio_sim.config import CompoundConfig, SubjectConfig
@@ -17,7 +18,7 @@ class SimulationResult:
     timecourse: pd.DataFrame
 
 
-def _initial_state(route: str, dose_mg: float) -> np.ndarray:
+def _initial_state(route: str, dose_mg: float) -> NDArray[np.float64]:
     y0 = np.zeros(len(COMPARTMENTS), dtype=float)
     if route == "oral":
         y0[IDX["GI_lumen"]] = dose_mg
@@ -56,7 +57,7 @@ def simulate(
         raise RuntimeError(msg)
 
     amounts = np.maximum(sol.y.T, 0.0)
-    data: dict[str, np.ndarray] = {"time_h": sol.t}
+    data: dict[str, NDArray[np.float64]] = {"time_h": sol.t}
     for i, name in enumerate(COMPARTMENTS):
         data[f"A_{name}_mg"] = amounts[:, i]
 
