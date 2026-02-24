@@ -38,7 +38,7 @@ Expected outputs:
 - PD via direct Emax with optional effect-compartment delay (`ke0`).
 
 ## Model out of scope (current MVP)
-- Population variability calibration
+- Population variability calibration (now available as lightweight Bayesian calibration for CLint and ka; see docs)
 - Mechanistic transporter/enzyme networks
 - Full validated organ-specific physiology
 
@@ -46,3 +46,5 @@ See docs:
 - `docs/model_equations.md`
 - `docs/assumptions_and_limits.md`
 - `docs/roadmap.md`
+- `docs/uncertainty.md`
+- `docs/calibration.md`
