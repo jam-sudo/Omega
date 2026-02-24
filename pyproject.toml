@@ -27,7 +27,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["physio_sim", "physio_sim.pbpk", "physio_sim.pd", "physio_sim.utils"]
+packages = ["physio_sim", "physio_sim.pbpk", "physio_sim.pd", "physio_sim.qsp", "physio_sim.qsp.models", "physio_sim.utils"]
 
 [tool.ruff]
 line-length = 100

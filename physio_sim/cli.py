@@ -14,9 +14,11 @@ from physio_sim.config import (
     configure_random_seed,
     friendly_validation_error,
     load_compound,
+    load_qsp,
     load_subject,
 )
 from physio_sim.pbpk.solver import simulate
+from physio_sim.qsp.registry import list_qsp_models
 from physio_sim.utils.io import ensure_dir, file_sha256, write_csv, write_json
 from physio_sim.utils.metrics import auc_trapezoid, cmax_tmax, effect_summary
 from physio_sim.utils.profile import run_with_profile
@@ -56,6 +58,9 @@ def simulate_cmd(
     ),
     profile: bool = typer.Option(False, "--profile", help="Write cProfile stats to profile.txt"),
     seed: int | None = typer.Option(None, help="Global random seed"),
+    qsp_model: str | None = typer.Option(None, help="Enable QSP model (e.g. turnover)"),
+    qsp_config: Path | None = typer.Option(None, exists=True, help="QSP YAML config path"),
+    qsp_mode: str = typer.Option("posthoc", help="posthoc|coupled"),
 ) -> None:
     configure_random_seed(seed)
     try:
@@ -64,6 +69,25 @@ def simulate_cmd(
     except ValidationError as exc:
         LOGGER.error("Validation error:\n%s", friendly_validation_error(exc))
         raise typer.Exit(code=1) from exc
+
+    qsp_cfg = None
+    if qsp_model is not None or qsp_config is not None:
+        if qsp_model is None:
+            msg = "--qsp-model is required when using QSP"
+            raise typer.BadParameter(msg)
+        if qsp_config is None:
+            msg = "--qsp-config is required when using QSP"
+            raise typer.BadParameter(msg)
+        qsp_cfg = load_qsp(qsp_config)
+        if qsp_cfg.model != qsp_model:
+            msg = f"QSP config model ({qsp_cfg.model}) does not match --qsp-model ({qsp_model})"
+            raise typer.BadParameter(msg)
+        if qsp_mode not in {"posthoc", "coupled"}:
+            msg = "--qsp-mode must be one of posthoc|coupled"
+            raise typer.BadParameter(msg)
+        if qsp_model not in list_qsp_models():
+            msg = f"Unknown QSP model '{qsp_model}'"
+            raise typer.BadParameter(msg)
 
     if validate:
         physio_warnings = physiologic_sanity_check(subject_cfg, compound_cfg)
@@ -78,6 +102,8 @@ def simulate_cmd(
             route=route,
             t_end_h=t_end_h,
             dt_out_h=dt_out_h,
+            qsp=qsp_cfg,
+            qsp_mode=qsp_mode,
         )
         return result.timecourse
 
@@ -107,6 +133,18 @@ def simulate_cmd(
         "AUC0_tend_mg_h_per_L": auc,
         **e_summary,
     }
+    if qsp_cfg is not None and "B_biomarker" in df.columns:
+        b_series = df["B_biomarker"]
+        idx_max = int(b_series.idxmax())
+        summary.update(
+            {
+                "qsp_model": qsp_cfg.model,
+                "qsp_mode": qsp_mode,
+                "Bmax": float(b_series.max()),
+                "t_Bmax": float(df["time_h"].iloc[idx_max]),
+                "Bend": float(b_series.iloc[-1]),
+            }
+        )
     if validate:
         summary["validation_warnings"] = validation_warnings
     write_json(summary, out / "summary.json")

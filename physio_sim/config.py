@@ -84,6 +84,16 @@ class SimulationRequest(BaseModel):
     seed: int | None = Field(default=None)
 
 
+class QSPConfig(BaseModel):
+    model: str
+    signal: Literal["plasma_total", "plasma_unbound"] = "plasma_total"
+    params: dict[str, float]
+
+
+def load_qsp(path: str | Path) -> QSPConfig:
+    return QSPConfig.model_validate(_read_yaml(Path(path)))
+
+
 def _read_yaml(path: Path) -> dict[str, object]:
     with path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
