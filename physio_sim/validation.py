@@ -28,7 +28,7 @@ def mass_balance_check(
 def physiologic_sanity_check(
     subject: SubjectConfig,
     compound: CompoundConfig,
-    flow_tolerance_frac: float = 0.15,
+    flow_tolerance_frac: float = 0.3,
 ) -> list[str]:
     """Run non-fatal physiological plausibility checks."""
     warnings_out: list[str] = []

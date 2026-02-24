@@ -28,9 +28,32 @@ def test_monte_carlo_outputs_metrics() -> None:
             "clint_L_per_h": {"dist": "normal", "mean": 8.0, "sd": 1.0},
         },
         seed=123,
+        n_workers=1,
     )
 
     assert len(result.sample_metrics) == 8
     assert {"Cmax_mg_per_L", "AUC0_tend_mg_h_per_L", "ka_per_h", "clint_L_per_h"}.issubset(
         result.sample_metrics.columns
     )
+
+
+def test_monte_carlo_parallel_reproducible() -> None:
+    subject = load_subject("examples/subject_default.yaml")
+    compound = load_compound("examples/compound_caffeine.yaml")
+    kwargs = {
+        "subject": subject,
+        "compound": compound,
+        "dose_mg": 50.0,
+        "route": "oral",
+        "t_end_h": 2.0,
+        "dt_out_h": 0.5,
+        "n_samples": 4,
+        "parameter_specs": {
+            "ka_per_h": {"dist": "lognormal", "mean": 0.0, "sd": 0.2},
+            "clint_L_per_h": {"dist": "normal", "mean": 8.0, "sd": 1.0},
+        },
+        "seed": 321,
+    }
+    serial = monte_carlo_propagation(**kwargs, n_workers=1)
+    parallel = monte_carlo_propagation(**kwargs, n_workers=2)
+    assert serial.sample_metrics.equals(parallel.sample_metrics)

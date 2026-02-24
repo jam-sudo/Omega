@@ -22,6 +22,7 @@ COMPARTMENTS: tuple[str, ...] = (
     "Urine",
 )
 IDX = {name: i for i, name in enumerate(COMPARTMENTS)}
+EXCHANGE_TISSUES: tuple[str, ...] = ("Kidney", "Lung", "Muscle", "Fat", "Brain", "Rest")
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,60 @@ class ModelParams:
     clr_L_per_h: float
     fu_plasma: float
     first_pass_extraction: float | None
+
+
+@dataclass(frozen=True)
+class ModelCache:
+    exchange_indices: np.ndarray
+    exchange_volumes: np.ndarray
+    exchange_flows: np.ndarray
+    exchange_kp: np.ndarray
+    idx_gi_lumen: int
+    idx_gut_wall: int
+    idx_portal_vein: int
+    idx_liver: int
+    idx_plasma: int
+    idx_urine: int
+    volume_plasma: float
+    volume_gut_wall: float
+    volume_portal: float
+    volume_liver: float
+    flow_portal: float
+    flow_liver_artery: float
+    flow_liver: float
+    kp_gut_wall: float
+    kp_liver: float
+
+
+def build_cache(params: ModelParams) -> ModelCache:
+    exchange_indices = np.array([IDX[name] for name in EXCHANGE_TISSUES], dtype=np.int64)
+    return ModelCache(
+        exchange_indices=exchange_indices,
+        exchange_volumes=np.array(
+            [params.volumes_L[name] for name in EXCHANGE_TISSUES],
+            dtype=float,
+        ),
+        exchange_flows=np.array(
+            [params.flows_L_per_h[name] for name in EXCHANGE_TISSUES],
+            dtype=float,
+        ),
+        exchange_kp=np.array([params.kp[name] for name in EXCHANGE_TISSUES], dtype=float),
+        idx_gi_lumen=IDX["GI_lumen"],
+        idx_gut_wall=IDX["Gut_wall"],
+        idx_portal_vein=IDX["Portal_vein"],
+        idx_liver=IDX["Liver"],
+        idx_plasma=IDX["Plasma"],
+        idx_urine=IDX["Urine"],
+        volume_plasma=params.volumes_L["Plasma"],
+        volume_gut_wall=params.volumes_L["Gut_wall"],
+        volume_portal=params.volumes_L["Portal_vein"],
+        volume_liver=params.volumes_L["Liver"],
+        flow_portal=params.flows_L_per_h["Portal_vein"],
+        flow_liver_artery=params.flows_L_per_h["Liver_artery"],
+        flow_liver=params.flows_L_per_h["Liver"],
+        kp_gut_wall=params.kp["Gut_wall"],
+        kp_liver=params.kp["Liver"],
+    )
 
 
 def _effective_clint(compound: CompoundConfig) -> float:
@@ -109,60 +164,65 @@ def build_params(subject: SubjectConfig, compound: CompoundConfig) -> ModelParam
     )
 
 
-def rhs(_t: float, y: np.ndarray, params: ModelParams) -> np.ndarray:
+def rhs(
+    _t: float,
+    y: np.ndarray,
+    params: ModelParams,
+    cache: ModelCache | None = None,
+) -> np.ndarray:
+    runtime_cache = cache if cache is not None else build_cache(params)
     y_safe = np.maximum(y, 0.0)
     dy = np.zeros_like(y_safe)
 
-    c_plasma_total = y_safe[IDX["Plasma"]] / params.volumes_L["Plasma"]
+    c_plasma_total = y_safe[runtime_cache.idx_plasma] / runtime_cache.volume_plasma
     c_plasma_unbound = params.fu_plasma * c_plasma_total
 
     # Oral absorption
     ka = params.ka_per_h
-    dy[IDX["GI_lumen"]] -= ka * y_safe[IDX["GI_lumen"]]
-    dy[IDX["Gut_wall"]] += ka * y_safe[IDX["GI_lumen"]]
+    gi_loss = ka * y_safe[runtime_cache.idx_gi_lumen]
+    dy[runtime_cache.idx_gi_lumen] -= gi_loss
+    dy[runtime_cache.idx_gut_wall] += gi_loss
 
-    def tissue_exchange(name: str) -> float:
-        c_t = y_safe[IDX[name]] / params.volumes_L[name]
-        q_t = params.flows_L_per_h[name]
-        kp_t = params.kp[name]
-        return float(q_t * (c_plasma_total - c_t / kp_t))
-
-    for tissue in ["Kidney", "Lung", "Muscle", "Fat", "Brain", "Rest"]:
-        exchange = tissue_exchange(tissue)
-        dy[IDX[tissue]] += exchange
-        dy[IDX["Plasma"]] -= exchange
+    tissue_amounts = y_safe[runtime_cache.exchange_indices]
+    tissue_exchange = runtime_cache.exchange_flows * (
+        c_plasma_total
+        - (tissue_amounts / runtime_cache.exchange_volumes) / runtime_cache.exchange_kp
+    )
+    dy[runtime_cache.exchange_indices] += tissue_exchange
+    dy[runtime_cache.idx_plasma] -= float(np.sum(tissue_exchange))
 
     # Gut tissue perfusion exchange (with plasma)
-    gut_exchange = tissue_exchange("Gut_wall")
-    dy[IDX["Gut_wall"]] += gut_exchange
-    dy[IDX["Plasma"]] -= gut_exchange
+    c_gut = y_safe[runtime_cache.idx_gut_wall] / runtime_cache.volume_gut_wall
+    gut_exchange = params.flows_L_per_h["Gut_wall"] * (
+        c_plasma_total - c_gut / runtime_cache.kp_gut_wall
+    )
+    dy[runtime_cache.idx_gut_wall] += gut_exchange
+    dy[runtime_cache.idx_plasma] -= gut_exchange
 
     # Portal vein transfer from gut wall to liver
-    c_gut = y_safe[IDX["Gut_wall"]] / params.volumes_L["Gut_wall"]
-    q_portal = params.flows_L_per_h["Portal_vein"]
-    portal_in = q_portal * (c_gut / params.kp["Gut_wall"])
+    portal_in = runtime_cache.flow_portal * (c_gut / runtime_cache.kp_gut_wall)
     if params.first_pass_extraction is not None:
         portal_in *= 1.0 - params.first_pass_extraction
-    c_portal = y_safe[IDX["Portal_vein"]] / params.volumes_L["Portal_vein"]
-    portal_out = q_portal * c_portal
-    dy[IDX["Portal_vein"]] += portal_in - portal_out
+    c_portal = y_safe[runtime_cache.idx_portal_vein] / runtime_cache.volume_portal
+    portal_out = runtime_cache.flow_portal * c_portal
+    dy[runtime_cache.idx_gut_wall] -= portal_in
+    dy[runtime_cache.idx_portal_vein] += portal_in - portal_out
 
     # Hepatic dual inflow: arterial + portal, venous outflow back to plasma
-    q_ha = params.flows_L_per_h["Liver_artery"]
-    liver_arterial_in = q_ha * c_plasma_total
-    c_liver = y_safe[IDX["Liver"]] / params.volumes_L["Liver"]
-    c_liver_venous = c_liver / params.kp["Liver"]
-    liver_out = params.flows_L_per_h["Liver"] * c_liver_venous
-    dy[IDX["Liver"]] += liver_arterial_in + portal_out - liver_out
-    dy[IDX["Plasma"]] += liver_out - liver_arterial_in
+    liver_arterial_in = runtime_cache.flow_liver_artery * c_plasma_total
+    c_liver = y_safe[runtime_cache.idx_liver] / runtime_cache.volume_liver
+    c_liver_venous = c_liver / runtime_cache.kp_liver
+    liver_out = runtime_cache.flow_liver * c_liver_venous
+    dy[runtime_cache.idx_liver] += liver_arterial_in + portal_out - liver_out
+    dy[runtime_cache.idx_plasma] += liver_out - liver_arterial_in
 
     # Hepatic elimination strictly in liver using unbound concentration basis
     hepatic_elim = params.clh_L_per_h * (params.fu_plasma * c_liver_venous)
-    dy[IDX["Liver"]] -= hepatic_elim
+    dy[runtime_cache.idx_liver] -= hepatic_elim
 
     # Renal elimination from plasma to urine sink using unbound plasma concentration
     renal_elim = params.clr_L_per_h * c_plasma_unbound
-    dy[IDX["Plasma"]] -= renal_elim
-    dy[IDX["Urine"]] += renal_elim
+    dy[runtime_cache.idx_plasma] -= renal_elim
+    dy[runtime_cache.idx_urine] += renal_elim
 
     return dy

@@ -7,7 +7,7 @@ import pandas as pd
 from scipy.integrate import solve_ivp
 
 from physio_sim.config import CompoundConfig, SubjectConfig
-from physio_sim.pbpk.model import COMPARTMENTS, IDX, build_params, rhs
+from physio_sim.pbpk.model import COMPARTMENTS, IDX, build_cache, build_params, rhs
 from physio_sim.pd.emax import emax_effect
 from physio_sim.pd.link import effect_site_concentration
 
@@ -38,10 +38,12 @@ def simulate(
     dt_out_h: float,
 ) -> SimulationResult:
     params = build_params(subject, compound)
+    cache = build_cache(params)
     y0 = _initial_state(route=route, dose_mg=dose_mg)
-    t_eval = np.arange(0.0, t_end_h + dt_out_h, dt_out_h)
+    n_steps = int(np.floor(t_end_h / dt_out_h))
+    t_eval = np.linspace(0.0, t_end_h, n_steps + 1)
     sol = solve_ivp(
-        fun=lambda t, y: rhs(t, y, params),
+        fun=lambda t, y: rhs(t, y, params, cache),
         t_span=(0.0, t_end_h),
         y0=y0,
         t_eval=t_eval,

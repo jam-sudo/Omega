@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,13 +10,30 @@ import typer
 from pydantic import ValidationError
 
 from physio_sim.calibration import run_mh_calibration
-from physio_sim.config import friendly_validation_error, load_compound, load_subject
+from physio_sim.config import (
+    configure_random_seed,
+    friendly_validation_error,
+    load_compound,
+    load_subject,
+)
 from physio_sim.pbpk.solver import simulate
 from physio_sim.utils.io import ensure_dir, file_sha256, write_csv, write_json
 from physio_sim.utils.metrics import auc_trapezoid, cmax_tmax, effect_summary
+from physio_sim.utils.profile import run_with_profile
 from physio_sim.validation import mass_balance_check, physiologic_sanity_check
 
 app = typer.Typer(help="PBPK-like + PD simulation CLI")
+LOGGER = logging.getLogger("physio_sim")
+
+
+def _configure_logging(verbose: bool) -> None:
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s", force=True)
+
+
+@app.callback()
+def main(verbose: bool = typer.Option(False, "--verbose", help="Enable debug logging")) -> None:
+    _configure_logging(verbose)
 
 
 @app.command("simulate")
@@ -36,28 +54,34 @@ def simulate_cmd(
         "--validate",
         help="Run physiological and mass-balance checks",
     ),
+    profile: bool = typer.Option(False, "--profile", help="Write cProfile stats to profile.txt"),
+    seed: int | None = typer.Option(None, help="Global random seed"),
 ) -> None:
+    configure_random_seed(seed)
     try:
         subject_cfg = load_subject(subject)
         compound_cfg = load_compound(compound)
     except ValidationError as exc:
-        typer.echo(f"Validation error:\n{friendly_validation_error(exc)}")
+        LOGGER.error("Validation error:\n%s", friendly_validation_error(exc))
         raise typer.Exit(code=1) from exc
 
     if validate:
         physio_warnings = physiologic_sanity_check(subject_cfg, compound_cfg)
         for warning_msg in physio_warnings:
-            typer.echo(f"[validation] {warning_msg}")
+            LOGGER.warning("[validation] %s", warning_msg)
 
-    result = simulate(
-        subject_cfg,
-        compound_cfg,
-        dose_mg=dose_mg,
-        route=route,
-        t_end_h=t_end_h,
-        dt_out_h=dt_out_h,
-    )
-    df = result.timecourse
+    def _run() -> pd.DataFrame:
+        result = simulate(
+            subject_cfg,
+            compound_cfg,
+            dose_mg=dose_mg,
+            route=route,
+            t_end_h=t_end_h,
+            dt_out_h=dt_out_h,
+        )
+        return result.timecourse
+
+    df = run_with_profile(_run, out / "profile.txt") if profile else _run()
     ensure_dir(out)
 
     write_csv(df, out / "timecourse.csv")
@@ -77,6 +101,7 @@ def simulate_cmd(
         "dose_mg": dose_mg,
         "route": route,
         "t_end_h": t_end_h,
+        "seed": seed,
         "Cmax_mg_per_L": cmax,
         "Tmax_h": tmax,
         "AUC0_tend_mg_h_per_L": auc,
@@ -116,12 +141,15 @@ def calibrate_cmd(
     burn_in: int = typer.Option(500, help="Burn-in iterations"),
     observation_sigma: float = typer.Option(0.1, help="Residual SD for Gaussian likelihood"),
     out: Path = typer.Option(Path("outputs/calibration"), help="Output directory"),
+    profile: bool = typer.Option(False, "--profile", help="Write cProfile stats to profile.txt"),
+    seed: int | None = typer.Option(None, help="Global random seed"),
 ) -> None:
+    configure_random_seed(seed)
     try:
         subject_cfg = load_subject(subject)
         compound_cfg = load_compound(compound)
     except ValidationError as exc:
-        typer.echo(f"Validation error:\n{friendly_validation_error(exc)}")
+        LOGGER.error("Validation error:\n%s", friendly_validation_error(exc))
         raise typer.Exit(code=1) from exc
 
     observed = pd.read_csv(data)
@@ -131,28 +159,33 @@ def calibrate_cmd(
         raise typer.BadParameter(msg)
 
     ensure_dir(out)
-    calibration = run_mh_calibration(
-        observed=observed,
-        subject=subject_cfg,
-        compound=compound_cfg,
-        dose_mg=dose_mg,
-        route=route,
-        t_end_h=t_end_h,
-        dt_out_h=dt_out_h,
-        n_samples=n_samples,
-        burn_in=burn_in,
-        observation_sigma=observation_sigma,
+
+    def _run_calibration() -> tuple[pd.DataFrame, float]:
+        calibration = run_mh_calibration(
+            observed=observed,
+            subject=subject_cfg,
+            compound=compound_cfg,
+            dose_mg=dose_mg,
+            route=route,
+            t_end_h=t_end_h,
+            dt_out_h=dt_out_h,
+            n_samples=n_samples,
+            burn_in=burn_in,
+            observation_sigma=observation_sigma,
+        )
+        return calibration.posterior_samples, calibration.acceptance_rate
+
+    posterior_samples, acceptance_rate = (
+        run_with_profile(_run_calibration, out / "profile.txt") if profile else _run_calibration()
     )
 
-    write_csv(calibration.posterior_samples, out / "posterior_samples.csv")
+    write_csv(posterior_samples, out / "posterior_samples.csv")
 
     fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
-    axes[0].plot(
-        calibration.posterior_samples["iter"], calibration.posterior_samples["CLint_L_per_h"]
-    )
+    axes[0].plot(posterior_samples["iter"], posterior_samples["CLint_L_per_h"])
     axes[0].set_ylabel("CLint (L/h)")
     axes[0].grid(True, alpha=0.3)
-    axes[1].plot(calibration.posterior_samples["iter"], calibration.posterior_samples["ka_per_h"])
+    axes[1].plot(posterior_samples["iter"], posterior_samples["ka_per_h"])
     axes[1].set_ylabel("ka (1/h)")
     axes[1].set_xlabel("MCMC iteration")
     axes[1].grid(True, alpha=0.3)
@@ -160,9 +193,7 @@ def calibrate_cmd(
     fig.savefig(out / "trace_plots.png", dpi=150)
     plt.close(fig)
 
-    posterior_draws = calibration.posterior_samples.sample(
-        n=min(100, len(calibration.posterior_samples)), random_state=42
-    )
+    posterior_draws = posterior_samples.sample(n=min(100, len(posterior_samples)), random_state=42)
     obs_time = observed["time_h"].to_numpy(dtype=float)
     predictions: list[np.ndarray] = []
     for _, draw in posterior_draws.iterrows():
@@ -207,10 +238,11 @@ def calibrate_cmd(
             "data_sha256": file_sha256(data),
             "compound_sha256": file_sha256(compound),
             "subject_sha256": file_sha256(subject),
-            "acceptance_rate": calibration.acceptance_rate,
-            "n_posterior_samples": int(len(calibration.posterior_samples)),
-            "posterior_CLint_mean": float(calibration.posterior_samples["CLint_L_per_h"].mean()),
-            "posterior_ka_mean": float(calibration.posterior_samples["ka_per_h"].mean()),
+            "seed": seed,
+            "acceptance_rate": acceptance_rate,
+            "n_posterior_samples": int(len(posterior_samples)),
+            "posterior_CLint_mean": float(posterior_samples["CLint_L_per_h"].mean()),
+            "posterior_ka_mean": float(posterior_samples["ka_per_h"].mean()),
         },
         out / "calibration_summary.json",
     )
