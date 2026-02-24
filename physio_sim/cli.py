@@ -10,6 +10,7 @@ from physio_sim.config import friendly_validation_error, load_compound, load_sub
 from physio_sim.pbpk.solver import simulate
 from physio_sim.utils.io import ensure_dir, file_sha256, write_csv, write_json
 from physio_sim.utils.metrics import auc_trapezoid, cmax_tmax, effect_summary
+from physio_sim.validation import mass_balance_check, physiologic_sanity_check
 
 app = typer.Typer(help="PBPK-like + PD simulation CLI")
 
@@ -27,6 +28,11 @@ def simulate_cmd(
     t_end_h: float = typer.Option(24.0, help="End time in hours"),
     dt_out_h: float = typer.Option(0.1, help="Output step in hours"),
     out: Path = typer.Option(Path("outputs/run"), help="Output directory"),
+    validate: bool = typer.Option(
+        False,
+        "--validate",
+        help="Run physiological and mass-balance checks",
+    ),
 ) -> None:
     try:
         subject_cfg = load_subject(subject)
@@ -34,6 +40,11 @@ def simulate_cmd(
     except ValidationError as exc:
         typer.echo(f"Validation error:\n{friendly_validation_error(exc)}")
         raise typer.Exit(code=1) from exc
+
+    if validate:
+        physio_warnings = physiologic_sanity_check(subject_cfg, compound_cfg)
+        for warning_msg in physio_warnings:
+            typer.echo(f"[validation] {warning_msg}")
 
     result = simulate(
         subject_cfg,
@@ -51,6 +62,10 @@ def simulate_cmd(
     auc = auc_trapezoid(df["time_h"].to_numpy(), df["C_plasma_mg_per_L"].to_numpy())
     e_summary = effect_summary(df["time_h"].to_numpy(), df["Effect"].to_numpy())
 
+    validation_warnings: list[str] = []
+    if validate:
+        validation_warnings.extend(mass_balance_check(df, dose_mg=dose_mg))
+
     summary: dict[str, object] = {
         "compound_file": str(compound),
         "subject_file": str(subject),
@@ -64,6 +79,8 @@ def simulate_cmd(
         "AUC0_tend_mg_h_per_L": auc,
         **e_summary,
     }
+    if validate:
+        summary["validation_warnings"] = validation_warnings
     write_json(summary, out / "summary.json")
 
     fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)

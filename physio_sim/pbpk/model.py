@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from physio_sim.config import CompoundConfig, SubjectConfig
-from physio_sim.pbpk.heuristics import heuristic_kp
+from physio_sim.pbpk.heuristics import get_partition_method
 
 COMPARTMENTS: tuple[str, ...] = (
     "GI_lumen",
@@ -32,6 +32,8 @@ class ModelParams:
     ka_per_h: float
     clh_L_per_h: float
     clr_L_per_h: float
+    fu_plasma: float
+    first_pass_extraction: float | None
 
 
 def _effective_clint(compound: CompoundConfig) -> float:
@@ -43,16 +45,20 @@ def _effective_clint(compound: CompoundConfig) -> float:
 
 
 def build_params(subject: SubjectConfig, compound: CompoundConfig) -> ModelParams:
+    q_gut = subject.tissues["gut_wall"].flow_L_per_h
+    q_liver = subject.liver.flow_L_per_h
+    q_ha = max(0.0, q_liver - q_gut)
     flows = {
-        "Gut_wall": subject.tissues["gut_wall"].flow_L_per_h,
-        "Liver": subject.liver.flow_L_per_h,
+        "Gut_wall": q_gut,
+        "Liver": q_liver,
+        "Liver_artery": q_ha,
         "Kidney": subject.kidney.flow_L_per_h,
         "Lung": subject.tissues["lung"].flow_L_per_h,
         "Muscle": subject.tissues["muscle"].flow_L_per_h,
         "Fat": subject.tissues["fat"].flow_L_per_h,
         "Brain": subject.tissues["brain"].flow_L_per_h,
         "Rest": subject.tissues["rest"].flow_L_per_h,
-        "Portal_vein": subject.tissues["gut_wall"].flow_L_per_h,
+        "Portal_vein": q_gut,
     }
     volumes = {
         "Gut_wall": subject.tissues["gut_wall"].volume_L,
@@ -69,14 +75,23 @@ def build_params(subject: SubjectConfig, compound: CompoundConfig) -> ModelParam
 
     kp: dict[str, float] = {}
     tissues_for_kp = [
-        "Gut_wall", "Portal_vein", "Liver", "Kidney", "Lung", "Muscle", "Fat", "Brain", "Rest"
+        "Gut_wall",
+        "Portal_vein",
+        "Liver",
+        "Kidney",
+        "Lung",
+        "Muscle",
+        "Fat",
+        "Brain",
+        "Rest",
     ]
+    partition_method = get_partition_method(compound.partition_method)
     for tissue in tissues_for_kp:
         key = tissue.lower()
         if compound.kp is not None and key in compound.kp:
             kp[tissue] = compound.kp[key]
         else:
-            kp[tissue] = heuristic_kp(compound.logp, compound.pka, key)
+            kp[tissue] = partition_method(compound, key)
 
     clint_eff = _effective_clint(compound)
     qh = subject.liver.flow_L_per_h
@@ -89,6 +104,8 @@ def build_params(subject: SubjectConfig, compound: CompoundConfig) -> ModelParam
         ka_per_h=compound.ka_per_h,
         clh_L_per_h=clh,
         clr_L_per_h=compound.clr_L_per_h,
+        fu_plasma=compound.fu_plasma,
+        first_pass_extraction=compound.first_pass_extraction,
     )
 
 
@@ -96,7 +113,8 @@ def rhs(_t: float, y: np.ndarray, params: ModelParams) -> np.ndarray:
     y_safe = np.maximum(y, 0.0)
     dy = np.zeros_like(y_safe)
 
-    c_plasma = y_safe[IDX["Plasma"]] / params.volumes_L["Plasma"]
+    c_plasma_total = y_safe[IDX["Plasma"]] / params.volumes_L["Plasma"]
+    c_plasma_unbound = params.fu_plasma * c_plasma_total
 
     # Oral absorption
     ka = params.ka_per_h
@@ -107,30 +125,43 @@ def rhs(_t: float, y: np.ndarray, params: ModelParams) -> np.ndarray:
         c_t = y_safe[IDX[name]] / params.volumes_L[name]
         q_t = params.flows_L_per_h[name]
         kp_t = params.kp[name]
-        return float(q_t * (c_plasma - c_t / kp_t))
+        return float(q_t * (c_plasma_total - c_t / kp_t))
 
-    for tissue in ["Gut_wall", "Kidney", "Lung", "Muscle", "Fat", "Brain", "Rest"]:
-        dy[IDX[tissue]] += tissue_exchange(tissue)
-        dy[IDX["Plasma"]] -= tissue_exchange(tissue)
+    for tissue in ["Kidney", "Lung", "Muscle", "Fat", "Brain", "Rest"]:
+        exchange = tissue_exchange(tissue)
+        dy[IDX[tissue]] += exchange
+        dy[IDX["Plasma"]] -= exchange
+
+    # Gut tissue perfusion exchange (with plasma)
+    gut_exchange = tissue_exchange("Gut_wall")
+    dy[IDX["Gut_wall"]] += gut_exchange
+    dy[IDX["Plasma"]] -= gut_exchange
 
     # Portal vein transfer from gut wall to liver
     c_gut = y_safe[IDX["Gut_wall"]] / params.volumes_L["Gut_wall"]
     q_portal = params.flows_L_per_h["Portal_vein"]
     portal_in = q_portal * (c_gut / params.kp["Gut_wall"])
+    if params.first_pass_extraction is not None:
+        portal_in *= 1.0 - params.first_pass_extraction
     c_portal = y_safe[IDX["Portal_vein"]] / params.volumes_L["Portal_vein"]
     portal_out = q_portal * c_portal
     dy[IDX["Portal_vein"]] += portal_in - portal_out
 
-    # Liver exchange + metabolism
-    liver_ex = tissue_exchange("Liver")
-    dy[IDX["Liver"]] += liver_ex + portal_out
-    dy[IDX["Plasma"]] -= liver_ex
+    # Hepatic dual inflow: arterial + portal, venous outflow back to plasma
+    q_ha = params.flows_L_per_h["Liver_artery"]
+    liver_arterial_in = q_ha * c_plasma_total
     c_liver = y_safe[IDX["Liver"]] / params.volumes_L["Liver"]
-    hepatic_elim = params.clh_L_per_h * (c_liver / params.kp["Liver"])
+    c_liver_venous = c_liver / params.kp["Liver"]
+    liver_out = params.flows_L_per_h["Liver"] * c_liver_venous
+    dy[IDX["Liver"]] += liver_arterial_in + portal_out - liver_out
+    dy[IDX["Plasma"]] += liver_out - liver_arterial_in
+
+    # Hepatic elimination strictly in liver using unbound concentration basis
+    hepatic_elim = params.clh_L_per_h * (params.fu_plasma * c_liver_venous)
     dy[IDX["Liver"]] -= hepatic_elim
 
-    # Renal elimination from plasma to urine sink
-    renal_elim = params.clr_L_per_h * c_plasma
+    # Renal elimination from plasma to urine sink using unbound plasma concentration
+    renal_elim = params.clr_L_per_h * c_plasma_unbound
     dy[IDX["Plasma"]] -= renal_elim
     dy[IDX["Urine"]] += renal_elim
 

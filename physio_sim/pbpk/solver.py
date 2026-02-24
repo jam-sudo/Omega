@@ -59,6 +59,7 @@ def simulate(
         data[f"A_{name}_mg"] = amounts[:, i]
 
     c_plasma = amounts[:, IDX["Plasma"]] / subject.plasma_volume_L
+    c_plasma_unbound = compound.fu_plasma * c_plasma
     ce = effect_site_concentration(sol.t, c_plasma, compound.pd.ke0_per_h)
     effect = emax_effect(
         ce,
@@ -68,6 +69,7 @@ def simulate(
         compound.pd.hill,
     )
     data["C_plasma_mg_per_L"] = c_plasma
+    data["Cu_plasma_mg_per_L"] = c_plasma_unbound
     data["Effect"] = effect
 
     return SimulationResult(timecourse=pd.DataFrame(data))

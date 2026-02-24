@@ -55,15 +55,19 @@ class CompoundConfig(BaseModel):
     fu_plasma: float
     ka_per_h: float = Field(gt=0)
     f_gut: float = Field(default=1.0)
+    first_pass_extraction: float | None = Field(default=None)
+    partition_method: Literal["heuristic"] = "heuristic"
     clint_L_per_h: float = Field(ge=0)
     clr_L_per_h: float = Field(ge=0)
     kp: dict[str, float] | None = None
     pd: PDConfig
     ddi: DDIConfig | None = None
 
-    @field_validator("fu_plasma", "f_gut")
+    @field_validator("fu_plasma", "f_gut", "first_pass_extraction")
     @classmethod
-    def validate_fraction(cls, value: float) -> float:
+    def validate_fraction(cls, value: float | None) -> float | None:
+        if value is None:
+            return value
         if not (0.0 <= value <= 1.0):
             msg = "fraction parameters must be within [0, 1]"
             raise ValueError(msg)
