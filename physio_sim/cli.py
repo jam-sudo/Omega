@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -30,6 +30,14 @@ from physio_sim.validation.benchmarks import run_benchmark_suite
 
 app = typer.Typer(help="PBPK-like + PD simulation CLI")
 LOGGER = logging.getLogger("physio_sim")
+
+_VALID_ROUTES = ("oral", "iv")
+
+
+def _validate_route(value: str) -> str:
+    if value not in _VALID_ROUTES:
+        raise typer.BadParameter(f"route must be one of {_VALID_ROUTES}, got '{value}'")
+    return value
 
 
 def _configure_logging(verbose: bool) -> None:
@@ -152,7 +160,7 @@ def simulate_cmd(
         help="Subject YAML path",
     ),
     dose_mg: float = typer.Option(..., help="Dose in mg"),
-    route: Literal["oral", "iv"] = typer.Option("oral", help="oral|iv"),
+    route: str = typer.Option("oral", help="oral|iv", callback=_validate_route),
     t_end_h: float = typer.Option(24.0, help="End time in hours"),
     dt_out_h: float = typer.Option(0.1, help="Output step in hours"),
     out: Path = typer.Option(Path("outputs/run"), help="Output directory"),
@@ -317,7 +325,7 @@ def calibrate_cmd(
         Path("examples/subject_default.yaml"), exists=True, help="Subject YAML path"
     ),
     dose_mg: float = typer.Option(100.0, help="Dose in mg used in observed data"),
-    route: Literal["oral", "iv"] = typer.Option("oral", help="oral|iv"),
+    route: str = typer.Option("oral", help="oral|iv", callback=_validate_route),
     t_end_h: float = typer.Option(24.0, help="End time in hours"),
     dt_out_h: float = typer.Option(0.1, help="Output step in hours"),
     n_samples: int = typer.Option(2000, help="MCMC samples"),

@@ -44,7 +44,7 @@ def local_sensitivity(
     rows: list[dict[str, float | str]] = []
     for parameter in parameters:
         base_value = getattr(compound, parameter)
-        if not isinstance(base_value, (int, float)):
+        if not isinstance(base_value, int | float):
             continue
         base_float = float(base_value)
         delta = max(abs(base_float) * rel_step, rel_step)

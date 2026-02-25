@@ -104,7 +104,7 @@ def load_compound(path: str | Path) -> CompoundConfig:
 
     if first_pass_extraction is not None:
         if f_gut is None:
-            if not isinstance(first_pass_extraction, (float, int)):
+            if not isinstance(first_pass_extraction, float | int):
                 msg = "first_pass_extraction must be a numeric fraction."
                 raise ValueError(msg)
             data["f_gut"] = 1.0 - float(first_pass_extraction)

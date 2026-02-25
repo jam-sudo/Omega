@@ -82,15 +82,18 @@ def _compute_metrics(observed: pd.DataFrame, simulated: pd.DataFrame) -> MetricR
     )
 
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
+
 def _resolve_path(path_str: str, suite_root: Path) -> Path:
     path = Path(path_str)
     if path.is_absolute():
         return path
-    candidates = (suite_root / path, suite_root.parent / path)
+    candidates = (suite_root / path, suite_root.parent / path, ROOT_DIR / path)
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    return suite_root.parent / path
+    return ROOT_DIR / path
 
 
 def _load_config(config_path: Path) -> BenchmarkConfig:

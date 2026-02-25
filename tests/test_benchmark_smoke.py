@@ -45,15 +45,18 @@ def test_benchmark_deterministic(tmp_path: Path) -> None:
 
 
 def test_benchmark_run_uses_suite_relative_paths(tmp_path: Path) -> None:
-    suite_copy = tmp_path / "bench_copy"
     import shutil
 
-    shutil.copytree("benchmarks", suite_copy)
+    # Create a fake repo root with benchmarks + examples side by side
+    fake_root = tmp_path / "fake_repo"
+    fake_root.mkdir()
+    shutil.copytree("benchmarks", fake_root / "benchmarks")
+    shutil.copytree("examples", fake_root / "examples")
 
     cwd = tmp_path / "other"
     cwd.mkdir()
 
-    # Simulate running from a different directory while passing a suite path.
+    # Run from a different directory while passing an absolute suite path.
     out = tmp_path / "bench_from_elsewhere"
     cmd = [
         sys.executable,
@@ -61,7 +64,7 @@ def test_benchmark_run_uses_suite_relative_paths(tmp_path: Path) -> None:
         "physio_sim.cli",
         "benchmark",
         "--suite",
-        str(suite_copy),
+        str(fake_root / "benchmarks"),
         "--out",
         str(out),
     ]

@@ -64,7 +64,9 @@ def evaluate_candidate(
     else:
         decay_delta = np.log(cmax / max(terminal, 1e-12))
         dt = t_end_h - cmax_time
-        half_life = float(np.inf if decay_delta <= 0.0 or dt <= 0.0 else np.log(2.0) * (dt / decay_delta))
+        half_life = float(
+            np.inf if decay_delta <= 0.0 or dt <= 0.0 else np.log(2.0) * (dt / decay_delta)
+        )
 
     uncertainty_cfg = cast(dict[str, Any], candidate.get("uncertainty", {}))
     specs = cast(

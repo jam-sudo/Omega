@@ -33,7 +33,7 @@ class _SampleTask:
 
 
 def _coerce_spec(spec: ParameterSpec) -> float | DistributionSpec:
-    if isinstance(spec, (float, int)):
+    if isinstance(spec, float | int):
         return float(spec)
     if not isinstance(spec, dict):
         msg = "parameter spec must be a number or mapping"
@@ -44,7 +44,7 @@ def _coerce_spec(spec: ParameterSpec) -> float | DistributionSpec:
     if dist not in {"normal", "lognormal"}:
         msg = "dist must be 'normal' or 'lognormal'"
         raise ValueError(msg)
-    if not isinstance(mean, (float, int)) or not isinstance(sd, (float, int)):
+    if not isinstance(mean, float | int) or not isinstance(sd, float | int):
         msg = "mean and sd must be numeric"
         raise ValueError(msg)
     if float(sd) <= 0.0:
