@@ -16,6 +16,11 @@ class BaseQSPModel(ABC):
     def initial_state(self, config: Mapping[str, float]) -> NDArray[np.float64]:
         """Initial QSP state vector."""
 
+
+    def validate_params(self, params: Mapping[str, float]) -> None:
+        """Validate model parameter values before runtime execution."""
+        return None
+
     @abstractmethod
     def rhs(
         self,

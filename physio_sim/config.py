@@ -7,6 +7,8 @@ from typing import Any, Literal, cast
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from physio_sim.qsp.registry import validate_qsp_parameters
+
 
 class TissueConfig(BaseModel):
     volume_L: float = Field(gt=0)
@@ -89,9 +91,21 @@ class QSPConfig(BaseModel):
     signal: Literal["plasma_total", "plasma_unbound"] = "plasma_total"
     params: dict[str, float]
 
+    @field_validator("params")
+    @classmethod
+    def _validate_params(cls, value: dict[str, float]) -> dict[str, float]:
+        normalized: dict[str, float] = {}
+        for key, raw in value.items():
+            if not isinstance(raw, int | float):
+                raise ValueError(f"qsp param {key} must be numeric")
+            normalized[key] = float(raw)
+        return normalized
+
 
 def load_qsp(path: str | Path) -> QSPConfig:
-    return QSPConfig.model_validate(_read_yaml(Path(path)))
+    cfg = QSPConfig.model_validate(_read_yaml(Path(path)))
+    validate_qsp_parameters(cfg.model, cfg.params)
+    return cfg
 
 
 def _read_yaml(path: Path) -> dict[str, object]:

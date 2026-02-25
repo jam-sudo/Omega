@@ -11,6 +11,25 @@ from physio_sim.qsp.registry import register_qsp_model
 
 @register_qsp_model("turnover")
 class TurnoverBiomarkerModel(BaseQSPModel):
+    def validate_params(self, config: Mapping[str, float]) -> None:
+        required = ("kin", "kout", "emax", "ec50_mg_per_L")
+        for key in required:
+            if key not in config:
+                msg = f"Missing required parameter for turnover model: {key}"
+                raise ValueError(msg)
+        values = {key: float(config[key]) for key in required}
+        if values["kin"] < 0:
+            raise ValueError("kin must be non-negative")
+        if values["kout"] <= 0:
+            raise ValueError("kout must be positive")
+        if values["emax"] < 0:
+            raise ValueError("emax must be non-negative")
+        if values["ec50_mg_per_L"] <= 0:
+            raise ValueError("ec50_mg_per_L must be positive")
+        hill = float(config.get("hill", 1.0))
+        if hill <= 0:
+            raise ValueError("hill must be positive")
+
     def state_names(self) -> tuple[str, ...]:
         return ("B_biomarker",)
 

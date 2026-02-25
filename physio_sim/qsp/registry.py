@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from physio_sim.qsp.base import BaseQSPModel
 
@@ -13,6 +13,11 @@ def register_qsp_model(name: str) -> Callable[[type[BaseQSPModel]], type[BaseQSP
         return model_cls
 
     return _inner
+
+
+def validate_qsp_parameters(name: str, params: Mapping[str, float]) -> None:
+    model = get_qsp_model(name)
+    model.validate_params(params)
 
 
 def get_qsp_model(name: str) -> BaseQSPModel:

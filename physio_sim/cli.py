@@ -127,7 +127,8 @@ def _write_academic_report(
         "## Model overview",
         "Perfusion-limited PBPK with liver dual inflow, "
         "renal elimination, and direct/linked Emax PD.",
-        "PD/QSP: direct and effect-site PD are available; QSP coupling is not enabled in this run.",
+        "PD/QSP: direct and effect-site PD are available; "
+        "QSP can be enabled via --qsp-model/--qsp-config.",
         "",
         "## Reproducibility",
         f"- Command: `{command}`",
@@ -191,6 +192,46 @@ def _write_academic_report(
 @app.callback()
 def main(verbose: bool = typer.Option(False, "--verbose", help="Enable debug logging")) -> None:
     _configure_logging(verbose)
+
+
+
+@app.command("validate-config")
+def validate_config_cmd(
+    compound: Path = typer.Option(..., exists=True, help="Compound YAML path"),
+    subject: Path = typer.Option(
+        Path("examples/subject_default.yaml"),
+        exists=True,
+        help="Subject YAML path",
+    ),
+    qsp_model: str | None = typer.Option(None, help="QSP model name (optional)"),
+    qsp_config: Path | None = typer.Option(
+        None, exists=True, help="QSP YAML config path (optional)"
+    ),
+) -> None:
+    """Validate configuration inputs without running a simulation."""
+    if (qsp_model is None) != (qsp_config is None):
+        msg = "qsp-model and qsp-config must be provided together"
+        raise typer.BadParameter(msg)
+
+    try:
+        load_subject(subject)
+        load_compound(compound)
+        if qsp_model is not None and qsp_config is not None:
+            if qsp_model not in list_qsp_models():
+                msg = f"Unknown QSP model '{qsp_model}'"
+                raise typer.BadParameter(msg)
+            qsp_cfg = load_qsp(qsp_config)
+            if qsp_cfg.model != qsp_model:
+                msg = (
+                    f"QSP config model ({qsp_cfg.model}) does not match --qsp-model ({qsp_model})"
+                )
+                raise typer.BadParameter(msg)
+    except Exception as exc:  # noqa: BLE001
+        reason = friendly_validation_error(exc) if isinstance(exc, ValidationError) else str(exc)
+        LOGGER.error("Validation error: %s", reason)
+        raise typer.Exit(code=1) from exc
+    LOGGER.info("Validation complete")
+    print("Validation complete")
 
 
 @app.command("simulate")
@@ -335,6 +376,7 @@ def simulate_cmd(
         )
     if validate:
         summary["validation_warnings"] = validation_warnings
+        write_json({"validation_warnings": validation_warnings}, out / "validation_warnings.json")
     write_json(summary, out / "summary.json")
 
     fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
@@ -411,6 +453,40 @@ def simulate_cmd(
         write_json(evaluation.scores, out / "candidate_scores.json")
         write_json(evaluation.risk_flags.__dict__, out / "risk_flags.json")
         flags_payload = evaluation.risk_flags.__dict__
+
+    artifact_manifest = {
+        "artifact_schema_version": "1.0.0",
+        "artifacts": {
+            "summary_json": str(out / "summary.json"),
+            "timecourse_csv": str(out / "timecourse.csv"),
+            "plots_png": str(out / "plots.png"),
+        },
+        "command": "python -m physio_sim.cli simulate",
+        "package_version": model_metadata.get("package_version"),
+        "git_commit": model_metadata.get("git_commit"),
+        "timestamp_utc": model_metadata.get("timestamp_utc"),
+    }
+    if sensitivity_path is not None:
+        artifact_manifest["artifacts"]["sensitivity_csv"] = str(sensitivity_path)
+        artifact_manifest["artifacts"]["sensitivity_ranked_json"] = str(
+            out / "sensitivity_ranked.json"
+        )
+    if population is not None and population > 0:
+        artifact_manifest["artifacts"]["population_summary_json"] = str(
+            out / "population_summary.json"
+        )
+        artifact_manifest["artifacts"]["population_curves_png"] = str(
+            out / "population_curves.png"
+        )
+    if candidate is not None:
+        artifact_manifest["artifacts"]["candidate_scores_json"] = str(
+            out / "candidate_scores.json"
+        )
+    if validate:
+        artifact_manifest["artifacts"]["validation_warnings"] = str(
+            out / "validation_warnings.json"
+        )
+    write_json(artifact_manifest, out / "artifact_manifest.json")
 
     if academic_report:
         uncertainty_notes: list[str] = []
