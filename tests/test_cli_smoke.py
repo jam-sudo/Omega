@@ -87,3 +87,33 @@ def test_cli_invalid_route_is_rejected() -> None:
     ]
     result = subprocess.run(cmd, check=False)
     assert result.returncode != 0
+
+
+def test_cli_validate_config_roundtrip(tmp_path: Path) -> None:
+    cmd = [
+        sys.executable,
+        "-m",
+        "physio_sim.cli",
+        "validate-config",
+        "--compound",
+        "examples/compound_caffeine.yaml",
+        "--subject",
+        "examples/subject_default.yaml",
+    ]
+    result = subprocess.run(cmd, check=False)
+    assert result.returncode == 0
+
+    bad_cmd = [
+        sys.executable,
+        "-m",
+        "physio_sim.cli",
+        "validate-config",
+        "--compound",
+        "examples/compound_caffeine.yaml",
+        "--subject",
+        "examples/subject_default.yaml",
+        "--qsp-model",
+        "turnover",
+    ]
+    bad = subprocess.run(bad_cmd, check=False)
+    assert bad.returncode != 0
