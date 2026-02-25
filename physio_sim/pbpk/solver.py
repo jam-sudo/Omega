@@ -37,20 +37,25 @@ def simulate(
     route: str,
     t_end_h: float,
     dt_out_h: float,
+    deterministic: bool = False,
+    rtol: float | None = None,
+    atol: float | None = None,
 ) -> SimulationResult:
     params = build_params(subject, compound)
     cache = build_cache(params)
     y0 = _initial_state(route=route, dose_mg=dose_mg)
     n_steps = int(np.floor(t_end_h / dt_out_h))
     t_eval = np.linspace(0.0, t_end_h, n_steps + 1)
+    solver_rtol = 1e-8 if deterministic else (rtol if rtol is not None else 1e-6)
+    solver_atol = 1e-10 if deterministic else (atol if atol is not None else 1e-9)
     sol = solve_ivp(
         fun=lambda t, y: rhs(t, y, params, cache),
         t_span=(0.0, t_end_h),
         y0=y0,
         t_eval=t_eval,
         method="BDF",
-        rtol=1e-6,
-        atol=1e-9,
+        rtol=solver_rtol,
+        atol=solver_atol,
     )
     if not sol.success:
         msg = f"ODE solve failed: {sol.message}"

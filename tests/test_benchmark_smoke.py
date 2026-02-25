@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 
 def _run_benchmark(out_dir: Path) -> dict[str, object]:
@@ -18,7 +19,8 @@ def _run_benchmark(out_dir: Path) -> dict[str, object]:
         str(out_dir),
     ]
     subprocess.run(cmd, check=True)
-    return json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    payload = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    return cast(dict[str, object], payload)
 
 
 def test_benchmark_smoke(tmp_path: Path) -> None:
