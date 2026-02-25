@@ -50,10 +50,21 @@ def evaluate_candidate(
         subject, compound, dose_mg, route, t_end_h, dt_out_h, deterministic=deterministic
     )
     tc = run.timecourse
-    cmax, _ = cmax_tmax(tc["time_h"].to_numpy(), tc["C_plasma_mg_per_L"].to_numpy())
-    auc = auc_trapezoid(tc["time_h"].to_numpy(), tc["C_plasma_mg_per_L"].to_numpy())
-    terminal = max(tc["C_plasma_mg_per_L"].iloc[-1], 1e-9)
-    half_life = float(np.log(2.0) * (t_end_h / max(np.log(max(cmax, 1e-9) / terminal), 1e-9)))
+    times = tc["time_h"].to_numpy()
+    conc = tc["C_plasma_mg_per_L"].to_numpy()
+    cmax, _ = cmax_tmax(times, conc)
+    auc = auc_trapezoid(times, conc)
+
+    cmax_idx = int(np.argmax(conc))
+    cmax_time = times[cmax_idx]
+    terminal = float(tc["C_plasma_mg_per_L"].iloc[-1])
+    tail = conc[cmax_idx:]
+    if cmax <= 0.0 or len(tail) < 2 or tail[-1] >= cmax:
+        half_life = float("inf")
+    else:
+        decay_delta = np.log(cmax / max(terminal, 1e-12))
+        dt = t_end_h - cmax_time
+        half_life = float(np.inf if decay_delta <= 0.0 or dt <= 0.0 else np.log(2.0) * (dt / decay_delta))
 
     uncertainty_cfg = cast(dict[str, Any], candidate.get("uncertainty", {}))
     specs = cast(

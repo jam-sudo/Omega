@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,7 +22,7 @@ class BenchmarkConfig(BaseModel):
     dataset: str
     subject_file: str
     dose_mg: float = Field(gt=0)
-    route: str
+    route: Literal["oral", "iv"]
     t_end_h: float = Field(gt=0)
     dt_out_h: float = Field(gt=0)
     seed: int | None = None
@@ -82,9 +82,15 @@ def _compute_metrics(observed: pd.DataFrame, simulated: pd.DataFrame) -> MetricR
     )
 
 
-def _resolve_path(path_str: str, repo_root: Path) -> Path:
+def _resolve_path(path_str: str, suite_root: Path) -> Path:
     path = Path(path_str)
-    return path if path.is_absolute() else repo_root / path
+    if path.is_absolute():
+        return path
+    candidates = (suite_root / path, suite_root.parent / path)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return suite_root.parent / path
 
 
 def _load_config(config_path: Path) -> BenchmarkConfig:
@@ -96,9 +102,10 @@ def _load_config(config_path: Path) -> BenchmarkConfig:
 
 
 def run_benchmark_suite(suite_dir: Path, out_dir: Path) -> bool:
-    repo_root = Path.cwd()
-    configs_dir = suite_dir / "configs"
-    acceptance_path = suite_dir / "expected" / "acceptance.json"
+    suite_path = suite_dir.resolve()
+    repo_root = suite_path.parent
+    configs_dir = suite_path / "configs"
+    acceptance_path = suite_path / "expected" / "acceptance.json"
     acceptance = _load_acceptance(acceptance_path)
 
     out_dir.mkdir(parents=True, exist_ok=True)

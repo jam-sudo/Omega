@@ -1,3 +1,5 @@
+import pytest
+
 from physio_sim.config import load_compound, load_subject
 from physio_sim.pbpk.solver import simulate
 
@@ -30,3 +32,21 @@ def test_unbound_concentration_column_present() -> None:
     ).timecourse
     assert "Cu_plasma_mg_per_L" in out.columns
     assert (out["Cu_plasma_mg_per_L"] <= out["C_plasma_mg_per_L"]).all()
+
+
+def test_short_output_window_still_includes_end_time() -> None:
+    subject = load_subject("examples/subject_default.yaml")
+    compound = load_compound("examples/compound_caffeine.yaml")
+
+    out = simulate(
+        subject,
+        compound,
+        dose_mg=10.0,
+        route="iv",
+        t_end_h=0.05,
+        dt_out_h=0.1,
+    ).timecourse
+
+    assert out["time_h"].iloc[0] == pytest.approx(0.0)
+    assert out["time_h"].iloc[-1] == pytest.approx(0.05)
+    assert out.shape[0] >= 2

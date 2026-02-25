@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -152,7 +152,7 @@ def simulate_cmd(
         help="Subject YAML path",
     ),
     dose_mg: float = typer.Option(..., help="Dose in mg"),
-    route: str = typer.Option("oral", help="oral|iv"),
+    route: Literal["oral", "iv"] = typer.Option("oral", help="oral|iv"),
     t_end_h: float = typer.Option(24.0, help="End time in hours"),
     dt_out_h: float = typer.Option(0.1, help="Output step in hours"),
     out: Path = typer.Option(Path("outputs/run"), help="Output directory"),
@@ -317,7 +317,7 @@ def calibrate_cmd(
         Path("examples/subject_default.yaml"), exists=True, help="Subject YAML path"
     ),
     dose_mg: float = typer.Option(100.0, help="Dose in mg used in observed data"),
-    route: str = typer.Option("oral", help="oral|iv"),
+    route: Literal["oral", "iv"] = typer.Option("oral", help="oral|iv"),
     t_end_h: float = typer.Option(24.0, help="End time in hours"),
     dt_out_h: float = typer.Option(0.1, help="Output step in hours"),
     n_samples: int = typer.Option(2000, help="MCMC samples"),

@@ -44,7 +44,7 @@ def simulate(
     params = build_params(subject, compound)
     cache = build_cache(params)
     y0 = _initial_state(route=route, dose_mg=dose_mg)
-    n_steps = int(np.floor(t_end_h / dt_out_h))
+    n_steps = max(1, int(np.ceil(t_end_h / dt_out_h)))
     t_eval = np.linspace(0.0, t_end_h, n_steps + 1)
     solver_rtol = 1e-8 if deterministic else (rtol if rtol is not None else 1e-6)
     solver_atol = 1e-10 if deterministic else (atol if atol is not None else 1e-9)
