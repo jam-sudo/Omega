@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from physio_sim.config import load_compound, load_subject
@@ -40,7 +42,7 @@ def test_monte_carlo_outputs_metrics() -> None:
 def test_monte_carlo_parallel_reproducible() -> None:
     subject = load_subject("examples/subject_default.yaml")
     compound = load_compound("examples/compound_caffeine.yaml")
-    kwargs = {
+    kwargs: dict[str, Any] = {
         "subject": subject,
         "compound": compound,
         "dose_mg": 50.0,
@@ -54,6 +56,6 @@ def test_monte_carlo_parallel_reproducible() -> None:
         },
         "seed": 321,
     }
-    serial = monte_carlo_propagation(**kwargs, n_workers=1)
-    parallel = monte_carlo_propagation(**kwargs, n_workers=2)
+    serial = monte_carlo_propagation(n_workers=1, **kwargs)
+    parallel = monte_carlo_propagation(n_workers=2, **kwargs)
     assert serial.sample_metrics.equals(parallel.sample_metrics)
