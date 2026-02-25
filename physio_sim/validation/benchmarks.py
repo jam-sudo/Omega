@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 
 from physio_sim.config import CompoundConfig, configure_random_seed, load_subject
 from physio_sim.pbpk.solver import simulate
+from physio_sim.registry import get_model_metadata
+from physio_sim.utils.io import file_sha256
 from physio_sim.utils.metrics import auc_trapezoid, cmax_tmax
 from physio_sim.validation.report import build_markdown_report
 
@@ -104,9 +106,15 @@ def _load_config(config_path: Path) -> BenchmarkConfig:
     return BenchmarkConfig.model_validate(payload)
 
 
-def run_benchmark_suite(suite_dir: Path, out_dir: Path) -> bool:
+def run_benchmark_suite(
+    suite_dir: Path,
+    out_dir: Path,
+    deterministic: bool = False,
+    seed: int | None = None,
+) -> bool:
     suite_path = suite_dir.resolve()
     repo_root = suite_path.parent
+    benchmark_seed = 0 if deterministic and seed is None else seed
     configs_dir = suite_path / "configs"
     acceptance_path = suite_path / "expected" / "acceptance.json"
     acceptance = _load_acceptance(acceptance_path)
@@ -116,9 +124,11 @@ def run_benchmark_suite(suite_dir: Path, out_dir: Path) -> bool:
 
     for config_path in sorted(configs_dir.glob("*.yaml")):
         config = _load_config(config_path)
-        configure_random_seed(config.seed)
+        case_seed = benchmark_seed if benchmark_seed is not None else config.seed
+        configure_random_seed(case_seed)
         subject = load_subject(_resolve_path(config.subject_file, repo_root))
         observed = pd.read_csv(_resolve_path(config.dataset, repo_root))
+        config_hash = file_sha256(config_path)
         simulated = simulate(
             subject,
             config.compound,
@@ -126,6 +136,7 @@ def run_benchmark_suite(suite_dir: Path, out_dir: Path) -> bool:
             route=config.route,
             t_end_h=config.t_end_h,
             dt_out_h=config.dt_out_h,
+            deterministic=deterministic,
         ).timecourse
         metrics = _compute_metrics(observed, simulated)
         passes = {
@@ -157,7 +168,15 @@ def run_benchmark_suite(suite_dir: Path, out_dir: Path) -> bool:
 
         metrics_payload = {
             "drug": config.name,
-            "seed": config.seed,
+            "seed": case_seed,
+            "deterministic": deterministic,
+            "solver": {
+                "method": "BDF",
+                "rtol": 1e-8 if deterministic else 1e-6,
+                "atol": 1e-10 if deterministic else 1e-9,
+            },
+            "config_hash": config_hash,
+            "model_metadata": get_model_metadata(repo_root=repo_root),
             "metrics": metrics.__dict__,
             "thresholds": acceptance,
             "passes": passes,
@@ -170,6 +189,14 @@ def run_benchmark_suite(suite_dir: Path, out_dir: Path) -> bool:
 
     summary = {
         "suite": str(suite_dir),
+        "seed": benchmark_seed,
+        "deterministic": deterministic,
+        "solver": {
+            "method": "BDF",
+            "rtol": 1e-8 if deterministic else 1e-6,
+            "atol": 1e-10 if deterministic else 1e-9,
+        },
+        "model_metadata": get_model_metadata(repo_root=repo_root),
         "thresholds": acceptance,
         "overall_pass": all(item["pass"] for item in results),
         "results": results,

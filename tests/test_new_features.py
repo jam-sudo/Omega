@@ -31,6 +31,8 @@ def test_deterministic_identical_outputs(tmp_path: Path) -> None:
 
     summary1 = json.loads((out1 / "summary.json").read_text(encoding="utf-8"))
     summary2 = json.loads((out2 / "summary.json").read_text(encoding="utf-8"))
+    summary1["model_metadata"].pop("timestamp_utc")
+    summary2["model_metadata"].pop("timestamp_utc")
     assert summary1 == summary2
     assert (out1 / "timecourse.csv").read_text(encoding="utf-8") == (
         out2 / "timecourse.csv"
@@ -65,7 +67,7 @@ def test_sensitivity_population_and_report_outputs(tmp_path: Path) -> None:
         check=True,
     )
     assert (out / "sensitivity.csv").exists()
-    assert (out / "sensitivity_ranking.json").exists()
+    assert (out / "sensitivity_ranked.json").exists()
     assert (out / "population_summary.json").exists()
     assert (out / "population_curves.png").exists()
     assert (out / "report_academic.md").exists()

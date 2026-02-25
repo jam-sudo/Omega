@@ -24,12 +24,12 @@ Optional columns are allowed (for example `std_mg_per_L`).
 
 ## Dataset provenance
 
-The included datasets (`caffeine`, `warfarin`, and `metoprolol`) are **synthetic example datasets** generated from smooth simulator curves with deterministic perturbations. They are not sourced from clinical trial publications.
+The included datasets (`caffeine`, `warfarin`, and `metoprolol`) are **SYNTHETIC EXAMPLE DATASETS** generated from smooth simulator curves with deterministic perturbations. They are not sourced from clinical trial publications.
 
 ## Running benchmarks
 
 ```bash
-python -m physio_sim.cli benchmark --suite benchmarks --out outputs/benchmarks
+python -m physio_sim.cli benchmark --suite benchmarks --out outputs/benchmarks --deterministic --seed 0
 ```
 
 The command writes:

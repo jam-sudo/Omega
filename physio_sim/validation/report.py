@@ -9,6 +9,10 @@ def build_markdown_report(summary: dict[str, Any]) -> str:
         "",
         f"Overall pass: **{summary['overall_pass']}**",
         "",
+        "Deterministic: "
+        f"**{summary.get('deterministic', False)}**  | "
+        f"Seed: **{summary.get('seed')}**",
+        "",
         "## Thresholds",
         "",
         f"- AUC relative error <= {summary['thresholds']['auc_relative_error_max']}",

@@ -21,6 +21,7 @@ from physio_sim.config import (
 from physio_sim.core.sensitivity import local_sensitivity
 from physio_sim.pbpk.solver import simulate
 from physio_sim.pipeline.candidate_evaluator import evaluate_candidate
+from physio_sim.registry import get_model_metadata
 from physio_sim.risk.flags import compute_risk_flags
 from physio_sim.utils.io import ensure_dir, file_sha256, write_csv, write_json
 from physio_sim.utils.metrics import auc_trapezoid, cmax_tmax, effect_summary
@@ -110,37 +111,76 @@ def _population_run(
 def _write_academic_report(
     out: Path,
     summary: dict[str, object],
+    command: str,
     sensitivity_path: Path | None,
     flags: dict[str, object] | None,
+    uncertainty_notes: list[str] | None,
 ) -> None:
+    benchmark_summary = out.parent / "benchmarks" / "summary.json"
+    model_metadata = summary.get("model_metadata", {})
+
     lines = [
         "# Academic Report",
         "",
-        "## Model description",
-        "Perfusion-limited PBPK with liver dual inflow, renal elimination, "
-        "and direct/linked Emax PD.",
+        "## Model overview",
+        "Perfusion-limited PBPK with liver dual inflow, "
+        "renal elimination, and direct/linked Emax PD.",
+        "PD/QSP: direct and effect-site PD are available; QSP coupling is not enabled in this run.",
         "",
-        "## Parameter tables",
-        "See input YAML files and summary.json metadata.",
+        "## Reproducibility",
+        f"- Command: `{command}`",
+        f"- Compound config: `{summary.get('compound_file')}`",
+        f"- Subject config: `{summary.get('subject_file')}`",
+        "- Config hashes: "
+        f"compound={summary.get('compound_sha256')}, "
+        f"subject={summary.get('subject_sha256')}",
+        f"- Deterministic mode: `{summary.get('deterministic')}` with seed `{summary.get('seed')}`",
         "",
-        "## Validation summary",
-        f"Warnings: {summary.get('validation_warnings', [])}",
+        "## Model metadata",
+        f"- Package version: `{model_metadata.get('package_version')}`",
+        f"- Git commit: `{model_metadata.get('git_commit')}`",
+        f"- Timestamp (UTC): `{model_metadata.get('timestamp_utc')}`",
         "",
-        "## Uncertainty intervals",
-        "If uncertainty or population analyses were run, see output JSON/CSV files.",
+        "## PK summary",
+        f"- Cmax (mg/L): `{summary.get('Cmax_mg_per_L')}`",
+        f"- Tmax (h): `{summary.get('Tmax_h')}`",
+        f"- AUC0-tend (mg*h/L): `{summary.get('AUC0_tend_mg_h_per_L')}`",
+        "- Curves: `timecourse.csv` and `plots.png`",
         "",
-        "## Sensitivity ranking",
+        "## Validation status",
+        f"- Run warnings: `{summary.get('validation_warnings', [])}`",
     ]
+    if benchmark_summary.exists():
+        lines.append(f"- Benchmark summary: `{benchmark_summary}`")
+    else:
+        lines.append("- Benchmark summary: not run")
+
+    lines.extend(["", "## Uncertainty results"])
+    if uncertainty_notes:
+        lines.extend([f"- {item}" for item in uncertainty_notes])
+    else:
+        lines.append("- Not run for this simulation.")
+
+    lines.extend(["", "## Sensitivity ranking"])
     if sensitivity_path is not None and sensitivity_path.exists():
         lines.append(f"Included in `{sensitivity_path.name}`.")
     else:
         lines.append("Not requested for this run.")
+
     lines.extend(["", "## Risk flags"])
     lines.append(
         json.dumps(flags, indent=2) if flags is not None else "Not requested for this run."
     )
     lines.extend(
-        ["", "## Limitations", "Automated report; does not replace external clinical validation."]
+        [
+            "",
+            "## Limitations",
+            "- Automated report generated from a single mechanistic model configuration.",
+            "- Benchmark datasets in this repository are synthetic examples "
+            "unless replaced with external observed datasets.",
+            "- Outputs are for model evaluation and research use; "
+            "external clinical validation is still required.",
+        ]
     )
     report_path = out / "report_academic.md"
     report_path.write_text("\n".join(lines), encoding="utf-8")
@@ -175,6 +215,16 @@ def simulate_cmd(
         False, "--deterministic", help="Deterministic reproducibility"
     ),
     sensitivity: bool = typer.Option(False, "--sensitivity", help="Run local sensitivity analysis"),
+    sensitivity_params: str = typer.Option(
+        "clint_L_per_h,clr_L_per_h,ka_per_h,fu_plasma",
+        "--sensitivity-params",
+        help="Comma-separated compound parameter names for local sensitivity",
+    ),
+    sensitivity_eps: float = typer.Option(
+        0.05,
+        "--sensitivity-eps",
+        help="Relative finite-difference perturbation for local sensitivity",
+    ),
     population: int | None = typer.Option(None, "--population", help="Population simulation size"),
     academic_report: bool = typer.Option(
         False, "--academic-report", help="Write academic markdown report"
@@ -222,18 +272,24 @@ def simulate_cmd(
     if validate:
         validation_warnings.extend(mass_balance_check(df, dose_mg=dose_mg))
 
+    model_metadata = get_model_metadata()
     summary: dict[str, object] = {
         "compound_file": str(compound),
         "subject_file": str(subject),
         "compound_sha256": file_sha256(compound),
         "subject_sha256": file_sha256(subject),
+        "config_hash": file_sha256(compound) + ":" + file_sha256(subject),
         "dose_mg": dose_mg,
         "route": route,
         "t_end_h": t_end_h,
         "seed": seed,
         "deterministic": deterministic,
-        "solver_rtol": 1e-8 if deterministic else 1e-6,
-        "solver_atol": 1e-10 if deterministic else 1e-9,
+        "solver": {
+            "method": "BDF",
+            "rtol": 1e-8 if deterministic else 1e-6,
+            "atol": 1e-10 if deterministic else 1e-9,
+        },
+        "model_metadata": model_metadata,
         "Cmax_mg_per_L": cmax,
         "Tmax_h": tmax,
         "AUC0_tend_mg_h_per_L": auc,
@@ -259,6 +315,9 @@ def simulate_cmd(
 
     sensitivity_path: Path | None = None
     if sensitivity:
+        selected_sensitivity_params = [
+            item.strip() for item in sensitivity_params.split(",") if item.strip()
+        ]
         sens = local_sensitivity(
             subject=subject_cfg,
             compound=compound_cfg,
@@ -266,12 +325,14 @@ def simulate_cmd(
             route=route,
             t_end_h=t_end_h,
             dt_out_h=dt_out_h,
-            parameters=["clint_L_per_h", "clr_L_per_h", "fu_plasma", "ka_per_h", "f_gut"],
+            parameters=selected_sensitivity_params,
+            rel_step=sensitivity_eps,
+            deterministic=deterministic,
         )
         sensitivity_path = out / "sensitivity.csv"
         write_csv(sens.metrics, sensitivity_path)
         ranked = sens.metrics[["parameter", "influence_abs_sum"]].to_dict(orient="records")
-        write_json({"ranked_parameter_influence": ranked}, out / "sensitivity_ranking.json")
+        write_json({"ranked_parameter_influence": ranked}, out / "sensitivity_ranked.json")
 
     population_summary: dict[str, float] | None = None
     if population is not None and population > 0:
@@ -314,7 +375,21 @@ def simulate_cmd(
         flags_payload = evaluation.risk_flags.__dict__
 
     if academic_report:
-        _write_academic_report(out, summary, sensitivity_path, flags_payload)
+        uncertainty_notes: list[str] = []
+        if population_summary is not None:
+            uncertainty_notes.append(
+                "Population simulation "
+                f"n={population_summary['n']} "
+                f"with AUC CV={population_summary['AUC_cv']:.3f}."
+            )
+        _write_academic_report(
+            out,
+            summary,
+            "python -m physio_sim.cli simulate",
+            sensitivity_path,
+            flags_payload,
+            uncertainty_notes or None,
+        )
 
 
 @app.command("calibrate")
@@ -443,8 +518,14 @@ def calibrate_cmd(
 def benchmark_cmd(
     suite: Path = typer.Option(Path("benchmarks"), exists=True, help="Benchmark suite directory"),
     out: Path = typer.Option(Path("outputs/benchmarks"), help="Benchmark output directory"),
+    deterministic: bool = typer.Option(
+        False, "--deterministic", help="Deterministic reproducibility"
+    ),
+    seed: int | None = typer.Option(None, "--seed", help="Global random seed"),
 ) -> None:
-    passed = run_benchmark_suite(suite, out)
+    if deterministic and seed is None:
+        seed = 0
+    passed = run_benchmark_suite(suite, out, deterministic=deterministic, seed=seed)
     raise typer.Exit(code=0 if passed else 1)
 
 
