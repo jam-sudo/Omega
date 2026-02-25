@@ -12,7 +12,10 @@ def cmax_tmax(time_h: FloatArray, conc: FloatArray) -> tuple[float, float]:
 
 
 def auc_trapezoid(time_h: FloatArray, conc: FloatArray) -> float:
-    _trapz = getattr(np, "trapezoid", None) or np.trapz
+    _trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz", None)
+    if _trapz is None:
+        msg = "numpy trapezoid integration function not available"
+        raise AttributeError(msg)
     return float(_trapz(conc, time_h))
 
 
