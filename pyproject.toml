@@ -3,15 +3,15 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "physio-sim"
-version = "0.1.0"
-description = "Whole-body PBPK-like and minimal PD simulation prototype"
+name = "omega-pbpk"
+version = "0.7.0"
+description = "Whole-body PBPK simulation platform — 34-state ODE engine with ADME prediction, DDI, PD, and clinical tools"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
+license = {text = "MIT"}
 dependencies = [
   "numpy>=1.26",
   "scipy>=1.11",
-  "pandas>=2.0",
   "pydantic>=2.0",
   "pyyaml>=6.0",
   "typer>=0.9",
@@ -25,20 +25,35 @@ dev = [
   "mypy>=1.8",
   "types-PyYAML",
 ]
+ml = [
+  "torch>=2.0",
+  "rdkit>=2023.0",
+]
+api = [
+  "fastapi>=0.100",
+  "uvicorn>=0.20",
+]
 
-[tool.setuptools]
-packages = ["physio_sim", "physio_sim.pbpk", "physio_sim.pd", "physio_sim.utils", "physio_sim.validation", "physio_sim.core", "physio_sim.pipeline", "physio_sim.risk", "omega", "omega.core", "omega.pipeline", "omega.risk"]
+[project.scripts]
+omega = "omega_pbpk.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 ignore = ["B008"]
 
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
@@ -48,18 +63,12 @@ ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
 
 [[tool.mypy.overrides]]
-module = ["physio_sim.cli"]
+module = ["omega_pbpk.cli", "omega_pbpk.api.server", "omega_pbpk.ml_models.gnn_adme"]
 ignore_errors = true
 
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-
 [[tool.mypy.overrides]]
-module = ["yaml"]
+module = ["yaml", "torch", "torch.*", "rdkit", "rdkit.*", "fastapi", "uvicorn"]
 ignore_missing_imports = true
-disable_error_code = ["import-untyped"]

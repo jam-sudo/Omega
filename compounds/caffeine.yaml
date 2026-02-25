@@ -1,0 +1,53 @@
+name: Caffeine
+mw: 194.19
+logP: -0.07
+pka: [14.0]
+drug_type: neutral
+fup: 0.65
+rbp: 1.0
+smiles: "Cn1c(=O)c2c(ncn2C)n(C)c1=O"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP1A2: 0.45
+    CYP2E1: 0.02
+  fm:
+    CYP1A2: 0.95
+    CYP2E1: 0.03
+    other: 0.02
+
+absorption:
+  peff: 7.0
+  solubility_mg_mL: 21.6
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 0.82
+    brain: 0.98
+    heart: 0.83
+    kidney: 1.00
+    liver: 0.95
+    spleen: 0.87
+    gut_wall: 0.92
+    pancreas: 0.85
+    thymus: 0.80
+    reproductive: 0.82
+    rest: 0.80
+  permeability_limited:
+    adipose:
+      kp: 0.30
+      ps: 20
+    muscle:
+      kp: 0.82
+      ps: 40
+    bone:
+      kp: 0.60
+      ps: 10
+    skin:
+      kp: 0.75
+      ps: 15
+
+gut_metabolism:
+  gut_clint_multiplier: 0.1
