@@ -5,8 +5,6 @@ Run: pytest tests/test_all.py -v
 
 from __future__ import annotations
 
-import json
-import math
 import tempfile
 from pathlib import Path
 
@@ -95,8 +93,14 @@ class TestOrgan:
     def test_organ_permeability_limited(self) -> None:
         from omega_pbpk.core.organ import Organ
 
-        organ = Organ(name="adipose", volume_L=14.5, blood_flow_L_per_h=20.0,
-                      kp=30.0, is_permeability_limited=True, ps_L_per_h=8.0)
+        organ = Organ(
+            name="adipose",
+            volume_L=14.5,
+            blood_flow_L_per_h=20.0,
+            kp=30.0,
+            is_permeability_limited=True,
+            ps_L_per_h=8.0,
+        )
         assert organ.is_permeability_limited
         assert organ.vascular_volume_L == pytest.approx(14.5 * 0.04)
         assert organ.extravascular_volume_L == pytest.approx(14.5 * 0.96)
@@ -116,7 +120,7 @@ class TestOrgan:
 
 class TestWholeBodyPBPK:
     def test_model_creation(self) -> None:
-        from omega_pbpk.core.body import WholeBodyPBPK, N_STATES
+        from omega_pbpk.core.body import N_STATES, WholeBodyPBPK
         from omega_pbpk.drugs.midazolam import MIDAZOLAM
 
         model = WholeBodyPBPK(MIDAZOLAM)
@@ -124,7 +128,7 @@ class TestWholeBodyPBPK:
         assert model._y0.shape == (N_STATES,)
 
     def test_iv_setup(self) -> None:
-        from omega_pbpk.core.body import WholeBodyPBPK, IDX_VEN
+        from omega_pbpk.core.body import IDX_VEN, WholeBodyPBPK
         from omega_pbpk.drugs.midazolam import MIDAZOLAM
 
         model = WholeBodyPBPK(MIDAZOLAM)
@@ -134,7 +138,7 @@ class TestWholeBodyPBPK:
         assert model.drug.route == "iv"
 
     def test_oral_setup(self) -> None:
-        from omega_pbpk.core.body import WholeBodyPBPK, IDX_STOMACH
+        from omega_pbpk.core.body import IDX_STOMACH, WholeBodyPBPK
         from omega_pbpk.drugs.midazolam import MIDAZOLAM
 
         model = WholeBodyPBPK(MIDAZOLAM)
@@ -221,13 +225,15 @@ class TestDDI:
         # With strong CYP3A4 inhibitor
         model_ddi = WholeBodyPBPK(MIDAZOLAM)
         model_ddi.setup_oral(7.5)
-        model_ddi.add_inhibitor(DDIInhibitor(
-            name="Ketoconazole",
-            ki_uM=0.015,
-            concentration_uM=5.0,
-            target_enzyme="CYP3A4",
-            mechanism="competitive",
-        ))
+        model_ddi.add_inhibitor(
+            DDIInhibitor(
+                name="Ketoconazole",
+                ki_uM=0.015,
+                concentration_uM=5.0,
+                target_enzyme="CYP3A4",
+                mechanism="competitive",
+            )
+        )
         result_ddi = model_ddi.simulate(t_end_h=24.0)
         auc_ddi = result_ddi.pk_summary()["AUC_mg_h_L"]
 
@@ -240,11 +246,17 @@ class TestDDI:
 
         model = WholeBodyPBPK(MIDAZOLAM)
         model.setup_oral(7.5)
-        model.add_inhibitor(DDIInhibitor(
-            name="Erythromycin", ki_uM=5.0, concentration_uM=3.0,
-            target_enzyme="CYP3A4", mechanism="mbi",
-            kinact_per_h=2.0, kdeg_per_h=0.02,
-        ))
+        model.add_inhibitor(
+            DDIInhibitor(
+                name="Erythromycin",
+                ki_uM=5.0,
+                concentration_uM=3.0,
+                target_enzyme="CYP3A4",
+                mechanism="mbi",
+                kinact_per_h=2.0,
+                kdeg_per_h=0.02,
+            )
+        )
         result = model.simulate(t_end_h=24.0)
         assert result.pk_summary()["AUC_mg_h_L"] > 0
 
@@ -260,11 +272,16 @@ class TestDDI:
         # With inducer
         model_ind = WholeBodyPBPK(MIDAZOLAM)
         model_ind.setup_oral(7.5)
-        model_ind.add_inhibitor(DDIInhibitor(
-            name="Rifampin", ki_uM=1.0, concentration_uM=1.0,
-            target_enzyme="CYP3A4", mechanism="induction",
-            fold_induction=5.0,
-        ))
+        model_ind.add_inhibitor(
+            DDIInhibitor(
+                name="Rifampin",
+                ki_uM=1.0,
+                concentration_uM=1.0,
+                target_enzyme="CYP3A4",
+                mechanism="induction",
+                fold_induction=5.0,
+            )
+        )
         auc_ind = model_ind.simulate(t_end_h=24.0).pk_summary()["AUC_mg_h_L"]
 
         # Induction should decrease AUC
@@ -397,7 +414,9 @@ class TestPDModels:
     def test_indirect_response_type1(self) -> None:
         from omega_pbpk.qsp.pd_models import IndirectResponseModel
 
-        idr = IndirectResponseModel(idr_type=1, kin=1.0, kout=0.1, imax_or_smax=0.9, ic50_or_sc50=1.0)
+        idr = IndirectResponseModel(
+            idr_type=1, kin=1.0, kout=0.1, imax_or_smax=0.9, ic50_or_sc50=1.0
+        )
         t = np.linspace(0, 48, 481)
         cp = 5.0 * np.exp(-0.1 * t)
         response = idr.simulate(t, cp)
@@ -564,7 +583,7 @@ class TestVisualization:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             save_path = Path(tmpdir) / "test_plot.png"
-            fig = plotter.plot_pk(t, cp, save_path=save_path)
+            plotter.plot_pk(t, cp, save_path=save_path)
             assert save_path.exists()
 
 

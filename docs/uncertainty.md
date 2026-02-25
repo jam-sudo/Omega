@@ -1,42 +1,52 @@
-# Uncertainty Propagation
+# Uncertainty Propagation — Omega PBPK v0.7
 
-`physio_sim.uncertainty` adds Monte Carlo uncertainty propagation for PK summary metrics.
+## Monte Carlo virtual population
 
-## Supported parameter specifications
+`omega_pbpk.population.physiology.VirtualPopulation` generates N virtual subjects by
+sampling physiological parameters from log-normal distributions around ICRP reference values.
 
-Each uncertain parameter can be provided as:
-
-- **Fixed value**: `1.2`
-- **Normal**: `{"dist": "normal", "mean": 1.2, "sd": 0.2}`
-- **Lognormal**: `{"dist": "lognormal", "mean": 0.0, "sd": 0.3}`
-
-Notes:
-- For `lognormal`, `mean` and `sd` are parameters of the underlying normal in log-space.
-- `sd` must be positive.
-
-## Monte Carlo API
+### Usage
 
 ```python
-from physio_sim.uncertainty import monte_carlo_propagation
+from omega_pbpk.population.physiology import VirtualPopulation
 
-result = monte_carlo_propagation(
-    subject=subject_cfg,
-    compound=compound_cfg,
-    dose_mg=100,
-    route="oral",
-    t_end_h=24,
-    dt_out_h=0.1,
-    n_samples=500,
-    parameter_specs={
-        "ka_per_h": {"dist": "lognormal", "mean": 0.2, "sd": 0.2},
-        "clint_L_per_h": {"dist": "normal", "mean": 8.0, "sd": 1.0},
-    },
-    seed=42,
-)
+pop = VirtualPopulation(n=100, seed=42)
+subjects = pop.generate()
+stats = pop.summary_stats(subjects)
 ```
 
-Output `result.sample_metrics` includes one row per simulation and aggregates:
+### Sampled parameters per subject
 
-- `Cmax_mg_per_L`
-- `AUC0_tend_mg_h_per_L`
-- sampled parameter values
+| Parameter | Reference | CV |
+|-----------|-----------|-----|
+| Body weight | 70 kg | 0.15 |
+| Cardiac output | 390 L/h (× BW^0.75 scaling) | 0.10 |
+| GFR | 7.5 L/h (× BW^0.75 scaling) | 0.15 |
+| Liver weight | 1800 g (× BW scaling) | 0.15 |
+| MPPGL | 40 pmol/mg | 0.30 |
+| Organ volumes | ICRP reference × BW scaling | organ-specific |
+| Organ flows | ICRP reference (renormalized to CO) | organ-specific |
+
+### Pharmacogenomic variability
+
+Additional inter-individual variability via CYP polymorphism:
+
+```python
+from omega_pbpk.pharmacogenomics.cyp_polymorphism import PGxAnalyzer
+
+analyzer = PGxAnalyzer()
+results = analyzer.analyze_gene("CYP2D6", "Caucasian")
+# Each result has clint_scaling_factor and population_frequency
+```
+
+### Population PK simulation
+
+Run the PBPK model for each virtual subject to generate a population PK distribution,
+then visualize with median and percentile bands:
+
+```python
+from omega_pbpk.visualization.plots import PKPlotter
+
+plotter = PKPlotter()
+plotter.plot_population(time_h, cp_matrix, save_path="pop_pk.png")
+```

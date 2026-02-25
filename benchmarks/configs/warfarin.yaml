@@ -1,27 +1,25 @@
 name: warfarin
 dataset: benchmarks/datasets/warfarin_oral_5mg.csv
-subject_file: examples/subject_default.yaml
 dose_mg: 5.0
 route: oral
 t_end_h: 24.0
-dt_out_h: 0.05
-seed: 123
-compound:
-  name: Warfarin synthetic reference
-  mw_g_per_mol: 308.33
-  logp: 3.1
-  pka: 5.1
-  fu_plasma: 0.01
-  ka_per_h: 0.7
-  f_gut: 0.95
-  clint_L_per_h: 0.6
-  clr_L_per_h: 0.2
-  pd:
-    model: emax
-    e0: 0.0
-    emax: 1.0
-    ec50_mg_per_L: 0.3
-    hill: 1.0
-    ke0_per_h: 0.15
-  ddi:
-    enabled: false
+
+# Warfarin — inline compound definition (v0.7 format)
+mw: 308.33
+logP: 3.1
+pka: [5.1]
+drug_type: acid
+fup: 0.01
+rbp: 0.55
+
+clearance:
+  clint_uL_min_pmol:
+    CYP2C9: 0.5
+    CYP3A4: 0.1
+  fm:
+    CYP2C9: 0.85
+    CYP3A4: 0.15
+
+absorption:
+  peff: 5.0
+  solubility_mg_mL: 0.017

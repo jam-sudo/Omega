@@ -1,26 +1,46 @@
-# Assumptions and Limits
+# Assumptions and Limits — Omega PBPK v0.7
 
-## Explicit assumptions
+## Model structure
 
-- PBPK-like structure with perfusion-limited exchange and lumped compartments.
-- Default Kp may come from a simple logP/pKa heuristic if not provided.
-- DDI in MVP is simplified to a constant inhibitor proxy (`Iu`) and competitive inhibition formula.
-- PD is a single Emax relationship, optionally delayed by one effect compartment.
-- Gut-wall first-pass behavior is represented with `f_gut`, the fraction of gut-wall outflow that escapes gut-wall metabolism.
+- 34-state ODE with 15 organs in closed-loop arterial-venous circulation.
+- 11 perfusion-limited organs (instantaneous tissue-blood equilibrium within each organ).
+- 4 permeability-limited organs (adipose, muscle, bone, skin) with PS barrier.
+- ACAT 8-segment GI absorption with segment-specific transit rates and ka fractions.
+- Portal vein explicitly modeled — spleen, gut wall, pancreas drain into liver via portal vein.
+
+## Key assumptions
+
+- Blood flow fractions from ICRP Publication 89 (2002) reference man (70 kg adult male).
+- Linear body weight scaling for organ volumes and blood flows.
+- Cardiac output scales linearly with BW in ODE (population generator uses BW^0.75).
+- Well-stirred hepatic clearance model — assumes rapid equilibrium within liver.
+- IVIVE: 40 pmol CYP/mg protein (MPPGL), 45 mg protein/g liver, 1800 g liver weight.
+- GFR-based renal clearance only (no active secretion/reabsorption).
+- Drug-drug interactions use static inhibitor concentrations (no time-varying [I]).
 
 ## Heuristic components
 
-- Kp heuristic is intentionally non-validated and only for prototyping.
-- Example compound values are placeholders for software checks.
+- Default Kp values from a logP-based heuristic when not provided in compound YAML.
+- ADME predictor uses simplified QSPR models; RDKit path for better accuracy when available.
+- Safety panel IC50 predictions are QSPR-based, not docking-based.
+
+## Pharmacogenomics
+
+- CPIC allele frequency database for 5 CYP genes.
+- Activity score to phenotype mapping per CPIC guidelines.
+- CLint scaling factors are empirical (UM=1.5, NM=1.0, IM=0.5, PM=0.1).
 
 ## Numerical considerations
 
-- ODE solved by `solve_ivp(method="BDF")` with fixed output grid.
-- Negative numerical states are clipped to zero when exporting and in RHS concentrations.
+- ODE solved by `solve_ivp(method='LSODA')` with `rtol=1e-8, atol=1e-10, max_step=0.1h`.
+- Negative numerical states are clipped to zero **after** integration (never inside RHS).
+- Mass balance verified for IV bolus: dose = sum(all 34 states) ± 0.5%.
 
-## Not covered yet
+## Not yet covered
 
-- Parameter fitting/calibration against clinical datasets
-- Enzyme-transporter mechanistic detail
-- Population Monte Carlo variability
-- Regulatory validation package
+- Time-varying inhibitor PK for DDI
+- Active renal secretion/reabsorption
+- Multi-zonal liver metabolism and transporter effects
+- Mechanistic Kp prediction (Rodgers & Rowland, Poulin & Theil)
+- Regulatory V&V package
+- Validated GNN ADME prediction (scaffold only)

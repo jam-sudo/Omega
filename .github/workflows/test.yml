@@ -22,6 +22,6 @@ jobs:
       - name: Lint
         run: python -m ruff check .
       - name: Type check
-        run: python -m mypy physio_sim
+        run: python -m mypy src/omega_pbpk
       - name: Tests
-        run: python -m pytest -q
+        run: python -m pytest tests/ -v --tb=short

@@ -1,37 +1,32 @@
-# Bayesian Calibration
+# Calibration — Omega PBPK v0.7
 
-`physio_sim.calibration` implements a lightweight Metropolis-Hastings sampler to calibrate:
+Calibration against observed clinical PK data is planned for a future release.
 
-- `CLint` (`clint_L_per_h`)
-- `ka` (`ka_per_h`)
+## Current capabilities
 
-from observed plasma concentration data.
+The v0.7 engine supports forward simulation with literature-based parameters.
+Compound YAML files define all PK parameters (CLint, Kp, Peff, etc.) from published sources.
 
-## CLI usage
+## CLI usage (simulation)
 
 ```bash
-python -m physio_sim.cli calibrate \
-  --data observed.csv \
-  --compound examples/compound_template.yaml \
-  --subject examples/subject_default.yaml
+omega simulate \
+  --compound compounds/midazolam.yaml \
+  --dose-mg 7.5 \
+  --route oral \
+  --t-end-h 24.0
 ```
 
-Observed CSV must contain columns:
+## Planned: Bayesian calibration
+
+Future versions will implement parameter estimation against observed plasma data:
+
+- **Parameters**: CLint, Peff, Kp values
+- **Method**: Metropolis-Hastings or NUTS sampling in log-space
+- **Likelihood**: Gaussian residual model on plasma concentrations
+- **Priors**: Weak lognormal priors centered on compound YAML values
+
+Observed CSV format:
 
 - `time_h`
-- `C_plasma_mg_per_L`
-
-## Outputs
-
-The command writes to `--out` (default: `outputs/calibration`):
-
-- `posterior_samples.csv`
-- `trace_plots.png`
-- `posterior_predictive_overlay.png`
-- `calibration_summary.json`
-
-## Method summary
-
-- Proposal: random walk in log-space for positive parameters.
-- Likelihood: Gaussian residual model on plasma concentrations.
-- Priors: weak lognormal priors centered on input YAML values.
+- `Cp_mg_L`
