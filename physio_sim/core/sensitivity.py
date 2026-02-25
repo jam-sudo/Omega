@@ -21,8 +21,17 @@ def _metric_values(
     route: str,
     t_end_h: float,
     dt_out_h: float,
+    deterministic: bool,
 ) -> tuple[float, float]:
-    timecourse = simulate(subject, compound, dose_mg, route, t_end_h, dt_out_h).timecourse
+    timecourse = simulate(
+        subject,
+        compound,
+        dose_mg,
+        route,
+        t_end_h,
+        dt_out_h,
+        deterministic=deterministic,
+    ).timecourse
     time = timecourse["time_h"].to_numpy()
     concentration = timecourse["C_plasma_mg_per_L"].to_numpy()
     cmax, _ = cmax_tmax(time, concentration)
@@ -38,9 +47,18 @@ def local_sensitivity(
     t_end_h: float,
     dt_out_h: float,
     parameters: list[str],
-    rel_step: float = 0.01,
+    rel_step: float = 0.05,
+    deterministic: bool = False,
 ) -> SensitivityResult:
-    base_cmax, base_auc = _metric_values(subject, compound, dose_mg, route, t_end_h, dt_out_h)
+    base_cmax, base_auc = _metric_values(
+        subject,
+        compound,
+        dose_mg,
+        route,
+        t_end_h,
+        dt_out_h,
+        deterministic,
+    )
     rows: list[dict[str, float | str]] = []
     for parameter in parameters:
         base_value = getattr(compound, parameter)
@@ -52,8 +70,12 @@ def local_sensitivity(
         plus = compound.model_copy(update={parameter: base_float + delta})
         minus = compound.model_copy(update={parameter: max(1e-12, base_float - delta)})
 
-        cmax_plus, auc_plus = _metric_values(subject, plus, dose_mg, route, t_end_h, dt_out_h)
-        cmax_minus, auc_minus = _metric_values(subject, minus, dose_mg, route, t_end_h, dt_out_h)
+        cmax_plus, auc_plus = _metric_values(
+            subject, plus, dose_mg, route, t_end_h, dt_out_h, deterministic
+        )
+        cmax_minus, auc_minus = _metric_values(
+            subject, minus, dose_mg, route, t_end_h, dt_out_h, deterministic
+        )
 
         d_cmax = (cmax_plus - cmax_minus) / (2.0 * delta)
         d_auc = (auc_plus - auc_minus) / (2.0 * delta)

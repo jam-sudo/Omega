@@ -32,6 +32,9 @@ python -m physio_sim.cli simulate \
   --dose-mg 100 \
   --route oral \
   --t-end-h 24 \
+  --deterministic --academic-report --sensitivity \
+  --sensitivity-params clint_L_per_h,ka_per_h,fu_plasma \
+  --sensitivity-eps 0.05 \
   --out outputs/run1
 ```
 
@@ -68,6 +71,9 @@ See docs:
 - `docs/roadmap.md`
 - `docs/uncertainty.md`
 - `docs/calibration.md`
+- `docs/reproducibility.md`
+- `docs/sensitivity.md`
+- `docs/academic_reporting.md`
 
 
 ## Validation / Benchmarks
@@ -75,7 +81,7 @@ See docs:
 Run the benchmark suite:
 
 ```bash
-python -m physio_sim.cli benchmark --suite benchmarks --out outputs/benchmarks
+python -m physio_sim.cli benchmark --suite benchmarks --out outputs/benchmarks --deterministic --seed 0
 ```
 
 This generates per-drug overlays/metrics plus `summary.json` and `report.md`, and returns exit code 1 when any benchmark fails acceptance thresholds. See `docs/validation.md` for dataset format and extension guidance.
