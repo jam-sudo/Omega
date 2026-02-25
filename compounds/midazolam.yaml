@@ -15,6 +15,9 @@ clearance:
     CYP3A4: 0.93
     CYP3A5: 0.04
     other: 0.03
+  # Calibrated in vivo CLint (retrograde from clinical PK data)
+  clint_hepatic_L_per_h: 200.0
+  clint_gut_L_per_h: 2000.0
 
 absorption:
   peff: 5.37
@@ -35,18 +38,19 @@ distribution:
     thymus: 2.8
     reproductive: 3.0
     rest: 2.5
+  # Kp calibrated for Vss ~ 90 L (literature 77-119 L)
   permeability_limited:
     adipose:
-      kp: 30
+      kp: 0.5
       ps: 8
     muscle:
-      kp: 5.5
+      kp: 1.0
       ps: 25
     bone:
-      kp: 6
+      kp: 1.5
       ps: 5
     skin:
-      kp: 6
+      kp: 2.0
       ps: 8
 
 gut_metabolism:

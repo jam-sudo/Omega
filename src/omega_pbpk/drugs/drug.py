@@ -45,9 +45,13 @@ class Drug:
     rbp: float = 1.0
     smiles: str | None = None
 
-    # Clearance
+    # Clearance — in vitro (IVIVE)
     clint: dict[str, float] = field(default_factory=dict)
     fm: dict[str, float] = field(default_factory=dict)
+
+    # Clearance — calibrated in vivo (L/h); when > 0, overrides IVIVE scaling
+    clint_hepatic_L_per_h: float = 0.0
+    clint_gut_L_per_h: float = 0.0
 
     # Absorption
     peff: float = 1.0
@@ -77,19 +81,25 @@ class Drug:
     def clint_scaled_L_per_h(self) -> float:
         """Whole-liver scaled CLint (L/h).
 
-        Scaling: µL/min/pmol × MPPGL × liver_weight
-        MPPGL ~ 40 pmol/mg protein, microsomal protein ~ 45 mg/g liver,
-        liver weight ~ 1800 g.
-        Result: CLint (µL/min/pmol) × 40 × 45 × 1800 / 1e6 / 60 (→ L/h)
-        = CLint × 0.054
+        If clint_hepatic_L_per_h > 0 (calibrated in vivo value), returns that
+        directly.  Otherwise applies IVIVE scaling:
+          µL/min/pmol × MPPGL(40) × mg_protein/g(45) × liver_wt(1800g) / 1e6 / 60
+          ≈ CLint × 0.054
         """
+        if self.clint_hepatic_L_per_h > 0:
+            return self.clint_hepatic_L_per_h
         return self.total_clint * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0
 
     @property
     def gut_clint_scaled_L_per_h(self) -> float:
-        """Gut wall scaled CLint (L/h) for CYP3A4 gut metabolism."""
+        """Gut wall scaled CLint (L/h) for CYP3A4 gut metabolism.
+
+        If clint_gut_L_per_h > 0 (calibrated in vivo), returns that directly.
+        Otherwise applies IVIVE scaling using ~1% of liver CYP3A4 content.
+        """
+        if self.clint_gut_L_per_h > 0:
+            return self.clint_gut_L_per_h
         cyp3a4_clint = self.clint.get("CYP3A4", 0.0)
-        # Gut enterocyte scaling: ~1% of liver CYP3A4 content × multiplier
         return cyp3a4_clint * self.gut_clint_multiplier * 40.0 * 45.0 * 18.0 / 1e6 / 60.0
 
     def default_kp(self, organ: str) -> float:

@@ -53,6 +53,10 @@ def load_compound(path: str | Path) -> Drug:
     # Gut metabolism
     gut_met = raw.get("gut_metabolism", {})
 
+    # Calibrated in vivo CLint (optional, overrides IVIVE)
+    clint_hepatic = float(clearance.get("clint_hepatic_L_per_h", 0.0))
+    clint_gut = float(clearance.get("clint_gut_L_per_h", 0.0))
+
     drug = Drug(
         name=raw.get("name", path.stem),
         mw=float(raw.get("mw", 300.0)),
@@ -64,6 +68,8 @@ def load_compound(path: str | Path) -> Drug:
         smiles=raw.get("smiles"),
         clint=clint,
         fm=fm,
+        clint_hepatic_L_per_h=clint_hepatic,
+        clint_gut_L_per_h=clint_gut,
         peff=float(absorption.get("peff", 1.0)),
         solubility_mg_mL=float(absorption.get("solubility_mg_mL", 1.0)),
         particle_radius_um=float(absorption.get("particle_radius_um", 25.0)),

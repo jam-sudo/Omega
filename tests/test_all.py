@@ -640,3 +640,88 @@ class TestIntegration:
 
         assert pk["Cmax_mg_L"] > 0
         assert pk["AUC_mg_h_L"] > 0
+
+
+# ============================================================
+# 16. Oral Calibration — AAFE validation (4 tests)
+# ============================================================
+
+
+class TestMidazolamOralCalibration:
+    """Validate midazolam oral AAFE < 2.0 against literature PK."""
+
+    def _simulate_midazolam_oral(self) -> dict[str, float]:
+        from omega_pbpk.core.body import WholeBodyPBPK
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+
+        model = WholeBodyPBPK(MIDAZOLAM)
+        model.setup_oral(dose_mg=7.5)
+        result = model.simulate(t_end_h=48.0, dt_h=0.05)
+        return result.pk_summary()
+
+    def _simulate_midazolam_iv(self) -> dict[str, float]:
+        from omega_pbpk.core.body import WholeBodyPBPK
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+
+        model = WholeBodyPBPK(MIDAZOLAM)
+        model.setup_iv(dose_mg=7.5)
+        result = model.simulate(t_end_h=48.0, dt_h=0.05)
+        pk = result.pk_summary()
+        # Compute terminal t½ from IV profile
+        cp = result.plasma_concentration()
+        t = result.time_h
+        mask = (t >= 3.0) & (t <= 24.0) & (cp > 1e-6)
+        if np.sum(mask) >= 5:
+            coeffs = np.polyfit(t[mask], np.log(cp[mask]), 1)
+            ke = -coeffs[0]
+            pk["half_life_h"] = 0.693 / ke if ke > 0 else float("inf")
+        return pk
+
+    def test_cmax_within_2fold(self) -> None:
+        """Midazolam oral Cmax within 2-fold of literature (50 ng/mL)."""
+        pk = self._simulate_midazolam_oral()
+        lit_cmax = 0.050
+        fold_error = pk["Cmax_mg_L"] / lit_cmax
+        afe = max(fold_error, 1 / fold_error)
+        assert afe < 2.0, f"Cmax AFE = {afe:.2f} (sim={pk['Cmax_mg_L']:.4f})"
+
+    def test_auc_within_2fold(self) -> None:
+        """Midazolam oral AUC within 2-fold of literature (90 ng*h/mL)."""
+        pk = self._simulate_midazolam_oral()
+        lit_auc = 0.090
+        fold_error = pk["AUC_mg_h_L"] / lit_auc
+        afe = max(fold_error, 1 / fold_error)
+        assert afe < 2.0, f"AUC AFE = {afe:.2f} (sim={pk['AUC_mg_h_L']:.4f})"
+
+    def test_half_life_within_3fold(self) -> None:
+        """Midazolam IV t½ within 3-fold of literature (2.25 h)."""
+        pk_iv = self._simulate_midazolam_iv()
+        lit_t12 = 2.25
+        t12 = pk_iv["half_life_h"]
+        fold_error = t12 / lit_t12
+        afe = max(fold_error, 1 / fold_error)
+        assert afe < 3.0, f"t½ AFE = {afe:.2f} (sim={t12:.2f}h)"
+
+    def test_aafe_below_2(self) -> None:
+        """Overall AAFE(Cmax, AUC, t½) < 2.0 for midazolam oral."""
+        pk = self._simulate_midazolam_oral()
+        pk_iv = self._simulate_midazolam_iv()
+
+        lit = {"Cmax_mg_L": 0.050, "AUC_mg_h_L": 0.090, "half_life_h": 2.25}
+
+        afes = []
+        for param, lit_val in lit.items():
+            if param == "half_life_h":
+                sim_val = pk_iv[param]
+            else:
+                sim_val = pk[param]
+            fe = sim_val / lit_val
+            afe = max(fe, 1 / fe)
+            afes.append(afe)
+
+        aafe = float(np.mean(afes))
+        assert aafe < 2.0, (
+            f"AAFE = {aafe:.2f} "
+            f"(Cmax AFE={afes[0]:.2f}, AUC AFE={afes[1]:.2f}, "
+            f"t½ AFE={afes[2]:.2f})"
+        )
