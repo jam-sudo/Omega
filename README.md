@@ -43,7 +43,22 @@ Expected outputs:
 - `outputs/run1/timecourse.csv`
 - `outputs/run1/summary.json`
 - `outputs/run1/plots.png`
+- `outputs/run1/artifact_manifest.json`
 
+
+## Config validation
+
+Validate inputs before running expensive simulations:
+
+```bash
+python -m physio_sim.cli validate-config \
+  --compound examples/compound_caffeine.yaml \
+  --subject examples/subject_default.yaml \
+  --qsp-model turnover \
+  --qsp-config examples/qsp_turnover.yaml
+```
+
+The command exits with code 0 on success and prints `Validation complete`.
 
 ## QSP quickstart
 

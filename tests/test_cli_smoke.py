@@ -59,6 +59,11 @@ def test_cli_summary_has_seed(tmp_path: Path) -> None:
         str(out),
     ]
     subprocess.run(cmd, check=True)
+    assert (out / "artifact_manifest.json").exists()
+    manifest = json.loads((out / "artifact_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["artifact_schema_version"] == "1.0.0"
+    assert "summary_json" in manifest["artifacts"]
+
     summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
     assert summary["seed"] == 7
 
