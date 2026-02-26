@@ -1,4 +1,4 @@
-"""Omega PBPK CLI — 11 commands for pharmacokinetic simulation and analysis.
+"""Omega PBPK CLI — 14 commands for pharmacokinetic simulation and analysis.
 
 Commands:
   simulate    — Run PBPK simulation (IV or oral)
@@ -11,6 +11,9 @@ Commands:
   benchmark   — Multi-drug benchmark validation suite
   sensitivity — Local sensitivity analysis
   validate    — Mass balance and physiological sanity checks
+  surrogate   — Train/use neural surrogate model
+  uncertainty — Monte Carlo uncertainty propagation
+  evaluate    — Integrated drug candidate evaluation
   test        — Run test suite
 """
 
@@ -472,6 +475,134 @@ def validate_cmd(
             typer.echo(f"  WARNING: {w}")
     else:
         typer.echo("Physiological checks: PASS")
+
+
+@app.command("surrogate")
+def surrogate_cmd(
+    n_samples: int = typer.Option(500, help="Training samples to generate."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    epochs: int = typer.Option(300, help="Training epochs."),
+    seed: int = typer.Option(42, help="Random seed."),
+    out: str = typer.Option("outputs/surrogate", help="Output directory."),
+) -> None:
+    """Train a neural surrogate model for fast PK prediction."""
+    from omega_pbpk.surrogate import PKSurrogate
+    from omega_pbpk.surrogate.data_generator import generate_training_data
+
+    typer.echo(f"Generating {n_samples} training samples...")
+    data = generate_training_data(n_samples=n_samples, dose_mg=dose_mg, route=route, seed=seed)
+    typer.echo(f"Valid samples: {data.n_samples}")
+
+    model = PKSurrogate(n_input=data.n_params, n_output=data.n_outputs, hidden_dim=64, n_layers=3)
+    model.param_names = data.param_names
+    model.output_names = data.output_names
+
+    typer.echo(f"Training MLP ({model.n_layers} layers, dim={model.hidden_dim})...")
+    history = model.train(data.X, data.y, epochs=epochs, seed=seed)
+
+    out_path = _ensure_dir(Path(out))
+    model.save(out_path / "model")
+
+    final_loss = history["val_loss"][-1] if history["val_loss"] else 0
+    typer.echo(f"Training complete. Final val loss: {final_loss:.6f}")
+    typer.echo(f"Model saved to {out_path}/model/")
+
+
+@app.command("uncertainty")
+def uncertainty_cmd(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    n_samples: int = typer.Option(200, help="Monte Carlo samples."),
+    seed: int = typer.Option(42, help="Random seed."),
+) -> None:
+    """Run Monte Carlo uncertainty propagation on compound parameters."""
+    from omega_pbpk.config import load_compound
+    from omega_pbpk.uncertainty import DistributionSpec, monte_carlo_propagation
+
+    drug = load_compound(compound)
+    base_params = {
+        "clint_hepatic_L_per_h": drug.clint_scaled_L_per_h,
+        "clint_gut_L_per_h": drug.gut_clint_scaled_L_per_h,
+        "fup": drug.fup,
+        "rbp": drug.rbp,
+        "peff": drug.peff,
+        "logP": drug.logP,
+    }
+    clint_val = base_params["clint_hepatic_L_per_h"]
+    specs = [
+        DistributionSpec("clint_hepatic_L_per_h", "lognormal", clint_val, 0.3),
+        DistributionSpec("fup", "lognormal", max(base_params["fup"], 0.001), 0.2),
+    ]
+
+    typer.echo(f"MC uncertainty: {drug.name} {dose_mg}mg {route}, {n_samples} samples...")
+    result = monte_carlo_propagation(
+        drug_params=base_params,
+        uncertainty_specs=specs,
+        n_samples=n_samples,
+        dose_mg=dose_mg,
+        route=route,
+        seed=seed,
+    )
+
+    typer.echo(f"\nResults ({result.n_samples} valid samples):")
+    typer.echo(f"  Cmax CV = {result.cmax_cv:.3f}")
+    typer.echo(f"  AUC  CV = {result.auc_cv:.3f}")
+    typer.echo(f"  Cmax percentiles: {result.cmax_percentiles}")
+    typer.echo(f"  AUC  percentiles: {result.auc_percentiles}")
+
+
+@app.command("evaluate")
+def evaluate_cmd(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    out: str = typer.Option("outputs/evaluation", help="Output directory."),
+) -> None:
+    """Run integrated drug candidate evaluation."""
+    from omega_pbpk.config import load_compound
+    from omega_pbpk.pipeline import evaluate_candidate
+
+    drug = load_compound(compound)
+    typer.echo(f"Evaluating candidate: {drug.name} {dose_mg}mg {route}...")
+
+    report = evaluate_candidate(drug=drug, dose_mg=dose_mg, route=route)
+
+    typer.echo(f"\n{'=' * 50}")
+    typer.echo(f"  CANDIDATE EVALUATION: {report.drug_name}")
+    typer.echo(f"{'=' * 50}")
+    typer.echo(f"  Overall Score:      {report.overall_score}/100")
+    typer.echo(f"  PK Stability:       {report.pk_stability_score:.3f}")
+    typer.echo(f"  Exposure CV:        {report.exposure_cv:.3f}")
+    typer.echo(f"  DDI Risk:           {report.ddi_risk_score:.3f}")
+    typer.echo(f"  Clearance Risk:     {report.clearance_risk_score:.3f}")
+    typer.echo(f"  Genotype AUC Ratio: {report.genotype_auc_ratio:.2f}x")
+    typer.echo(f"  Risk Flags:         {report.risk_flags.risk_count}/4")
+    for name, val in report.risk_flags.summary().items():
+        if val:
+            typer.echo(f"    !! {name}")
+    typer.echo(
+        f"\n  PK: Cmax={report.pk_summary['Cmax_mg_L']:.4f} mg/L, "
+        f"AUC={report.pk_summary['AUC_mg_h_L']:.4f} mg*h/L, "
+        f"t1/2={report.pk_summary['half_life_h']}h"
+    )
+
+    out_path = _ensure_dir(Path(out))
+    summary = {
+        "drug": report.drug_name,
+        "overall_score": report.overall_score,
+        "pk_summary": report.pk_summary,
+        "risk_flags": report.risk_flags.summary(),
+        "exposure_cv": report.exposure_cv,
+        "pk_stability_score": report.pk_stability_score,
+        "ddi_risk_score": report.ddi_risk_score,
+        "genotype_auc_ratio": report.genotype_auc_ratio,
+        "details": report.details,
+    }
+    with open(out_path / "report.json", "w") as f:
+        json.dump(summary, f, indent=2, default=str)
+    typer.echo(f"\n  Report saved to {out_path}/report.json")
 
 
 @app.command("test")

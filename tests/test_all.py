@@ -1,4 +1,4 @@
-"""Omega PBPK test suite — 70+ tests covering all modules.
+"""Omega PBPK test suite — 87+ tests covering all modules.
 
 Run: pytest tests/test_all.py -v
 """
@@ -1055,3 +1055,237 @@ class TestBenchmarkSuite:
                 assert "tmax_abs_error_h" in m
                 assert "rmse_mg_per_L" in m
                 assert "pass" in r
+
+
+# ============================================================
+# 23. Neural surrogate model tests (4 tests)
+# ============================================================
+
+
+class TestSurrogate:
+    def test_data_generation(self) -> None:
+        """Training data generator should produce valid samples."""
+        from omega_pbpk.surrogate.data_generator import generate_training_data
+
+        data = generate_training_data(n_samples=10, dose_mg=10.0, route="oral", seed=42)
+        assert data.n_samples > 0
+        assert data.n_params == 6
+        assert data.n_outputs == 4
+
+    def test_surrogate_train_predict(self) -> None:
+        """Surrogate should train and predict without errors."""
+        from omega_pbpk.surrogate import PKSurrogate
+        from omega_pbpk.surrogate.data_generator import generate_training_data
+
+        data = generate_training_data(n_samples=30, dose_mg=10.0, route="oral", seed=42)
+        model = PKSurrogate(
+            n_input=data.n_params, n_output=data.n_outputs, hidden_dim=16, n_layers=2
+        )
+        model.param_names = data.param_names
+        model.output_names = data.output_names
+        history = model.train(data.X, data.y, epochs=20, seed=42, verbose=False)
+
+        assert model.is_trained
+        assert len(history["train_loss"]) == 20
+
+        # Predict
+        pred = model.predict(data.X[0])
+        assert len(pred) == 4
+        assert all(p >= 0 for p in pred)
+
+    def test_surrogate_save_load(self) -> None:
+        """Surrogate should save and load correctly."""
+        from omega_pbpk.surrogate import PKSurrogate
+        from omega_pbpk.surrogate.data_generator import generate_training_data
+
+        data = generate_training_data(n_samples=20, dose_mg=10.0, route="oral", seed=42)
+        model = PKSurrogate(
+            n_input=data.n_params,
+            n_output=data.n_outputs,
+            hidden_dim=16,
+            n_layers=2,
+        )
+        model.param_names = data.param_names
+        model.output_names = data.output_names
+        model.train(data.X, data.y, epochs=10, seed=42, verbose=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            model.save(Path(tmpdir) / "model")
+            loaded = PKSurrogate.load(Path(tmpdir) / "model")
+
+            assert loaded.is_trained
+            pred_orig = model.predict(data.X[0])
+            pred_loaded = loaded.predict(data.X[0])
+            np.testing.assert_allclose(pred_orig, pred_loaded, atol=1e-10)
+
+    def test_surrogate_speedup(self) -> None:
+        """Surrogate should be much faster than mechanistic model."""
+        import time
+
+        from omega_pbpk.surrogate import PKSurrogate
+        from omega_pbpk.surrogate.data_generator import generate_training_data
+
+        data = generate_training_data(n_samples=20, dose_mg=10.0, route="oral", seed=42)
+        model = PKSurrogate(
+            n_input=data.n_params,
+            n_output=data.n_outputs,
+            hidden_dim=32,
+            n_layers=2,
+        )
+        model.param_names = data.param_names
+        model.output_names = data.output_names
+        model.train(data.X, data.y, epochs=10, seed=42, verbose=False)
+
+        # Time 100 surrogate predictions
+        start = time.perf_counter()
+        for _ in range(100):
+            model.predict(data.X[0])
+        surrogate_time = time.perf_counter() - start
+
+        # Surrogate should do 100 predictions in < 0.1s
+        msg = f"Surrogate too slow: {surrogate_time:.3f}s for 100 predictions"
+        assert surrogate_time < 0.1, msg
+
+
+# ============================================================
+# 24. Uncertainty propagation tests (3 tests)
+# ============================================================
+
+
+class TestUncertainty:
+    def test_mc_propagation_runs(self) -> None:
+        from omega_pbpk.uncertainty import DistributionSpec, monte_carlo_propagation
+
+        params = {
+            "clint_hepatic_L_per_h": 20.0,
+            "clint_gut_L_per_h": 5.0,
+            "fup": 0.5,
+            "rbp": 1.0,
+            "peff": 3.0,
+            "logP": 2.0,
+        }
+        specs = [
+            DistributionSpec("clint_hepatic_L_per_h", "lognormal", 20.0, 0.3),
+            DistributionSpec("fup", "normal", 0.5, 0.1),
+        ]
+        result = monte_carlo_propagation(
+            drug_params=params,
+            uncertainty_specs=specs,
+            n_samples=20,
+            dose_mg=10.0,
+            route="oral",
+            seed=42,
+        )
+        assert result.n_samples > 0
+        assert result.cmax_cv >= 0
+        assert result.auc_cv >= 0
+        assert len(result.cmax_values) > 0
+
+    def test_mc_percentiles(self) -> None:
+        from omega_pbpk.uncertainty import DistributionSpec, monte_carlo_propagation
+
+        params = {
+            "clint_hepatic_L_per_h": 20.0,
+            "clint_gut_L_per_h": 5.0,
+            "fup": 0.5,
+            "rbp": 1.0,
+            "peff": 3.0,
+            "logP": 2.0,
+        }
+        specs = [DistributionSpec("fup", "lognormal", 0.5, 0.2)]
+        result = monte_carlo_propagation(
+            drug_params=params,
+            uncertainty_specs=specs,
+            n_samples=30,
+            dose_mg=10.0,
+            seed=42,
+        )
+        assert "p50" in result.cmax_percentiles
+        assert "p50" in result.auc_percentiles
+        assert result.cmax_percentiles["p5"] <= result.cmax_percentiles["p95"]
+
+    def test_mc_with_surrogate(self) -> None:
+        """MC should work with surrogate model (much faster)."""
+        from omega_pbpk.surrogate import PKSurrogate
+        from omega_pbpk.surrogate.data_generator import generate_training_data
+        from omega_pbpk.uncertainty import DistributionSpec, monte_carlo_propagation
+
+        # Train a small surrogate
+        data = generate_training_data(n_samples=30, dose_mg=10.0, seed=42)
+        surr = PKSurrogate(
+            n_input=data.n_params,
+            n_output=data.n_outputs,
+            hidden_dim=16,
+            n_layers=2,
+        )
+        surr.param_names = data.param_names
+        surr.output_names = data.output_names
+        surr.train(data.X, data.y, epochs=20, seed=42, verbose=False)
+
+        params = {
+            "clint_hepatic_L_per_h": 20.0,
+            "clint_gut_L_per_h": 5.0,
+            "fup": 0.5,
+            "rbp": 1.0,
+            "peff": 3.0,
+            "logP": 2.0,
+        }
+        specs = [DistributionSpec("fup", "lognormal", 0.5, 0.2)]
+        result = monte_carlo_propagation(
+            drug_params=params,
+            uncertainty_specs=specs,
+            n_samples=50,
+            dose_mg=10.0,
+            seed=42,
+            use_surrogate=surr,
+        )
+        assert result.n_samples == 50
+        assert result.cmax_cv >= 0
+
+
+# ============================================================
+# 25. Candidate evaluation pipeline tests (3 tests)
+# ============================================================
+
+
+class TestCandidateEvaluation:
+    def test_evaluate_midazolam(self) -> None:
+        """Midazolam evaluation should produce a valid report."""
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.pipeline import evaluate_candidate
+
+        report = evaluate_candidate(
+            drug=MIDAZOLAM, dose_mg=7.5, route="oral", n_mc_samples=20, seed=42
+        )
+        assert report.drug_name == "Midazolam"
+        assert 0 <= report.overall_score <= 100
+        assert report.pk_stability_score > 0
+        assert report.exposure_cv >= 0
+        assert isinstance(report.risk_flags.any_risk, bool)
+
+    def test_evaluate_has_all_fields(self) -> None:
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.pipeline import evaluate_candidate
+
+        report = evaluate_candidate(
+            drug=MIDAZOLAM, dose_mg=7.5, route="oral", n_mc_samples=10, seed=42
+        )
+        assert "Cmax_mg_L" in report.pk_summary
+        assert "AUC_mg_h_L" in report.pk_summary
+        assert report.ddi_risk_score >= 0
+        assert report.genotype_auc_ratio > 0
+        assert "mc_cmax_cv" in report.details
+
+    def test_evaluate_high_ddi_compound(self) -> None:
+        """Compound with high CYP3A4 fm should have high DDI risk."""
+        from omega_pbpk.drugs.drug import Drug
+        from omega_pbpk.pipeline import evaluate_candidate
+
+        drug = Drug(
+            name="HighDDI",
+            fup=0.5,
+            clint_hepatic_L_per_h=20.0,
+            fm={"CYP3A4": 0.95},
+        )
+        report = evaluate_candidate(drug=drug, dose_mg=10.0, route="oral", n_mc_samples=10, seed=42)
+        assert report.ddi_risk_score >= 0.9
