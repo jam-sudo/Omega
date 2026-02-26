@@ -1,0 +1,56 @@
+name: Metformin
+mw: 129.16
+logP: -1.4
+pka: [12.4]
+drug_type: monoprotic_base
+compound_type: base
+partition_method: heuristic
+fup: 0.99
+rbp: 1.0
+smiles: "CN(C)C(=N)NC(=N)N"
+
+clearance:
+  clint_uL_min_pmol: {}
+  fm: {}
+  # Metformin is not hepatically metabolized; cleared renally
+  clint_hepatic_L_per_h: 0.0
+  # Renal clearance via active tubular secretion (OCT2/MATE transporters)
+  # Literature: CLr ~ 25-35 L/h (total plasma basis)
+  clr_L_per_h: 25.0
+
+absorption:
+  # Metformin is hydrophilic; moderate-low oral bioavailability (~50%)
+  peff: 0.3
+  solubility_mg_mL: 60.0
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 2.0
+    brain: 0.5
+    heart: 1.5
+    kidney: 5.0
+    liver: 3.0
+    spleen: 2.0
+    gut_wall: 3.5
+    pancreas: 2.5
+    thymus: 1.5
+    reproductive: 1.5
+    rest: 1.0
+  permeability_limited:
+    adipose:
+      kp: 0.30
+      ps: 2
+    muscle:
+      kp: 1.50
+      ps: 5
+    bone:
+      kp: 0.50
+      ps: 2
+    skin:
+      kp: 0.80
+      ps: 3
+
+gut_metabolism:
+  gut_clint_multiplier: 0.0

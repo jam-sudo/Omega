@@ -32,8 +32,10 @@ class Drug:
         permeability_limited: Organs with permeability-surface area limitation.
             Maps organ name → {kp: float, ps: float (L/h)}.
         gut_clint_multiplier: Enterocyte CYP3A4 activity relative to hepatic.
+        ka_sc: SC absorption rate constant (h^-1), first-order from depot.
+        f_sc: SC bioavailability fraction (0-1); defaults to 1.0 (no first-pass).
         dose_mg: Dose (mg).
-        route: Administration route ('oral' or 'iv').
+        route: Administration route ('oral', 'iv', or 'sc').
     """
 
     name: str = "Unknown"
@@ -75,6 +77,10 @@ class Drug:
 
     # Gut metabolism
     gut_clint_multiplier: float = 1.0
+
+    # SC (subcutaneous) absorption parameters
+    ka_sc: float = 0.2   # SC absorption rate constant (h^-1), first-order
+    f_sc: float = 1.0    # SC bioavailability fraction (no first-pass effect)
 
     # Dosing (set at simulation time)
     dose_mg: float = 0.0

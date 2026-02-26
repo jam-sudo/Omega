@@ -18,7 +18,8 @@ clearance:
     CYP2E1: 0.03
     other: 0.02
   # Calibrated in vivo hepatic CLint (L/h)
-  clint_hepatic_L_per_h: 8.0
+  # Literature CL_plasma ~ 1.5-2.0 L/h, t1/2 ~ 3-5 h
+  clint_hepatic_L_per_h: 40.0
   # clr_L_per_h: renal clearance on total plasma concentration basis (L/h)
   clr_L_per_h: 0.08
 

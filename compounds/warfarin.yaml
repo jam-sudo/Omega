@@ -1,0 +1,60 @@
+name: Warfarin
+mw: 308.33
+logP: 2.7
+pka: [5.1]
+drug_type: monoprotic_acid
+compound_type: acid
+partition_method: heuristic
+fup: 0.005
+rbp: 0.58
+smiles: "OC(CC(=O)c1ccccc1)c1c(=O)oc2ccccc12"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP2C9: 0.18
+    CYP3A4: 0.04
+  fm:
+    CYP2C9: 0.80
+    CYP3A4: 0.15
+    other: 0.05
+  # Calibrated in vivo hepatic CLint (L/h)
+  # CL_plasma ~ 0.18 L/h (literature 0.15-0.20 L/h), t1/2 ~ 37 h
+  # CLint calibrated from well-stirred model: CLh ~ 0.10 L/h blood basis
+  clint_hepatic_L_per_h: 15.0
+  clr_L_per_h: 0.0
+
+absorption:
+  peff: 2.5
+  solubility_mg_mL: 0.054
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 0.2
+    brain: 0.05
+    heart: 0.15
+    kidney: 0.25
+    liver: 0.80
+    spleen: 0.20
+    gut_wall: 0.30
+    pancreas: 0.18
+    thymus: 0.12
+    reproductive: 0.15
+    rest: 0.18
+  permeability_limited:
+    adipose:
+      kp: 0.10
+      ps: 5
+    muscle:
+      kp: 0.18
+      ps: 10
+    bone:
+      kp: 0.12
+      ps: 3
+    skin:
+      kp: 0.15
+      ps: 5
+
+gut_metabolism:
+  gut_clint_multiplier: 0.1
