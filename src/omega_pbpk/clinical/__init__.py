@@ -23,6 +23,18 @@ from omega_pbpk.clinical.nca import (
     run_nca,
 )
 from omega_pbpk.clinical.report import ReportInput, generate_report, quick_report
+from omega_pbpk.clinical.allometry import (
+    AllometricPrediction,
+    scale_single_species,
+    scale_multi_species,
+    predict_human_from_preclinical,
+)
+from omega_pbpk.clinical.ivive import (
+    IVIVEResult,
+    scale_microsomal_clint,
+    scale_hepatocyte_clint,
+    estimate_clint_for_target_clh,
+)
 
 __all__ = [
     "DoseOptimizer",
@@ -42,4 +54,12 @@ __all__ = [
     "ReportInput",
     "generate_report",
     "quick_report",
+    "AllometricPrediction",
+    "scale_single_species",
+    "scale_multi_species",
+    "predict_human_from_preclinical",
+    "IVIVEResult",
+    "scale_microsomal_clint",
+    "scale_hepatocyte_clint",
+    "estimate_clint_for_target_clh",
 ]
