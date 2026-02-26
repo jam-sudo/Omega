@@ -1,4 +1,4 @@
-"""Omega PBPK test suite — 47 tests covering all modules.
+"""Omega PBPK test suite — 70+ tests covering all modules.
 
 Run: pytest tests/test_all.py -v
 """
@@ -50,7 +50,9 @@ class TestDrug:
 
         drug = Drug(kp={"liver": 5.0})
         assert drug.default_kp("liver") == 5.0
-        assert drug.default_kp("missing") == 1.0
+        # When Kp not specified, heuristic fallback provides an estimate (> 0)
+        heuristic_kp = drug.default_kp("missing")
+        assert heuristic_kp > 0
 
 
 # ============================================================
@@ -725,3 +727,331 @@ class TestMidazolamOralCalibration:
             f"(Cmax AFE={afes[0]:.2f}, AUC AFE={afes[1]:.2f}, "
             f"t½ AFE={afes[2]:.2f})"
         )
+
+
+# ============================================================
+# 17. Heuristic Kp estimation tests (5 tests)
+# ============================================================
+
+
+class TestHeuristicKp:
+    def test_neutral_compound(self) -> None:
+        from omega_pbpk.core.heuristics import heuristic_kp
+
+        kp = heuristic_kp(logP=2.0, drug_type="neutral", tissue_name="liver", fup=0.5)
+        assert kp > 0.1
+        assert kp < 50.0
+
+    def test_lipophilic_distributes_to_fat(self) -> None:
+        from omega_pbpk.core.heuristics import heuristic_kp
+
+        kp_fat = heuristic_kp(logP=4.0, drug_type="neutral", tissue_name="adipose", fup=0.5)
+        kp_muscle = heuristic_kp(logP=4.0, drug_type="neutral", tissue_name="muscle", fup=0.5)
+        # Fat should have higher Kp for lipophilic compounds
+        assert kp_fat > kp_muscle
+
+    def test_hydrophilic_low_kp(self) -> None:
+        from omega_pbpk.core.heuristics import heuristic_kp
+
+        kp = heuristic_kp(logP=-1.0, drug_type="neutral", tissue_name="liver", fup=0.9)
+        # Hydrophilic compounds should have lower tissue distribution
+        kp_lipo = heuristic_kp(logP=4.0, drug_type="neutral", tissue_name="liver", fup=0.9)
+        assert kp < kp_lipo
+
+    def test_estimate_all_returns_all_tissues(self) -> None:
+        from omega_pbpk.core.heuristics import estimate_all_kp
+
+        kp_dict = estimate_all_kp(logP=2.0, fup=0.5)
+        assert "liver" in kp_dict
+        assert "adipose" in kp_dict
+        assert "muscle" in kp_dict
+        assert all(v > 0 for v in kp_dict.values())
+
+    def test_drug_default_kp_uses_heuristic(self) -> None:
+        """Drug.default_kp() uses heuristic for organs without stored Kp."""
+        from omega_pbpk.drugs.drug import Drug
+
+        drug = Drug(name="Test", logP=3.0, fup=0.1, drug_type="monoprotic_base", pka=[8.0])
+        kp_liver = drug.default_kp("liver")
+        # Should be > 1.0 for a lipophilic base (not the old hard 1.0 default)
+        assert kp_liver != 1.0
+        assert kp_liver > 0.1
+
+
+# ============================================================
+# 18. Validation checks tests (5 tests)
+# ============================================================
+
+
+class TestValidation:
+    def test_mass_balance_pass(self) -> None:
+        """IV simulation should pass mass balance check."""
+        from omega_pbpk.core.body import WholeBodyPBPK
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.validation import mass_balance_check
+
+        model = WholeBodyPBPK(MIDAZOLAM)
+        model.setup_iv(5.0)
+        result = model.simulate(t_end_h=24.0)
+        warnings = mass_balance_check(result.amounts, 5.0, result.time_h)
+        assert len(warnings) == 0
+
+    def test_mass_balance_detects_violation(self) -> None:
+        """Deliberately corrupt amounts to trigger mass balance warning."""
+        from omega_pbpk.validation import mass_balance_check
+
+        # Create fake amounts where mass is wrong
+        amounts = np.ones((10, 34)) * 0.1  # total = 3.4 mg
+        warnings = mass_balance_check(amounts, dose_mg=10.0)
+        assert len(warnings) > 0
+        assert "deviation" in warnings[0].lower()
+
+    def test_physiologic_sanity_pass(self) -> None:
+        """Standard model should pass physiological checks."""
+        from omega_pbpk.core.body import WholeBodyPBPK
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.validation import physiologic_sanity_check
+
+        model = WholeBodyPBPK(MIDAZOLAM)
+        model.setup_iv(5.0)
+        warnings = physiologic_sanity_check(model.organs, model.cardiac_output, MIDAZOLAM.fup)
+        assert len(warnings) == 0
+
+    def test_physiologic_sanity_bad_fup(self) -> None:
+        """Invalid fup should trigger a warning."""
+        from omega_pbpk.core.body import WholeBodyPBPK
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.validation import physiologic_sanity_check
+
+        model = WholeBodyPBPK(MIDAZOLAM)
+        warnings = physiologic_sanity_check(model.organs, model.cardiac_output, fup=-0.1)
+        assert any("fup" in w for w in warnings)
+
+    def test_mass_balance_with_tolerance(self) -> None:
+        """Test mass balance with custom tolerance."""
+        from omega_pbpk.validation import mass_balance_check
+
+        # Small deviation that passes loose tolerance but fails tight
+        amounts = np.ones((5, 34))  # total = 34 mg
+        dose = 34.5  # 1.4% deviation
+        loose = mass_balance_check(amounts, dose, tolerance_frac=0.02)
+        tight = mass_balance_check(amounts, dose, tolerance_frac=0.01)
+        assert len(loose) == 0
+        assert len(tight) > 0
+
+
+# ============================================================
+# 19. Risk flags tests (4 tests)
+# ============================================================
+
+
+class TestRiskFlags:
+    def test_no_risk(self) -> None:
+        from omega_pbpk.risk import compute_risk_flags
+
+        flags = compute_risk_flags(
+            cmax_mg_per_l=1.0, half_life_h=4.0, exposure_cv=0.1, ddi_risk_score=0.1
+        )
+        assert not flags.any_risk
+        assert flags.risk_count == 0
+
+    def test_all_risks(self) -> None:
+        from omega_pbpk.risk import compute_risk_flags
+
+        flags = compute_risk_flags(
+            cmax_mg_per_l=10.0, half_life_h=48.0, exposure_cv=0.5, ddi_risk_score=0.8
+        )
+        assert flags.any_risk
+        assert flags.risk_count == 4
+        assert flags.high_cmax_risk
+        assert flags.long_half_life_risk
+        assert flags.high_variability_risk
+        assert flags.high_ddi_susceptibility_risk
+
+    def test_custom_thresholds(self) -> None:
+        from omega_pbpk.risk import compute_risk_flags
+
+        # Lower threshold → risk fires
+        flags = compute_risk_flags(
+            cmax_mg_per_l=2.0,
+            half_life_h=4.0,
+            cmax_threshold=1.0,
+        )
+        assert flags.high_cmax_risk
+        assert not flags.long_half_life_risk
+
+    def test_summary_dict(self) -> None:
+        from omega_pbpk.risk import compute_risk_flags
+
+        flags = compute_risk_flags(cmax_mg_per_l=10.0, half_life_h=4.0)
+        s = flags.summary()
+        assert isinstance(s, dict)
+        assert s["high_cmax_risk"] is True
+        assert s["long_half_life_risk"] is False
+
+
+# ============================================================
+# 20. Sensitivity analysis tests (3 tests)
+# ============================================================
+
+
+class TestSensitivity:
+    def test_sensitivity_runs(self) -> None:
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.sensitivity import local_sensitivity
+
+        result = local_sensitivity(drug=MIDAZOLAM, dose_mg=7.5, route="oral", t_end_h=12.0)
+        assert len(result.metrics) > 0
+        assert "parameter" in result.metrics.columns
+        assert "dCmax_dparam" in result.metrics.columns
+
+    def test_sensitivity_identifies_clint(self) -> None:
+        """CLint should be among the most influential parameters."""
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.sensitivity import local_sensitivity
+
+        result = local_sensitivity(drug=MIDAZOLAM, dose_mg=7.5, route="oral", t_end_h=12.0)
+        top_params = result.metrics["parameter"].tolist()
+        # clint_hepatic should be influential (it's the main clearance)
+        assert "clint_hepatic_L_per_h" in top_params
+
+    def test_sensitivity_sorted_by_influence(self) -> None:
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+        from omega_pbpk.sensitivity import local_sensitivity
+
+        result = local_sensitivity(drug=MIDAZOLAM, dose_mg=7.5, route="oral", t_end_h=12.0)
+        if len(result.metrics) >= 2:
+            influences = result.metrics["influence_abs_sum"].tolist()
+            assert influences[0] >= influences[1]  # Sorted descending
+
+
+# ============================================================
+# 21. Bayesian calibration tests (3 tests)
+# ============================================================
+
+
+class TestCalibration:
+    def test_calibration_runs(self) -> None:
+        """Calibration should run and return valid results."""
+        import pandas as pd
+
+        from omega_pbpk.calibration import run_mh_calibration
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+
+        # Synthetic observed data (midazolam-like)
+        obs = pd.DataFrame(
+            {
+                "time_h": [0.0, 0.5, 1.0, 2.0, 4.0, 8.0],
+                "C_plasma_mg_per_L": [0.0, 0.04, 0.05, 0.03, 0.01, 0.002],
+            }
+        )
+
+        result = run_mh_calibration(
+            observed=obs,
+            drug=MIDAZOLAM,
+            dose_mg=7.5,
+            route="oral",
+            t_end_h=12.0,
+            n_samples=50,
+            burn_in=10,
+            seed=42,
+        )
+        assert result.acceptance_rate >= 0.0
+        assert len(result.posterior_samples) > 0
+        assert "clint_hepatic_L_per_h" in result.posterior_samples.columns
+
+    def test_calibration_map_estimate(self) -> None:
+        """MAP estimate should contain calibrated parameters."""
+        import pandas as pd
+
+        from omega_pbpk.calibration import run_mh_calibration
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+
+        obs = pd.DataFrame(
+            {
+                "time_h": [0.0, 1.0, 4.0, 8.0],
+                "C_plasma_mg_per_L": [0.0, 0.05, 0.01, 0.002],
+            }
+        )
+
+        result = run_mh_calibration(
+            observed=obs,
+            drug=MIDAZOLAM,
+            dose_mg=7.5,
+            route="oral",
+            t_end_h=12.0,
+            n_samples=30,
+            burn_in=5,
+            seed=123,
+        )
+        assert "clint_hepatic_L_per_h" in result.map_estimate
+        assert result.map_estimate["clint_hepatic_L_per_h"] > 0
+
+    def test_calibration_posterior_predictive(self) -> None:
+        """Posterior predictive should contain time and concentration."""
+        import pandas as pd
+
+        from omega_pbpk.calibration import run_mh_calibration
+        from omega_pbpk.drugs.midazolam import MIDAZOLAM
+
+        obs = pd.DataFrame(
+            {
+                "time_h": [0.0, 1.0, 4.0],
+                "C_plasma_mg_per_L": [0.0, 0.05, 0.01],
+            }
+        )
+
+        result = run_mh_calibration(
+            observed=obs,
+            drug=MIDAZOLAM,
+            dose_mg=7.5,
+            route="oral",
+            t_end_h=12.0,
+            n_samples=20,
+            burn_in=5,
+            seed=42,
+        )
+        assert "time_h" in result.posterior_predictive.columns
+        assert "C_pred_mg_per_L" in result.posterior_predictive.columns
+        assert len(result.posterior_predictive) > 0
+
+
+# ============================================================
+# 22. Benchmark validation suite tests (3 tests)
+# ============================================================
+
+
+class TestBenchmarkSuite:
+    def test_benchmark_caffeine_runs(self) -> None:
+        """Caffeine benchmark should run and produce metrics."""
+        from omega_pbpk.validation.benchmarks import run_benchmark_suite
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary = run_benchmark_suite("benchmarks", tmpdir)
+            assert "overall_pass" in summary
+            assert "results" in summary
+            assert summary["n_drugs"] >= 1
+
+    def test_benchmark_produces_output_files(self) -> None:
+        """Benchmark suite should produce summary.json and report.md."""
+        from omega_pbpk.validation.benchmarks import run_benchmark_suite
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_benchmark_suite("benchmarks", tmpdir)
+            out = Path(tmpdir)
+            assert (out / "summary.json").exists()
+            assert (out / "report.md").exists()
+
+    def test_benchmark_metrics_structure(self) -> None:
+        """Each drug result should have expected metric fields."""
+        from omega_pbpk.validation.benchmarks import run_benchmark_suite
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary = run_benchmark_suite("benchmarks", tmpdir)
+            for r in summary["results"]:
+                m = r["metrics"]
+                assert "auc_relative_error" in m
+                assert "cmax_relative_error" in m
+                assert "tmax_abs_error_h" in m
+                assert "rmse_mg_per_L" in m
+                assert "pass" in r

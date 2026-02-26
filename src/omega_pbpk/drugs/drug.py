@@ -103,5 +103,21 @@ class Drug:
         return cyp3a4_clint * self.gut_clint_multiplier * 40.0 * 45.0 * 18.0 / 1e6 / 60.0
 
     def default_kp(self, organ: str) -> float:
-        """Return Kp for an organ, defaulting to 1.0 if not specified."""
-        return self.kp.get(organ, 1.0)
+        """Return Kp for an organ.
+
+        Uses the stored Kp value if available, otherwise falls back to
+        heuristic estimation from physicochemical properties (logP, pKa,
+        drug_type, fup). This replaces the previous hard-coded 1.0 default.
+        """
+        if organ in self.kp:
+            return self.kp[organ]
+        from omega_pbpk.core.heuristics import heuristic_kp
+
+        pka_val = self.pka[0] if self.pka else None
+        return heuristic_kp(
+            logP=self.logP,
+            pka=pka_val,
+            drug_type=self.drug_type,
+            tissue_name=organ,
+            fup=self.fup,
+        )

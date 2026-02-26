@@ -1,13 +1,17 @@
-"""Omega PBPK CLI — 7 commands for pharmacokinetic simulation and analysis.
+"""Omega PBPK CLI — 11 commands for pharmacokinetic simulation and analysis.
 
 Commands:
-  simulate   — Run PBPK simulation (IV or oral)
-  predict    — SMILES → ADME property prediction
-  multidose  — Multi-dose steady-state simulation
-  optimize   — Therapeutic window dose optimization
-  safety     — Off-target safety panel
-  pgx        — Pharmacogenomics analysis
-  test       — Run test suite
+  simulate    — Run PBPK simulation (IV or oral)
+  predict     — SMILES → ADME property prediction
+  multidose   — Multi-dose steady-state simulation
+  optimize    — Therapeutic window dose optimization
+  safety      — Off-target safety panel
+  pgx         — Pharmacogenomics analysis
+  calibrate   — Bayesian MCMC parameter calibration
+  benchmark   — Multi-drug benchmark validation suite
+  sensitivity — Local sensitivity analysis
+  validate    — Mass balance and physiological sanity checks
+  test        — Run test suite
 """
 
 from __future__ import annotations
@@ -298,6 +302,176 @@ def pgx(
         scale = r.clint_scaling_factor
         freq = r.population_frequency
         typer.echo(f"    {r.diplotype:15s}  {r.phenotype:3s}  CLint×{scale:.2f}  freq={freq:.4f}")
+
+
+@app.command()
+def calibrate(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    observed: str = typer.Option(
+        ..., help="Path to observed data CSV (time_h, C_plasma_mg_per_L)."
+    ),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    body_weight: float = typer.Option(70.0, help="Body weight (kg)."),
+    t_end_h: float = typer.Option(24.0, help="Simulation end time (h)."),
+    n_samples: int = typer.Option(2000, help="MCMC iterations."),
+    burn_in: int = typer.Option(500, help="Burn-in samples to discard."),
+    seed: int | None = typer.Option(None, help="Random seed."),
+    out: str = typer.Option("outputs/calibration", help="Output directory."),
+) -> None:
+    """Run Bayesian MCMC calibration against observed clinical data."""
+    import pandas as pd
+
+    from omega_pbpk.calibration import run_mh_calibration
+    from omega_pbpk.config import load_compound
+
+    drug = load_compound(compound)
+    obs_df = pd.read_csv(observed)
+
+    typer.echo(f"Calibrating {drug.name}: {n_samples} MCMC samples, burn-in={burn_in}...")
+
+    result = run_mh_calibration(
+        observed=obs_df,
+        drug=drug,
+        dose_mg=dose_mg,
+        route=route,
+        body_weight=body_weight,
+        t_end_h=t_end_h,
+        n_samples=n_samples,
+        burn_in=burn_in,
+        seed=seed,
+    )
+
+    out_path = _ensure_dir(Path(out))
+
+    # Save posterior samples
+    result.posterior_samples.to_csv(out_path / "posterior_samples.csv", index=False)
+    result.posterior_predictive.to_csv(out_path / "posterior_predictive.csv", index=False)
+
+    # Save summary
+    summary = {
+        "acceptance_rate": round(result.acceptance_rate, 4),
+        "map_estimate": result.map_estimate,
+        "n_posterior_samples": len(result.posterior_samples),
+    }
+    with open(out_path / "calibration_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
+
+    typer.echo(f"Acceptance rate: {result.acceptance_rate:.2%}")
+    typer.echo(f"MAP estimate: {result.map_estimate}")
+    typer.echo(f"Results saved to {out_path}/")
+
+
+@app.command()
+def benchmark(
+    suite_dir: str = typer.Option("benchmarks", help="Path to benchmark suite directory."),
+    out: str = typer.Option("outputs/benchmark", help="Output directory."),
+    body_weight: float = typer.Option(70.0, help="Body weight (kg)."),
+) -> None:
+    """Run multi-drug benchmark validation suite."""
+    from omega_pbpk.validation.benchmarks import run_benchmark_suite
+
+    typer.echo(f"Running benchmark suite from {suite_dir}...")
+    summary = run_benchmark_suite(suite_dir, out, body_weight=body_weight)
+
+    overall = "PASS" if summary["overall_pass"] else "FAIL"
+    typer.echo(f"\nOverall: {overall} ({summary['n_pass']}/{summary['n_drugs']} drugs passed)")
+
+    for r in summary["results"]:
+        m = r["metrics"]
+        status = "PASS" if r["pass"] else "FAIL"
+        typer.echo(
+            f"  {r['drug']:12s}  {status}  "
+            f"AUC RE={m['auc_relative_error']:.3f}  "
+            f"Cmax RE={m['cmax_relative_error']:.3f}  "
+            f"Tmax AE={m['tmax_abs_error_h']:.2f}h"
+        )
+
+    typer.echo(f"\nDetailed results: {out}/")
+
+
+@app.command("sensitivity")
+def sensitivity_cmd(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    body_weight: float = typer.Option(70.0, help="Body weight (kg)."),
+    t_end_h: float = typer.Option(24.0, help="Simulation end time (h)."),
+    out: str = typer.Option("outputs/sensitivity", help="Output directory."),
+) -> None:
+    """Run local sensitivity analysis on compound parameters."""
+    from omega_pbpk.config import load_compound
+    from omega_pbpk.sensitivity import local_sensitivity
+
+    drug = load_compound(compound)
+    typer.echo(f"Sensitivity analysis: {drug.name} {dose_mg}mg {route}...")
+
+    result = local_sensitivity(
+        drug=drug,
+        dose_mg=dose_mg,
+        route=route,
+        body_weight=body_weight,
+        t_end_h=t_end_h,
+    )
+
+    out_path = _ensure_dir(Path(out))
+    result.metrics.to_csv(out_path / "sensitivity.csv", index=False)
+
+    typer.echo("\nParameter influence ranking (|dCmax| + |dAUC|):")
+    for _, row in result.metrics.iterrows():
+        typer.echo(
+            f"  {row['parameter']:25s}  "
+            f"base={row['base_value']:.4g}  "
+            f"dCmax={row['dCmax_dparam']:+.4e}  "
+            f"dAUC={row['dAUC_dparam']:+.4e}  "
+            f"influence={row['influence_abs_sum']:.4e}"
+        )
+
+    typer.echo(f"\nResults saved to {out_path}/sensitivity.csv")
+
+
+@app.command("validate")
+def validate_cmd(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    body_weight: float = typer.Option(70.0, help="Body weight (kg)."),
+    t_end_h: float = typer.Option(24.0, help="Simulation end time (h)."),
+) -> None:
+    """Run mass balance and physiological sanity checks."""
+    from omega_pbpk.config import load_compound
+    from omega_pbpk.core.body import WholeBodyPBPK
+    from omega_pbpk.validation import mass_balance_check, physiologic_sanity_check
+
+    drug = load_compound(compound)
+    model = WholeBodyPBPK(drug, body_weight=body_weight)
+    if route == "iv":
+        model.setup_iv(dose_mg)
+    else:
+        model.setup_oral(dose_mg)
+
+    result = model.simulate(t_end_h=t_end_h)
+    typer.echo(f"Validation: {drug.name} {dose_mg}mg {route}\n")
+
+    # Mass balance check
+    mb_warnings = mass_balance_check(result.amounts, dose_mg, time_h=result.time_h)
+    if mb_warnings:
+        typer.echo("Mass balance: FAIL")
+        for w in mb_warnings:
+            typer.echo(f"  WARNING: {w}")
+    else:
+        mb_final = float(result.mass_balance()[-1])
+        pct = mb_final / dose_mg * 100 if dose_mg > 0 else 0
+        typer.echo(f"Mass balance: PASS ({pct:.4f}%)")
+
+    # Physiological sanity
+    sanity_warnings = physiologic_sanity_check(model.organs, model.cardiac_output, drug.fup)
+    if sanity_warnings:
+        typer.echo("\nPhysiological checks: FAIL")
+        for w in sanity_warnings:
+            typer.echo(f"  WARNING: {w}")
+    else:
+        typer.echo("Physiological checks: PASS")
 
 
 @app.command("test")
