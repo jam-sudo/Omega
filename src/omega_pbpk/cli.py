@@ -139,31 +139,32 @@ def predict(
     duration: float = typer.Option(24.0, "--duration", help="Simulation duration (h)"),
 ) -> None:
     """Predict PK profile for a new drug molecule from SMILES."""
-    from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
     import math
+
+    from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
     req = SimulationRequest(smiles=smiles, dose_mg=dose, route=route, duration_h=duration)
     pipeline = OmegaPipeline()
     typer.echo("Running simulation...")
     result = pipeline.simulate(req)
 
-    typer.echo(f"\nOmega PBPK Prediction")
-    typer.echo(f"{'='*40}")
-    typer.echo(f"SMILES:     {smiles[:50]}{'...' if len(smiles)>50 else ''}")
+    typer.echo("\nOmega PBPK Prediction")
+    typer.echo(f"{'=' * 40}")
+    typer.echo(f"SMILES:     {smiles[:50]}{'...' if len(smiles) > 50 else ''}")
     typer.echo(f"Dose:       {dose} mg ({route})")
     typer.echo(f"Confidence: {result.confidence}")
-    typer.echo(f"\nPK Summary:")
+    typer.echo("\nPK Summary:")
     typer.echo(f"  Cmax:    {result.cmax_mg_L:.4f} mg/L")
     typer.echo(f"  Tmax:    {result.tmax_h:.2f} h")
     typer.echo(f"  AUC0-t:  {result.auc0t_mg_h_L:.4f} mg·h/L")
     thalf = result.t_half_h
     typer.echo(f"  t½:      {'nan' if math.isnan(thalf) else f'{thalf:.2f} h'}")
-    typer.echo(f"\nPredicted ADME:")
+    typer.echo("\nPredicted ADME:")
     for k, v in result.adme_properties.items():
         if k != "confidence" and isinstance(v, (int, float)):
             typer.echo(f"  {k:<12}: {v:.3g}")
     if result.warnings:
-        typer.echo(f"\nWarnings:")
+        typer.echo("\nWarnings:")
         for w in result.warnings:
             typer.echo(f"  ! {w}")
 
@@ -325,11 +326,15 @@ def pgx(
 def pgx_sim(
     smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug."),
     dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg."),
-    gene: str = typer.Option("CYP2D6", "--gene", "-g", help="CYP gene (CYP2D6, CYP2C19, CYP2C9, CYP3A5, CYP1A2)."),
+    gene: str = typer.Option(
+        "CYP2D6", "--gene", "-g", help="CYP gene (CYP2D6, CYP2C19, CYP2C9, CYP3A5, CYP1A2)."
+    ),
     route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv."),
     t_end_h: float = typer.Option(24.0, "--t-end", help="Simulation end time (h)."),
     body_weight: float = typer.Option(70.0, "--bw", help="Body weight (kg)."),
-    out: str | None = typer.Option(None, "--out", "-o", help="Output HTML report path (e.g. pgx_report.html)."),
+    out: str | None = typer.Option(
+        None, "--out", "-o", help="Output HTML report path (e.g. pgx_report.html)."
+    ),
 ) -> None:
     """PGx-stratified PBPK simulation — run PBPK for each CYP phenotype (PM/IM/NM/UM).
 
@@ -342,9 +347,9 @@ def pgx_sim(
 
         omega pgx-sim --smiles "CCc1ccc(NC(=O)c2cc(OC)c(OC)c(OC)c2)cc1" --dose 100 --gene CYP2D6 --out pgx_report.html
     """
-    from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+    from omega_pbpk.clinical.pgx_pbpk import pgx_report_html, run_pgx_pbpk
     from omega_pbpk.drugs.drug import Drug
-    from omega_pbpk.clinical.pgx_pbpk import run_pgx_pbpk, pgx_report_html
+    from omega_pbpk.prediction.adme_predictor import ADMEPredictor
 
     # Predict ADME from SMILES
     typer.echo(f"Predicting ADME for SMILES: {smiles[:60]}{'...' if len(smiles) > 60 else ''}")
@@ -360,7 +365,9 @@ def pgx_sim(
         clint={"CYP3A4": props.clint_3a4, "CYP2D6": props.clint_2d6},
         clint_hepatic_L_per_h=props.clint_3a4 * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0,
     )
-    typer.echo(f"  MW={props.mw:.1f}, logP={props.logP:.2f}, fup={props.fup:.3f}, rbp={props.rbp:.2f}")
+    typer.echo(
+        f"  MW={props.mw:.1f}, logP={props.logP:.2f}, fup={props.fup:.3f}, rbp={props.rbp:.2f}"
+    )
 
     # Run PGx-stratified PBPK
     typer.echo(f"Running PGx-PBPK ({gene}) — {dose} mg {route}, {t_end_h} h, {body_weight} kg...")
@@ -375,7 +382,9 @@ def pgx_sim(
 
     # Print summary table
     typer.echo(f"\nPGx-PBPK Results — {gene}")
-    typer.echo(f"  {'Phenotype':<10}  {'AUC (mg·h/L)':>14}  {'Cmax (mg/L)':>12}  {'AUC Ratio':>10}  {'Pop. Freq.':>10}")
+    typer.echo(
+        f"  {'Phenotype':<10}  {'AUC (mg·h/L)':>14}  {'Cmax (mg/L)':>12}  {'AUC Ratio':>10}  {'Pop. Freq.':>10}"
+    )
     typer.echo("  " + "-" * 64)
     for rec in result.phenotype_results:
         typer.echo(
@@ -576,10 +585,13 @@ def surrogate_cmd(
     """Train or use the neural surrogate model for fast PBPK prediction."""
     if train:
         import logging
+
         logging.basicConfig(level=logging.INFO)
         typer.echo(f"Training surrogate on {n_samples} real PBPK simulations...")
-        from omega_pbpk.surrogate.train import train_surrogate
         import os
+
+        from omega_pbpk.surrogate.train import train_surrogate
+
         os.makedirs(os.path.dirname(save) if os.path.dirname(save) else ".", exist_ok=True)
         model = train_surrogate(n_samples=n_samples, save_path=save, epochs=epochs)
         typer.echo(f"Surrogate trained and saved to {save}")
@@ -703,16 +715,19 @@ def population(
     typer.echo(f"Running PopPK for {n_subjects} subjects ({route}, {dose}mg)...")
 
     sim = PopulationSimulator(drug=drug)
-    result = sim.run(n_subjects=n_subjects, dose_mg=dose, route=route,
-                     t_end_h=duration, seed=seed)
+    result = sim.run(n_subjects=n_subjects, dose_mg=dose, route=route, t_end_h=duration, seed=seed)
 
     cmax = result.cmax_stats()
     auc = result.auc_stats()
 
     typer.echo(f"\nPopulation PK Results (n={result.n_subjects})")
-    typer.echo(f"{'='*45}")
-    typer.echo(f"Cmax (mg/L):  median={cmax['median']:.3f}, p5={cmax['p5']:.3f}, p95={cmax['p95']:.3f}, CV={cmax['cv_pct']:.1f}%")
-    typer.echo(f"AUC  (mg·h/L): median={auc['median']:.3f}, p5={auc['p5']:.3f}, p95={auc['p95']:.3f}, CV={auc['cv_pct']:.1f}%")
+    typer.echo(f"{'=' * 45}")
+    typer.echo(
+        f"Cmax (mg/L):  median={cmax['median']:.3f}, p5={cmax['p5']:.3f}, p95={cmax['p95']:.3f}, CV={cmax['cv_pct']:.1f}%"
+    )
+    typer.echo(
+        f"AUC  (mg·h/L): median={auc['median']:.3f}, p5={auc['p5']:.3f}, p95={auc['p95']:.3f}, CV={auc['cv_pct']:.1f}%"
+    )
     if result.n_failed > 0:
         typer.echo(f"Warning: {result.n_failed} subjects failed simulation")
 
@@ -728,10 +743,30 @@ def report(
 ) -> None:
     """Generate a regulatory-grade HTML report (NCA + DDI + PopPK)."""
     from omega_pbpk.clinical.report import quick_report
+
     typer.echo(f"Generating report for {name}...")
-    path = quick_report(smiles=smiles, drug_name=name, dose_mg=dose,
-                        route=route, output_path=out, n_pop_subjects=population)
+    path = quick_report(
+        smiles=smiles,
+        drug_name=name,
+        dose_mg=dose,
+        route=route,
+        output_path=out,
+        n_pop_subjects=population,
+    )
     typer.echo(f"Report saved to: {path}")
+
+
+@app.command("serve")
+def serve(
+    host: str = typer.Option("0.0.0.0", help="Host to bind the server to."),
+    port: int = typer.Option(8000, help="Port to listen on."),
+    reload: bool = typer.Option(False, help="Enable auto-reload on code changes."),
+) -> None:
+    """Start the FastAPI PBPK REST API server."""
+    import uvicorn
+
+    typer.echo(f"Starting Omega PBPK API server on http://{host}:{port}")
+    uvicorn.run("omega_pbpk.api.app:app", host=host, port=port, reload=reload)
 
 
 @app.command("test")

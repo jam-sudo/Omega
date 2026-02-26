@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omega-pbpk"
-version = "0.7.0"
-description = "Whole-body PBPK simulation platform — 34-state ODE engine with ADME prediction, DDI, PD, and clinical tools"
+version = "0.9.0"
+description = "Whole-body PBPK simulation platform — 35-state ODE engine with ADME prediction, DDI, population PK, and clinical tools"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
+keywords = ["pbpk", "pharmacokinetics", "drug-development", "simulation"]
 dependencies = [
   "numpy>=1.26,<3.0",
   "scipy>=1.11,<2.0",
@@ -16,7 +17,13 @@ dependencies = [
   "pyyaml>=6.0,<7.0",
   "typer>=0.9,<1.0",
   "matplotlib>=3.7,<4.0",
+  "fastapi>=0.100,<1.0",
+  "uvicorn>=0.20,<1.0",
+  "httpx>=0.24,<1.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/jam-sudo/Omega"
 
 [project.optional-dependencies]
 dev = [
@@ -24,6 +31,7 @@ dev = [
   "ruff>=0.6,<1.0",
   "mypy>=1.8,<2.0",
   "types-PyYAML",
+  "httpx>=0.24,<1.0",
 ]
 ml = [
   "torch>=2.0,<3.0",
@@ -32,6 +40,7 @@ ml = [
 api = [
   "fastapi>=0.100,<1.0",
   "uvicorn>=0.20,<1.0",
+  "httpx>=0.24,<1.0",
 ]
 
 [project.scripts]
