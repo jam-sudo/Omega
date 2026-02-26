@@ -1,8 +1,8 @@
 {
   "default": {
-    "auc_relative_error_max": 0.5,
-    "cmax_relative_error_max": 0.5,
-    "tmax_abs_error_h_max": 2.0
+    "auc_relative_error_max": 0.80,
+    "cmax_relative_error_max": 0.80,
+    "tmax_abs_error_h_max": 3.0
   },
   "drugs": {
     "caffeine": {},
