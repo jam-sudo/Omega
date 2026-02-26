@@ -9,6 +9,7 @@ from omega_pbpk.population.physiology import (
     get_species_physiology,
     SPECIES_PHYSIOLOGY,
 )
+from omega_pbpk.population.pop_simulator import PopulationSimulator, PopPKResult
 
 __all__ = [
     "ReferenceMan",
@@ -18,4 +19,6 @@ __all__ = [
     "allometric_scale",
     "get_species_physiology",
     "SPECIES_PHYSIOLOGY",
+    "PopulationSimulator",
+    "PopPKResult",
 ]

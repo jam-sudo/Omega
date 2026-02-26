@@ -610,6 +610,38 @@ def evaluate_cmd(
     typer.echo(f"\n  Report saved to {out_path}/report.json")
 
 
+@app.command()
+def population(
+    compound: str = typer.Option(..., "--compound", "-c", help="Path to compound YAML"),
+    n_subjects: int = typer.Option(50, "--n-subjects", "-n", help="Number of virtual subjects"),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
+    route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv"),
+    duration: float = typer.Option(24.0, "--duration", help="Simulation duration (h)"),
+    seed: int = typer.Option(42, "--seed", help="Random seed"),
+) -> None:
+    """Run population PK simulation across N virtual subjects."""
+    from omega_pbpk.config import load_compound
+    from omega_pbpk.population.pop_simulator import PopulationSimulator
+
+    typer.echo(f"Loading compound from {compound}...")
+    drug = load_compound(compound)
+    typer.echo(f"Running PopPK for {n_subjects} subjects ({route}, {dose}mg)...")
+
+    sim = PopulationSimulator(drug=drug)
+    result = sim.run(n_subjects=n_subjects, dose_mg=dose, route=route,
+                     t_end_h=duration, seed=seed)
+
+    cmax = result.cmax_stats()
+    auc = result.auc_stats()
+
+    typer.echo(f"\nPopulation PK Results (n={result.n_subjects})")
+    typer.echo(f"{'='*45}")
+    typer.echo(f"Cmax (mg/L):  median={cmax['median']:.3f}, p5={cmax['p5']:.3f}, p95={cmax['p95']:.3f}, CV={cmax['cv_pct']:.1f}%")
+    typer.echo(f"AUC  (mg·h/L): median={auc['median']:.3f}, p5={auc['p5']:.3f}, p95={auc['p95']:.3f}, CV={auc['cv_pct']:.1f}%")
+    if result.n_failed > 0:
+        typer.echo(f"Warning: {result.n_failed} subjects failed simulation")
+
+
 @app.command("test")
 def run_tests() -> None:
     """Run the test suite."""
