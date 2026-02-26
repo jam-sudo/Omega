@@ -642,6 +642,23 @@ def population(
         typer.echo(f"Warning: {result.n_failed} subjects failed simulation")
 
 
+@app.command()
+def report(
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string"),
+    name: str = typer.Option("compound", "--name", help="Drug display name"),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
+    route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv"),
+    out: str = typer.Option("omega_report.html", "--out", "-o", help="Output HTML path"),
+    population: int = typer.Option(0, "--population", "-p", help="N subjects for PopPK (0=skip)"),
+) -> None:
+    """Generate a regulatory-grade HTML report (NCA + DDI + PopPK)."""
+    from omega_pbpk.clinical.report import quick_report
+    typer.echo(f"Generating report for {name}...")
+    path = quick_report(smiles=smiles, drug_name=name, dose_mg=dose,
+                        route=route, output_path=out, n_pop_subjects=population)
+    typer.echo(f"Report saved to: {path}")
+
+
 @app.command("test")
 def run_tests() -> None:
     """Run the test suite."""

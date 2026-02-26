@@ -22,6 +22,7 @@ from omega_pbpk.clinical.nca import (
     NCAResult,
     run_nca,
 )
+from omega_pbpk.clinical.report import ReportInput, generate_report, quick_report
 
 __all__ = [
     "DoseOptimizer",
@@ -38,4 +39,7 @@ __all__ = [
     "format_report",
     "NCAResult",
     "run_nca",
+    "ReportInput",
+    "generate_report",
+    "quick_report",
 ]
