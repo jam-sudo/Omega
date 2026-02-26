@@ -17,8 +17,11 @@ Predicts 9 ADME properties:
 
 from __future__ import annotations
 
+import csv
 import logging
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -56,13 +59,157 @@ class ADMEPredictor:
     Uses multiple linear regression models trained on internal datasets.
     When RDKit is available, uses 2D molecular descriptors.
     Otherwise, uses simplified correlations.
+
+    Nearest-neighbor confidence scoring is applied using reference data
+    from data/adme_reference.csv when available.
     """
 
+    _ref_data: list[dict] | None = None
+    _featurizer: Any | None = None
+
+    def _load_reference_data(self) -> None:
+        """Load ADME reference data from CSV into self._ref_data.
+
+        Searches for data/adme_reference.csv relative to this file:
+        prediction/ -> omega_pbpk/ -> src/ -> Omega/ -> data/
+        """
+        ref_path = (
+            Path(__file__).parent  # prediction/
+            .parent                 # omega_pbpk/
+            .parent                 # src/
+            .parent                 # Omega/
+            / "data"
+            / "adme_reference.csv"
+        )
+        if not ref_path.exists():
+            logger.debug("adme_reference.csv not found at %s; NN correction disabled.", ref_path)
+            self._ref_data = []
+            return
+
+        rows: list[dict] = []
+        with open(ref_path, newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                rows.append(dict(row))
+        self._ref_data = rows
+        logger.debug("Loaded %d reference compounds from %s.", len(rows), ref_path)
+
+    def _nearest_neighbor_distance(self, smiles: str) -> float:
+        """Compute the minimum Euclidean distance from query to reference data.
+
+        Uses the RDKitFeaturizer (MW, LogP, TPSA, ...) when available.
+        Falls back to a 2-feature proxy (logP, MW) derived from the CSV rows
+        when the featurizer produces zeros (no RDKit) or ref_data is absent.
+
+        Args:
+            smiles: Query SMILES string.
+
+        Returns:
+            Minimum Euclidean distance to nearest reference compound,
+            or 0.0 if no reference data are available.
+        """
+        if not self._ref_data:
+            return 0.0
+
+        # Lazy-init featurizer
+        if self._featurizer is None:
+            try:
+                from omega_pbpk.features.rdkit_featurizer import RDKitFeaturizer
+                self._featurizer = RDKitFeaturizer()
+            except Exception:
+                self._featurizer = False  # mark as unavailable
+
+        # Featurize query
+        query_vec: np.ndarray | None = None
+        if self._featurizer and self._featurizer is not False:
+            fv = self._featurizer.featurize(smiles)
+            if np.any(fv.descriptors != 0.0):
+                query_vec = fv.descriptors  # shape (15,)
+
+        if query_vec is not None:
+            # Build reference matrix using same 2-feature proxy subset
+            # (logP=index 1, MW=index 0) for fair comparison
+            ref_vecs = []
+            for row in self._ref_data:
+                try:
+                    ref_vecs.append([float(row["mw"]), float(row["logP"])])
+                except (KeyError, ValueError):
+                    continue
+            if not ref_vecs:
+                return 0.0
+            # Use MW and logP columns from query vector
+            q2 = np.array([query_vec[0], query_vec[1]])
+            ref_arr = np.array(ref_vecs, dtype=np.float64)
+            diffs = ref_arr - q2
+            dists = np.linalg.norm(diffs, axis=1)
+            return float(dists.min())
+
+        # Fallback: use heuristic MW/logP estimates
+        est_mw = self._estimate_mw(smiles)
+        est_logp = self._estimate_logp(smiles)
+        q2 = np.array([est_mw, est_logp])
+        ref_vecs = []
+        for row in self._ref_data:
+            try:
+                ref_vecs.append([float(row["mw"]), float(row["logP"])])
+            except (KeyError, ValueError):
+                continue
+        if not ref_vecs:
+            return 0.0
+        ref_arr = np.array(ref_vecs, dtype=np.float64)
+        diffs = ref_arr - q2
+        dists = np.linalg.norm(diffs, axis=1)
+        return float(dists.min())
+
     def predict(self, smiles: str) -> ADMEProperties:
-        """Predict ADME properties from SMILES string."""
+        """Predict ADME properties from SMILES string.
+
+        Loads reference data on first call to apply nearest-neighbor
+        confidence scoring. Confidence is set to:
+          "high"   if NN distance < 1.5
+          "medium" if NN distance < 3.5
+          "low"    otherwise
+
+        Args:
+            smiles: A valid SMILES string.
+
+        Returns:
+            ADMEProperties dataclass with updated confidence.
+        """
+        if self._ref_data is None:
+            self._load_reference_data()
+
         if HAS_RDKIT:
-            return self._predict_rdkit(smiles)
-        return self._predict_simplified(smiles)
+            base_result = self._predict_rdkit(smiles)
+        else:
+            base_result = self._predict_simplified(smiles)
+
+        distance = self._nearest_neighbor_distance(smiles)
+
+        # Reference data absent or empty -> keep model-default confidence
+        if self._ref_data:
+            if distance < 1.5:
+                confidence = "high"
+            elif distance < 3.5:
+                confidence = "medium"
+            else:
+                confidence = "low"
+        else:
+            confidence = base_result.confidence
+
+        # ADMEProperties is frozen; rebuild with updated confidence
+        return ADMEProperties(
+            mw=base_result.mw,
+            logP=base_result.logP,
+            logS=base_result.logS,
+            peff=base_result.peff,
+            fup=base_result.fup,
+            rbp=base_result.rbp,
+            clint_3a4=base_result.clint_3a4,
+            clint_2d6=base_result.clint_2d6,
+            herg_ic50_uM=base_result.herg_ic50_uM,
+            confidence=confidence,
+        )
 
     def _predict_rdkit(self, smiles: str) -> ADMEProperties:
         """Full RDKit-based QSPR prediction."""

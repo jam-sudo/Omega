@@ -2,7 +2,7 @@
 
 Commands:
   simulate    — Run PBPK simulation (IV or oral)
-  predict     — SMILES → ADME property prediction
+  predict     — SMILES → full PK simulation (ADME + PBPK)
   multidose   — Multi-dose steady-state simulation
   optimize    — Therapeutic window dose optimization
   safety      — Off-target safety panel
@@ -133,25 +133,39 @@ def simulate(
 
 @app.command()
 def predict(
-    smiles: str = typer.Option(..., help="SMILES string."),
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug"),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
+    route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv"),
+    duration: float = typer.Option(24.0, "--duration", help="Simulation duration (h)"),
 ) -> None:
-    """Predict ADME properties from SMILES."""
-    from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+    """Predict PK profile for a new drug molecule from SMILES."""
+    from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
+    import math
 
-    predictor = ADMEPredictor()
-    props = predictor.predict(smiles)
+    req = SimulationRequest(smiles=smiles, dose_mg=dose, route=route, duration_h=duration)
+    pipeline = OmegaPipeline()
+    typer.echo("Running simulation...")
+    result = pipeline.simulate(req)
 
-    typer.echo("ADME Prediction Results:")
-    typer.echo(f"  MW:          {props.mw:.2f} g/mol")
-    typer.echo(f"  logP:        {props.logP:.2f}")
-    typer.echo(f"  logS:        {props.logS:.2f}")
-    typer.echo(f"  Peff:        {props.peff:.3f} ×10⁻⁴ cm/s")
-    typer.echo(f"  fup:         {props.fup:.4f}")
-    typer.echo(f"  Rbp:         {props.rbp:.3f}")
-    typer.echo(f"  CLint_3A4:   {props.clint_3a4:.3f} µL/min/pmol")
-    typer.echo(f"  CLint_2D6:   {props.clint_2d6:.3f} µL/min/pmol")
-    typer.echo(f"  hERG IC50:   {props.herg_ic50_uM:.2f} µM")
-    typer.echo(f"  Confidence:  {props.confidence}")
+    typer.echo(f"\nOmega PBPK Prediction")
+    typer.echo(f"{'='*40}")
+    typer.echo(f"SMILES:     {smiles[:50]}{'...' if len(smiles)>50 else ''}")
+    typer.echo(f"Dose:       {dose} mg ({route})")
+    typer.echo(f"Confidence: {result.confidence}")
+    typer.echo(f"\nPK Summary:")
+    typer.echo(f"  Cmax:    {result.cmax_mg_L:.4f} mg/L")
+    typer.echo(f"  Tmax:    {result.tmax_h:.2f} h")
+    typer.echo(f"  AUC0-t:  {result.auc0t_mg_h_L:.4f} mg·h/L")
+    thalf = result.t_half_h
+    typer.echo(f"  t½:      {'nan' if math.isnan(thalf) else f'{thalf:.2f} h'}")
+    typer.echo(f"\nPredicted ADME:")
+    for k, v in result.adme_properties.items():
+        if k != "confidence" and isinstance(v, (int, float)):
+            typer.echo(f"  {k:<12}: {v:.3g}")
+    if result.warnings:
+        typer.echo(f"\nWarnings:")
+        for w in result.warnings:
+            typer.echo(f"  ! {w}")
 
 
 @app.command()
