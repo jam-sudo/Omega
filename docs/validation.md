@@ -1,53 +1,53 @@
-# Validation and benchmark suite
+# Validation — Omega PBPK v0.7
 
-This repository includes a reproducible benchmark suite under `benchmarks/` to check whether the current simulator behavior remains consistent against fixed reference PK curves.
+## Test suite
 
-## Philosophy
+50 unit/integration tests in `tests/test_all.py` covering:
 
-- Benchmarks validate **model behavior stability**, not clinical correctness.
-- Acceptance gates are intentionally broad for an MVP model:
-  - AUC relative error <= 0.30
-  - Cmax relative error <= 0.30
-  - Tmax absolute error <= 1.0 h
-- RMSE is also reported for trend tracking.
+| Test class | Count | Coverage |
+|------------|-------|----------|
+| TestDrug | 5 | Drug dataclass, IVIVE scaling, Kp defaults |
+| TestMidazolam | 3 | Reference compound parameters |
+| TestOrgan | 3 | Organ volumes, permeability-limited split |
+| TestWholeBodyPBPK | 8 | IV/oral simulation, mass balance, Cmax/AUC |
+| TestDDI | 3 | Competitive inhibition, MBI, induction |
+| TestPopulation | 3 | Virtual population generation, statistics |
+| TestConfig | 3 | YAML loading, Drug construction |
+| TestADMEPredictor | 3 | Property prediction, confidence levels |
+| TestPDModels | 5 | Emax, effect compartment, indirect response, tumor |
+| TestSafety | 3 | Safety panel assessment, risk classification |
+| TestPGx | 3 | Allele analysis, phenotype distribution |
+| TestClinical | 3 | Dose optimization, multi-dose, formulation |
+| TestGNN | 1 | MPNN scaffold instantiation |
+| TestVisualization | 1 | Plot generation |
+| TestIntegration | 3 | End-to-end oral simulation with PK/PD |
 
-Thresholds are defined in `benchmarks/expected/acceptance.json`.
+## Mass balance validation
 
-## Dataset format
+IV bolus: `dose = sum(all 34 states)` verified within ± 0.5% at all time points.
 
-Each CSV in `benchmarks/datasets/` must contain:
+## Benchmark datasets
 
-- `time_h`
-- `C_plasma_mg_per_L`
+Synthetic reference datasets in `benchmarks/datasets/`:
 
-Optional columns are allowed (for example `std_mg_per_L`).
+- `caffeine_oral_100mg.csv`
+- `warfarin_oral_5mg.csv`
+- `metoprolol_oral_100mg.csv`
 
-## Dataset provenance
+These are synthetic datasets generated for software testing, not clinical data.
 
-The included datasets (`caffeine`, `warfarin`, and `metoprolol`) are **SYNTHETIC EXAMPLE DATASETS** generated from smooth simulator curves with deterministic perturbations. They are not sourced from clinical trial publications.
+Acceptance criteria (from `benchmarks/expected/acceptance.json`):
+- AUC relative error ≤ 0.30
+- Cmax relative error ≤ 0.30
+- Tmax absolute error ≤ 1.0 h
 
-## Running benchmarks
+## Running tests
 
 ```bash
-python -m physio_sim.cli benchmark --suite benchmarks --out outputs/benchmarks --deterministic --seed 0
+# Unit tests
+python -m pytest tests/ -v --tb=short
+
+# Linting
+python -m ruff check .
+python -m ruff format --check .
 ```
-
-The command writes:
-
-- `outputs/benchmarks/<drug>/overlay.png`
-- `outputs/benchmarks/<drug>/metrics.json`
-- `outputs/benchmarks/summary.json`
-- `outputs/benchmarks/report.md`
-
-The command exits with status code `1` if any benchmark case fails acceptance.
-
-## Adding a new drug case
-
-1. Add dataset CSV in `benchmarks/datasets/`.
-2. Add a config YAML in `benchmarks/configs/` with:
-   - subject path
-   - compound parameters
-   - dosing + run controls
-   - dataset path
-3. If needed, tune per-suite thresholds in `benchmarks/expected/acceptance.json`.
-4. Re-run the benchmark command and review overlays + metrics.

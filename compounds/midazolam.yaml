@@ -1,0 +1,57 @@
+name: Midazolam
+mw: 325.77
+logP: 3.89
+pka: [6.15]
+drug_type: monoprotic_base
+fup: 0.032
+rbp: 0.66
+smiles: "Clc1ccc2c(c1)C(=NCc3nccn3C)c1cc(F)ccc1N2"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP3A4: 0.9
+    CYP3A5: 0.3
+  fm:
+    CYP3A4: 0.93
+    CYP3A5: 0.04
+    other: 0.03
+  # Calibrated in vivo CLint (retrograde from clinical PK data)
+  clint_hepatic_L_per_h: 200.0
+  clint_gut_L_per_h: 2000.0
+
+absorption:
+  peff: 5.37
+  solubility_mg_mL: 0.024
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 0.6
+    brain: 6.61
+    heart: 5.04
+    kidney: 5.12
+    liver: 5.87
+    spleen: 3.8
+    gut_wall: 4.2
+    pancreas: 3.5
+    thymus: 2.8
+    reproductive: 3.0
+    rest: 2.5
+  # Kp calibrated for Vss ~ 90 L (literature 77-119 L)
+  permeability_limited:
+    adipose:
+      kp: 0.5
+      ps: 8
+    muscle:
+      kp: 1.0
+      ps: 25
+    bone:
+      kp: 1.5
+      ps: 5
+    skin:
+      kp: 2.0
+      ps: 8
+
+gut_metabolism:
+  gut_clint_multiplier: 11.0

@@ -1,27 +1,26 @@
 name: metoprolol
 dataset: benchmarks/datasets/metoprolol_oral_100mg.csv
-subject_file: examples/subject_default.yaml
 dose_mg: 100.0
 route: oral
 t_end_h: 24.0
-dt_out_h: 0.05
-seed: 123
-compound:
-  name: Metoprolol synthetic reference
-  mw_g_per_mol: 267.36
-  logp: 1.9
-  pka: 9.7
-  fu_plasma: 0.88
-  ka_per_h: 1.5
-  f_gut: 0.75
-  clint_L_per_h: 20.0
-  clr_L_per_h: 3.0
-  pd:
-    model: emax
-    e0: 0.0
-    emax: 1.0
-    ec50_mg_per_L: 2.0
-    hill: 1.0
-    ke0_per_h: 0.8
-  ddi:
-    enabled: false
+
+# Metoprolol — inline compound definition (v0.7 format)
+# No separate compound YAML file yet; benchmark uses inline parameters.
+mw: 267.36
+logP: 1.9
+pka: [9.7]
+drug_type: base
+fup: 0.88
+rbp: 1.0
+
+clearance:
+  clint_uL_min_pmol:
+    CYP2D6: 15.0
+    CYP3A4: 2.0
+  fm:
+    CYP2D6: 0.80
+    CYP3A4: 0.20
+
+absorption:
+  peff: 3.0
+  solubility_mg_mL: 50.0

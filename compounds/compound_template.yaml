@@ -1,0 +1,39 @@
+# Omega PBPK compound template
+# Copy this file and fill in values for your compound.
+
+name: MyCompound
+mw: 300.0          # Molecular weight (g/mol)
+logP: 2.0          # Octanol-water partition coefficient
+pka: [7.0]         # pKa values (list)
+drug_type: neutral  # neutral, monoprotic_acid, monoprotic_base, diprotic
+fup: 0.5           # Fraction unbound in plasma (0–1)
+rbp: 1.0           # Blood-to-plasma ratio
+
+# Kp estimation method
+partition_method: heuristic  # options: heuristic, rodgers_rowland
+# compound_type is used by rodgers_rowland method
+compound_type: neutral       # options: neutral, acid, base, zwitterion
+
+# smiles: "..."    # Optional SMILES string for ADME prediction
+
+clearance:
+  clint_uL_min_pmol: {}  # e.g. {CYP3A4: 0.9, CYP2D6: 0.1}
+  fm: {}                 # e.g. {CYP3A4: 0.85, CYP2D6: 0.10, other: 0.05}
+  # Calibrated in vivo CLint (L/h); overrides IVIVE when > 0
+  # clint_hepatic_L_per_h: 0.0
+  # clint_gut_L_per_h: 0.0
+  # clr_L_per_h: renal clearance on total plasma concentration basis (L/h)
+  # clr_L_per_h: 0.0
+
+absorption:
+  peff: 1.0                # Effective intestinal permeability (×10⁻⁴ cm/s)
+  solubility_mg_mL: 1.0   # Aqueous solubility at pH 6.5 (mg/mL)
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp: {}                   # Perfusion-limited Kp: {liver: 5.0, brain: 3.0, ...}
+  permeability_limited: {} # {adipose: {kp: 0.5, ps: 8}, ...}
+
+gut_metabolism:
+  gut_clint_multiplier: 1.0

@@ -1,0 +1,28 @@
+# Midazolam 7.5 mg oral — Reference PK parameters (healthy adults)
+#
+# Sources:
+#   Thummel KE et al., J Pharmacol Exp Ther, 1996
+#   Gorski JC et al., Clin Pharmacol Ther, 2003
+#   Heizmann P et al., Br J Clin Pharmacol, 1983
+#
+# Values are geometric means or mid-range of published data.
+
+drug: Midazolam
+dose_mg: 7.5
+route: oral
+population: healthy_adults
+
+# Reference PK parameters (geometric means)
+pk_parameters:
+  Cmax_mg_L: 0.050           # 50 ng/mL (range: 30-70)
+  Tmax_h: 0.75               # 0.5-1.0 h
+  AUC_mg_h_L: 0.090          # 90 ng·h/mL (range: 50-130)
+  half_life_h: 2.25           # 1.5-3.0 h
+  bioavailability: 0.36       # 30-44%
+
+# Acceptable fold error range for each parameter
+acceptance:
+  Cmax_mg_L: 2.0              # AFE must be < 2.0
+  AUC_mg_h_L: 2.0
+  half_life_h: 3.0            # Wider tolerance for t½ (distribution kinetics)
+  AAFE: 2.0                   # Overall AAFE target
