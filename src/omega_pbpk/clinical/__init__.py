@@ -35,6 +35,12 @@ from omega_pbpk.clinical.ivive import (
     scale_hepatocyte_clint,
     estimate_clint_for_target_clh,
 )
+from omega_pbpk.clinical.pgx_pbpk import (
+    PGxPBPKResult,
+    run_pgx_pbpk,
+    plot_pgx_forest,
+    pgx_report_html,
+)
 
 __all__ = [
     "DoseOptimizer",
@@ -62,4 +68,8 @@ __all__ = [
     "scale_microsomal_clint",
     "scale_hepatocyte_clint",
     "estimate_clint_for_target_clh",
+    "PGxPBPKResult",
+    "run_pgx_pbpk",
+    "plot_pgx_forest",
+    "pgx_report_html",
 ]

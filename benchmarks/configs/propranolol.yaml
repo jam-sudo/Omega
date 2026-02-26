@@ -1,0 +1,6 @@
+name: propranolol
+dataset: benchmarks/datasets/propranolol_oral_80mg.csv
+compound_file: compounds/propranolol.yaml
+dose_mg: 80.0
+route: oral
+t_end_h: 24.0

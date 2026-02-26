@@ -321,6 +321,81 @@ def pgx(
         typer.echo(f"    {r.diplotype:15s}  {r.phenotype:3s}  CLint×{scale:.2f}  freq={freq:.4f}")
 
 
+@app.command("pgx-sim")
+def pgx_sim(
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug."),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg."),
+    gene: str = typer.Option("CYP2D6", "--gene", "-g", help="CYP gene (CYP2D6, CYP2C19, CYP2C9, CYP3A5, CYP1A2)."),
+    route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv."),
+    t_end_h: float = typer.Option(24.0, "--t-end", help="Simulation end time (h)."),
+    body_weight: float = typer.Option(70.0, "--bw", help="Body weight (kg)."),
+    out: str | None = typer.Option(None, "--out", "-o", help="Output HTML report path (e.g. pgx_report.html)."),
+) -> None:
+    """PGx-stratified PBPK simulation — run PBPK for each CYP phenotype (PM/IM/NM/UM).
+
+    Predicts ADME properties from SMILES, then runs four phenotype-stratified
+    PBPK simulations scaling CLint by the CPIC activity-based factor for each
+    phenotype of the specified gene.  Prints a summary table of AUC ratios and
+    optionally saves an HTML report with an embedded forest plot.
+
+    Example:
+
+        omega pgx-sim --smiles "CCc1ccc(NC(=O)c2cc(OC)c(OC)c(OC)c2)cc1" --dose 100 --gene CYP2D6 --out pgx_report.html
+    """
+    from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+    from omega_pbpk.drugs.drug import Drug
+    from omega_pbpk.clinical.pgx_pbpk import run_pgx_pbpk, pgx_report_html
+
+    # Predict ADME from SMILES
+    typer.echo(f"Predicting ADME for SMILES: {smiles[:60]}{'...' if len(smiles) > 60 else ''}")
+    predictor = ADMEPredictor()
+    props = predictor.predict(smiles)
+    drug = Drug(
+        name="PGxCompound",
+        mw=props.mw,
+        logP=props.logP,
+        fup=props.fup,
+        rbp=props.rbp,
+        peff=props.peff,
+        clint={"CYP3A4": props.clint_3a4, "CYP2D6": props.clint_2d6},
+        clint_hepatic_L_per_h=props.clint_3a4 * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0,
+    )
+    typer.echo(f"  MW={props.mw:.1f}, logP={props.logP:.2f}, fup={props.fup:.3f}, rbp={props.rbp:.2f}")
+
+    # Run PGx-stratified PBPK
+    typer.echo(f"Running PGx-PBPK ({gene}) — {dose} mg {route}, {t_end_h} h, {body_weight} kg...")
+    result = run_pgx_pbpk(
+        drug=drug,
+        gene=gene,
+        dose_mg=dose,
+        route=route,
+        t_end_h=t_end_h,
+        body_weight=body_weight,
+    )
+
+    # Print summary table
+    typer.echo(f"\nPGx-PBPK Results — {gene}")
+    typer.echo(f"  {'Phenotype':<10}  {'AUC (mg·h/L)':>14}  {'Cmax (mg/L)':>12}  {'AUC Ratio':>10}  {'Pop. Freq.':>10}")
+    typer.echo("  " + "-" * 64)
+    for rec in result.phenotype_results:
+        typer.echo(
+            f"  {rec['phenotype']:<10}"
+            f"  {rec['auc_mg_h_L']:>14.4f}"
+            f"  {rec['cmax_mg_L']:>12.4f}"
+            f"  {rec['auc_ratio_vs_nm']:>10.3f}"
+            f"  {rec['population_frequency'] * 100:>9.1f}%"
+        )
+    typer.echo(f"\n  NM AUC reference    : {result.nm_auc:.4f} mg·h/L")
+    typer.echo(f"  Gene Sensitivity Index: {result.gene_sensitivity_index:.2f}x")
+
+    # Optional HTML report
+    if out:
+        html = pgx_report_html(result, drug_name="PGxCompound")
+        with open(out, "w") as fh:
+            fh.write(html)
+        typer.echo(f"\nHTML report saved to: {out}")
+
+
 @app.command()
 def calibrate(
     compound: str = typer.Option(..., help="Path to compound YAML file."),
