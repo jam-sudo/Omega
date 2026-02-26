@@ -15,9 +15,13 @@ clearance:
     CYP3A4: 0.93
     CYP3A5: 0.04
     other: 0.03
-  # Calibrated in vivo CLint (retrograde from clinical PK data)
-  clint_hepatic_L_per_h: 200.0
-  clint_gut_L_per_h: 2000.0
+  # Calibrated in vivo CLint (retrograde from clinical PK data, well-stirred model)
+  # CLint_hepatic = 750 L/h → CLh ~ 19.3 L/h blood → CL_plasma ~ 29.3 L/h
+  #   matches midazolam literature CL_plasma 27-35 L/h (Thummel 1996, Gorski 2003)
+  # CLint_gut = 1600 L/h → Fg = Q*rbp/(Q*rbp + CLint*fup) = 0.43
+  #   matches literature Fg 0.43-0.57 (Paine 2006)
+  clint_hepatic_L_per_h: 750.0
+  clint_gut_L_per_h: 1600.0
 
 absorption:
   peff: 5.37
