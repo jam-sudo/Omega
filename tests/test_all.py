@@ -155,7 +155,7 @@ class TestWholeBodyPBPK:
         model.setup_iv(5.0)
         result = model.simulate(t_end_h=24.0, dt_h=0.5)
         assert len(result.time_h) > 0
-        assert result.amounts.shape[1] == 34
+        assert result.amounts.shape[1] >= 34  # 34 organ states + optional SC depot
 
     def test_iv_mass_balance(self) -> None:
         """IV mass balance: total drug must equal dose ± 0.5%."""

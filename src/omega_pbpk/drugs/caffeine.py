@@ -40,7 +40,7 @@ CAFFEINE = Drug(
     },
     # Calibrated in vivo CLint (L/h) — retrograde from clinical PK
     # CL_plasma ~ 1.5-2.0 L/h, t1/2 ~ 3-5 h (Busto 1989, Denaro 1990)
-    clint_hepatic_L_per_h=40.0,
+    clint_hepatic_L_per_h=2.3,  # recalibrated: gives CLh ~1.5 L/h (lit 1-2 L/h)
     clint_gut_L_per_h=0.0,
     clr_L_per_h=0.08,
     # Absorption: BCS Class I — very high permeability and solubility

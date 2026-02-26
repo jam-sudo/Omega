@@ -169,14 +169,14 @@ class TestPediatricOntogeny:
         get_pediatric_scaling = _get_pediatric_scaling()
         neonate = get_pediatric_scaling(age_years=0.1, weight_kg=3.0)
         adult = get_pediatric_scaling(age_years=30.0, weight_kg=70.0)
-        assert neonate["CYP3A4"] < adult["CYP3A4"], (
-            f"Neonate CYP3A4 ({neonate['CYP3A4']}) should be < adult ({adult['CYP3A4']})"
+        assert neonate["cyp3a4"] < adult["cyp3a4"], (
+            f"Neonate CYP3A4 ({neonate['cyp3a4']}) should be < adult ({adult['cyp3a4']})"
         )
 
     def test_pediatric_ontogeny_adult_cyp3a4_near_one(self):
         """Adult (30 years, 70 kg) CYP3A4 scaling factor should be near 1.0."""
         get_pediatric_scaling = _get_pediatric_scaling()
         adult = get_pediatric_scaling(age_years=30.0, weight_kg=70.0)
-        assert abs(adult["CYP3A4"] - 1.0) <= 0.10, (
-            f"Adult CYP3A4 should be ~1.0, got {adult['CYP3A4']}"
+        assert abs(adult["cyp3a4"] - 1.0) <= 0.10, (
+            f"Adult CYP3A4 should be ~1.0, got {adult['cyp3a4']}"
         )
