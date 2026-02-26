@@ -53,6 +53,9 @@ class Drug:
     clint_hepatic_L_per_h: float = 0.0
     clint_gut_L_per_h: float = 0.0
 
+    # Renal clearance on total plasma concentration basis (L/h)
+    clr_L_per_h: float = 0.0
+
     # Absorption
     peff: float = 1.0
     solubility_mg_mL: float = 1.0
@@ -64,6 +67,11 @@ class Drug:
 
     # Distribution — permeability-limited organs
     permeability_limited: dict[str, dict[str, float]] = field(default_factory=dict)
+
+    # Kp estimation method ('heuristic' or 'rodgers_rowland')
+    partition_method: str = "heuristic"
+    # Ionisation class for Rodgers & Rowland ('neutral', 'acid', 'base', 'zwitterion')
+    compound_type: str = "neutral"
 
     # Gut metabolism
     gut_clint_multiplier: float = 1.0
@@ -106,18 +114,18 @@ class Drug:
         """Return Kp for an organ.
 
         Uses the stored Kp value if available, otherwise falls back to
-        heuristic estimation from physicochemical properties (logP, pKa,
-        drug_type, fup). This replaces the previous hard-coded 1.0 default.
+        the selected partition_method ('heuristic' or 'rodgers_rowland').
         """
         if organ in self.kp:
             return self.kp[organ]
-        from omega_pbpk.core.heuristics import heuristic_kp
+        from omega_pbpk.core.heuristics import get_partition_method
 
+        method = get_partition_method(self.partition_method)
         pka_val = self.pka[0] if self.pka else None
-        return heuristic_kp(
+        return method(
             logP=self.logP,
             pka=pka_val,
-            drug_type=self.drug_type,
+            compound_type=self.compound_type,
             tissue_name=organ,
             fup=self.fup,
         )

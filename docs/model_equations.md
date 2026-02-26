@@ -150,7 +150,7 @@ Outflow:
 - `dA_liver/dt = Q_ha × C_art + Q_portal × C_portal − Q_total × C_liver_out − met_rate`
 - Venous return: `+= Q_total × C_liver_out`
 
-## Hepatic intrinsic clearance (well-stirred model)
+## Hepatic clearance (well-stirred model)
 
 IVIVE scaling from in vitro CLint:
 
@@ -160,10 +160,18 @@ CLint_scaled (L/h) = CLint (µL/min/pmol) × MPPGL (40) × microsomal_protein (4
                    ≈ CLint × 0.054 L/h
 ```
 
+Well-stirred model conversion (CLint → CLh):
+
+```
+CLh = (Q_liver × fup × CLint_effective) / (Q_liver + fup × CLint_effective)
+```
+
+CLh is a blood clearance parameter bounded by liver blood flow (flow-limited ceiling).
+
 Hepatic metabolism rate:
 
-- `met_rate = CLint_effective × fup × C_liver_unbound`
-- `dA_metabolized_hepatic/dt += met_rate`
+- `Hepatic_elim = CLh × C_liver,venous`
+- `dA_metabolized_hepatic/dt += Hepatic_elim`
 
 DDI modifiers to `CLint_effective`:
 
@@ -173,12 +181,13 @@ DDI modifiers to `CLint_effective`:
 
 ## Renal elimination
 
-GFR-based filtration from kidney compartment:
+Renal clearance on total plasma concentration basis:
 
-- `GFR = 7.5 × (BW/70) L/h` (~125 mL/min at 70 kg)
-- `renal_rate = GFR × fup × C_kidney_unbound`
-- `dA_kidney/dt = Q_kidney × C_art − Q_kidney × C_out − renal_rate`
-- `dA_excreted_renal/dt += renal_rate`
+- `Renal_elim = CLr × C_plasma,total`
+- `dA_kidney/dt = Q_kidney × C_art − Q_kidney × C_out − Renal_elim`
+- `dA_excreted_renal/dt += Renal_elim`
+
+CLr (L/h) is a drug-specific parameter set in the compound YAML. When CLr = 0 (default), no renal elimination occurs.
 
 ## PK parameter calculation
 

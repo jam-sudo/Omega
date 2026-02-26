@@ -57,6 +57,9 @@ def load_compound(path: str | Path) -> Drug:
     clint_hepatic = float(clearance.get("clint_hepatic_L_per_h", 0.0))
     clint_gut = float(clearance.get("clint_gut_L_per_h", 0.0))
 
+    # Renal clearance on total plasma basis (L/h)
+    clr = float(clearance.get("clr_L_per_h", 0.0))
+
     drug = Drug(
         name=raw.get("name", path.stem),
         mw=float(raw.get("mw", 300.0)),
@@ -70,12 +73,15 @@ def load_compound(path: str | Path) -> Drug:
         fm=fm,
         clint_hepatic_L_per_h=clint_hepatic,
         clint_gut_L_per_h=clint_gut,
+        clr_L_per_h=clr,
         peff=float(absorption.get("peff", 1.0)),
         solubility_mg_mL=float(absorption.get("solubility_mg_mL", 1.0)),
         particle_radius_um=float(absorption.get("particle_radius_um", 25.0)),
         particle_density=float(absorption.get("particle_density", 1.2)),
         kp=kp,
         permeability_limited=permeability_limited,
+        partition_method=raw.get("partition_method", "heuristic"),
+        compound_type=raw.get("compound_type", "neutral"),
         gut_clint_multiplier=float(gut_met.get("gut_clint_multiplier", 1.0)),
     )
 

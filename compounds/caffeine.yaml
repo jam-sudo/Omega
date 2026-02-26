@@ -3,6 +3,8 @@ mw: 194.19
 logP: -0.07
 pka: [14.0]
 drug_type: neutral
+compound_type: neutral
+partition_method: heuristic
 fup: 0.65
 rbp: 1.0
 smiles: "Cn1c(=O)c2c(ncn2C)n(C)c1=O"
@@ -15,6 +17,10 @@ clearance:
     CYP1A2: 0.95
     CYP2E1: 0.03
     other: 0.02
+  # Calibrated in vivo hepatic CLint (L/h)
+  clint_hepatic_L_per_h: 8.0
+  # clr_L_per_h: renal clearance on total plasma concentration basis (L/h)
+  clr_L_per_h: 0.08
 
 absorption:
   peff: 7.0

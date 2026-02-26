@@ -413,22 +413,22 @@ class WholeBodyPBPK:
                 q_portal = sum(self.organs[pn].blood_flow_L_per_h for pn in PORTAL_ORGANS)
                 q_total = q_ha + q_portal
 
-                # Hepatic metabolism (unbound drug in liver)
+                # Well-stirred model: CLh = (Q × fup × CLint) / (Q + fup × CLint)
                 clint_eff = self._clint_effective()
-                met_rate = clint_eff * fup * y[idx] / (v_t * kp)
-
-                # Renal clearance from kidney (GFR-based)
-                # handled separately below
+                clh = (q_total * fup * clint_eff) / max(q_total + fup * clint_eff, 1e-12)
+                # CLh from well-stirred model is on a total concentration basis
+                # Applied to mixed input blood concentration (HA + PV)
+                c_liver_in = (q_ha * c_art + q_portal * c_pv) / max(q_total, 1e-12)
+                met_rate = clh * c_liver_in
 
                 dydt[idx] = q_ha * c_art + q_portal * c_pv - q_total * c_out - met_rate
                 dydt[IDX_MET_HEPATIC] += met_rate
                 venous_inflow += q_total * c_out
 
             elif name == "kidney":
-                # Renal clearance: GFR × fup × Cp_leaving
-                gfr_L_h = 7.5 * (self.body_weight / 70.0)  # ~125 mL/min = 7.5 L/h
+                # CLr defined on total plasma concentration basis
                 c_plasma_out = y[idx] / (v_t * kp)
-                renal_cl_rate = gfr_L_h * fup * c_plasma_out
+                renal_cl_rate = self.drug.clr_L_per_h * c_plasma_out
 
                 dydt[idx] = q * c_art - q * c_out - renal_cl_rate
                 dydt[IDX_EXC_RENAL] += renal_cl_rate
