@@ -493,34 +493,25 @@ def validate_cmd(
 
 @app.command("surrogate")
 def surrogate_cmd(
-    n_samples: int = typer.Option(500, help="Training samples to generate."),
-    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
-    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
-    epochs: int = typer.Option(300, help="Training epochs."),
-    seed: int = typer.Option(42, help="Random seed."),
-    out: str = typer.Option("outputs/surrogate", help="Output directory."),
+    train: bool = typer.Option(False, "--train", help="Train surrogate on real PBPK simulations"),
+    n_samples: int = typer.Option(100, "--n-samples", help="Number of training simulations"),
+    save: str = typer.Option("models/surrogate_real.npz", "--save", help="Output path for weights"),
+    epochs: int = typer.Option(300, "--epochs", help="Training epochs"),
 ) -> None:
-    """Train a neural surrogate model for fast PK prediction."""
-    from omega_pbpk.surrogate import PKSurrogate
-    from omega_pbpk.surrogate.data_generator import generate_training_data
-
-    typer.echo(f"Generating {n_samples} training samples...")
-    data = generate_training_data(n_samples=n_samples, dose_mg=dose_mg, route=route, seed=seed)
-    typer.echo(f"Valid samples: {data.n_samples}")
-
-    model = PKSurrogate(n_input=data.n_params, n_output=data.n_outputs, hidden_dim=64, n_layers=3)
-    model.param_names = data.param_names
-    model.output_names = data.output_names
-
-    typer.echo(f"Training MLP ({model.n_layers} layers, dim={model.hidden_dim})...")
-    history = model.train(data.X, data.y, epochs=epochs, seed=seed)
-
-    out_path = _ensure_dir(Path(out))
-    model.save(out_path / "model")
-
-    final_loss = history["val_loss"][-1] if history["val_loss"] else 0
-    typer.echo(f"Training complete. Final val loss: {final_loss:.6f}")
-    typer.echo(f"Model saved to {out_path}/model/")
+    """Train or use the neural surrogate model for fast PBPK prediction."""
+    if train:
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        typer.echo(f"Training surrogate on {n_samples} real PBPK simulations...")
+        from omega_pbpk.surrogate.train import train_surrogate
+        import os
+        os.makedirs(os.path.dirname(save) if os.path.dirname(save) else ".", exist_ok=True)
+        model = train_surrogate(n_samples=n_samples, save_path=save, epochs=epochs)
+        typer.echo(f"Surrogate trained and saved to {save}")
+        typer.echo(f"  Input features: {model.n_input}, Output targets: {model.n_output}")
+    else:
+        typer.echo("Use --train to train a new surrogate model.")
+        typer.echo("Example: omega surrogate --train --n-samples 100")
 
 
 @app.command("uncertainty")
