@@ -82,7 +82,7 @@ def _run_subject_sim(args: tuple) -> tuple[int, NDArray | None, float, float, fl
         t = np.linspace(0, t_end_h, n_points)
 
         cmax = float(np.max(cp))
-        auc = float(np.trapz(cp, t))
+        auc = float(np.trapezoid(cp, t))
         n = len(t)
         t0 = int(0.7 * n)
         if np.all(cp[t0:] > 1e-9):

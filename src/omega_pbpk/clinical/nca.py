@@ -118,4 +118,4 @@ def _auc_linlog(t: NDArray, c: NDArray) -> float:
 def _aumc_linlog(t: NDArray, c: NDArray) -> float:
     """AUMC using linear trapezoidal rule."""
     tc = t * c
-    return float(np.trapz(tc, t))
+    return float(np.trapezoid(tc, t))

@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent.parent
+_REPO_ROOT = Path(__file__).parent.parent.parent.parent
 
 
 def _load_ref_drugs() -> list[dict]:
@@ -67,7 +67,7 @@ def _simulate_one(params: dict, dose_mg: float = 100.0, route: str = "oral") -> 
 
         cmax = float(np.max(cp))
         tmax = float(t[int(np.argmax(cp))])
-        auc = float(np.trapz(cp, t))
+        auc = float(np.trapezoid(cp, t))
 
         # Terminal t_half from last 30% of timepoints
         n = len(t)
