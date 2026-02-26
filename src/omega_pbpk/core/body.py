@@ -1,6 +1,6 @@
-"""WholeBodyPBPK — 34-state ODE engine for 15-organ whole-body PBPK simulation.
+"""WholeBodyPBPK — 35-state ODE engine for 15-organ whole-body PBPK simulation.
 
-State vector layout (34 states):
+State vector layout (35 states):
   [0]  venous_blood
   [1]  arterial_blood
   [2]  lung
@@ -35,6 +35,12 @@ State vector layout (34 states):
   [31] excreted_renal
   [32] metabolized_gut
   [33] excreted_fecal
+  [34] sc_depot           (subcutaneous absorption depot)
+
+SC absorption:
+  dA_SC/dt = -ka_sc * A_SC
+  Absorbed drug enters venous blood directly (bypasses first-pass).
+  Effective absorbed rate = f_sc * ka_sc * A_SC
 
 Mass balance (IV): dose = sum(all states) at all times.
 Solver: scipy solve_ivp, method='LSODA', rtol=1e-8, atol=1e-10.
@@ -55,7 +61,7 @@ from omega_pbpk.drugs.drug import Drug
 
 logger = logging.getLogger(__name__)
 
-N_STATES = 34
+N_STATES = 35
 
 # State indices
 IDX_VEN = 0
@@ -92,6 +98,7 @@ IDX_MET_HEPATIC = 30
 IDX_EXC_RENAL = 31
 IDX_MET_GUT = 32
 IDX_EXC_FECAL = 33
+IDX_SC_DEPOT = 34  # Subcutaneous absorption depot
 
 # ACAT segment indices and transit rates (h⁻¹)
 ACAT_INDICES = [
@@ -354,6 +361,22 @@ class WholeBodyPBPK:
         self._y0[IDX_STOMACH] = dose_mg  # Drug in stomach lumen
         self.drug = Drug(**{**self.drug.__dict__, "dose_mg": dose_mg, "route": "oral"})
 
+    def setup_sc(self, dose_mg: float) -> None:
+        """Set up subcutaneous (SC) administration.
+
+        Drug is placed in an SC depot and absorbed via first-order kinetics
+        directly into systemic venous blood (no first-pass effect).
+
+        dA_SC/dt = -ka_sc * A_SC
+        The rate entering venous blood = f_sc * ka_sc * A_SC
+
+        Args:
+            dose_mg: Administered SC dose (mg).
+        """
+        self._y0 = np.zeros(N_STATES)
+        self._y0[IDX_SC_DEPOT] = dose_mg  # Drug in SC depot
+        self.drug = Drug(**{**self.drug.__dict__, "dose_mg": dose_mg, "route": "sc"})
+
     def add_inhibitor(self, inhibitor: DDIInhibitor) -> None:
         """Add a DDI inhibitor to the simulation."""
         self.inhibitors.append(inhibitor)
@@ -506,6 +529,19 @@ class WholeBodyPBPK:
 
             # Drug absorbed goes to gut wall
             dydt[IDX_GUT_WALL] += absorption
+
+        # --- SC depot absorption ---
+        # First-order absorption from SC depot into venous blood.
+        # dA_SC/dt = -ka_sc * A_SC
+        # Rate into venous blood = f_sc * ka_sc * A_SC (bioavailability-corrected)
+        ka_sc = self.drug.ka_sc
+        f_sc = self.drug.f_sc
+        sc_amount = y[IDX_SC_DEPOT]
+        sc_absorption_rate = ka_sc * sc_amount
+        dydt[IDX_SC_DEPOT] = -sc_absorption_rate
+        # Absorbed fraction enters venous blood; lost fraction accounts for
+        # incomplete bioavailability (e.g. local degradation)
+        venous_inflow += f_sc * sc_absorption_rate
 
         # --- Venous blood ---
         dydt[IDX_VEN] = venous_inflow - co * c_ven
