@@ -12,6 +12,16 @@ from omega_pbpk.clinical.ontogeny import (
     get_pediatric_scaling,
     gfr_ontogeny,
 )
+from omega_pbpk.clinical.ddi_report import (
+    DDIInhibitor,
+    DDIRiskReport,
+    assess_ddi_risk,
+    format_report,
+)
+from omega_pbpk.clinical.nca import (
+    NCAResult,
+    run_nca,
+)
 
 __all__ = [
     "DoseOptimizer",
@@ -22,4 +32,10 @@ __all__ = [
     "cyp1a2_ontogeny",
     "gfr_ontogeny",
     "get_pediatric_scaling",
+    "DDIInhibitor",
+    "DDIRiskReport",
+    "assess_ddi_risk",
+    "format_report",
+    "NCAResult",
+    "run_nca",
 ]
