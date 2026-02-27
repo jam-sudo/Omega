@@ -34,7 +34,14 @@ try:
     HAS_RDKIT = True
 except ImportError:
     HAS_RDKIT = False
-    logger.info("RDKit not available; using simplified QSPR models.")
+    logger.info("RDKit not available; using numpy GNN surrogate.")
+
+try:
+    from omega_pbpk.ml_models.numpy_adme import NumpyADMEPredictor as _NumpyADMEPredictor
+
+    _NUMPY_PREDICTOR: _NumpyADMEPredictor | None = _NumpyADMEPredictor()
+except Exception:
+    _NUMPY_PREDICTOR = None
 
 
 @dataclass(frozen=True)
@@ -64,7 +71,7 @@ class ADMEPredictor:
     from data/adme_reference.csv when available.
     """
 
-    _ref_data: list[dict] | None = None
+    _ref_data: list[dict[str, Any]] | None = None
     _featurizer: Any | None = None
 
     def _load_reference_data(self) -> None:
@@ -74,10 +81,9 @@ class ADMEPredictor:
         prediction/ -> omega_pbpk/ -> src/ -> Omega/ -> data/
         """
         ref_path = (
-            Path(__file__).parent  # prediction/
-            .parent                 # omega_pbpk/
-            .parent                 # src/
-            .parent                 # Omega/
+            Path(
+                __file__
+            ).parent.parent.parent.parent  # prediction/  # omega_pbpk/  # src/  # Omega/
             / "data"
             / "adme_reference.csv"
         )
@@ -86,7 +92,7 @@ class ADMEPredictor:
             self._ref_data = []
             return
 
-        rows: list[dict] = []
+        rows: list[dict[str, Any]] = []
         with open(ref_path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -115,12 +121,13 @@ class ADMEPredictor:
         if self._featurizer is None:
             try:
                 from omega_pbpk.features.rdkit_featurizer import RDKitFeaturizer
+
                 self._featurizer = RDKitFeaturizer()
             except Exception:
                 self._featurizer = False  # mark as unavailable
 
         # Featurize query
-        query_vec: np.ndarray | None = None
+        query_vec: np.ndarray[Any, np.dtype[Any]] | None = None
         if self._featurizer and self._featurizer is not False:
             fv = self._featurizer.featurize(smiles)
             if np.any(fv.descriptors != 0.0):
@@ -181,6 +188,8 @@ class ADMEPredictor:
 
         if HAS_RDKIT:
             base_result = self._predict_rdkit(smiles)
+        elif _NUMPY_PREDICTOR is not None:
+            base_result = self._predict_numpy_gnn(smiles)
         else:
             base_result = self._predict_simplified(smiles)
 
@@ -264,6 +273,40 @@ class ADMEPredictor:
             clint_3a4=round(float(clint_3a4), 3),
             clint_2d6=round(float(clint_2d6), 3),
             herg_ic50_uM=round(float(herg), 2),
+            confidence="medium",
+        )
+
+    def _predict_numpy_gnn(self, smiles: str) -> ADMEProperties:
+        """Atom-contribution GNN surrogate prediction (numpy, no RDKit)."""
+        assert _NUMPY_PREDICTOR is not None
+        res = _NUMPY_PREDICTOR.predict(smiles)
+        from omega_pbpk.features.smiles_featurizer import SmilesFeaturizer
+
+        fv = SmilesFeaturizer().featurize(smiles)
+        x = fv.descriptors
+
+        mw = float(x[0])
+        logp = float(res.logP)
+        log_s = float(res.logS)
+        peff = float(np.clip(res.peff, 0.01, 100.0))
+        fup = float(np.clip(res.fup, 0.001, 1.0))
+        # Rbp from logP (lipophilic → RBC partitioning)
+        rbp = float(np.clip(0.55 + 0.30 / (1.0 + 10 ** (1.5 - 0.4 * logp)), 0.5, 2.0))
+        clint_3a4 = float(np.clip(res.clint_3a4, 0.01, 100.0))
+        # CLint_2D6 ~0.4× 3A4 (typical ratio for mixed CYP substrate)
+        clint_2d6 = float(np.clip(clint_3a4 * 0.40, 0.01, 50.0))
+        herg = float(np.clip(res.herg_ic50_uM, 0.01, 1000.0))
+
+        return ADMEProperties(
+            mw=round(mw, 2),
+            logP=round(logp, 2),
+            logS=round(log_s, 2),
+            peff=round(peff, 3),
+            fup=round(fup, 4),
+            rbp=round(rbp, 3),
+            clint_3a4=round(clint_3a4, 3),
+            clint_2d6=round(clint_2d6, 3),
+            herg_ic50_uM=round(herg, 2),
             confidence="medium",
         )
 

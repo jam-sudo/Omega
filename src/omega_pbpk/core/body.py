@@ -56,7 +56,9 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 
+from omega_pbpk.core.absorption import AbsorptionModel, FoodEffect, GI_SEGMENTS
 from omega_pbpk.core.organ import Organ
+from omega_pbpk.core.transporters import TransporterSet
 from omega_pbpk.drugs.drug import Drug
 
 logger = logging.getLogger(__name__)
@@ -100,7 +102,7 @@ IDX_MET_GUT = 32
 IDX_EXC_FECAL = 33
 IDX_SC_DEPOT = 34  # Subcutaneous absorption depot
 
-# ACAT segment indices and transit rates (h⁻¹)
+# ACAT segment indices and transit rates (h⁻¹) — fasted-state reference
 ACAT_INDICES = [
     IDX_STOMACH,
     IDX_DUODENUM,
@@ -113,6 +115,8 @@ ACAT_INDICES = [
 ]
 ACAT_TRANSIT_TIMES_H = [0.25, 0.26, 0.475, 0.475, 0.68, 0.68, 0.68, 13.5]
 ACAT_KA_FRACTIONS = [0.0, 1.0, 1.0, 1.0, 0.8, 0.6, 0.3, 0.05]
+# GI segment names matching AbsorptionModel order (mirrors ACAT_INDICES)
+ACAT_SEGMENT_NAMES = [s.name for s in GI_SEGMENTS]
 
 # Perfusion-limited organ names and their state indices
 PERFUSION_LIMITED_ORGANS = [
@@ -160,7 +164,7 @@ class SimulationResult:
         c_blood = self.amounts[:, IDX_VEN] / max(v_ven, 1e-12)
         return c_blood / max(self.drug.rbp, 1e-12)
 
-    def pk_summary(self) -> dict[str, float]:
+    def pk_summary(self) -> dict[str, Any]:
         """Compute standard PK parameters from plasma concentration-time profile."""
         cp = self.plasma_concentration()
         t = self.time_h
@@ -201,7 +205,7 @@ class SimulationResult:
 
     def mass_balance(self) -> NDArray[np.floating[Any]]:
         """Total drug mass at each time point (should equal dose)."""
-        return np.sum(self.amounts, axis=1)
+        return np.asarray(np.sum(self.amounts, axis=1), dtype=float)
 
 
 @dataclass
@@ -219,20 +223,39 @@ class DDIInhibitor:
 
 
 class WholeBodyPBPK:
-    """34-state ODE-based whole-body PBPK model.
+    """35-state ODE-based whole-body PBPK model.
 
     Usage:
         model = WholeBodyPBPK(drug, body_weight=70.0)
         model.setup_oral(dose_mg=7.5)
         result = model.simulate(t_end_h=24.0)
+
+        # Fed-state simulation (delayed gastric emptying, higher pH, bile)
+        model = WholeBodyPBPK(drug, body_weight=70.0, fed_state=True)
     """
 
-    def __init__(self, drug: Drug, body_weight: float = 70.0) -> None:
+    def __init__(
+        self,
+        drug: Drug,
+        body_weight: float = 70.0,
+        fed_state: bool = False,
+        food_effect: FoodEffect | None = None,
+    ) -> None:
         self.drug = drug
         self.body_weight = body_weight
+        self.fed_state = fed_state
         self.organs: dict[str, Organ] = {}
         self.inhibitors: list[DDIInhibitor] = []
         self._y0 = np.zeros(N_STATES)
+        # Resolve transporter set (from drug or empty)
+        self._transporters: TransporterSet = (
+            drug.transporters if drug.transporters is not None
+            else TransporterSet()
+        )
+        # Advanced absorption model (Noyes-Whitney, pH-dependent solubility, food)
+        self._absorption = AbsorptionModel(drug, fed_state=fed_state, food_effect=food_effect)
+        # Pre-compute transit time multipliers for fed state
+        self._transit_multipliers = self._absorption.transit_time_multiplier()
         self._build_organs()
 
     def _build_organs(self) -> None:
@@ -437,10 +460,18 @@ class WholeBodyPBPK:
                 q_total = q_ha + q_portal
 
                 # Well-stirred model: CLh = (Q × fup × CLint) / (Q + fup × CLint)
+                # CLint here includes both CYP-mediated metabolism AND OATP-mediated
+                # active uptake (hepatic first-pass extraction via transporters).
                 clint_eff = self._clint_effective()
-                clh = (q_total * fup * clint_eff) / max(q_total + fup * clint_eff, 1e-12)
-                # CLh from well-stirred model is on a total concentration basis
-                # Applied to mixed input blood concentration (HA + PV)
+
+                # Active hepatic uptake via OATP1B1/1B3 — adds to total intracellular
+                # removal (both metabolic and transporter-mediated).
+                bw_scale = self.body_weight / 70.0
+                c_pv_unbound = fup * c_pv / rbp  # unbound portal blood conc (mg/L)
+                cl_oatp = self._transporters.hepatic_uptake_cl(c_pv_unbound, bw_scale)
+                clint_total = clint_eff + cl_oatp  # combined intracellular CL
+
+                clh = (q_total * fup * clint_total) / max(q_total + fup * clint_total, 1e-12)
                 c_liver_in = (q_ha * c_art + q_portal * c_pv) / max(q_total, 1e-12)
                 met_rate = clh * c_liver_in
 
@@ -449,9 +480,18 @@ class WholeBodyPBPK:
                 venous_inflow += q_total * c_out
 
             elif name == "kidney":
-                # CLr defined on total plasma concentration basis
+                # Passive filtration: CLr on total plasma concentration basis
                 c_plasma_out = y[idx] / (v_t * kp)
-                renal_cl_rate = self.drug.clr_L_per_h * c_plasma_out
+                passive_renal_rate = self.drug.clr_L_per_h * c_plasma_out
+
+                # Active tubular secretion via OCT2/OAT1/OAT3/MATE (L/h × mg/L → mg/h)
+                # Applied to unbound kidney concentration
+                bw_scale = self.body_weight / 70.0
+                c_kidney_unbound = fup * c_plasma_out  # unbound conc in kidney (mg/L)
+                cl_sec = self._transporters.renal_secretion_cl(c_kidney_unbound, bw_scale)
+                active_secretion_rate = cl_sec * c_kidney_unbound
+
+                renal_cl_rate = passive_renal_rate + active_secretion_rate
 
                 dydt[idx] = q * c_art - q * c_out - renal_cl_rate
                 dydt[IDX_EXC_RENAL] += renal_cl_rate
@@ -465,7 +505,16 @@ class WholeBodyPBPK:
                     cl_gut = self.drug.gut_clint_scaled_L_per_h
                     gut_met_rate = cl_gut * fup * y[idx] / (v_t * kp)
 
-                    dydt[idx] = q * c_art - q * c_out - gut_met_rate
+                    # P-gp / BCRP efflux: active transport of drug from gut wall
+                    # back into the intestinal lumen (reduces apparent Fg).
+                    bw_scale = self.body_weight / 70.0
+                    c_gut_unbound = fup * y[idx] / (v_t * kp) / rbp  # unbound (mg/L)
+                    cl_efflux = self._transporters.gut_efflux_cl(c_gut_unbound, bw_scale)
+                    gut_efflux_rate = cl_efflux * c_gut_unbound
+                    # Effluxed drug returns to mid-intestinal lumen (jejunum 1)
+                    dydt[IDX_JEJUNUM1] += gut_efflux_rate
+
+                    dydt[idx] = q * c_art - q * c_out - gut_met_rate - gut_efflux_rate
                     dydt[IDX_MET_GUT] += gut_met_rate
                 else:
                     dydt[idx] = q * c_art - q * c_out
@@ -502,18 +551,18 @@ class WholeBodyPBPK:
         q_portal_total = sum(self.organs[pn].blood_flow_L_per_h for pn in PORTAL_ORGANS)
         dydt[IDX_PORTAL] = portal_inflow - q_portal_total * (y[IDX_PORTAL] / v_pv)
 
-        # --- ACAT absorption model ---
+        # --- ACAT absorption model (Noyes-Whitney + pH-dependent + food effect) ---
         # Process all segments: use += to preserve transit_in from previous segment
-        for i, (seg_idx, transit_time, ka_frac) in enumerate(
-            zip(ACAT_INDICES, ACAT_TRANSIT_TIMES_H, ACAT_KA_FRACTIONS, strict=False)
+        for i, (seg_idx, transit_time_ref, seg_name) in enumerate(
+            zip(ACAT_INDICES, ACAT_TRANSIT_TIMES_H, ACAT_SEGMENT_NAMES, strict=False)
         ):
-            kt = 1.0 / max(transit_time, 1e-6)  # Transit rate
+            # Apply fed-state transit time modification (e.g. delayed gastric emptying)
+            t_mult = self._transit_multipliers.get(seg_name, 1.0)
+            transit_time = transit_time_ref * t_mult
+            kt = 1.0 / max(transit_time, 1e-6)  # Transit rate (h⁻¹)
 
-            # Absorption rate from this segment
-            # ka = 2 × Peff / radius × scaling
-            peff = self.drug.peff  # ×10⁻⁴ cm/s
-            ka_base = 2.0 * peff * 3600.0 * 1e-4 / max(self.drug.particle_radius_um * 1e-4, 1e-12)
-            ka = ka_base * ka_frac * 0.01  # empirical scaling
+            # Mechanistic absorption rate constant (pH-dependent Peff + dissolution)
+            ka = self._absorption.segment_ka(seg_name, mass_mg=max(y[seg_idx], 1e-12))
 
             absorption = ka * y[seg_idx]
             transit_out = kt * y[seg_idx]

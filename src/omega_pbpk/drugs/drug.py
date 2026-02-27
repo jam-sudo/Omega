@@ -7,6 +7,10 @@ All parameters use internal standard units:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from omega_pbpk.core.transporters import TransporterSet
 
 
 @dataclass(frozen=True)
@@ -79,8 +83,12 @@ class Drug:
     gut_clint_multiplier: float = 1.0
 
     # SC (subcutaneous) absorption parameters
-    ka_sc: float = 0.2   # SC absorption rate constant (h^-1), first-order
-    f_sc: float = 1.0    # SC bioavailability fraction (no first-pass effect)
+    ka_sc: float = 0.2  # SC absorption rate constant (h^-1), first-order
+    f_sc: float = 1.0  # SC bioavailability fraction (no first-pass effect)
+
+    # Transporter substrates (optional; use build_transporter_set() to create)
+    # Hepatic: OATP1B1/1B3 uptake; Gut: P-gp/BCRP efflux; Renal: OCT2/OAT secretion
+    transporters: TransporterSet | None = None
 
     # Dosing (set at simulation time)
     dose_mg: float = 0.0
