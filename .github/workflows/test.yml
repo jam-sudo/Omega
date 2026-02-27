@@ -16,7 +16,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .[dev]
-          pip install ruff
+          pip install ruff pandas
       - name: Format check
         run: python -m ruff format --check .
       - name: Lint
