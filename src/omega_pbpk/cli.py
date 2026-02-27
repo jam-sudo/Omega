@@ -1,20 +1,26 @@
-"""Omega PBPK CLI — 14 commands for pharmacokinetic simulation and analysis.
+"""Omega PBPK CLI — 20 commands for pharmacokinetic simulation and analysis.
 
 Commands:
-  simulate    — Run PBPK simulation (IV or oral)
-  predict     — SMILES → full PK simulation (ADME + PBPK)
-  multidose   — Multi-dose steady-state simulation
-  optimize    — Therapeutic window dose optimization
-  safety      — Off-target safety panel
-  pgx         — Pharmacogenomics analysis
-  calibrate   — Bayesian MCMC parameter calibration
-  benchmark   — Multi-drug benchmark validation suite
-  sensitivity — Local sensitivity analysis
-  validate    — Mass balance and physiological sanity checks
-  surrogate   — Train/use neural surrogate model
-  uncertainty — Monte Carlo uncertainty propagation
-  evaluate    — Integrated drug candidate evaluation
-  test        — Run test suite
+  simulate         — Run PBPK simulation (IV or oral)
+  predict          — SMILES → full PK simulation (ADME + PBPK)
+  multidose        — Multi-dose steady-state simulation
+  optimize         — Therapeutic window dose optimization
+  safety           — Off-target safety panel
+  pgx              — Pharmacogenomics analysis
+  pgx-sim          — PGx-stratified PBPK (PM/IM/NM/UM AUC ratios)
+  calibrate        — Bayesian MCMC parameter calibration
+  benchmark        — Multi-drug benchmark validation suite
+  sensitivity      — Local sensitivity analysis
+  validate         — Mass balance and physiological sanity checks
+  surrogate        — Train neural surrogate model on real PBPK data
+  uncertainty      — Monte Carlo uncertainty propagation
+  evaluate         — Integrated drug candidate evaluation
+  population       — Population PK simulation (virtual subjects)
+  report           — Generate regulatory-grade HTML report
+  invitro          — In vitro metabolic stability assay (microsomes/hepatocyte + Caco-2)
+  invitro-pipeline — Full in vitro → IVIVE → Drug object pipeline from SMILES
+  serve            — Start FastAPI REST API server
+  test             — Run test suite
 """
 
 from __future__ import annotations
@@ -35,6 +41,34 @@ app = typer.Typer(
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("omega_pbpk")
 
+# Audit logger — writes a separate record for each CLI invocation so that
+# clinical simulations (dose, route, compound path) can be traced back to
+# specific runs without polluting the main application log.
+_audit_logger = logging.getLogger("omega_pbpk.audit")
+if not _audit_logger.handlers:
+    _audit_handler = logging.StreamHandler(sys.stderr)
+    _audit_handler.setFormatter(
+        logging.Formatter("AUDIT %(asctime)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S")
+    )
+    _audit_logger.addHandler(_audit_handler)
+    _audit_logger.setLevel(logging.INFO)
+    _audit_logger.propagate = False
+
+
+def _audit(command: str, **kwargs: object) -> None:
+    """Emit a structured audit record for a CLI invocation.
+
+    Args:
+        command: Name of the CLI command being executed.
+        **kwargs: Key/value pairs of the command's principal inputs.
+            Values are truncated to 200 chars to avoid log bloat.
+    """
+    parts = [f"cmd={command}"]
+    for k, v in kwargs.items():
+        truncated = str(v)[:200]
+        parts.append(f"{k}={truncated!r}")
+    _audit_logger.info(" ".join(parts))
+
 
 def _ensure_dir(path: Path) -> Path:
     """Create output directory if needed."""
@@ -54,6 +88,8 @@ def simulate(
     subject: str | None = typer.Option(None, help="Path to subject YAML file."),
 ) -> None:
     """Run PBPK simulation for a compound."""
+    _audit("simulate", compound=compound, smiles=smiles, dose_mg=dose_mg, route=route,
+           t_end_h=t_end_h, body_weight=body_weight, out=out)
 
     from omega_pbpk.config import load_compound, load_subject
     from omega_pbpk.core.body import WholeBodyPBPK
@@ -139,6 +175,8 @@ def predict(
     duration: float = typer.Option(24.0, "--duration", help="Simulation duration (h)"),
 ) -> None:
     """Predict PK profile for a new drug molecule from SMILES."""
+    _audit("predict", smiles=smiles, dose_mg=dose, route=route, duration_h=duration)
+
     import math
 
     from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
@@ -421,6 +459,9 @@ def calibrate(
     out: str = typer.Option("outputs/calibration", help="Output directory."),
 ) -> None:
     """Run Bayesian MCMC calibration against observed clinical data."""
+    _audit("calibrate", compound=compound, observed=observed, dose_mg=dose_mg,
+           route=route, body_weight=body_weight, n_samples=n_samples, seed=seed, out=out)
+
     import pandas as pd
 
     from omega_pbpk.calibration import run_mh_calibration
@@ -653,6 +694,8 @@ def evaluate_cmd(
     out: str = typer.Option("outputs/evaluation", help="Output directory."),
 ) -> None:
     """Run integrated drug candidate evaluation."""
+    _audit("evaluate", compound=compound, dose_mg=dose_mg, route=route, out=out)
+
     from omega_pbpk.config import load_compound
     from omega_pbpk.pipeline import evaluate_candidate
 
@@ -707,6 +750,9 @@ def population(
     seed: int = typer.Option(42, "--seed", help="Random seed"),
 ) -> None:
     """Run population PK simulation across N virtual subjects."""
+    _audit("population", compound=compound, n_subjects=n_subjects, dose_mg=dose,
+           route=route, duration_h=duration, seed=seed)
+
     from omega_pbpk.config import load_compound
     from omega_pbpk.population.pop_simulator import PopulationSimulator
 
@@ -742,6 +788,9 @@ def report(
     population: int = typer.Option(0, "--population", "-p", help="N subjects for PopPK (0=skip)"),
 ) -> None:
     """Generate a regulatory-grade HTML report (NCA + DDI + PopPK)."""
+    _audit("report", smiles=smiles, name=name, dose_mg=dose, route=route,
+           out=out, population=population)
+
     from omega_pbpk.clinical.report import quick_report
 
     typer.echo(f"Generating report for {name}...")
@@ -754,6 +803,288 @@ def report(
         n_pop_subjects=population,
     )
     typer.echo(f"Report saved to: {path}")
+
+
+@app.command("invitro")
+def invitro_cmd(
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug."),
+    assay_type: str = typer.Option(
+        "hepatocyte", "--assay-type", "-a",
+        help="Assay type: 'microsomes' (Phase 1 only) or 'hepatocyte' (Phase 1+2).",
+    ),
+    c0_uM: float = typer.Option(1.0, "--c0", help="Initial drug concentration in well (µM)."),
+    protein_conc: float = typer.Option(
+        0.5, "--protein-conc", help="Microsomal protein (mg/mL) or cell density (10⁶/mL)."
+    ),
+    caco2: bool = typer.Option(True, "--caco2/--no-caco2", help="Run Caco-2 permeability assay."),
+    out: str | None = typer.Option(None, "--out", "-o", help="Output JSON path (optional)."),
+) -> None:
+    """Simulate in vitro metabolic stability assay from SMILES.
+
+    Predicts ADME + Phase 2 CLint from SMILES, runs a simulated microsomal
+    or hepatocyte substrate-depletion assay, and optionally runs a Caco-2
+    bidirectional permeability simulation.
+
+    Example::
+
+        omega invitro --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --assay-type hepatocyte --caco2
+    """
+    _audit("invitro", smiles=smiles, assay_type=assay_type, c0_uM=c0_uM, caco2=caco2)
+
+    from omega_pbpk.in_vitro.pipeline import InVitroPipeline, InVitroRequest
+
+    req = InVitroRequest(
+        smiles=smiles,
+        assay_type=assay_type,
+        c0_uM=c0_uM,
+        run_caco2=caco2,
+        protein_conc_mg_mL=protein_conc if assay_type == "microsomes" else 0.5,
+        cell_density_million_per_mL=protein_conc if assay_type == "hepatocyte" else 1.0,
+    )
+
+    typer.echo("Running in vitro assay simulation...")
+    pipeline = InVitroPipeline()
+    result = pipeline.run(req)
+
+    typer.echo("\nIn Vitro Metabolic Stability")
+    typer.echo(f"{'=' * 45}")
+    typer.echo(f"SMILES:       {smiles[:55]}{'...' if len(smiles) > 55 else ''}")
+    typer.echo(f"Assay type:   {assay_type}")
+    typer.echo(f"Confidence:   {result.confidence}")
+    typer.echo()
+    typer.echo("ADME Properties:")
+    typer.echo(f"  MW       = {result.adme.mw:.1f} Da")
+    typer.echo(f"  logP     = {result.adme.logP:.2f}")
+    typer.echo(f"  fup      = {result.adme.fup:.3f}")
+    typer.echo(f"  hERG IC50= {result.adme.herg_ic50_uM:.2f} µM")
+    typer.echo()
+    typer.echo("Clearance:")
+    typer.echo(f"  CLint Phase 1 = {result.clint_phase1_ul_min_mg:.3f} µL/min/mg")
+    typer.echo(f"  CLint Phase 2 = {result.clint_phase2_ul_min_mg:.3f} µL/min/mg")
+    typer.echo(f"  CLint total   = {result.clint_total_ul_min_mg:.3f} µL/min/mg")
+    typer.echo(f"  t½ in assay   = {result.assay.t_half_min:.1f} min")
+    typer.echo(f"  CLh (in vivo) = {result.clh_l_per_h:.3f} L/h")
+    typer.echo()
+    typer.echo("Phase 2 pathways:")
+    typer.echo(f"  UGT  = {result.phase2.clint_ugt_ul_min_mg:.3f} µL/min/mg  (prob={result.phase2.ugt_substrate_prob:.2f})")
+    typer.echo(f"  SULT = {result.phase2.clint_sult_ul_min_mg:.3f} µL/min/mg  (prob={result.phase2.sult_substrate_prob:.2f})")
+    typer.echo(f"  MAO  = {result.phase2.clint_mao_ul_min_mg:.3f} µL/min/mg  (prob={result.phase2.mao_substrate_prob:.2f})")
+    typer.echo(f"  Dominant pathway: {result.phase2.dominant_pathway}")
+
+    if result.caco2 is not None:
+        typer.echo()
+        typer.echo("Caco-2 Permeability:")
+        typer.echo(f"  Papp(A→B) = {result.caco2.papp_ab_cm_s:.2f} ×10⁻⁶ cm/s")
+        typer.echo(f"  Papp(B→A) = {result.caco2.papp_ba_cm_s:.2f} ×10⁻⁶ cm/s")
+        typer.echo(f"  ER        = {result.caco2.efflux_ratio:.2f}")
+        typer.echo(f"  Flag      : {result.caco2.pgp_bcrp_flag}")
+
+    if result.warnings:
+        typer.echo()
+        typer.echo("Warnings:")
+        for w in result.warnings:
+            typer.echo(f"  ! {w}")
+
+    if out:
+        summary = {
+            "smiles": smiles,
+            "assay_type": assay_type,
+            "confidence": result.confidence,
+            "adme": {
+                "mw": result.adme.mw,
+                "logP": result.adme.logP,
+                "fup": result.adme.fup,
+                "herg_ic50_uM": result.adme.herg_ic50_uM,
+            },
+            "phase1_clint_ul_min_mg": result.clint_phase1_ul_min_mg,
+            "phase2_clint_ul_min_mg": result.clint_phase2_ul_min_mg,
+            "total_clint_ul_min_mg": result.clint_total_ul_min_mg,
+            "t_half_assay_min": result.assay.t_half_min,
+            "clh_l_per_h": result.clh_l_per_h,
+            "phase2": {
+                "ugt": result.phase2.clint_ugt_ul_min_mg,
+                "sult": result.phase2.clint_sult_ul_min_mg,
+                "mao": result.phase2.clint_mao_ul_min_mg,
+                "dominant": result.phase2.dominant_pathway,
+            },
+            "caco2": {
+                "papp_ab": result.caco2.papp_ab_cm_s,
+                "papp_ba": result.caco2.papp_ba_cm_s,
+                "efflux_ratio": result.caco2.efflux_ratio,
+                "flag": result.caco2.pgp_bcrp_flag,
+            } if result.caco2 else None,
+            "warnings": result.warnings,
+        }
+        with open(out, "w") as f:
+            json.dump(summary, f, indent=2)
+        typer.echo(f"\nResults saved to {out}")
+
+
+@app.command("invitro-pipeline")
+def invitro_pipeline_cmd(
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug."),
+    name: str = typer.Option("compound", "--name", "-n", help="Drug display name."),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose for PBPK simulation (mg)."),
+    assay_type: str = typer.Option(
+        "hepatocyte", "--assay-type", "-a",
+        help="Assay: 'microsomes' or 'hepatocyte'.",
+    ),
+    kd: float | None = typer.Option(
+        None, "--kd", help="Receptor Kd (mg/L) for occupancy/EC50 estimation."
+    ),
+    tau: float = typer.Option(1.0, "--tau", help="Operational model transduction ratio."),
+    caco2: bool = typer.Option(True, "--caco2/--no-caco2", help="Run Caco-2 assay."),
+    out: str = typer.Option("outputs/invitro", "--out", "-o", help="Output directory."),
+) -> None:
+    """Full in vitro → IVIVE → Drug object pipeline from SMILES.
+
+    Runs all 7 pipeline stages (ADME → Phase 2 → Assay → Caco-2 → Receptor
+    → IVIVE → Drug) and saves the resulting Drug YAML and a JSON summary.
+    The Drug object can be directly used for PBPK simulation with omega simulate.
+
+    Example::
+
+        omega invitro-pipeline --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --name caffeine --dose 200 --out outputs/caffeine_iv
+    """
+    _audit("invitro-pipeline", smiles=smiles, name=name, dose_mg=dose,
+           assay_type=assay_type, kd_mg_L=kd, tau=tau, caco2=caco2, out=out)
+
+    import yaml
+
+    from omega_pbpk.in_vitro.pipeline import InVitroPipeline, InVitroRequest
+
+    req = InVitroRequest(
+        smiles=smiles,
+        dose_mg=dose,
+        assay_type=assay_type,
+        run_caco2=caco2,
+        kd_mg_L=kd,
+        tau=tau,
+        drug_name=name,
+    )
+
+    typer.echo(f"Running in vitro → IVIVE pipeline for {name}...")
+    pipeline = InVitroPipeline()
+    result = pipeline.run(req)
+
+    typer.echo(f"\nIn Vitro → IVIVE Pipeline: {name}")
+    typer.echo(f"{'=' * 55}")
+    typer.echo(f"SMILES:        {smiles[:50]}{'...' if len(smiles) > 50 else ''}")
+    typer.echo(f"Assay type:    {assay_type}")
+    typer.echo(f"Confidence:    {result.confidence}")
+    typer.echo()
+    typer.echo("Predicted Properties:")
+    typer.echo(f"  MW               = {result.adme.mw:.1f} Da")
+    typer.echo(f"  logP             = {result.adme.logP:.2f}")
+    typer.echo(f"  fup              = {result.adme.fup:.3f}")
+    typer.echo(f"  rbp              = {result.adme.rbp:.3f}")
+    typer.echo(f"  Peff             = {result.adme.peff:.4f} ×10⁻⁴ cm/s")
+    typer.echo(f"  hERG IC50        = {result.adme.herg_ic50_uM:.2f} µM")
+    typer.echo()
+    typer.echo("Clearance (IVIVE):")
+    typer.echo(f"  Phase 1 CLint    = {result.clint_phase1_ul_min_mg:.3f} µL/min/mg")
+    typer.echo(f"  Phase 2 CLint    = {result.clint_phase2_ul_min_mg:.3f} µL/min/mg")
+    typer.echo(f"    └ dominant P2  : {result.phase2.dominant_pathway}")
+    typer.echo(f"  Total CLint      = {result.clint_total_ul_min_mg:.3f} µL/min/mg")
+    typer.echo(f"  t½ (in vitro)    = {result.assay.t_half_min:.1f} min")
+    typer.echo(f"  CLint (liver)    = {result.assay.clint_liver_L_per_h:.3f} L/h")
+    typer.echo(f"  CLh (well-stirr) = {result.clh_l_per_h:.3f} L/h")
+
+    if result.caco2:
+        typer.echo()
+        typer.echo("Caco-2:")
+        typer.echo(f"  ER = {result.caco2.efflux_ratio:.2f}  ({result.caco2.pgp_bcrp_flag})")
+
+    if result.receptor:
+        typer.echo()
+        typer.echo("Receptor / PD:")
+        typer.echo(f"  EC50  = {result.receptor.ec50_mg_L:.4f} mg/L (R²={result.receptor.r_squared:.3f})")
+        typer.echo(f"  Emax  = {result.receptor.emax_effect:.1f}")
+
+    if result.warnings:
+        typer.echo()
+        typer.echo("Warnings:")
+        for w in result.warnings:
+            typer.echo(f"  ! {w}")
+
+    # --- Save outputs ---
+    out_path = _ensure_dir(Path(out))
+
+    # Drug YAML for use with omega simulate --compound
+    drug = result.drug
+    drug_dict = {
+        "name": drug.name,
+        "mw": drug.mw,
+        "logP": drug.logP,
+        "fup": drug.fup,
+        "rbp": drug.rbp,
+        "peff": drug.peff,
+        "clint_hepatic_L_per_h": drug.clint_hepatic_L_per_h,
+        "clint": drug.clint if hasattr(drug, "clint") else {},
+    }
+    drug_yaml_path = out_path / f"{name}.yaml"
+    with open(drug_yaml_path, "w") as f:
+        yaml.dump(drug_dict, f, default_flow_style=False)
+
+    # Full JSON summary
+    summary = {
+        "drug_name": name,
+        "smiles": smiles,
+        "assay_type": assay_type,
+        "confidence": result.confidence,
+        "adme": {
+            "mw": result.adme.mw,
+            "logP": result.adme.logP,
+            "fup": result.adme.fup,
+            "rbp": result.adme.rbp,
+            "peff": result.adme.peff,
+            "clint_3a4": result.adme.clint_3a4,
+            "clint_2d6": result.adme.clint_2d6,
+            "herg_ic50_uM": result.adme.herg_ic50_uM,
+            "confidence": result.adme.confidence,
+        },
+        "phase2": {
+            "clint_ugt": result.phase2.clint_ugt_ul_min_mg,
+            "clint_sult": result.phase2.clint_sult_ul_min_mg,
+            "clint_mao": result.phase2.clint_mao_ul_min_mg,
+            "total": result.phase2.clint_phase2_total_ul_min_mg,
+            "dominant": result.phase2.dominant_pathway,
+            "confidence": result.phase2.confidence,
+        },
+        "assay": {
+            "type": assay_type,
+            "k_dep_per_h": result.assay.k_dep_per_h,
+            "t_half_min": result.assay.t_half_min,
+            "clint_ul_min_per_system": result.assay.clint_ul_min_per_system,
+            "clint_liver_L_per_h": result.assay.clint_liver_L_per_h,
+        },
+        "ivive": {
+            "clint_phase1_ul_min_mg": result.clint_phase1_ul_min_mg,
+            "clint_phase2_ul_min_mg": result.clint_phase2_ul_min_mg,
+            "clint_total_ul_min_mg": result.clint_total_ul_min_mg,
+            "clh_l_per_h": result.clh_l_per_h,
+        },
+        "caco2": {
+            "papp_ab_cm_s": result.caco2.papp_ab_cm_s,
+            "papp_ba_cm_s": result.caco2.papp_ba_cm_s,
+            "efflux_ratio": result.caco2.efflux_ratio,
+            "flag": result.caco2.pgp_bcrp_flag,
+        } if result.caco2 else None,
+        "receptor": {
+            "ec50_mg_L": result.receptor.ec50_mg_L,
+            "emax_effect": result.receptor.emax_effect,
+            "hill": result.receptor.hill,
+            "r_squared": result.receptor.r_squared,
+        } if result.receptor else None,
+        "warnings": result.warnings,
+    }
+    json_path = out_path / "invitro_summary.json"
+    with open(json_path, "w") as f:
+        json.dump(summary, f, indent=2, default=str)
+
+    typer.echo(f"\nOutputs saved to {out_path}/")
+    typer.echo(f"  Drug YAML : {drug_yaml_path.name}  (use with: omega simulate --compound)")
+    typer.echo(f"  Summary   : invitro_summary.json")
 
 
 @app.command("serve")

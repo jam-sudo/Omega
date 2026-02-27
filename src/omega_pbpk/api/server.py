@@ -40,14 +40,14 @@ def create_app() -> Any:
     app = FastAPI(
         title="Omega PBPK API",
         description="Whole-body PBPK simulation platform",
-        version="0.7.0",
+        version="0.9.0",
     )
 
     # --- Request/Response models ---
 
     class HealthResponse(BaseModel):
         status: str = "ok"
-        version: str = "0.7.0"
+        version: str = "0.9.0"
 
     class PredictRequest(BaseModel):
         smiles: str
@@ -58,6 +58,7 @@ def create_app() -> Any:
         dose_mg: float = 10.0
         t_end_h: float = 24.0
         body_weight_kg: float = 70.0
+        partition_method: str = "heuristic"  # "heuristic" or "rodgers_rowland"
 
     class DDIRequest(BaseModel):
         compound_yaml: str | None = None
@@ -148,7 +149,7 @@ def create_app() -> Any:
 
     @app.post("/simulate/iv")
     def simulate_iv(req: SimulateRequest) -> dict[str, Any]:
-        drug = _load_drug(req.compound_yaml, req.smiles)
+        drug = _load_drug(req.compound_yaml, req.smiles, req.partition_method)
         from omega_pbpk.core.body import WholeBodyPBPK
 
         model = WholeBodyPBPK(drug, body_weight=req.body_weight_kg)
@@ -158,7 +159,7 @@ def create_app() -> Any:
 
     @app.post("/simulate/oral")
     def simulate_oral(req: SimulateRequest) -> dict[str, Any]:
-        drug = _load_drug(req.compound_yaml, req.smiles)
+        drug = _load_drug(req.compound_yaml, req.smiles, req.partition_method)
         from omega_pbpk.core.body import WholeBodyPBPK
 
         model = WholeBodyPBPK(drug, body_weight=req.body_weight_kg)
@@ -349,8 +350,17 @@ def create_app() -> Any:
     def _load_drug(
         compound_yaml: str | None = None,
         smiles: str | None = None,
+        partition_method: str = "heuristic",
     ) -> Any:
-        """Load drug from YAML path or SMILES string."""
+        """Load drug from YAML path or SMILES string.
+
+        Args:
+            compound_yaml: Path to compound YAML file.
+            smiles: SMILES string for ADME prediction.
+            partition_method: Kp estimation method — 'heuristic' (default,
+                simplified Poulin & Theil 2002) or 'rodgers_rowland'
+                (mechanistic, Rodgers & Rowland 2006).
+        """
         if compound_yaml:
             from omega_pbpk.config import load_compound
 
@@ -369,6 +379,7 @@ def create_app() -> Any:
                 rbp=props.rbp,
                 peff=props.peff,
                 clint={"CYP3A4": props.clint_3a4, "CYP2D6": props.clint_2d6},
+                partition_method=partition_method,
             )
         else:
             raise HTTPException(400, "Either compound_yaml or smiles must be provided")
