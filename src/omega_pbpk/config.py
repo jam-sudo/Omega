@@ -34,7 +34,7 @@ def load_compound(path: str | Path) -> Drug:
     if not path.exists():
         raise FileNotFoundError(f"Compound file not found: {path}")
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         raw: dict[str, Any] = yaml.safe_load(f) or {}
 
     # Extract clearance
@@ -108,7 +108,7 @@ def load_subject(path: str | Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Subject file not found: {path}")
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         raw: dict[str, Any] = yaml.safe_load(f) or {}
 
     return {

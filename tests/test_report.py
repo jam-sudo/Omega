@@ -11,7 +11,7 @@ class TestGenerateReport:
         out = str(tmp_path / "report.html")
         path = generate_report(inp, out)
         assert Path(path).exists()
-        content = Path(path).read_text()
+        content = Path(path).read_text(encoding='utf-8')
         assert "<html" in content
         assert "TestDrug" in content
 
@@ -24,7 +24,7 @@ class TestGenerateReport:
         inp = ReportInput(drug_name="Test", nca_result=nca)
         out = str(tmp_path / "r.html")
         generate_report(inp, out)
-        assert "Non-Compartmental" in Path(out).read_text()
+        assert "Non-Compartmental" in Path(out).read_text(encoding='utf-8')
 
     def test_ddi_section_present(self, tmp_path):
         from omega_pbpk.clinical.report import ReportInput, generate_report
@@ -34,21 +34,21 @@ class TestGenerateReport:
         inp = ReportInput(drug_name="Test", ddi_report=ddi)
         out = str(tmp_path / "r.html")
         generate_report(inp, out)
-        assert "DDI Risk" in Path(out).read_text()
+        assert "DDI Risk" in Path(out).read_text(encoding='utf-8')
 
     def test_warnings_section(self, tmp_path):
         from omega_pbpk.clinical.report import ReportInput, generate_report
         inp = ReportInput(drug_name="Test", warnings=["Test warning"])
         out = str(tmp_path / "r.html")
         generate_report(inp, out)
-        assert "Test warning" in Path(out).read_text()
+        assert "Test warning" in Path(out).read_text(encoding='utf-8')
 
     def test_empty_report_valid_html(self, tmp_path):
         from omega_pbpk.clinical.report import ReportInput, generate_report
         inp = ReportInput(drug_name="Empty")
         out = str(tmp_path / "r.html")
         generate_report(inp, out)
-        content = Path(out).read_text()
+        content = Path(out).read_text(encoding='utf-8')
         assert "</html>" in content
 
 

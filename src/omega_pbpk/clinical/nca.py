@@ -10,6 +10,8 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from omega_pbpk._compat import np_trapz
+
 
 @dataclass(frozen=True)
 class NCAResult:
@@ -120,4 +122,4 @@ def _auc_linlog(t: NDArray, c: NDArray) -> float:
 def _aumc_linlog(t: NDArray, c: NDArray) -> float:
     """AUMC using linear trapezoidal rule."""
     tc = t * c
-    return float(np.trapezoid(tc, t))
+    return float(np_trapz(tc, t))

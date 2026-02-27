@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
+from omega_pbpk._compat import np_trapz
+
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent
@@ -68,7 +70,7 @@ def _simulate_one(params: dict, dose_mg: float = 100.0, route: str = "oral") -> 
 
         cmax = float(np.max(cp))
         tmax = float(t[int(np.argmax(cp))])
-        auc = float(np.trapezoid(cp, t))
+        auc = float(np_trapz(cp, t))
 
         # Terminal t_half from last 30% of timepoints
         n = len(t)

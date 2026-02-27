@@ -56,6 +56,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 
+from omega_pbpk._compat import np_trapz
 from omega_pbpk.core.organ import Organ
 from omega_pbpk.drugs.drug import Drug
 
@@ -167,7 +168,7 @@ class SimulationResult:
 
         cmax = float(np.max(cp))
         tmax = float(t[np.argmax(cp)])
-        auc = float(np.trapezoid(cp, t))
+        auc = float(np_trapz(cp, t))
 
         # Terminal half-life from last 50% of profile
         n = len(t)

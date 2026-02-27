@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import yaml
 
+from omega_pbpk._compat import np_trapz
 from omega_pbpk.config import load_compound
 from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
@@ -50,7 +51,7 @@ def _load_csv(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 def _auc_trapezoid(time: np.ndarray, conc: np.ndarray) -> float:
     """Trapezoidal AUC."""
-    return float(np.trapezoid(conc, time))
+    return float(np_trapz(conc, time))
 
 
 def _cmax_tmax(time: np.ndarray, conc: np.ndarray) -> tuple[float, float]:

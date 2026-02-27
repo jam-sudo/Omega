@@ -75,7 +75,7 @@ class TestWarfarinYaml:
         for search_dir in (COMPOUNDS_DIR, BENCHMARKS_DIR):
             path = search_dir / filename
             if path.exists():
-                with open(path) as f:
+                with open(path, encoding="utf-8") as f:
                     return yaml.safe_load(f)
         pytest.skip(f"{filename} not found in compounds/ or benchmarks/configs/")
 

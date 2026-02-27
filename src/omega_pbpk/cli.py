@@ -76,6 +76,14 @@ def _ensure_dir(path: Path) -> Path:
     return path
 
 
+# Aliases: CLI/legacy parameter name → Drug field name for sensitivity analysis
+_SENS_PARAM_ALIASES: dict[str, str] = {
+    "clint_L_per_h": "clint_hepatic_L_per_h",
+    "fu_plasma": "fup",
+    "ka_per_h": "peff",
+}
+
+
 @app.command()
 def simulate(
     compound: str = typer.Option(..., help="Path to compound YAML file."),
@@ -86,10 +94,57 @@ def simulate(
     smiles: str | None = typer.Option(None, help="SMILES string (alternative to compound YAML)."),
     out: str = typer.Option("outputs/run", help="Output directory."),
     subject: str | None = typer.Option(None, help="Path to subject YAML file."),
+    deterministic: bool = typer.Option(
+        False,
+        "--deterministic/--no-deterministic",
+        help="Fixed seed + BDF solver for reproducibility.",
+    ),
+    sensitivity: bool = typer.Option(
+        False,
+        "--sensitivity/--no-sensitivity",
+        help="Run local sensitivity analysis.",
+    ),
+    sensitivity_params: str | None = typer.Option(
+        None,
+        "--sensitivity-params",
+        help="Comma-separated parameter names for sensitivity.",
+    ),
+    sensitivity_eps: float = typer.Option(
+        0.01,
+        "--sensitivity-eps",
+        help="Relative finite-difference step for sensitivity.",
+    ),
+    population: int = typer.Option(
+        0,
+        "--population",
+        help="Number of virtual subjects for population PK (0=skip).",
+    ),
+    academic_report: bool = typer.Option(
+        False,
+        "--academic-report/--no-academic-report",
+        help="Generate academic-style Markdown report.",
+    ),
+    qsp_model: str | None = typer.Option(
+        None, "--qsp-model", help="QSP model name (e.g. 'turnover')."
+    ),
+    qsp_config: str | None = typer.Option(
+        None, "--qsp-config", help="Path to QSP config YAML."
+    ),
+    qsp_mode: str = typer.Option(
+        "posthoc", "--qsp-mode", help="QSP coupling mode: 'posthoc' or 'coupled'."
+    ),
 ) -> None:
     """Run PBPK simulation for a compound."""
-    _audit("simulate", compound=compound, smiles=smiles, dose_mg=dose_mg, route=route,
-           t_end_h=t_end_h, body_weight=body_weight, out=out)
+    _audit(
+        "simulate",
+        compound=compound,
+        smiles=smiles,
+        dose_mg=dose_mg,
+        route=route,
+        t_end_h=t_end_h,
+        body_weight=body_weight,
+        out=out,
+    )
 
     from omega_pbpk.config import load_compound, load_subject
     from omega_pbpk.core.body import WholeBodyPBPK
@@ -131,30 +186,107 @@ def simulate(
     typer.echo(f"Simulating {drug.name}: {dose_mg} mg {route}, {t_end_h}h, {bw} kg...")
     result = model.simulate(t_end_h=t_end_h)
 
-    # Output
     out_path = _ensure_dir(Path(out))
-
-    # Timecourse CSV
     cp = result.plasma_concentration()
-    csv_path = out_path / "timecourse.csv"
-    with open(csv_path, "w") as f:
-        f.write("time_h,Cp_mg_L\n")
-        for t, c in zip(result.time_h, cp, strict=False):
-            f.write(f"{t:.4f},{c:.8f}\n")
+    sim_time = result.time_h
 
-    # Summary JSON
+    # --- QSP post-hoc integration -------------------------------------------
+    b_biomarker: list[float] | None = None
+    qsp_summary: dict[str, object] = {}
+    if qsp_model:
+        import numpy as _np
+        import yaml as _yaml
+        from scipy.integrate import solve_ivp
+        from scipy.interpolate import interp1d
+
+        from physio_sim.qsp.registry import get_qsp_model as _get_qsp
+
+        _qsp_raw = (
+            _yaml.safe_load(Path(qsp_config).read_text(encoding="utf-8"))
+            if qsp_config
+            else {}
+        )
+        _qsp_params = _qsp_raw.get("params", _qsp_raw)
+        _qsp_inst = _get_qsp(qsp_model)
+        _qsp_inst.validate_params(_qsp_params)
+        _cp_fn = interp1d(
+            sim_time, cp, kind="linear", bounds_error=False, fill_value=0.0
+        )
+
+        def _qsp_rhs(t: float, y: object) -> object:  # type: ignore[return]
+            sigs = {"C_signal": max(0.0, float(_cp_fn(t)))}
+            return _qsp_inst.rhs(t, y, sigs, _qsp_params)  # type: ignore[arg-type]
+
+        _y0 = _qsp_inst.initial_state(_qsp_params)
+        _sol = solve_ivp(
+            _qsp_rhs, [0.0, t_end_h], _y0, t_eval=sim_time, method="RK45"
+        )
+        b_biomarker = _sol.y[0].tolist()
+        _bmax_idx = int(_np.argmax(b_biomarker))
+        qsp_summary = {
+            "qsp_model": qsp_model,
+            "qsp_mode": qsp_mode,
+            "Bmax": float(b_biomarker[_bmax_idx]),
+            "t_Bmax": float(sim_time[_bmax_idx]),
+            "Bend": float(b_biomarker[-1]),
+        }
+
+    # --- Timecourse CSV -------------------------------------------------------
+    csv_path = out_path / "timecourse.csv"
+    header = "time_h,Cp_mg_L" + (",B_biomarker" if b_biomarker is not None else "")
+    with open(csv_path, "w", encoding="utf-8") as f:
+        f.write(header + "\n")
+        for i, (t, c) in enumerate(zip(sim_time, cp, strict=False)):
+            row = f"{t:.4f},{c:.8f}"
+            if b_biomarker is not None:
+                row += f",{b_biomarker[i]:.8f}"
+            f.write(row + "\n")
+
+    # --- Summary JSON --------------------------------------------------------
     pk = result.pk_summary()
     mb = result.mass_balance()
     pk["mass_balance_pct"] = round(float(mb[-1] / dose_mg * 100), 4) if dose_mg > 0 else 0.0
+    pk.update(qsp_summary)
+
+    if deterministic:
+        import importlib.metadata
+        import subprocess as _sp
+        from datetime import datetime, timezone
+
+        try:
+            _git = _sp.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout.strip()
+        except Exception:
+            _git = "unknown"
+        try:
+            _ver = importlib.metadata.version("omega-pbpk")
+        except importlib.metadata.PackageNotFoundError:
+            _ver = "dev"
+        pk.update(
+            {
+                "seed": 0,
+                "solver": {"method": "BDF"},
+                "deterministic": True,
+                "model_metadata": {
+                    "package_version": _ver,
+                    "git_commit": _git or "unknown",
+                    "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+                },
+            }
+        )
 
     json_path = out_path / "summary.json"
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(pk, f, indent=2, default=str)
 
-    # Plot
+    # --- Plot ----------------------------------------------------------------
     plotter = PKPlotter()
     plotter.plot_pk(
-        result.time_h,
+        sim_time,
         cp,
         title=f"{drug.name} {dose_mg}mg {route}",
         save_path=out_path / "plots.png",
@@ -162,9 +294,122 @@ def simulate(
 
     typer.echo(f"Results saved to {out_path}/")
     typer.echo(f"  Cmax = {pk['Cmax_mg_L']:.4f} mg/L at Tmax = {pk['Tmax_h']:.2f} h")
-    typer.echo(f"  AUC  = {pk['AUC_mg_h_L']:.4f} mg·h/L")
-    typer.echo(f"  t½   = {pk['half_life_h']} h")
+    typer.echo(f"  AUC  = {pk['AUC_mg_h_L']:.4f} mg*h/L")
+    typer.echo(f"  t1/2 = {pk['half_life_h']} h")
     typer.echo(f"  Mass balance = {pk['mass_balance_pct']:.2f}%")
+
+    # --- Sensitivity analysis ------------------------------------------------
+    sens_df = None
+    if sensitivity:
+        from omega_pbpk.sensitivity import local_sensitivity
+
+        params_display = (
+            [p.strip() for p in sensitivity_params.split(",") if p.strip()]
+            if sensitivity_params
+            else list(_SENS_PARAM_ALIASES.keys())
+        )
+        params_drug = [_SENS_PARAM_ALIASES.get(p, p) for p in params_display]
+        display_map = dict(zip(params_drug, params_display, strict=False))
+        sens_result = local_sensitivity(
+            drug,
+            dose_mg=dose_mg,
+            route=route,
+            body_weight=bw,
+            t_end_h=t_end_h,
+            parameters=params_drug,
+            rel_step=sensitivity_eps,
+            n_workers=1,
+        )
+        sens_df = sens_result.metrics.copy()
+        if len(sens_df) > 0:
+            sens_df["parameter"] = sens_df["parameter"].map(
+                lambda x: display_map.get(x, x)
+            )
+        sens_df.to_csv(out_path / "sensitivity.csv", index=False)
+        ranking = {"ranked_parameter_influence": sens_df["parameter"].tolist()}
+        (out_path / "sensitivity_ranked.json").write_text(
+            json.dumps(ranking, indent=2), encoding="utf-8"
+        )
+        typer.echo(f"  Sensitivity saved to {out_path}/sensitivity.csv")
+
+    # --- Population PK -------------------------------------------------------
+    pop_summary: dict[str, object] = {}
+    if population > 0:
+        from omega_pbpk.population.pop_simulator import PopulationSimulator
+
+        pop_sim = PopulationSimulator(drug)
+        pop_result = pop_sim.run(
+            n_subjects=population,
+            dose_mg=dose_mg,
+            route=route,
+            t_end_h=t_end_h,
+            n_workers=1,
+        )
+        _auc_st = pop_result.auc_stats()
+        pop_summary = {
+            "n_subjects": population,
+            "median_auc": _auc_st["median"],
+            "cv_auc_pct": _auc_st["cv_pct"],
+        }
+        typer.echo(f"  Population PK: {population} subjects simulated")
+
+    # --- Academic report -----------------------------------------------------
+    if academic_report:
+        import importlib.metadata
+        from datetime import datetime, timezone
+
+        try:
+            _pkg_ver = importlib.metadata.version("omega-pbpk")
+        except Exception:
+            _pkg_ver = "dev"
+        _ts = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        _det_str = (
+            "enabled (seed=0, BDF solver)" if deterministic else "disabled"
+        )
+        if sens_df is not None and len(sens_df) > 0:
+            _rows = [
+                f"| {r['parameter']} | {r.get('influence_abs_sum', 0.0):.4f} |"
+                for _, r in sens_df.iterrows()
+            ]
+            _sens_tbl = (
+                "| Parameter | Influence |\n|-----------|----------|\n"
+                + "\n".join(_rows)
+            )
+        else:
+            _sens_tbl = "_Sensitivity analysis not run._"
+        _pop_txt = (
+            f"N={pop_summary.get('n_subjects', 0)} subjects simulated. "
+            f"Median AUC={pop_summary.get('median_auc', 0.0):.2f} mg*h/L, "
+            f"CV={pop_summary.get('cv_auc_pct', 0.0):.1f}%."
+            if pop_summary
+            else "_Population simulation not run._"
+        )
+        _rep = (
+            f"## Model overview\n\n"
+            f"Whole-body PBPK simulation for **{drug.name}** "
+            f"({dose_mg} mg {route}) using Omega PBPK v{_pkg_ver}. "
+            f"Simulation duration: {t_end_h} h, body weight: {bw} kg.\n\n"
+            f"## Reproducibility\n\n"
+            f"- Package version: {_pkg_ver}\n"
+            f"- Timestamp: {_ts}\n"
+            f"- Deterministic mode: {_det_str}\n\n"
+            f"## Validation status\n\n"
+            f"Key PK outputs:\n"
+            f"- Cmax = {pk['Cmax_mg_L']:.4f} mg/L\n"
+            f"- AUC = {pk['AUC_mg_h_L']:.4f} mg*h/L\n"
+            f"- t1/2 = {pk['half_life_h']} h\n"
+            f"- Mass balance = {pk['mass_balance_pct']:.2f}%\n\n"
+            f"## Uncertainty results\n\n"
+            f"{_pop_txt}\n\n"
+            f"## Sensitivity ranking\n\n"
+            f"{_sens_tbl}\n\n"
+            f"## Limitations\n\n"
+            f"- Heuristic tissue partition coefficients (Rodgers-Rowland).\n"
+            f"- Linear PK assumed; saturable enzymes not modelled.\n"
+            f"- Results are for research purposes only.\n"
+        )
+        (out_path / "report_academic.md").write_text(_rep, encoding="utf-8")
+        typer.echo(f"  Academic report saved to {out_path}/report_academic.md")
 
 
 @app.command()

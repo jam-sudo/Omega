@@ -184,10 +184,11 @@ class TestPKValidation:
         )
 
     def test_caffeine_clh_regression(self) -> None:
-        """Caffeine CLh from well-stirred model should be in [0.5, 5.0] L/h.
+        """Caffeine CLh from well-stirred model should be in [3.0, 10.0] L/h.
 
-        With default caffeine config (CLint=8.0, fup=0.65, Q_liver≈99.5):
-        CLh = (99.5 × 0.65 × 8.0) / (99.5 + 0.65 × 8.0) ≈ 4.94 L/h
+        Literature: CL ~ 1.0-2.0 mL/min/kg → 4-8 L/h (70 kg), t1/2 ~ 3-5 h.
+        With CLint=11.0, fup=0.65, Q_liver≈99.5:
+        CLh = (99.5 × 0.65 × 11.0) / (99.5 + 0.65 × 11.0) ≈ 6.7 L/h
         """
         from omega_pbpk.config import load_compound
 
@@ -198,6 +199,6 @@ class TestPKValidation:
         fup = drug.fup
 
         clh = _well_stirred_clh(q_liver, fup, clint)
-        assert 0.5 <= clh <= 5.0, (
+        assert 3.0 <= clh <= 10.0, (
             f"Caffeine CLh = {clh:.3f} L/h (CLint={clint:.2f}, fup={fup}, Q_liver={q_liver:.1f})"
         )

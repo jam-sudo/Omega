@@ -44,6 +44,8 @@ from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 from scipy.interpolate import interp1d
 
+from omega_pbpk._compat import np_trapz
+
 # ---------------------------------------------------------------------------
 # Result dataclasses
 # ---------------------------------------------------------------------------
@@ -137,7 +139,7 @@ class EquilibriumOccupancy:
             effect = occ.copy()
 
         i_peak = int(np.argmax(occ))
-        auc_occ = float(np.trapz(occ, time_h))
+        auc_occ = float(np_trapz(occ, time_h))
 
         return OccupancyResult(
             time_h=time_h.astype(np.float64),
@@ -232,7 +234,7 @@ class KineticOccupancy:
             effect = occ.copy()
 
         i_peak = int(np.argmax(occ))
-        auc_occ = float(np.trapz(occ, time_h))
+        auc_occ = float(np_trapz(occ, time_h))
 
         return OccupancyResult(
             time_h=time_h.astype(np.float64),

@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from omega_pbpk._compat import np_trapz
 from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
 from omega_pbpk.risk import RiskFlags, compute_risk_flags
@@ -249,7 +250,7 @@ class OmegaPipeline:
         time_h, cp = self._run_simulation(drug, request, warnings_list)
         cmax = float(np.max(cp))
         tmax = float(time_h[np.argmax(cp)])
-        auc = float(np.trapezoid(cp, time_h))
+        auc = float(np_trapz(cp, time_h))
         n = len(time_h)
         tail_start = int(0.7 * n)
         if np.all(cp[tail_start:] > 0):
@@ -369,7 +370,7 @@ def simulate_with_uncertainty(
         cp_interp = np.interp(time_h, sim_time, cp)
         cp_matrix.append(cp_interp)
         cmax_samples.append(float(np.max(cp_interp)))
-        auc_samples.append(float(np.trapezoid(cp_interp, time_h)))
+        auc_samples.append(float(np_trapz(cp_interp, time_h)))
     cp_arr = np.array(cp_matrix)
     cmax_arr = np.array(cmax_samples)
     auc_arr = np.array(auc_samples)
