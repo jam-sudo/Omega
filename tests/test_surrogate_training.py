@@ -1,7 +1,6 @@
 """Tests for real-PBPK surrogate training pipeline."""
 
 import numpy as np
-import pytest
 
 
 class TestBuildTrainingDataset:
@@ -42,7 +41,7 @@ class TestTrainSurrogate:
         assert model is not None
 
     def test_predict_shape(self):
-        from omega_pbpk.surrogate.train import train_surrogate, build_training_dataset
+        from omega_pbpk.surrogate.train import build_training_dataset, train_surrogate
 
         model = train_surrogate(n_samples=5, epochs=10, seed=0)
         X, _ = build_training_dataset(n_samples=3, seed=1)
@@ -50,8 +49,8 @@ class TestTrainSurrogate:
         assert preds.shape == (X.shape[0], 4)
 
     def test_surrogate_save_load(self, tmp_path):
-        from omega_pbpk.surrogate.train import train_surrogate
         from omega_pbpk.surrogate import PKSurrogate
+        from omega_pbpk.surrogate.train import train_surrogate
 
         save_path = str(tmp_path / "test_surrogate.npz")
         model = train_surrogate(n_samples=5, epochs=5, seed=0, save_path=save_path)

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
 from omega_pbpk.core.heuristics import (
@@ -27,7 +26,6 @@ from omega_pbpk.core.heuristics import (
     rodgers_rowland_kp,
 )
 from omega_pbpk.drugs.drug import Drug
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -376,7 +376,7 @@ class TestComputeBioequivalence:
                 t_half_h=8.0,
                 tmax_h=1.0,
             )
-            for i, (c, a) in enumerate(zip(cmax_vals, auc_vals))
+            for i, (c, a) in enumerate(zip(cmax_vals, auc_vals, strict=False))
         ]
 
     def test_returns_be_result(self):

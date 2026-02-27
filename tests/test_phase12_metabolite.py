@@ -10,18 +10,18 @@ Tests cover:
 """
 
 import math
-import pytest
-import numpy as np
 
+import numpy as np
+import pytest
+
+from omega_pbpk.core.body import IDX_MET_HEPATIC, WholeBodyPBPK
 from omega_pbpk.core.metabolite import (
     MetaboliteResult,
     MetaboliteSpec,
     simulate_all_metabolites,
     simulate_metabolite,
 )
-from omega_pbpk.core.body import WholeBodyPBPK, IDX_MET_HEPATIC
 from omega_pbpk.drugs.drug import Drug
-
 
 # ---------------------------------------------------------------------------
 # Helpers

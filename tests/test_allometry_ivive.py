@@ -1,6 +1,5 @@
 """Tests for allometric scaling and IVIVE modules."""
 
-import math
 import pytest
 
 
@@ -34,7 +33,7 @@ class TestAllometry:
         assert pred.r_squared is not None
 
     def test_multi_species_larger_cl_than_rat_alone(self):
-        from omega_pbpk.clinical.allometry import scale_single_species, scale_multi_species
+        from omega_pbpk.clinical.allometry import scale_multi_species, scale_single_species
 
         # Dog has higher CL per kg → multi-species should predict higher human CL
         rat_only = scale_single_species("rat", 1.0, 1.0)
@@ -88,7 +87,7 @@ class TestIVIVE:
         assert r_low.clh_well_stirred_L_per_h > r_high.clh_well_stirred_L_per_h
 
     def test_backcalculate_clint(self):
-        from omega_pbpk.clinical.ivive import scale_microsomal_clint, estimate_clint_for_target_clh
+        from omega_pbpk.clinical.ivive import estimate_clint_for_target_clh, scale_microsomal_clint
 
         # Round-trip: estimate CLint → scale to CLh → should match target
         target_clh = 20.0

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers — import guards
 # ---------------------------------------------------------------------------
@@ -127,7 +126,7 @@ class TestVirtualPopulationReproducibility:
         subjects_2 = _sample_population(n=50, seed=2)
         weights_1 = [s.body_weight_kg for s in subjects_1]
         weights_2 = [s.body_weight_kg for s in subjects_2]
-        assert any(w1 != w2 for w1, w2 in zip(weights_1, weights_2)), (
+        assert any(w1 != w2 for w1, w2 in zip(weights_1, weights_2, strict=False)), (
             "Different seeds must produce at least one different weight"
         )
 

@@ -10,13 +10,11 @@ Tests cover:
 - simulate_indirect_response: baseline, steady state, direction of effect
 """
 
-import math
-import pytest
 import numpy as np
+import pytest
 
 from omega_pbpk.core.qsp import (
     IndirectResponseModel,
-    IndirectResponseResult,
     TmddParams,
     TmddResult,
     emax_effect,
@@ -24,7 +22,6 @@ from omega_pbpk.core.qsp import (
     simulate_indirect_response,
     simulate_tmdd,
 )
-
 
 # ---------------------------------------------------------------------------
 # TmddParams properties

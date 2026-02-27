@@ -11,12 +11,9 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
-from omega_pbpk.calibration import CalibrationResult, run_mh_calibration
-from omega_pbpk.calibration import _simulate_concentration
+from omega_pbpk.calibration import CalibrationResult, _simulate_concentration, run_mh_calibration
 from omega_pbpk.drugs.drug import Drug
-
 
 # ------------------------------------------------------------------ helpers
 

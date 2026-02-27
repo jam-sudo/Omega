@@ -13,20 +13,16 @@ Tests cover:
 - WholeBodyPBPK: dissolution-limited drug (low solubility) has lower F
 """
 
-import math
 import pytest
-import numpy as np
 
 from omega_pbpk.core.absorption import (
+    _GI_SEGMENT_MAP,
+    GI_SEGMENTS,
     AbsorptionModel,
     FoodEffect,
-    GI_SEGMENTS,
-    GISegment,
-    _GI_SEGMENT_MAP,
 )
 from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -351,7 +347,7 @@ class TestTransitTimeMultiplier:
     def test_fasted_all_ones(self, neutral_drug):
         am = AbsorptionModel(neutral_drug, fed_state=False)
         mults = am.transit_time_multiplier()
-        for name, m in mults.items():
+        for _name, m in mults.items():
             assert m == pytest.approx(1.0, abs=1e-9)
 
     def test_fed_stomach_delayed(self, neutral_drug):

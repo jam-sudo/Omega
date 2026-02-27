@@ -210,6 +210,7 @@ class SimulationRequest:
     species: str = "human"
     subject_age_years: float | None = None
     subject_weight_kg: float | None = None
+    kp_method: str = "heuristic"
 
 
 @dataclass
@@ -301,7 +302,10 @@ class OmegaPipeline:
             "confidence": "low",
         }
 
-    def _build_drug(self, smiles: str, adme: dict, warnings_list: list):
+    def _build_drug(
+        self, smiles: str, adme: dict, warnings_list: list, kp_method: str = "heuristic"
+    ):
+        from omega_pbpk.core.heuristics import KP_METHOD_NAMES
         from omega_pbpk.drugs.drug import Drug
 
         fup = max(float(adme.get("fup", 0.1)), 0.001)
@@ -311,6 +315,9 @@ class OmegaPipeline:
         herg = float(adme.get("herg_ic50_uM", 100.0))
         if herg < 1.0:
             warnings_list.append(f"hERG IC50 = {herg:.2f} uM -- potential cardiac safety concern")
+        if kp_method not in KP_METHOD_NAMES:
+            warnings_list.append(f"Unknown kp_method '{kp_method}'; falling back to 'heuristic'")
+            kp_method = "heuristic"
         return Drug(
             name=f"compound_{smiles[:8]}",
             mw=float(adme.get("mw", 300.0)),
@@ -319,6 +326,7 @@ class OmegaPipeline:
             rbp=float(adme.get("rbp", 0.55)),
             clint_hepatic_L_per_h=clint_L_per_h,
             peff=1.0,
+            partition_method=kp_method,
         )
 
     def _run_simulation(self, drug, request, warnings_list):

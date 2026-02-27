@@ -11,9 +11,7 @@ Tests cover:
 - Integration with WholeBodyPBPK: severe RI → higher AUC for renally-cleared drug
 """
 
-import math
 import pytest
-import numpy as np
 
 from omega_pbpk.clinical.disease import (
     ChildPughClass,
@@ -25,13 +23,11 @@ from omega_pbpk.clinical.disease import (
     PregnancyState,
     RenalImpairment,
     RenalImpairmentStage,
-    ScaledParameters,
     TrimesterStage,
     apply_disease_scaling,
 )
 from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
-
 
 # ---------------------------------------------------------------------------
 # RenalImpairment

@@ -223,14 +223,75 @@ def rodgers_rowland_kp(
         # Rodgers & Rowland Eq. 4 — neutral / acid
         # Water partitioning scales with ionisation; lipid partitioning uses
         # neutral species only (P, not D) but is attenuated by ionisation.
-        kp = (fw_t * ion + lipid_t) / max(fw_p + lipid_p, 1e-12)
+        kpu = (fw_t * ion + lipid_t) / max(fw_p + lipid_p, 1e-12)
     else:
         # Rodgers & Rowland Eq. 5 — base / zwitterion
         # Ionised basic species interact with acidic phospholipids in tissue,
         # giving enhanced tissue distribution.
-        kp = (fw_t * ion + lipid_t + fp_t * max(ion - 1.0, 0.0)) / max(fw_p + lipid_p, 1e-12)
+        kpu = (fw_t * ion + lipid_t + fp_t * max(ion - 1.0, 0.0)) / max(fw_p + lipid_p, 1e-12)
 
-    return float(max(round(kp, 4), 0.01))
+    return float(max(round(kpu * fup, 4), 0.01))
+
+
+# ---------------------------------------------------------------------------
+# Method 3 — Poulin & Theil (2002) mechanistic Kp
+# ---------------------------------------------------------------------------
+
+
+def poulin_theil_kp(
+    logP: float,
+    pka: float | None = None,
+    compound_type: str = "neutral",
+    tissue_name: str = "rest",
+    fup: float = 0.5,
+    *,
+    drug_type: str | None = None,
+) -> float:
+    """Estimate Kp using the Poulin & Theil (2002) method.
+
+    Kp = Kpu × fup where Kpu is the unbound tissue:plasma partition.
+    Uses Eq. 4 of Rodgers & Rowland (identical for neutral/acid compounds;
+    no extra phospholipid term for bases).
+
+    Args:
+        logP: Octanol-water log partition coefficient.
+        pka: Primary pKa value.
+        compound_type: One of 'neutral', 'acid', 'base', 'zwitterion'.
+        tissue_name: Target tissue name.
+        fup: Fraction unbound in plasma (0–1).  Kp scales linearly with fup.
+        drug_type: Legacy ionisation class (used if compound_type not given).
+
+    Returns:
+        Estimated Kp (always ≥ 0.01).
+    """
+    ct = compound_type
+    if drug_type is not None and compound_type == "neutral":
+        ct = _DRUG_TYPE_MAP.get(drug_type, compound_type)
+
+    tissue = TISSUE_COMPOSITION.get(tissue_name)
+    if tissue is None:
+        return 1.0
+
+    plasma = PLASMA_COMPOSITION
+    p_ow = 10.0**logP
+
+    fw_t = tissue["fw"]
+    fn_t = tissue["fn"]
+    fp_t = tissue["fp"]
+    pH_t = tissue["pH"]
+
+    fw_p = plasma["fw"]
+    fn_p = plasma["fn"]
+    fp_p = plasma["fp"]
+    pH_p = plasma["pH"]
+
+    lipid_t = fn_t * p_ow + fp_t * (0.3 * p_ow + 0.7)
+    lipid_p = fn_p * p_ow + fp_p * (0.3 * p_ow + 0.7)
+
+    ion = _ionization_ratio(pka, pH_t, pH_p, ct)
+    kpu = (fw_t * ion + lipid_t) / max(fw_p + lipid_p, 1e-12)
+
+    return float(max(round(kpu * fup, 4), 0.01))
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +300,12 @@ def rodgers_rowland_kp(
 
 _KP_METHODS: dict[str, Callable[..., float]] = {
     "heuristic": heuristic_kp,
+    "poulin_theil": poulin_theil_kp,
     "rodgers_rowland": rodgers_rowland_kp,
 }
+
+#: Sorted tuple of available Kp method names.
+KP_METHOD_NAMES: tuple[str, ...] = tuple(sorted(_KP_METHODS))
 
 
 def get_partition_method(name: str) -> Callable[..., float]:
@@ -265,11 +330,22 @@ def estimate_all_kp(
     drug_type: str = "neutral",
     fup: float = 0.5,
     tissues: list[str] | None = None,
+    method: str = "heuristic",
+    compound_type: str | None = None,
 ) -> dict[str, float]:
-    """Estimate Kp for all standard PBPK tissues (heuristic method)."""
+    """Estimate Kp for all standard PBPK tissues.
+
+    Args:
+        method: Kp method — 'heuristic' (default), 'poulin_theil', or
+            'rodgers_rowland'.
+        compound_type: Canonical ionisation class; overrides drug_type when
+            given.
+    """
     if tissues is None:
         tissues = list(_TISSUE_FACTORS.keys())
-    return {t: heuristic_kp(logP, pka, drug_type, t, fup) for t in tissues}
+    ct = compound_type or drug_type
+    kp_fn = get_partition_method(method)
+    return {t: kp_fn(logP=logP, pka=pka, compound_type=ct, tissue_name=t, fup=fup) for t in tissues}
 
 
 def log_kp_summary(kp_values: dict[str, float]) -> str:

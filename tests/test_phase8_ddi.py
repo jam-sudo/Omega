@@ -14,6 +14,7 @@ Tests cover:
 """
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.ddi_report import (
@@ -27,7 +28,6 @@ from omega_pbpk.clinical.ddi_report import (
     assess_ddi_risk,
     format_report,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

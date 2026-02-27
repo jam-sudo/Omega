@@ -12,8 +12,8 @@ from __future__ import annotations
 import pytest
 
 from omega_pbpk.core.heuristics import (
-    TISSUE_COMPOSITION,
     _TISSUE_FACTORS,
+    TISSUE_COMPOSITION,
     estimate_all_kp,
     get_partition_method,
     heuristic_kp,
@@ -50,8 +50,7 @@ class TestHeuristicKpBasic:
 
     def test_unknown_tissue_defaults_to_rest_factor(self):
         kp_unknown = heuristic_kp(2.0, tissue_name="unknown_organ")
-        kp_rest = heuristic_kp(2.0, tissue_name="rest")
-        # Both use factor=0.9 / 1.0; unknown falls back to 1.0 default
+        # Unknown tissue falls back to 1.0 factor default
         assert kp_unknown >= 0.1
 
     def test_fup_zero_clamps_correctly(self):

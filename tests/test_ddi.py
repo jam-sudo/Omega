@@ -15,7 +15,6 @@ import pytest
 from omega_pbpk.core.body import DDIInhibitor, WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
 
-
 # ------------------------------------------------------------------ helpers
 
 

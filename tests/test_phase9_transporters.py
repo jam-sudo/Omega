@@ -11,19 +11,16 @@ Tests cover:
 - Drug dataclass transporter field
 """
 
-import math
 import pytest
-import numpy as np
 
+from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.core.transporters import (
     TransporterInhibition,
     TransporterKinetics,
     TransporterSet,
     build_transporter_set,
 )
-from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

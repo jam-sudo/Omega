@@ -10,8 +10,6 @@ Tests cover:
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
@@ -387,7 +385,7 @@ class TestNumpyADMEPredictor:
         logPs = [r.logP for r in results]
         logSs = [r.logS for r in results]
         # Pearson-like: sort by logP and check logS goes the other way overall
-        sorted_by_logp = sorted(zip(logPs, logSs))
+        sorted_by_logp = sorted(zip(logPs, logSs, strict=False))
         # The most lipophilic should have lower logS than the most hydrophilic
         assert sorted_by_logp[-1][1] < sorted_by_logp[0][1]
 
@@ -444,7 +442,7 @@ class TestADMEPredictorNumpyFallback:
 
     def test_numpy_gnn_method_confidence_is_medium(self, adme):
         """_predict_numpy_gnn directly returns 'medium' (better than 'low' heuristic)."""
-        from omega_pbpk.prediction.adme_predictor import HAS_RDKIT, _NUMPY_PREDICTOR
+        from omega_pbpk.prediction.adme_predictor import _NUMPY_PREDICTOR, HAS_RDKIT
 
         if HAS_RDKIT or _NUMPY_PREDICTOR is None:
             pytest.skip("numpy GNN only tested when no RDKit")

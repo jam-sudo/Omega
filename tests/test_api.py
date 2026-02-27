@@ -6,7 +6,6 @@ Run with: python3 -m pytest tests/test_api.py -v --tb=short
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
