@@ -44,10 +44,8 @@ for special populations:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from enum import IntEnum
-
 
 __all__ = [
     "RenalImpairmentStage",
@@ -69,43 +67,49 @@ __all__ = [
 # Enumerations
 # ---------------------------------------------------------------------------
 
+
 class RenalImpairmentStage(IntEnum):
     """NKF KDIGO CKD staging based on eGFR (mL/min/1.73m²)."""
-    NORMAL = 0     # eGFR ≥ 90
-    MILD = 1       # eGFR 60–89
-    MODERATE = 2   # eGFR 30–59
-    SEVERE = 3     # eGFR 15–29
-    ESRD = 4       # eGFR < 15 (or dialysis)
+
+    NORMAL = 0  # eGFR ≥ 90
+    MILD = 1  # eGFR 60–89
+    MODERATE = 2  # eGFR 30–59
+    SEVERE = 3  # eGFR 15–29
+    ESRD = 4  # eGFR < 15 (or dialysis)
 
 
 class ChildPughClass(IntEnum):
     """Child-Pugh classification of hepatic impairment."""
+
     NORMAL = 0
-    A = 1   # Mild:   score 5-6
-    B = 2   # Moderate: score 7-9
-    C = 3   # Severe:   score 10-15
+    A = 1  # Mild:   score 5-6
+    B = 2  # Moderate: score 7-9
+    C = 3  # Severe:   score 10-15
 
 
 class NyhaClass(IntEnum):
     """NYHA functional classification of heart failure."""
+
     NORMAL = 0
-    I = 1    # No limitation
-    II = 2   # Slight limitation
-    III = 3  # Marked limitation
-    IV = 4   # Symptoms at rest
+    CLASS_I = 1  # No limitation
+    CLASS_II = 2  # Slight limitation
+    CLASS_III = 3  # Marked limitation
+    CLASS_IV = 4  # Symptoms at rest
 
 
 class TrimesterStage(IntEnum):
     """Pregnancy trimester."""
+
     NON_PREGNANT = 0
-    T1 = 1   # First trimester (weeks 1-13)
-    T2 = 2   # Second trimester (weeks 14-26)
-    T3 = 3   # Third trimester (weeks 27-40)
+    T1 = 1  # First trimester (weeks 1-13)
+    T2 = 2  # Second trimester (weeks 14-26)
+    T3 = 3  # Third trimester (weeks 27-40)
 
 
 # ---------------------------------------------------------------------------
 # Disease state dataclasses
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class RenalImpairment:
@@ -121,7 +125,7 @@ class RenalImpairment:
     """
 
     stage: RenalImpairmentStage = RenalImpairmentStage.NORMAL
-    egfr_mL_min: float | None = None   # if None, use stage-based value
+    egfr_mL_min: float | None = None  # if None, use stage-based value
     albumin_g_dL: float = 4.0
     on_dialysis: bool = False
 
@@ -134,7 +138,8 @@ class RenalImpairment:
             RenalImpairmentStage.SEVERE: 21.0,
             RenalImpairmentStage.ESRD: 8.0,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     @property
@@ -180,33 +185,36 @@ class HepaticImpairment:
     _CYP_FRACTION: dict[ChildPughClass, float] = field(
         default_factory=lambda: {
             ChildPughClass.NORMAL: 1.00,
-            ChildPughClass.A:      0.75,
-            ChildPughClass.B:      0.50,
-            ChildPughClass.C:      0.25,
+            ChildPughClass.A: 0.75,
+            ChildPughClass.B: 0.50,
+            ChildPughClass.C: 0.25,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     # Hepatic blood flow fraction by CP class
     _QH_FRACTION: dict[ChildPughClass, float] = field(
         default_factory=lambda: {
             ChildPughClass.NORMAL: 1.00,
-            ChildPughClass.A:      0.90,
-            ChildPughClass.B:      0.75,
-            ChildPughClass.C:      0.60,
+            ChildPughClass.A: 0.90,
+            ChildPughClass.B: 0.75,
+            ChildPughClass.C: 0.60,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     # Default portal shunt fractions by CP class (Lam et al., 1997)
     _SHUNT_FRACTION: dict[ChildPughClass, float] = field(
         default_factory=lambda: {
             ChildPughClass.NORMAL: 0.00,
-            ChildPughClass.A:      0.05,
-            ChildPughClass.B:      0.20,
-            ChildPughClass.C:      0.40,
+            ChildPughClass.A: 0.05,
+            ChildPughClass.B: 0.20,
+            ChildPughClass.C: 0.40,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     @property
@@ -248,24 +256,26 @@ class HeartFailure:
     _CO_FRACTION: dict[NyhaClass, float] = field(
         default_factory=lambda: {
             NyhaClass.NORMAL: 1.00,
-            NyhaClass.I:      0.90,
-            NyhaClass.II:     0.80,
-            NyhaClass.III:    0.65,
-            NyhaClass.IV:     0.50,
+            NyhaClass.CLASS_I: 0.90,
+            NyhaClass.CLASS_II: 0.80,
+            NyhaClass.CLASS_III: 0.65,
+            NyhaClass.CLASS_IV: 0.50,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     # Hepatic flow fraction (splanchnic vasoconstriction)
     _QH_FRACTION: dict[NyhaClass, float] = field(
         default_factory=lambda: {
             NyhaClass.NORMAL: 1.00,
-            NyhaClass.I:      0.90,
-            NyhaClass.II:     0.75,
-            NyhaClass.III:    0.60,
-            NyhaClass.IV:     0.45,
+            NyhaClass.CLASS_I: 0.90,
+            NyhaClass.CLASS_II: 0.75,
+            NyhaClass.CLASS_III: 0.60,
+            NyhaClass.CLASS_IV: 0.45,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     @property
@@ -297,7 +307,7 @@ class ObesityState:
     def bmi(self) -> float:
         """Body mass index (kg/m²)."""
         h_m = max(self.height_cm / 100.0, 0.1)
-        return self.body_weight_kg / h_m ** 2
+        return self.body_weight_kg / h_m**2
 
     @property
     def is_obese(self) -> bool:
@@ -353,62 +363,68 @@ class PregnancyState:
     _PLASMA_EXPANSION: dict[TrimesterStage, float] = field(
         default_factory=lambda: {
             TrimesterStage.NON_PREGNANT: 0.00,
-            TrimesterStage.T1:           0.10,
-            TrimesterStage.T2:           0.30,
-            TrimesterStage.T3:           0.45,
+            TrimesterStage.T1: 0.10,
+            TrimesterStage.T2: 0.30,
+            TrimesterStage.T3: 0.45,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     # Cardiac output expansion (fraction above normal)
     _CO_EXPANSION: dict[TrimesterStage, float] = field(
         default_factory=lambda: {
             TrimesterStage.NON_PREGNANT: 0.00,
-            TrimesterStage.T1:           0.15,
-            TrimesterStage.T2:           0.35,
-            TrimesterStage.T3:           0.40,
+            TrimesterStage.T1: 0.15,
+            TrimesterStage.T2: 0.35,
+            TrimesterStage.T3: 0.40,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     # GFR expansion (fraction above normal)
     _GFR_EXPANSION: dict[TrimesterStage, float] = field(
         default_factory=lambda: {
             TrimesterStage.NON_PREGNANT: 0.00,
-            TrimesterStage.T1:           0.20,
-            TrimesterStage.T2:           0.50,
-            TrimesterStage.T3:           0.50,
+            TrimesterStage.T1: 0.20,
+            TrimesterStage.T2: 0.50,
+            TrimesterStage.T3: 0.50,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     # CYP activity changes (fold-change from normal)
     _CYP3A4_FACTOR: dict[TrimesterStage, float] = field(
         default_factory=lambda: {
             TrimesterStage.NON_PREGNANT: 1.00,
-            TrimesterStage.T1:           1.30,
-            TrimesterStage.T2:           1.70,
-            TrimesterStage.T3:           2.00,
+            TrimesterStage.T1: 1.30,
+            TrimesterStage.T2: 1.70,
+            TrimesterStage.T3: 2.00,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
     _CYP1A2_FACTOR: dict[TrimesterStage, float] = field(
         default_factory=lambda: {
             TrimesterStage.NON_PREGNANT: 1.00,
-            TrimesterStage.T1:           0.90,
-            TrimesterStage.T2:           0.70,
-            TrimesterStage.T3:           0.65,
+            TrimesterStage.T1: 0.90,
+            TrimesterStage.T2: 0.70,
+            TrimesterStage.T3: 0.65,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
     _CYP2D6_FACTOR: dict[TrimesterStage, float] = field(
         default_factory=lambda: {
             TrimesterStage.NON_PREGNANT: 1.00,
-            TrimesterStage.T1:           1.20,
-            TrimesterStage.T2:           1.50,
-            TrimesterStage.T3:           1.50,
+            TrimesterStage.T1: 1.20,
+            TrimesterStage.T2: 1.50,
+            TrimesterStage.T3: 1.50,
         },
-        repr=False, compare=False,
+        repr=False,
+        compare=False,
     )
 
     @property
@@ -443,6 +459,7 @@ class PregnancyState:
 # Composite disease state
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DiseaseState:
     """Container for all active disease-state modifications.
@@ -469,6 +486,7 @@ class DiseaseState:
 # ---------------------------------------------------------------------------
 # Scaled parameter container
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ScaledParameters:
@@ -503,6 +521,7 @@ class ScaledParameters:
 # ---------------------------------------------------------------------------
 # Scaling function
 # ---------------------------------------------------------------------------
+
 
 def apply_disease_scaling(
     body_weight: float = 70.0,
@@ -579,8 +598,7 @@ def apply_disease_scaling(
         co_scale = 1.0 + max(ob.bmi - 30.0, 0.0) * 0.01  # ~1% per BMI unit
         params.cardiac_output_scale *= min(co_scale, 1.5)
         params.notes.append(
-            f"Obesity BMI={ob.bmi:.1f}: ABW={ob.adjusted_bw_kg:.1f} kg, "
-            f"CO×{co_scale:.2f}"
+            f"Obesity BMI={ob.bmi:.1f}: ABW={ob.adjusted_bw_kg:.1f} kg, CO×{co_scale:.2f}"
         )
 
     # ------------------------------------------------------------------

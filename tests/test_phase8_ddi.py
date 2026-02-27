@@ -33,6 +33,7 @@ from omega_pbpk.clinical.ddi_report import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def weak_inhibitor():
     """Cmax 0.1 µM — all Ki values far above threshold → no risk flags expected.
@@ -47,7 +48,7 @@ def weak_inhibitor():
         ki_2c9_uM=10_000.0,
         ki_1a2_uM=10_000.0,
         ki_2c19_uM=10_000.0,
-        dose_mg=10.0,   # small dose → R1gut ≪ 11
+        dose_mg=10.0,  # small dose → R1gut ≪ 11
     )
 
 
@@ -57,7 +58,7 @@ def strong_cyp3a4_inhibitor():
     return DDIInhibitor(
         name="StrongCYP3A4",
         cmax_uM=5.0,
-        ki_3a4_uM=0.1,        # R1 = 1 + 5/0.1 = 51 → well above 2
+        ki_3a4_uM=0.1,  # R1 = 1 + 5/0.1 = 51 → well above 2
         mw=531.0,
         dose_mg=200.0,
         fa=0.9,
@@ -72,8 +73,8 @@ def mbi_inhibitor():
     return DDIInhibitor(
         name="MBIStrong",
         cmax_uM=3.0,
-        ki_3a4_uM=1000.0,         # no static inhibition
-        kinact_3a4_per_h=4.2,     # high kinact
+        ki_3a4_uM=1000.0,  # no static inhibition
+        kinact_3a4_per_h=4.2,  # high kinact
         ki_mbi_3a4_uM=0.5,
         mw=748.0,
         dose_mg=500.0,
@@ -86,8 +87,8 @@ def inducer():
     return DDIInhibitor(
         name="Inducer",
         cmax_uM=10.0,
-        ind_max_3a4=8.0,    # IndMax = 8
-        ind_c50_3a4_uM=2.0, # EC50 = 2 µM
+        ind_max_3a4=8.0,  # IndMax = 8
+        ind_c50_3a4_uM=2.0,  # EC50 = 2 µM
         mw=823.0,
         dose_mg=600.0,
     )
@@ -99,7 +100,7 @@ def transporter_inhibitor():
     return DDIInhibitor(
         name="TransporterHit",
         cmax_uM=2.0,
-        ic50_pgp_uM=1.0,      # R_pgp will be large due to gut lumen concentration
+        ic50_pgp_uM=1.0,  # R_pgp will be large due to gut lumen concentration
         ic50_oatp1b1_uM=0.5,
         ic50_oatp1b3_uM=0.5,
         ic50_oct2_uM=1.0,
@@ -116,11 +117,11 @@ def multi_mechanism_inhibitor():
     return DDIInhibitor(
         name="MultiMech",
         cmax_uM=4.0,
-        ki_3a4_uM=2.0,             # R1 = 3.0
+        ki_3a4_uM=2.0,  # R1 = 3.0
         kinact_3a4_per_h=2.0,
         ki_mbi_3a4_uM=1.0,
         ind_max_3a4=3.0,
-        ind_c50_3a4_uM=1.0,        # induction ratio at Cmax=4 → 1 + 3*4/(1+4) = 3.4
+        ind_c50_3a4_uM=1.0,  # induction ratio at Cmax=4 → 1 + 3*4/(1+4) = 3.4
         mw=400.0,
         dose_mg=100.0,
     )
@@ -129,6 +130,7 @@ def multi_mechanism_inhibitor():
 # ---------------------------------------------------------------------------
 # KDEG constants
 # ---------------------------------------------------------------------------
+
 
 class TestKdegConstants:
     def test_all_cyps_present(self):
@@ -150,6 +152,7 @@ class TestKdegConstants:
 # ---------------------------------------------------------------------------
 # _r1 helper
 # ---------------------------------------------------------------------------
+
 
 class TestR1Helper:
     def test_no_inhibition_at_zero_cmax(self):
@@ -177,6 +180,7 @@ class TestR1Helper:
 # ---------------------------------------------------------------------------
 # _r2_mbi helper
 # ---------------------------------------------------------------------------
+
 
 class TestR2MbiHelper:
     def test_no_mbi_returns_one(self):
@@ -212,6 +216,7 @@ class TestR2MbiHelper:
 # _induction_ratio helper
 # ---------------------------------------------------------------------------
 
+
 class TestInductionRatioHelper:
     def test_no_induction_when_ind_max_zero(self):
         assert _induction_ratio(10.0, 0.0, 1.0) == 1.0
@@ -237,6 +242,7 @@ class TestInductionRatioHelper:
 # ---------------------------------------------------------------------------
 # _aucr helper
 # ---------------------------------------------------------------------------
+
 
 class TestAucrHelper:
     def test_no_ddi_aucr_is_one(self):
@@ -273,6 +279,7 @@ class TestAucrHelper:
 # ---------------------------------------------------------------------------
 # assess_ddi_risk — individual sections
 # ---------------------------------------------------------------------------
+
 
 class TestStaticR1:
     def test_weak_inhibitor_no_flags(self, weak_inhibitor):
@@ -438,7 +445,7 @@ class TestTransporterDDI:
         inh = DDIInhibitor(
             name="OCT2Hit",
             cmax_uM=3.0,
-            ic50_oct2_uM=2.0,   # R_oct2 = 1 + 3/2 = 2.5
+            ic50_oct2_uM=2.0,  # R_oct2 = 1 + 3/2 = 2.5
         )
         report = assess_ddi_risk(inh)
         assert report.R_oct2 == pytest.approx(2.5, rel=1e-4)
@@ -446,9 +453,9 @@ class TestTransporterDDI:
 
     def test_transporter_flags_raised(self, transporter_inhibitor):
         report = assess_ddi_risk(transporter_inhibitor)
-        transporter_flags = [f for f in report.flags if any(
-            t in f for t in ("P-gp", "OATP1B1", "OATP1B3", "OCT2")
-        )]
+        transporter_flags = [
+            f for f in report.flags if any(t in f for t in ("P-gp", "OATP1B1", "OATP1B3", "OCT2"))
+        ]
         assert len(transporter_flags) >= 1
 
     def test_transporter_r_values_finite(self, transporter_inhibitor):
@@ -485,6 +492,7 @@ class TestAucrPrediction:
 # Full assess_ddi_risk integration
 # ---------------------------------------------------------------------------
 
+
 class TestAssessDdiRiskIntegration:
     def test_returns_ddi_risk_report(self, weak_inhibitor):
         report = assess_ddi_risk(weak_inhibitor)
@@ -505,9 +513,21 @@ class TestAssessDdiRiskIntegration:
 
     def test_all_r_values_ge_one(self, strong_cyp3a4_inhibitor):
         report = assess_ddi_risk(strong_cyp3a4_inhibitor)
-        for attr in ("R1_3a4", "R1_2d6", "R1_2c9", "R1_1a2", "R1_2c19",
-                     "R2_3a4", "R2_2d6", "R2_2c9", "R2_1a2",
-                     "R_pgp", "R_oatp1b1", "R_oatp1b3", "R_oct2"):
+        for attr in (
+            "R1_3a4",
+            "R1_2d6",
+            "R1_2c9",
+            "R1_1a2",
+            "R1_2c19",
+            "R2_3a4",
+            "R2_2d6",
+            "R2_2c9",
+            "R2_1a2",
+            "R_pgp",
+            "R_oatp1b1",
+            "R_oatp1b3",
+            "R_oct2",
+        ):
             val = getattr(report, attr)
             assert val >= 1.0, f"{attr} = {val} < 1.0"
 
@@ -524,6 +544,7 @@ class TestAssessDdiRiskIntegration:
 # ---------------------------------------------------------------------------
 # format_report
 # ---------------------------------------------------------------------------
+
 
 class TestFormatReport:
     def test_returns_string(self, weak_inhibitor):
@@ -573,6 +594,7 @@ class TestFormatReport:
 # ---------------------------------------------------------------------------
 # Backward compatibility
 # ---------------------------------------------------------------------------
+
 
 class TestBackwardCompatibility:
     def test_legacy_induction_fold_3a4_attribute(self):

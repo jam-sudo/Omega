@@ -1,5 +1,7 @@
 """FDA-style regulatory HTML report generator."""
+
 from __future__ import annotations
+
 import base64
 import io
 import math
@@ -11,13 +13,14 @@ from typing import Any
 @dataclass
 class ReportInput:
     """All inputs needed to generate a regulatory report."""
+
     drug_name: str
     smiles: str = ""
     dose_mg: float = 100.0
     route: str = "oral"
-    nca_result: Any = None          # NCAResult or None
-    ddi_report: Any = None          # DDIRiskReport or None
-    pop_pk_result: Any = None       # PopPKResult or None
+    nca_result: Any = None  # NCAResult or None
+    ddi_report: Any = None  # DDIRiskReport or None
+    pop_pk_result: Any = None  # PopPKResult or None
     adme_properties: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
@@ -53,7 +56,8 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
       <h2>1. Drug Summary</h2>
       <table>
         <tr><th>Name</th><td>{inp.drug_name}</td></tr>
-        <tr><th>SMILES</th><td style="font-family:monospace;font-size:0.85em">{inp.smiles or "—"}</td></tr>
+        <tr><th>SMILES</th>
+        <td style="font-family:monospace;font-size:0.85em">{inp.smiles or "—"}</td></tr>
         <tr><th>Dose</th><td>{inp.dose_mg} mg ({inp.route})</td></tr>
       </table>
     </section>""")
@@ -62,7 +66,8 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
     if inp.adme_properties:
         rows = "".join(
             f"<tr><th>{k}</th><td>{_fmt(v) if isinstance(v, float) else v}</td></tr>"
-            for k, v in inp.adme_properties.items() if k != "confidence"
+            for k, v in inp.adme_properties.items()
+            if k != "confidence"
         )
         conf = inp.adme_properties.get("confidence", "—")
         sections.append(f"""
@@ -95,18 +100,28 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
     # --- DDI ---
     if inp.ddi_report is not None:
         d = inp.ddi_report
-        flag_html = "".join(f"<li style='color:darkorange'>⚠ {f}</li>" for f in d.flags) if d.flags else "<li style='color:green'>No risk flags</li>"
+        flag_html = (
+            "".join(f"<li style='color:darkorange'>⚠ {f}</li>" for f in d.flags)
+            if d.flags
+            else "<li style='color:green'>No risk flags</li>"
+        )
         sections.append(f"""
     <section>
       <h2>4. DDI Risk Assessment (FDA 2020)</h2>
       <table>
         <tr><th>Enzyme</th><th>R1 (static)</th><th>Threshold</th><th>Status</th></tr>
-        <tr><td>CYP3A4</td><td>{_fmt(d.R1_3a4)}</td><td>≥ 2.0</td><td>{'⚠ Risk' if d.R1_3a4 >= 2 else '✓ OK'}</td></tr>
-        <tr><td>CYP2D6</td><td>{_fmt(d.R1_2d6)}</td><td>≥ 2.0</td><td>{'⚠ Risk' if d.R1_2d6 >= 2 else '✓ OK'}</td></tr>
-        <tr><td>CYP2C9</td><td>{_fmt(d.R1_2c9)}</td><td>≥ 2.0</td><td>{'⚠ Risk' if d.R1_2c9 >= 2 else '✓ OK'}</td></tr>
-        <tr><td>CYP1A2</td><td>{_fmt(d.R1_1a2)}</td><td>≥ 2.0</td><td>{'⚠ Risk' if d.R1_1a2 >= 2 else '✓ OK'}</td></tr>
-        <tr><td>CYP3A4 (gut R1gut)</td><td>{_fmt(d.R1gut_3a4)}</td><td>≥ 11.0</td><td>{'⚠ Risk' if d.R1gut_3a4 >= 11 else '✓ OK'}</td></tr>
-        <tr><td>CYP3A4 (MBI R2)</td><td>{_fmt(d.R2_3a4)}</td><td>≥ 1.25</td><td>{'⚠ Risk' if d.R2_3a4 >= 1.25 else '✓ OK'}</td></tr>
+        <tr><td>CYP3A4</td><td>{_fmt(d.R1_3a4)}</td><td>≥ 2.0</td>
+        <td>{"⚠ Risk" if d.R1_3a4 >= 2 else "✓ OK"}</td></tr>
+        <tr><td>CYP2D6</td><td>{_fmt(d.R1_2d6)}</td><td>≥ 2.0</td>
+        <td>{"⚠ Risk" if d.R1_2d6 >= 2 else "✓ OK"}</td></tr>
+        <tr><td>CYP2C9</td><td>{_fmt(d.R1_2c9)}</td><td>≥ 2.0</td>
+        <td>{"⚠ Risk" if d.R1_2c9 >= 2 else "✓ OK"}</td></tr>
+        <tr><td>CYP1A2</td><td>{_fmt(d.R1_1a2)}</td><td>≥ 2.0</td>
+        <td>{"⚠ Risk" if d.R1_1a2 >= 2 else "✓ OK"}</td></tr>
+        <tr><td>CYP3A4 (gut R1gut)</td><td>{_fmt(d.R1gut_3a4)}</td><td>≥ 11.0</td>
+        <td>{"⚠ Risk" if d.R1gut_3a4 >= 11 else "✓ OK"}</td></tr>
+        <tr><td>CYP3A4 (MBI R2)</td><td>{_fmt(d.R2_3a4)}</td><td>≥ 1.25</td>
+        <td>{"⚠ Risk" if d.R2_3a4 >= 1.25 else "✓ OK"}</td></tr>
       </table>
       <p><strong>Flags:</strong></p>
       <ul>{flag_html}</ul>
@@ -123,6 +138,7 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
         vpc_img = ""
         try:
             import matplotlib
+
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
 
@@ -133,9 +149,12 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
             hi = pr.percentile_cp(95)
             ax.fill_between(t, lo, hi, alpha=0.25, color="steelblue", label="5th–95th %ile")
             ax.plot(t, med, color="steelblue", linewidth=2, label="Median")
-            ax.set_xlabel("Time (h)"); ax.set_ylabel("Concentration (mg/L)")
+            ax.set_xlabel("Time (h)")
+            ax.set_ylabel("Concentration (mg/L)")
             ax.set_title(f"Population PK — {pr.n_subjects} subjects")
-            ax.legend(); ax.set_xlim(left=0); ax.set_ylim(bottom=0)
+            ax.legend()
+            ax.set_xlim(left=0)
+            ax.set_ylim(bottom=0)
             plt.tight_layout()
             img_b64 = _fig_to_base64(fig)
             plt.close(fig)
@@ -148,8 +167,12 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
       <h2>5. Population PK (n={pr.n_subjects})</h2>
       <table>
         <tr><th>Parameter</th><th>Median</th><th>5th %ile</th><th>95th %ile</th><th>CV%</th></tr>
-        <tr><td>C<sub>max</sub> (mg/L)</td><td>{_fmt(cmax_s['median'])}</td><td>{_fmt(cmax_s['p5'])}</td><td>{_fmt(cmax_s['p95'])}</td><td>{cmax_s['cv_pct']:.1f}%</td></tr>
-        <tr><td>AUC (mg·h/L)</td><td>{_fmt(auc_s['median'])}</td><td>{_fmt(auc_s['p5'])}</td><td>{_fmt(auc_s['p95'])}</td><td>{auc_s['cv_pct']:.1f}%</td></tr>
+        <tr><td>C<sub>max</sub> (mg/L)</td><td>{_fmt(cmax_s["median"])}</td>
+        <td>{_fmt(cmax_s["p5"])}</td><td>{_fmt(cmax_s["p95"])}</td>
+        <td>{cmax_s["cv_pct"]:.1f}%</td></tr>
+        <tr><td>AUC (mg·h/L)</td><td>{_fmt(auc_s["median"])}</td>
+        <td>{_fmt(auc_s["p5"])}</td><td>{_fmt(auc_s["p95"])}</td>
+        <td>{auc_s["cv_pct"]:.1f}%</td></tr>
       </table>
       {vpc_img}
     </section>""")
@@ -208,9 +231,8 @@ def quick_report(
     Returns:
         Path to generated report
     """
-    import numpy as np
-    from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
     from omega_pbpk.clinical.nca import run_nca
+    from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
     pipeline = OmegaPipeline()
     req = SimulationRequest(smiles=smiles, dose_mg=dose_mg, route=route)
@@ -222,6 +244,7 @@ def quick_report(
     if n_pop_subjects > 0:
         try:
             from omega_pbpk.population.pop_simulator import PopulationSimulator
+
             drug = pipeline._build_drug(sim_result.adme_properties, [])
             pop_sim = PopulationSimulator(drug=drug)
             pop_result = pop_sim.run(n_subjects=n_pop_subjects, dose_mg=dose_mg, route=route)

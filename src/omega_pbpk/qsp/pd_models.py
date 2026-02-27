@@ -75,7 +75,9 @@ class EffectCompartment:
         for i in range(1, n):
             dt = time_h[i] - time_h[i - 1]
             half_ke0_dt = 0.5 * self.ke0 * dt
-            ce[i] = (ce[i - 1] * (1.0 - half_ke0_dt) + half_ke0_dt * (cp[i - 1] + cp[i])) / (1.0 + half_ke0_dt)
+            ce[i] = (ce[i - 1] * (1.0 - half_ke0_dt) + half_ke0_dt * (cp[i - 1] + cp[i])) / (
+                1.0 + half_ke0_dt
+            )
 
         effect = self.emax_model.effect(ce)
         return ce, effect

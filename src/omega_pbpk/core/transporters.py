@@ -41,6 +41,7 @@ __all__ = [
 # Per-transporter kinetics
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class TransporterKinetics:
     """Michaelis-Menten or linear kinetic parameters for one transporter.
@@ -65,10 +66,10 @@ class TransporterKinetics:
 
     name: str
     organ: str = "liver"
-    direction: str = "uptake"   # 'uptake' or 'efflux'
+    direction: str = "uptake"  # 'uptake' or 'efflux'
     clint_L_per_h: float = 0.0
     vmax_mg_per_h: float = 0.0
-    km_mg_per_L: float = 1.0    # only used when vmax_mg_per_h > 0
+    km_mg_per_L: float = 1.0  # only used when vmax_mg_per_h > 0
 
     def effective_cl(self, cu_mg_L: float) -> float:
         """Compute effective clearance (L/h) at unbound concentration *cu*.
@@ -102,6 +103,7 @@ class TransporterKinetics:
 # ---------------------------------------------------------------------------
 # Transporter inhibition (for DDI modifiers)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class TransporterInhibition:
@@ -140,6 +142,7 @@ class TransporterInhibition:
 # ---------------------------------------------------------------------------
 # Full transporter set for a drug
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TransporterSet:
@@ -237,9 +240,9 @@ class TransporterSet:
         """
         cl = 0.0
         pairs = [
-            (self.oct2,  "OCT2"),
-            (self.oat1,  "OAT1"),
-            (self.oat3,  "OAT3"),
+            (self.oct2, "OCT2"),
+            (self.oat1, "OAT1"),
+            (self.oat3, "OAT3"),
             (self.mate1, "MATE1"),
             (self.mate2, "MATE2"),
         ]
@@ -259,15 +262,13 @@ class TransporterSet:
 
     @property
     def has_renal_secretion(self) -> bool:
-        return any(
-            t is not None
-            for t in (self.oct2, self.oat1, self.oat3, self.mate1, self.mate2)
-        )
+        return any(t is not None for t in (self.oct2, self.oat1, self.oat3, self.mate1, self.mate2))
 
 
 # ---------------------------------------------------------------------------
 # Convenience factory
 # ---------------------------------------------------------------------------
+
 
 def build_transporter_set(
     *,
@@ -299,10 +300,9 @@ def build_transporter_set(
     Returns:
         TransporterSet with the specified transporters active.
     """
+
     def _make(name, organ, direction, cl):
-        return TransporterKinetics(
-            name=name, organ=organ, direction=direction, clint_L_per_h=cl
-        )
+        return TransporterKinetics(name=name, organ=organ, direction=direction, clint_L_per_h=cl)
 
     return TransporterSet(
         oatp1b1=_make("OATP1B1", "liver", "uptake", oatp1b1_cl) if oatp1b1_cl > 0 else None,

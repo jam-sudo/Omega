@@ -3,27 +3,30 @@
 Scales microsomal/hepatocyte intrinsic clearance to in vivo hepatic CL.
 Reference: Houston JB, Carlile DJ. Drug Metab Rev 1997;29:891-922.
 """
+
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 # Human liver scaling factors (per 70 kg adult)
-HUMAN_LIVER_WEIGHT_G = 1500.0       # g
-MPPGL = 40.0                         # mg microsomal protein per g liver
-HPGL = 120e6                         # hepatocytes per g liver (120 million/g)
+HUMAN_LIVER_WEIGHT_G = 1500.0  # g
+MPPGL = 40.0  # mg microsomal protein per g liver
+HPGL = 120e6  # hepatocytes per g liver (120 million/g)
 
 
 @dataclass(frozen=True)
 class IVIVEResult:
     """Result of IVIVE calculation."""
-    clint_in_vitro: float             # µL/min/mg protein (or /million cells)
-    system: str                       # "microsomes" or "hepatocytes"
-    clint_liver_L_per_h: float        # Scaled to whole-liver CLint (L/h)
-    clh_well_stirred_L_per_h: float   # Hepatic CL via well-stirred model
-    fu_mic: float                     # Microsomal binding correction
-    fup: float                        # Fraction unbound in plasma
+
+    clint_in_vitro: float  # µL/min/mg protein (or /million cells)
+    system: str  # "microsomes" or "hepatocytes"
+    clint_liver_L_per_h: float  # Scaled to whole-liver CLint (L/h)
+    clh_well_stirred_L_per_h: float  # Hepatic CL via well-stirred model
+    fu_mic: float  # Microsomal binding correction
+    fup: float  # Fraction unbound in plasma
 
 
 def scale_microsomal_clint(

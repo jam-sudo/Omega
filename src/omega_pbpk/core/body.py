@@ -56,7 +56,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 
-from omega_pbpk.core.absorption import AbsorptionModel, FoodEffect, GI_SEGMENTS
+from omega_pbpk.core.absorption import GI_SEGMENTS, AbsorptionModel, FoodEffect
 from omega_pbpk.core.organ import Organ
 from omega_pbpk.core.transporters import TransporterSet
 from omega_pbpk.drugs.drug import Drug
@@ -249,8 +249,7 @@ class WholeBodyPBPK:
         self._y0 = np.zeros(N_STATES)
         # Resolve transporter set (from drug or empty)
         self._transporters: TransporterSet = (
-            drug.transporters if drug.transporters is not None
-            else TransporterSet()
+            drug.transporters if drug.transporters is not None else TransporterSet()
         )
         # Advanced absorption model (Noyes-Whitney, pH-dependent solubility, food)
         self._absorption = AbsorptionModel(drug, fed_state=fed_state, food_effect=food_effect)

@@ -27,6 +27,7 @@ from omega_pbpk.drugs.drug import Drug
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _run_parent_iv(dose=100.0, clint=8.0, clr=0.5):
     """Run parent IV simulation and return (result, parent_time, clh_rate)."""
     drug = Drug(
@@ -57,6 +58,7 @@ def _run_parent_iv(dose=100.0, clint=8.0, clr=0.5):
 # MetaboliteSpec
 # ---------------------------------------------------------------------------
 
+
 class TestMetaboliteSpec:
     def test_default_creation(self):
         met = MetaboliteSpec(name="M1")
@@ -78,6 +80,7 @@ class TestMetaboliteSpec:
 # ---------------------------------------------------------------------------
 # simulate_metabolite basic tests
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateMetabolite:
     def setup_method(self):
@@ -149,8 +152,13 @@ class TestMetaboliteResultPK:
         Use a 48h simulation to ensure enough terminal phase data for regression.
         """
         drug = Drug(
-            name="Parent", mw=400.0, logP=2.0, fup=0.3, rbp=1.0,
-            clint_hepatic_L_per_h=8.0, clr_L_per_h=0.5,
+            name="Parent",
+            mw=400.0,
+            logP=2.0,
+            fup=0.3,
+            rbp=1.0,
+            clint_hepatic_L_per_h=8.0,
+            clr_L_per_h=0.5,
         )
         model = WholeBodyPBPK(drug)
         model.setup_iv(100.0)
@@ -161,8 +169,9 @@ class TestMetaboliteResultPK:
         dt[dt <= 0] = 0.1
         clh_rate = np.maximum(np.diff(met_hepatic, prepend=0.0) / np.maximum(dt, 1e-12), 0.0)
 
-        met = MetaboliteSpec(name="M1", fm_parent=1.0, fup=0.5, rbp=1.0,
-                             clint_met_L_per_h=3.0, kp_rest=1.0)
+        met = MetaboliteSpec(
+            name="M1", fm_parent=1.0, fup=0.5, rbp=1.0, clint_met_L_per_h=3.0, kp_rest=1.0
+        )
         met_result = simulate_metabolite(met, t, clh_rate)
         hl = met_result.pk["half_life_h"]
         assert math.isfinite(hl)
@@ -172,6 +181,7 @@ class TestMetaboliteResultPK:
 # ---------------------------------------------------------------------------
 # Physics checks
 # ---------------------------------------------------------------------------
+
 
 class TestMetabolitePhysics:
     def test_higher_fm_gives_higher_metabolite_auc(self):
@@ -204,8 +214,7 @@ class TestMetabolitePhysics:
         parent_cp = parent_result.plasma_concentration()
         parent_tmax = t[np.argmax(parent_cp)]
 
-        met = MetaboliteSpec(name="M1", fm_parent=0.9, fup=0.4, rbp=1.0,
-                             kp_liver=1.0, kp_rest=0.8)
+        met = MetaboliteSpec(name="M1", fm_parent=0.9, fup=0.4, rbp=1.0, kp_liver=1.0, kp_rest=0.8)
         met_result = simulate_metabolite(met, t, clh_rate)
         met_tmax = met_result.pk["Tmax_h"]
 
@@ -214,8 +223,7 @@ class TestMetabolitePhysics:
 
     def test_all_amounts_non_negative(self):
         _, t, clh_rate = _run_parent_iv(dose=100.0)
-        met = MetaboliteSpec(name="M1", fm_parent=0.8, fup=0.3, rbp=1.0,
-                             kp_liver=1.5, kp_rest=1.0)
+        met = MetaboliteSpec(name="M1", fm_parent=0.8, fup=0.3, rbp=1.0, kp_liver=1.5, kp_rest=1.0)
         result = simulate_metabolite(met, t, clh_rate)
         assert np.all(result.amounts_mg >= 0)
 
@@ -230,6 +238,7 @@ class TestMetabolitePhysics:
 # ---------------------------------------------------------------------------
 # simulate_all_metabolites
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateAllMetabolites:
     def test_returns_list_of_results(self):
@@ -247,7 +256,7 @@ class TestSimulateAllMetabolites:
         met_hepatic = parent_result.amounts[:, IDX_MET_HEPATIC]
         metabolites = [
             MetaboliteSpec(name="Alpha", fm_parent=0.5, fup=0.5, rbp=1.0),
-            MetaboliteSpec(name="Beta",  fm_parent=0.5, fup=0.5, rbp=1.0),
+            MetaboliteSpec(name="Beta", fm_parent=0.5, fup=0.5, rbp=1.0),
         ]
         results = simulate_all_metabolites(metabolites, t, met_hepatic)
         names = [r.name for r in results]

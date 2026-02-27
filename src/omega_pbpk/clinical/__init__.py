@@ -1,5 +1,18 @@
 """Clinical tools — dose optimization, FIH, multi-dose, formulation comparison."""
 
+from omega_pbpk.clinical.allometry import (
+    AllometricPrediction,
+    predict_human_from_preclinical,
+    scale_multi_species,
+    scale_single_species,
+)
+from omega_pbpk.clinical.ddi_report import (
+    KDEG,
+    DDIInhibitor,
+    DDIRiskReport,
+    assess_ddi_risk,
+    format_report,
+)
 from omega_pbpk.clinical.disease import (
     ChildPughClass,
     DiseaseState,
@@ -13,19 +26,6 @@ from omega_pbpk.clinical.disease import (
     ScaledParameters,
     TrimesterStage,
     apply_disease_scaling,
-)
-from omega_pbpk.clinical.allometry import (
-    AllometricPrediction,
-    predict_human_from_preclinical,
-    scale_multi_species,
-    scale_single_species,
-)
-from omega_pbpk.clinical.ddi_report import (
-    DDIInhibitor,
-    DDIRiskReport,
-    KDEG,
-    assess_ddi_risk,
-    format_report,
 )
 from omega_pbpk.clinical.dose_optimization import (
     DoseOptimizer,

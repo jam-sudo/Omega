@@ -35,26 +35,25 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-
 # ---------------------------------------------------------------------------
 # FDA physiological constants
 # ---------------------------------------------------------------------------
 
 # CYP degradation rates (h⁻¹) — FDA 2020 Table 2
 KDEG: dict[str, float] = {
-    "CYP3A4": 0.03,   # 0.0005 /min × 60
+    "CYP3A4": 0.03,  # 0.0005 /min × 60
     "CYP2D6": 0.018,  # 0.0003 /min × 60
     "CYP2C9": 0.018,
     "CYP1A2": 0.024,  # 0.0004 /min × 60
     "CYP2C19": 0.018,
 }
 
-QGUT_L_PER_H = 18.0   # portal/intestinal blood flow (L/h)
+QGUT_L_PER_H = 18.0  # portal/intestinal blood flow (L/h)
 Q_PORTAL_L_PER_H = 72.0  # total portal vein flow (L/h) for inlet Cmax
 
 # OATP inlet concentration scaling factor (FDA 2012): Cin = Cmax + Fa·Dose/(Qh/BPR)
-Q_LIVER_L_PER_H = 96.6   # hepatic blood flow
-BPR_DEFAULT = 1.0         # blood-to-plasma ratio
+Q_LIVER_L_PER_H = 96.6  # hepatic blood flow
+BPR_DEFAULT = 1.0  # blood-to-plasma ratio
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +69,7 @@ class DDIInhibitor:
     """
 
     name: str
-    cmax_uM: float            # Maximum plasma concentration (µM)
+    cmax_uM: float  # Maximum plasma concentration (µM)
 
     # --- Reversible (competitive) CYP inhibition Ki values (µM) ---
     ki_3a4_uM: float = float("inf")
@@ -80,8 +79,8 @@ class DDIInhibitor:
     ki_2c19_uM: float = float("inf")
 
     # --- Mechanism-based (time-dependent) inactivation — CYP3A4 ---
-    kinact_3a4_per_h: float = 0.0       # maximum inactivation rate (h⁻¹)
-    ki_mbi_3a4_uM: float = float("inf") # concentration at half-max inactivation (µM)
+    kinact_3a4_per_h: float = 0.0  # maximum inactivation rate (h⁻¹)
+    ki_mbi_3a4_uM: float = float("inf")  # concentration at half-max inactivation (µM)
 
     # --- MBI for other CYPs (optional) ---
     kinact_2d6_per_h: float = 0.0
@@ -92,24 +91,24 @@ class DDIInhibitor:
     ki_mbi_1a2_uM: float = float("inf")
 
     # --- CYP induction (Emax/EC50 model) ---
-    ind_max_3a4: float = 0.0        # maximum fold induction (Emax, dimensionless)
-    ind_c50_3a4_uM: float = 1.0    # EC50 for induction (µM)
+    ind_max_3a4: float = 0.0  # maximum fold induction (Emax, dimensionless)
+    ind_c50_3a4_uM: float = 1.0  # EC50 for induction (µM)
     ind_max_1a2: float = 0.0
     ind_c50_1a2_uM: float = 1.0
 
     # --- Transporter inhibition ---
-    ic50_pgp_uM: float = float("inf")    # intestinal P-gp IC50 (µM)
+    ic50_pgp_uM: float = float("inf")  # intestinal P-gp IC50 (µM)
     ic50_oatp1b1_uM: float = float("inf")  # hepatic OATP1B1 IC50 (µM)
     ic50_oatp1b3_uM: float = float("inf")  # hepatic OATP1B3 IC50 (µM)
-    ic50_oct2_uM: float = float("inf")   # renal OCT2 IC50 (µM)
+    ic50_oct2_uM: float = float("inf")  # renal OCT2 IC50 (µM)
 
     # --- Dosing parameters (for gut concentration estimate) ---
     dose_mg: float = 100.0
     mw: float = 300.0
-    fa: float = 0.85    # fraction absorbed
-    fg: float = 0.6     # gut availability
+    fa: float = 0.85  # fraction absorbed
+    fg: float = 0.6  # gut availability
     ka_per_h: float = 1.0
-    fup: float = 0.1    # fraction unbound in plasma (for inlet Cmax)
+    fup: float = 0.1  # fraction unbound in plasma (for inlet Cmax)
 
     # Legacy field for backwards compatibility
     induction_fold_3a4: float = 1.0
@@ -204,9 +203,7 @@ def _induction_ratio(cmax: float, ind_max: float, ind_c50: float) -> float:
     return 1.0 + ind_max * cmax / max(ind_c50 + cmax, 1e-12)
 
 
-def _aucr(
-    fm: float, R1: float, R2: float, induction_ratio: float
-) -> float:
+def _aucr(fm: float, R1: float, R2: float, induction_ratio: float) -> float:
     """Predict victim AUC ratio (AUCR) from static DDI model.
 
     AUCR = 1 / (fm × (1 / (R1 × R2 × (1/induction_ratio))) + (1 − fm))
@@ -288,14 +285,18 @@ def assess_ddi_risk(
     # ------------------------------------------------------------------
     # 3. Mechanism-based inactivation R2 (multi-enzyme)
     # ------------------------------------------------------------------
-    report.R2_3a4 = _r2_mbi(cmax, inhibitor.kinact_3a4_per_h,
-                              inhibitor.ki_mbi_3a4_uM, KDEG["CYP3A4"])
-    report.R2_2d6 = _r2_mbi(cmax, inhibitor.kinact_2d6_per_h,
-                              inhibitor.ki_mbi_2d6_uM, KDEG["CYP2D6"])
-    report.R2_2c9 = _r2_mbi(cmax, inhibitor.kinact_2c9_per_h,
-                              inhibitor.ki_mbi_2c9_uM, KDEG["CYP2C9"])
-    report.R2_1a2 = _r2_mbi(cmax, inhibitor.kinact_1a2_per_h,
-                              inhibitor.ki_mbi_1a2_uM, KDEG["CYP1A2"])
+    report.R2_3a4 = _r2_mbi(
+        cmax, inhibitor.kinact_3a4_per_h, inhibitor.ki_mbi_3a4_uM, KDEG["CYP3A4"]
+    )
+    report.R2_2d6 = _r2_mbi(
+        cmax, inhibitor.kinact_2d6_per_h, inhibitor.ki_mbi_2d6_uM, KDEG["CYP2D6"]
+    )
+    report.R2_2c9 = _r2_mbi(
+        cmax, inhibitor.kinact_2c9_per_h, inhibitor.ki_mbi_2c9_uM, KDEG["CYP2C9"]
+    )
+    report.R2_1a2 = _r2_mbi(
+        cmax, inhibitor.kinact_1a2_per_h, inhibitor.ki_mbi_1a2_uM, KDEG["CYP1A2"]
+    )
 
     for r2_val, enzyme in [
         (report.R2_3a4, "CYP3A4"),
@@ -304,9 +305,7 @@ def assess_ddi_risk(
         (report.R2_1a2, "CYP1A2"),
     ]:
         if r2_val >= 1.25:
-            flags.append(
-                f"{enzyme} MBI R2={r2_val:.3f} ≥ 1.25 → time-dependent inhibition study"
-            )
+            flags.append(f"{enzyme} MBI R2={r2_val:.3f} ≥ 1.25 → time-dependent inhibition study")
 
     # ------------------------------------------------------------------
     # 4. CYP induction (Emax/EC50 model, Fahmi 2008)
@@ -356,9 +355,7 @@ def assess_ddi_risk(
         (report.R_oct2, "OCT2 (renal)"),
     ]:
         if r_val >= 1.25 and not math.isinf(r_val):
-            flags.append(
-                f"{transporter} DDI R={r_val:.2f} ≥ 1.25 → transporter clinical study"
-            )
+            flags.append(f"{transporter} DDI R={r_val:.2f} ≥ 1.25 → transporter clinical study")
 
     # ------------------------------------------------------------------
     # 6. Net AUCR prediction for CYP3A4 victim
@@ -407,8 +404,10 @@ def format_report(report: DDIRiskReport) -> str:
         f"  CYP1A2  R2 = {report.R2_1a2:.3f}{_flag(report.R2_1a2, 1.25)}",
         "",
         "── CYP Induction (fold-increase CLint, threshold ≥ 2.0×) ───",
-        f"  CYP3A4  induction = {report.induction_ratio_3a4:.2f}×{_flag(report.induction_ratio_3a4, 2.0)}",
-        f"  CYP1A2  induction = {report.induction_ratio_1a2:.2f}×{_flag(report.induction_ratio_1a2, 2.0)}",
+        f"  CYP3A4  induction = {report.induction_ratio_3a4:.2f}×"
+        f"{_flag(report.induction_ratio_3a4, 2.0)}",
+        f"  CYP1A2  induction = {report.induction_ratio_1a2:.2f}×"
+        f"{_flag(report.induction_ratio_1a2, 2.0)}",
         "",
         "── Transporter DDI (R, threshold ≥ 1.25) ───────────────────",
         f"  P-gp  (intestinal) R = {report.R_pgp:.3f}{_flag(report.R_pgp, 1.25)}",

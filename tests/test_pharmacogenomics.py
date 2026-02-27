@@ -102,8 +102,8 @@ class TestCLintScalingFactor:
 
     def test_intermediate_metabolizer_between_pm_and_nm(self, analyzer: PGxAnalyzer) -> None:
         """IM diplotype factor should fall between PM and NM values."""
-        pm = analyzer.clint_scaling("CYP2D6", "*4/*4")   # 0.0
-        nm = analyzer.clint_scaling("CYP2D6", "*1/*1")   # 1.0
+        pm = analyzer.clint_scaling("CYP2D6", "*4/*4")  # 0.0
+        nm = analyzer.clint_scaling("CYP2D6", "*1/*1")  # 1.0
         # *4/*41 → score=0.0+0.5=0.5 → scaling=0.25
         im = analyzer.clint_scaling("CYP2D6", "*4/*41")
         assert pm < im < nm, f"Expected PM({pm}) < IM({im}) < NM({nm})"
@@ -132,10 +132,7 @@ class TestAlleleFrequencySums:
         even if not every rare allele is enumerated.
         """
         gene_freqs = ALLELE_FREQUENCIES[gene]
-        total = sum(
-            allele_freqs.get(population, 0.0)
-            for allele_freqs in gene_freqs.values()
-        )
+        total = sum(allele_freqs.get(population, 0.0) for allele_freqs in gene_freqs.values())
         assert total == pytest.approx(1.0, abs=0.25), (
             f"{gene}/{population}: allele frequencies sum to {total:.4f}, expected ~1.0"
         )
@@ -155,9 +152,7 @@ class TestAlleleFrequencySums:
         freqs = ALLELE_FREQUENCIES["CYP2C19"]
         total = sum(v.get("Global", 0.0) for v in freqs.values())
         # CYP2C19 Global: *1(0.55)+*2(0.20)+*3(0.03)+*17(0.15) = 0.93 (simplified subset)
-        assert total == pytest.approx(1.0, abs=0.15), (
-            f"CYP2C19 Global sum={total:.4f}"
-        )
+        assert total == pytest.approx(1.0, abs=0.15), f"CYP2C19 Global sum={total:.4f}"
 
     def test_global_cyp1a2_sums_to_one(self, analyzer: PGxAnalyzer) -> None:
         """CYP1A2 Global allele frequencies sum to ~1.0 explicitly."""

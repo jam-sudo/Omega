@@ -37,6 +37,7 @@ from omega_pbpk.drugs.drug import Drug
 # RenalImpairment
 # ---------------------------------------------------------------------------
 
+
 class TestRenalImpairment:
     def test_normal_clr_fraction_one(self):
         ri = RenalImpairment(stage=RenalImpairmentStage.NORMAL)
@@ -93,6 +94,7 @@ class TestRenalImpairment:
 # HepaticImpairment
 # ---------------------------------------------------------------------------
 
+
 class TestHepaticImpairment:
     def test_normal_cyp_full_activity(self):
         hi = HepaticImpairment(cp_class=ChildPughClass.NORMAL)
@@ -132,28 +134,35 @@ class TestHepaticImpairment:
 # HeartFailure
 # ---------------------------------------------------------------------------
 
+
 class TestHeartFailure:
     def test_normal_co_fraction_one(self):
         hf = HeartFailure(nyha_class=NyhaClass.NORMAL)
         assert hf.cardiac_output_fraction == pytest.approx(1.0)
 
     def test_nyha_iv_co_fraction_low(self):
-        hf = HeartFailure(nyha_class=NyhaClass.IV)
+        hf = HeartFailure(nyha_class=NyhaClass.CLASS_IV)
         assert hf.cardiac_output_fraction <= 0.55
 
     def test_co_fraction_monotone_decreasing(self):
-        classes = [NyhaClass.NORMAL, NyhaClass.I, NyhaClass.II, NyhaClass.III, NyhaClass.IV]
+        classes = [
+            NyhaClass.NORMAL,
+            NyhaClass.CLASS_I,
+            NyhaClass.CLASS_II,
+            NyhaClass.CLASS_III,
+            NyhaClass.CLASS_IV,
+        ]
         fracs = [HeartFailure(nyha_class=c).cardiac_output_fraction for c in classes]
         for i in range(len(fracs) - 1):
             assert fracs[i] >= fracs[i + 1]
 
     def test_hepatic_flow_reduced_in_severe_hf(self):
         hf_norm = HeartFailure(nyha_class=NyhaClass.NORMAL)
-        hf_iv = HeartFailure(nyha_class=NyhaClass.IV)
+        hf_iv = HeartFailure(nyha_class=NyhaClass.CLASS_IV)
         assert hf_iv.hepatic_flow_fraction < hf_norm.hepatic_flow_fraction
 
     def test_scaled_params_co_reduced(self):
-        hf = HeartFailure(nyha_class=NyhaClass.III)
+        hf = HeartFailure(nyha_class=NyhaClass.CLASS_III)
         params = apply_disease_scaling(disease=DiseaseState(heart_failure=hf))
         assert params.cardiac_output_scale < 1.0
 
@@ -162,11 +171,12 @@ class TestHeartFailure:
 # ObesityState
 # ---------------------------------------------------------------------------
 
+
 class TestObesityState:
     def test_normal_bmi_not_obese(self):
         ob = ObesityState(body_weight_kg=70.0, height_cm=175.0)
         assert not ob.is_obese
-        assert ob.bmi == pytest.approx(70.0 / 1.75 ** 2, rel=0.01)
+        assert ob.bmi == pytest.approx(70.0 / 1.75**2, rel=0.01)
 
     def test_high_bmi_is_obese(self):
         ob = ObesityState(body_weight_kg=120.0, height_cm=170.0)
@@ -205,6 +215,7 @@ class TestObesityState:
 # ---------------------------------------------------------------------------
 # PregnancyState
 # ---------------------------------------------------------------------------
+
 
 class TestPregnancyState:
     def test_non_pregnant_all_factors_normal(self):
@@ -246,6 +257,7 @@ class TestPregnancyState:
 # apply_disease_scaling — combined effects
 # ---------------------------------------------------------------------------
 
+
 class TestApplyDiseaseScaling:
     def test_healthy_returns_defaults(self):
         params = apply_disease_scaling()
@@ -269,7 +281,7 @@ class TestApplyDiseaseScaling:
         assert params.clint_scale <= 0.30
 
     def test_hf_reduces_co(self):
-        hf = HeartFailure(nyha_class=NyhaClass.IV)
+        hf = HeartFailure(nyha_class=NyhaClass.CLASS_IV)
         params = apply_disease_scaling(disease=DiseaseState(heart_failure=hf))
         assert params.cardiac_output_scale < 0.6
 
@@ -306,7 +318,7 @@ class TestApplyDiseaseScaling:
         disease = DiseaseState(
             renal=RenalImpairment(stage=RenalImpairmentStage.MODERATE),
             hepatic=HepaticImpairment(cp_class=ChildPughClass.B),
-            heart_failure=HeartFailure(nyha_class=NyhaClass.II),
+            heart_failure=HeartFailure(nyha_class=NyhaClass.CLASS_II),
         )
         params = apply_disease_scaling(disease=disease)
         assert len(params.notes) == 3
@@ -315,6 +327,7 @@ class TestApplyDiseaseScaling:
 # ---------------------------------------------------------------------------
 # PBPK integration — renal impairment raises AUC of renally-cleared drug
 # ---------------------------------------------------------------------------
+
 
 class TestDiseaseStatePBPKIntegration:
     def _run_iv(self, clr_fraction=1.0, dose=100.0):
@@ -325,7 +338,7 @@ class TestDiseaseStatePBPKIntegration:
             logP=-1.0,
             fup=0.8,
             rbp=1.0,
-            clint_hepatic_L_per_h=0.1,   # minimal hepatic
+            clint_hepatic_L_per_h=0.1,  # minimal hepatic
             clr_L_per_h=10.0 * clr_fraction,  # mainly renal
         )
         model = WholeBodyPBPK(drug, body_weight=70.0)
@@ -344,11 +357,14 @@ class TestDiseaseStatePBPKIntegration:
         params = apply_disease_scaling(disease=DiseaseState(renal=ri))
         result_normal = self._run_iv(clr_fraction=1.0)
         result_esrd = self._run_iv(clr_fraction=params.clr_scale)
-        auc_ratio = result_esrd.pk_summary()["AUC_mg_h_L"] / result_normal.pk_summary()["AUC_mg_h_L"]
+        auc_ratio = (
+            result_esrd.pk_summary()["AUC_mg_h_L"] / result_normal.pk_summary()["AUC_mg_h_L"]
+        )
         assert auc_ratio > 3.0  # expect > 3× increase
 
     def test_hi_increases_auc_hepatic_drug(self):
         """Hepatic impairment → lower CLint → higher AUC for CYP3A4 substrate."""
+
         def run(clint_scale=1.0):
             drug = Drug(
                 name="HepaticDrug",

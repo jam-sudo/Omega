@@ -30,6 +30,7 @@ from omega_pbpk.core.qsp import (
 # TmddParams properties
 # ---------------------------------------------------------------------------
 
+
 class TestTmddParams:
     def test_kd_computed(self):
         p = TmddParams(kon_per_nM_per_h=0.1, koff_per_h=1.0)
@@ -52,6 +53,7 @@ class TestTmddParams:
 # ---------------------------------------------------------------------------
 # simulate_tmdd — full model
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateTmdd:
     @pytest.fixture
@@ -119,8 +121,14 @@ class TestSimulateTmdd:
     def test_pk_pd_summary_keys(self, default_params):
         result = simulate_tmdd(default_params, dose_nM=100.0)
         summary = result.pk_pd_summary()
-        for key in ("Cmax_nM", "Tmax_h", "AUC_nM_h", "Kd_nM",
-                    "baseline_target_nM", "max_target_occupancy"):
+        for key in (
+            "Cmax_nM",
+            "Tmax_h",
+            "AUC_nM_h",
+            "Kd_nM",
+            "baseline_target_nM",
+            "max_target_occupancy",
+        ):
             assert key in summary
 
 
@@ -129,7 +137,7 @@ class TestSimulateTmddQSS:
 
     def _compare(self, dose_nM):
         params_full = TmddParams(
-            kon_per_nM_per_h=0.01,   # low kon → QSS valid
+            kon_per_nM_per_h=0.01,  # low kon → QSS valid
             koff_per_h=0.5,
             ke_L_per_h=0.03,
             ke_LR_per_h=0.01,
@@ -173,6 +181,7 @@ class TestSimulateTmddQSS:
 # receptor_occupancy
 # ---------------------------------------------------------------------------
 
+
 class TestReceptorOccupancy:
     def test_zero_conc_gives_zero_occupancy(self):
         ro = receptor_occupancy(np.array([0.0]), ec50=1.0)
@@ -191,8 +200,8 @@ class TestReceptorOccupancy:
         ro1 = receptor_occupancy(c, ec50=1.0, hill=1.0)
         ro2 = receptor_occupancy(c, ec50=1.0, hill=3.0)
         # Hill=3: steeper sigmoidal → below EC50 lower, above EC50 higher
-        assert ro2[0] < ro1[0]   # below EC50: steeper → lower occupancy
-        assert ro2[2] > ro1[2]   # above EC50: steeper → higher occupancy
+        assert ro2[0] < ro1[0]  # below EC50: steeper → lower occupancy
+        assert ro2[2] > ro1[2]  # above EC50: steeper → higher occupancy
 
     def test_output_shape_matches_input(self):
         c = np.linspace(0, 10, 50)
@@ -209,6 +218,7 @@ class TestReceptorOccupancy:
 # emax_effect
 # ---------------------------------------------------------------------------
 
+
 class TestEmaxEffect:
     def test_stimulation_increases_effect(self):
         c = np.array([0.0, 1.0, 10.0])
@@ -219,7 +229,7 @@ class TestEmaxEffect:
     def test_inhibition_decreases_effect(self):
         c = np.array([0.0, 1.0, 1000.0])
         e = emax_effect(c, e0=10.0, emax=1.0, ec50=1.0, inhibitory=True)
-        assert e[0] == pytest.approx(10.0, abs=1e-6)   # at C=0: E=E0
+        assert e[0] == pytest.approx(10.0, abs=1e-6)  # at C=0: E=E0
         assert e[-1] < e[0]  # high C: E < E0
 
     def test_inhibition_at_ec50_half_emax_suppression(self):
@@ -243,6 +253,7 @@ class TestEmaxEffect:
 # IndirectResponseModel types
 # ---------------------------------------------------------------------------
 
+
 class TestIndirectResponseModels:
     def _build_conc(self, t):
         """Simple declining drug concentration: C(t) = C0*exp(-ke*t)."""
@@ -252,8 +263,7 @@ class TestIndirectResponseModels:
         """Model I: drug stimulates kin → response rises above baseline."""
         t = np.linspace(0, 100, 500)
         c = self._build_conc(t)
-        model = IndirectResponseModel(model_type="I", kin=1.0, kout=0.1,
-                                      e_max=0.8, ec50=1.0)
+        model = IndirectResponseModel(model_type="I", kin=1.0, kout=0.1, e_max=0.8, ec50=1.0)
         result = simulate_indirect_response(model, t, c)
         baseline = model.baseline_response
         peak = float(np.max(result.response))
@@ -263,8 +273,7 @@ class TestIndirectResponseModels:
         """Model II: drug inhibits kin → response falls below baseline."""
         t = np.linspace(0, 150, 600)
         c = self._build_conc(t)
-        model = IndirectResponseModel(model_type="II", kin=1.0, kout=0.1,
-                                      e_max=0.8, ec50=1.0)
+        model = IndirectResponseModel(model_type="II", kin=1.0, kout=0.1, e_max=0.8, ec50=1.0)
         result = simulate_indirect_response(model, t, c)
         baseline = model.baseline_response
         nadir = float(np.min(result.response))
@@ -274,8 +283,7 @@ class TestIndirectResponseModels:
         """Model III: drug stimulates kout → response falls."""
         t = np.linspace(0, 150, 600)
         c = self._build_conc(t)
-        model = IndirectResponseModel(model_type="III", kin=1.0, kout=0.1,
-                                      e_max=0.8, ec50=1.0)
+        model = IndirectResponseModel(model_type="III", kin=1.0, kout=0.1, e_max=0.8, ec50=1.0)
         result = simulate_indirect_response(model, t, c)
         baseline = model.baseline_response
         nadir = float(np.min(result.response))
@@ -285,8 +293,7 @@ class TestIndirectResponseModels:
         """Model IV: drug inhibits kout → response rises."""
         t = np.linspace(0, 150, 600)
         c = self._build_conc(t)
-        model = IndirectResponseModel(model_type="IV", kin=1.0, kout=0.1,
-                                      e_max=0.8, ec50=1.0)
+        model = IndirectResponseModel(model_type="IV", kin=1.0, kout=0.1, e_max=0.8, ec50=1.0)
         result = simulate_indirect_response(model, t, c)
         baseline = model.baseline_response
         peak = float(np.max(result.response))
@@ -312,8 +319,7 @@ class TestIndirectResponseModels:
         t = np.linspace(0, 100, 500)
         c = self._build_conc(t)
         for mtype in ("I", "II", "III", "IV"):
-            model = IndirectResponseModel(model_type=mtype, kin=1.0, kout=0.1,
-                                          e_max=0.9, ec50=1.0)
+            model = IndirectResponseModel(model_type=mtype, kin=1.0, kout=0.1, e_max=0.9, ec50=1.0)
             result = simulate_indirect_response(model, t, c)
             assert np.all(result.response >= 0)
 
@@ -324,7 +330,6 @@ class TestIndirectResponseModels:
     def test_max_effect_computed(self):
         t = np.linspace(0, 150, 600)
         c = self._build_conc(t)
-        model = IndirectResponseModel(model_type="I", kin=1.0, kout=0.1,
-                                      e_max=0.8, ec50=1.0)
+        model = IndirectResponseModel(model_type="I", kin=1.0, kout=0.1, e_max=0.8, ec50=1.0)
         result = simulate_indirect_response(model, t, c)
         assert result.max_effect > 0

@@ -29,27 +29,23 @@ from omega_pbpk.drugs.drug import Drug
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def linear_uptake():
-    return TransporterKinetics(
-        name="OATP1B1", organ="liver", direction="uptake", clint_L_per_h=5.0
-    )
+    return TransporterKinetics(name="OATP1B1", organ="liver", direction="uptake", clint_L_per_h=5.0)
 
 
 @pytest.fixture
 def mm_uptake():
     """Michaelis-Menten OATP1B1: Vmax=10 mg/h, Km=1 mg/L."""
     return TransporterKinetics(
-        name="OATP1B1", organ="liver", direction="uptake",
-        vmax_mg_per_h=10.0, km_mg_per_L=1.0
+        name="OATP1B1", organ="liver", direction="uptake", vmax_mg_per_h=10.0, km_mg_per_L=1.0
     )
 
 
 @pytest.fixture
 def linear_pgp():
-    return TransporterKinetics(
-        name="P-gp", organ="gut_wall", direction="efflux", clint_L_per_h=3.0
-    )
+    return TransporterKinetics(name="P-gp", organ="gut_wall", direction="efflux", clint_L_per_h=3.0)
 
 
 @pytest.fixture
@@ -72,6 +68,7 @@ def reference_drug():
 # TransporterKinetics — linear mode
 # ---------------------------------------------------------------------------
 
+
 class TestTransporterKineticsLinear:
     def test_effective_cl_is_constant(self, linear_uptake):
         # In linear mode, CL doesn't depend on concentration
@@ -92,6 +89,7 @@ class TestTransporterKineticsLinear:
 # ---------------------------------------------------------------------------
 # TransporterKinetics — Michaelis-Menten mode
 # ---------------------------------------------------------------------------
+
 
 class TestTransporterKineticsMM:
     def test_cl_at_km_is_half_max(self, mm_uptake):
@@ -119,7 +117,9 @@ class TestTransporterKineticsMM:
 
     def test_mm_mode_overrides_linear(self):
         t = TransporterKinetics(
-            name="T", organ="liver", direction="uptake",
+            name="T",
+            organ="liver",
+            direction="uptake",
             clint_L_per_h=99.0,  # should be ignored when vmax > 0
             vmax_mg_per_h=5.0,
             km_mg_per_L=1.0,
@@ -131,6 +131,7 @@ class TestTransporterKineticsMM:
 # ---------------------------------------------------------------------------
 # TransporterInhibition
 # ---------------------------------------------------------------------------
+
 
 class TestTransporterInhibition:
     def test_no_inhibition_factor_one_when_zero_inhibitor(self):
@@ -148,7 +149,9 @@ class TestTransporterInhibition:
         assert inh.inhibition_factor < 0.01
 
     def test_infinite_ic50_no_inhibition(self):
-        inh = TransporterInhibition("OATP1B1", ic50_uM=float("inf"), inhibitor_concentration_uM=100.0)
+        inh = TransporterInhibition(
+            "OATP1B1", ic50_uM=float("inf"), inhibitor_concentration_uM=100.0
+        )
         assert inh.inhibition_factor == pytest.approx(1.0, rel=1e-9)
 
     def test_zero_ic50_no_inhibition(self):
@@ -159,6 +162,7 @@ class TestTransporterInhibition:
 # ---------------------------------------------------------------------------
 # TransporterSet
 # ---------------------------------------------------------------------------
+
 
 class TestTransporterSetProperties:
     def test_empty_set_has_no_hepatic_uptake(self):
@@ -225,21 +229,29 @@ class TestTransporterSetInhibition:
         cl_uninhibited = ts.hepatic_uptake_cl(1.0)
 
         # Add 50% inhibition: [I] = IC50
-        ts.add_inhibition(TransporterInhibition("OATP1B1", ic50_uM=1.0, inhibitor_concentration_uM=1.0))
+        ts.add_inhibition(
+            TransporterInhibition("OATP1B1", ic50_uM=1.0, inhibitor_concentration_uM=1.0)
+        )
         cl_inhibited = ts.hepatic_uptake_cl(1.0)
         assert cl_inhibited == pytest.approx(0.5 * cl_uninhibited, rel=1e-6)
 
     def test_inhibition_of_wrong_transporter_has_no_effect(self, linear_uptake):
         ts = TransporterSet(oatp1b1=linear_uptake)
-        ts.add_inhibition(TransporterInhibition("P-gp", ic50_uM=1.0, inhibitor_concentration_uM=1.0))
+        ts.add_inhibition(
+            TransporterInhibition("P-gp", ic50_uM=1.0, inhibitor_concentration_uM=1.0)
+        )
         # OATP1B1 unaffected
         assert ts.hepatic_uptake_cl(1.0) == pytest.approx(5.0, rel=1e-9)
 
     def test_multiple_inhibitions_multiplicative(self, linear_uptake):
         ts = TransporterSet(oatp1b1=linear_uptake)
         # Two independent inhibitors each at IC50 → factor = 0.5 × 0.5 = 0.25
-        ts.add_inhibition(TransporterInhibition("OATP1B1", ic50_uM=1.0, inhibitor_concentration_uM=1.0))
-        ts.add_inhibition(TransporterInhibition("OATP1B1", ic50_uM=2.0, inhibitor_concentration_uM=2.0))
+        ts.add_inhibition(
+            TransporterInhibition("OATP1B1", ic50_uM=1.0, inhibitor_concentration_uM=1.0)
+        )
+        ts.add_inhibition(
+            TransporterInhibition("OATP1B1", ic50_uM=2.0, inhibitor_concentration_uM=2.0)
+        )
         cl = ts.hepatic_uptake_cl(1.0)
         assert cl == pytest.approx(0.25 * 5.0, rel=1e-6)
 
@@ -247,6 +259,7 @@ class TestTransporterSetInhibition:
 # ---------------------------------------------------------------------------
 # build_transporter_set factory
 # ---------------------------------------------------------------------------
+
 
 class TestBuildTransporterSet:
     def test_empty_call_returns_all_none(self):
@@ -295,6 +308,7 @@ class TestBuildTransporterSet:
 # Drug dataclass transporter field
 # ---------------------------------------------------------------------------
 
+
 class TestDrugTransporterField:
     def test_drug_default_transporters_none(self):
         drug = Drug(name="Test")
@@ -316,6 +330,7 @@ class TestDrugTransporterField:
 # ---------------------------------------------------------------------------
 # WholeBodyPBPK integration — OATP increases hepatic extraction / reduces AUC
 # ---------------------------------------------------------------------------
+
 
 class TestOatpIntegration:
     def _run_iv(self, oatp_cl=0.0, dose=50.0):
@@ -357,8 +372,13 @@ class TestOatpIntegration:
     def test_oatp_zero_same_as_no_transporters(self):
         """TransporterSet() with no active transporters should give identical AUC."""
         common = dict(
-            name="Test", mw=500.0, logP=1.5, fup=0.05, rbp=0.8,
-            clint_hepatic_L_per_h=2.0, clr_L_per_h=0.0,
+            name="Test",
+            mw=500.0,
+            logP=1.5,
+            fup=0.05,
+            rbp=0.8,
+            clint_hepatic_L_per_h=2.0,
+            clr_L_per_h=0.0,
         )
         drug_none = Drug(**common, transporters=None)
         drug_empty = Drug(**common, transporters=TransporterSet())
@@ -380,6 +400,7 @@ class TestOatpIntegration:
 # WholeBodyPBPK integration — renal active secretion increases CLr
 # ---------------------------------------------------------------------------
 
+
 class TestRenalSecretionIntegration:
     def _run_iv(self, sec_cl=0.0, dose=100.0):
         ts = build_transporter_set(oct2_cl=sec_cl) if sec_cl > 0 else None
@@ -390,7 +411,7 @@ class TestRenalSecretionIntegration:
             fup=0.8,
             rbp=1.0,
             clint_hepatic_L_per_h=0.5,  # minimal hepatic
-            clr_L_per_h=5.0,            # passive filtration
+            clr_L_per_h=5.0,  # passive filtration
             transporters=ts,
         )
         model = WholeBodyPBPK(drug, body_weight=70.0)
@@ -409,6 +430,7 @@ class TestRenalSecretionIntegration:
 
     def test_active_secretion_increases_excreted_renal_mass(self):
         from omega_pbpk.core.body import IDX_EXC_RENAL
+
         r_no = self._run_iv(sec_cl=0.0, dose=100.0)
         r_sec = self._run_iv(sec_cl=30.0, dose=100.0)
         exc_no = r_no.amounts[-1, IDX_EXC_RENAL]
@@ -424,6 +446,7 @@ class TestRenalSecretionIntegration:
 # ---------------------------------------------------------------------------
 # WholeBodyPBPK integration — P-gp efflux reduces oral bioavailability
 # ---------------------------------------------------------------------------
+
 
 class TestPgpEflluxIntegration:
     def _run_oral(self, pgp_cl=0.0, dose=100.0):
@@ -458,6 +481,7 @@ class TestPgpEflluxIntegration:
 
     def test_pgp_increases_fecal_excretion(self):
         from omega_pbpk.core.body import IDX_EXC_FECAL
+
         r_no = self._run_oral(pgp_cl=0.0, dose=100.0)
         r_pgp = self._run_oral(pgp_cl=10.0, dose=100.0)
         fecal_no = r_no.amounts[-1, IDX_EXC_FECAL]

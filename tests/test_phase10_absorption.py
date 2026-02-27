@@ -32,6 +32,7 @@ from omega_pbpk.drugs.drug import Drug
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def neutral_drug():
     """Neutral lipophilic drug — pH-independent absorption."""
@@ -39,7 +40,7 @@ def neutral_drug():
         name="Neutral",
         mw=400.0,
         logP=2.5,
-        pka=[],          # no ionisation
+        pka=[],  # no ionisation
         drug_type="neutral",
         fup=0.3,
         rbp=1.0,
@@ -102,8 +103,8 @@ def poorly_soluble():
         fup=0.1,
         rbp=1.0,
         clint_hepatic_L_per_h=5.0,
-        solubility_mg_mL=0.001,   # 1 µg/mL — very poorly soluble
-        peff=5.0,                  # high permeability
+        solubility_mg_mL=0.001,  # 1 µg/mL — very poorly soluble
+        peff=5.0,  # high permeability
         particle_radius_um=50.0,
         route="oral",
     )
@@ -112,6 +113,7 @@ def poorly_soluble():
 # ---------------------------------------------------------------------------
 # GI_SEGMENTS data integrity
 # ---------------------------------------------------------------------------
+
 
 class TestGISegmentsData:
     def test_eight_segments(self):
@@ -159,6 +161,7 @@ class TestGISegmentsData:
 # AbsorptionModel.solubility_at_ph
 # ---------------------------------------------------------------------------
 
+
 class TestSolubilityAtPh:
     def test_neutral_drug_ph_independent(self, neutral_drug):
         am = AbsorptionModel(neutral_drug)
@@ -169,7 +172,7 @@ class TestSolubilityAtPh:
 
     def test_weak_acid_higher_solubility_at_high_ph(self, weak_acid):
         am = AbsorptionModel(weak_acid)
-        s_low = am.solubility_at_ph(1.5)   # stomach
+        s_low = am.solubility_at_ph(1.5)  # stomach
         s_high = am.solubility_at_ph(7.0)  # ileum
         assert s_high > s_low
 
@@ -195,11 +198,18 @@ class TestSolubilityAtPh:
     def test_bile_salt_increases_solubility_lipophilic(self):
         """Lipophilic drug (logP=4) should be solubilised by bile salts."""
         drug = Drug(
-            name="Lipophilic", mw=400.0, logP=4.0, pka=[], drug_type="neutral",
-            fup=0.1, solubility_mg_mL=0.01, peff=3.0,
+            name="Lipophilic",
+            mw=400.0,
+            logP=4.0,
+            pka=[],
+            drug_type="neutral",
+            fup=0.1,
+            solubility_mg_mL=0.01,
+            peff=3.0,
         )
-        am = AbsorptionModel(drug, fed_state=True,
-                             food_effect=FoodEffect(solubility_enhancement_per_logP=0.05))
+        am = AbsorptionModel(
+            drug, fed_state=True, food_effect=FoodEffect(solubility_enhancement_per_logP=0.05)
+        )
         seg_jejunum = _GI_SEGMENT_MAP["jejunum1"]
         s_no_bile = am.solubility_at_ph(6.0)  # no segment → no bile
         s_with_bile = am.solubility_at_ph(6.0, segment=seg_jejunum)
@@ -208,11 +218,18 @@ class TestSolubilityAtPh:
     def test_hydrophilic_no_bile_enhancement(self):
         """logP < 2: no bile-salt solubilisation."""
         drug = Drug(
-            name="Hydrophilic", mw=300.0, logP=0.5, pka=[], drug_type="neutral",
-            fup=0.8, solubility_mg_mL=100.0, peff=2.0,
+            name="Hydrophilic",
+            mw=300.0,
+            logP=0.5,
+            pka=[],
+            drug_type="neutral",
+            fup=0.8,
+            solubility_mg_mL=100.0,
+            peff=2.0,
         )
-        am = AbsorptionModel(drug, fed_state=True,
-                             food_effect=FoodEffect(solubility_enhancement_per_logP=0.05))
+        am = AbsorptionModel(
+            drug, fed_state=True, food_effect=FoodEffect(solubility_enhancement_per_logP=0.05)
+        )
         seg = _GI_SEGMENT_MAP["jejunum1"]
         s_no_bile = am.solubility_at_ph(6.0)
         s_with_bile = am.solubility_at_ph(6.0, segment=seg)
@@ -224,6 +241,7 @@ class TestSolubilityAtPh:
 # AbsorptionModel.peff_at_ph
 # ---------------------------------------------------------------------------
 
+
 class TestPeffAtPh:
     def test_neutral_drug_peff_constant(self, neutral_drug):
         am = AbsorptionModel(neutral_drug)
@@ -234,15 +252,15 @@ class TestPeffAtPh:
     def test_weak_acid_higher_peff_at_low_ph(self, weak_acid):
         """Below pKa, weak acid is unionised → higher Peff."""
         am = AbsorptionModel(weak_acid)
-        peff_below_pka = am.peff_at_ph(2.0)   # pH << pKa=4.5, mostly unionised
-        peff_above_pka = am.peff_at_ph(7.0)   # pH >> pKa, mostly ionised
+        peff_below_pka = am.peff_at_ph(2.0)  # pH << pKa=4.5, mostly unionised
+        peff_above_pka = am.peff_at_ph(7.0)  # pH >> pKa, mostly ionised
         assert peff_below_pka > peff_above_pka
 
     def test_weak_base_higher_peff_at_high_ph(self, weak_base):
         """Above pKa, weak base is unionised → higher Peff."""
         am = AbsorptionModel(weak_base)
-        peff_high = am.peff_at_ph(10.0)   # pH >> pKa=8.5, mostly unionised
-        peff_low = am.peff_at_ph(3.0)     # pH << pKa, mostly ionised
+        peff_high = am.peff_at_ph(10.0)  # pH >> pKa=8.5, mostly unionised
+        peff_low = am.peff_at_ph(3.0)  # pH << pKa, mostly ionised
         assert peff_high > peff_low
 
     def test_peff_minimum_floor(self, weak_acid):
@@ -263,6 +281,7 @@ class TestPeffAtPh:
 # AbsorptionModel.segment_ka
 # ---------------------------------------------------------------------------
 
+
 class TestSegmentKa:
     def test_stomach_ka_zero(self, neutral_drug):
         am = AbsorptionModel(neutral_drug)
@@ -282,8 +301,8 @@ class TestSegmentKa:
     def test_dissolution_limited_reduces_ka(self, poorly_soluble):
         """High dose of poorly soluble drug → dissolution factor reduces ka."""
         am = AbsorptionModel(poorly_soluble)
-        ka_small = am.segment_ka("jejunum1", mass_mg=0.001)   # well below solubility
-        ka_large = am.segment_ka("jejunum1", mass_mg=100.0)   # far above solubility
+        ka_small = am.segment_ka("jejunum1", mass_mg=0.001)  # well below solubility
+        ka_large = am.segment_ka("jejunum1", mass_mg=100.0)  # far above solubility
         assert ka_small > ka_large
 
     def test_ka_increases_with_peff(self):
@@ -327,6 +346,7 @@ class TestSegmentKa:
 # AbsorptionModel.transit_time_multiplier
 # ---------------------------------------------------------------------------
 
+
 class TestTransitTimeMultiplier:
     def test_fasted_all_ones(self, neutral_drug):
         am = AbsorptionModel(neutral_drug, fed_state=False)
@@ -357,6 +377,7 @@ class TestTransitTimeMultiplier:
 # WholeBodyPBPK integration
 # ---------------------------------------------------------------------------
 
+
 class TestFoodEffectIntegration:
     def _run(self, drug, fed=False, dose=100.0):
         model = WholeBodyPBPK(drug, body_weight=70.0, fed_state=fed)
@@ -375,8 +396,12 @@ class TestFoodEffectIntegration:
         """Fed state (delayed gastric emptying) should shift Tmax later."""
         drug = Drug(
             name="FastAbsorb",
-            mw=300.0, logP=2.0, pka=[], drug_type="neutral",
-            fup=0.5, rbp=1.0,
+            mw=300.0,
+            logP=2.0,
+            pka=[],
+            drug_type="neutral",
+            fup=0.5,
+            rbp=1.0,
             clint_hepatic_L_per_h=1.0,
             clr_L_per_h=0.0,
             solubility_mg_mL=10.0,
@@ -400,9 +425,17 @@ class TestFoodEffectIntegration:
     def test_poorly_soluble_lower_auc_than_well_soluble(self):
         """BCS II drug (low solubility) should achieve lower AUC than BCS I."""
         base = dict(
-            mw=400.0, logP=3.0, pka=[], drug_type="neutral",
-            fup=0.3, rbp=1.0, clint_hepatic_L_per_h=2.0, clr_L_per_h=0.0,
-            peff=5.0, particle_radius_um=20.0, route="oral",
+            mw=400.0,
+            logP=3.0,
+            pka=[],
+            drug_type="neutral",
+            fup=0.3,
+            rbp=1.0,
+            clint_hepatic_L_per_h=2.0,
+            clr_L_per_h=0.0,
+            peff=5.0,
+            particle_radius_um=20.0,
+            route="oral",
         )
         well_soluble = Drug(name="BCS_I", solubility_mg_mL=10.0, **base)
         poorly_soluble = Drug(name="BCS_II", solubility_mg_mL=0.002, **base)

@@ -32,11 +32,11 @@ References:
 
 from __future__ import annotations
 
-import numpy as np
-from dataclasses import dataclass, field
-from numpy.typing import NDArray
+from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+from numpy.typing import NDArray
 
 __all__ = [
     "MetaboliteSpec",
@@ -48,6 +48,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # Metabolite specification
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MetaboliteSpec:
@@ -72,15 +73,15 @@ class MetaboliteSpec:
     """
 
     name: str
-    fm_parent: float = 1.0          # fraction of parent CLint forming this met
+    fm_parent: float = 1.0  # fraction of parent CLint forming this met
     mw: float = 300.0
     fup: float = 0.5
     rbp: float = 1.0
     clint_met_L_per_h: float = 0.0  # further metabolism of metabolite
-    clr_met_L_per_h: float = 0.0    # renal clearance of metabolite
+    clr_met_L_per_h: float = 0.0  # renal clearance of metabolite
     kp_liver: float = 1.0
     kp_rest: float = 1.0
-    vd_L_per_kg: float = 1.0        # apparent Vd in L/kg
+    vd_L_per_kg: float = 1.0  # apparent Vd in L/kg
     is_active: bool = False
     is_toxic: bool = False
 
@@ -88,6 +89,7 @@ class MetaboliteSpec:
 # ---------------------------------------------------------------------------
 # Result container
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MetaboliteResult:
@@ -104,7 +106,7 @@ class MetaboliteResult:
 
     name: str
     time_h: NDArray[np.floating[Any]]
-    amounts_mg: NDArray[np.floating[Any]]   # shape (n_time, 3) — blood, liver, rest
+    amounts_mg: NDArray[np.floating[Any]]  # shape (n_time, 3) — blood, liver, rest
     plasma_conc_mg_L: NDArray[np.floating[Any]]
     spec: MetaboliteSpec
 
@@ -143,6 +145,7 @@ class MetaboliteResult:
 # Simulation function
 # ---------------------------------------------------------------------------
 
+
 def simulate_metabolite(
     metabolite: MetaboliteSpec,
     parent_time_h: NDArray[np.floating[Any]],
@@ -172,13 +175,13 @@ def simulate_metabolite(
     scale = body_weight / 70.0
 
     # Organ volumes (mL → L)
-    v_blood = 5.2 * scale       # total blood volume (L)
-    v_liver = 1.80 * scale      # liver volume (L)
+    v_blood = 5.2 * scale  # total blood volume (L)
+    v_liver = 1.80 * scale  # liver volume (L)
     v_rest = max(met.vd_L_per_kg * body_weight - v_blood - v_liver, 0.5 * scale)
 
     # Organ blood flows (L/h)
-    co = 390.0 * scale          # cardiac output
-    q_liver = 96.6 * scale      # hepatic blood flow (HA + PV)
+    co = 390.0 * scale  # cardiac output
+    q_liver = 96.6 * scale  # hepatic blood flow (HA + PV)
     q_rest = co - q_liver
 
     fup = max(met.fup, 1e-9)
@@ -202,7 +205,7 @@ def simulate_metabolite(
         # Concentrations
         c_blood = max(A_blood, 0.0) / max(v_blood, 1e-12)
         c_liver = max(A_liver, 0.0) / max(v_liver * kp_liver, 1e-12)
-        c_rest  = max(A_rest,  0.0) / max(v_rest  * kp_rest,  1e-12)
+        c_rest = max(A_rest, 0.0) / max(v_rest * kp_rest, 1e-12)
 
         # Formation from parent (metabolite enters liver)
         formation = met.fm_parent * formation_rate_at_t(t)
@@ -219,11 +222,11 @@ def simulate_metabolite(
         # Blood ↔ Liver
         flux_liver = q_liver * (c_blood - c_liver)
         # Blood ↔ Rest
-        flux_rest  = q_rest  * (c_blood - c_rest)
+        flux_rest = q_rest * (c_blood - c_rest)
 
         dA_blood = -flux_liver - flux_rest - renal_elim
-        dA_liver = flux_liver  + formation  - hepatic_elim
-        dA_rest  = flux_rest
+        dA_liver = flux_liver + formation - hepatic_elim
+        dA_rest = flux_rest
 
         return [dA_blood, dA_liver, dA_rest]
 

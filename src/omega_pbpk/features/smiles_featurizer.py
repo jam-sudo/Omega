@@ -40,42 +40,54 @@ from numpy.typing import NDArray
 # ---------------------------------------------------------------------------
 
 _ATOM_MW: dict[str, float] = {
-    "C": 12.011, "N": 14.007, "O": 15.999, "S": 32.06,
-    "F": 18.998, "Cl": 35.45, "Br": 79.904, "I": 126.904,
-    "P": 30.974, "Si": 28.086, "B": 10.811, "Se": 78.96,
-    "Na": 22.990, "K": 39.098, "Ca": 40.078, "Fe": 55.845,
+    "C": 12.011,
+    "N": 14.007,
+    "O": 15.999,
+    "S": 32.06,
+    "F": 18.998,
+    "Cl": 35.45,
+    "Br": 79.904,
+    "I": 126.904,
+    "P": 30.974,
+    "Si": 28.086,
+    "B": 10.811,
+    "Se": 78.96,
+    "Na": 22.990,
+    "K": 39.098,
+    "Ca": 40.078,
+    "Fe": 55.845,
 }
 
 # Simplified Crippen-like atom-type logP increments.
 # Keys are (upper_symbol, is_aromatic).
 _LOGP_CONTRIB: dict[tuple[str, bool], float] = {
-    ("C",  False): 0.20,   # aliphatic C
-    ("C",  True):  0.13,   # aromatic C
-    ("N",  False): -0.62,  # aliphatic N (amine)
-    ("N",  True):  -0.18,  # aromatic N (pyridine-like)
-    ("O",  False): -0.44,  # aliphatic O (ether/alcohol)
-    ("O",  True):  -0.20,  # aromatic O (furan)
-    ("S",  False): 0.19,   # aliphatic S
-    ("S",  True):  0.11,   # aromatic S
-    ("F",  False): 0.14,
+    ("C", False): 0.20,  # aliphatic C
+    ("C", True): 0.13,  # aromatic C
+    ("N", False): -0.62,  # aliphatic N (amine)
+    ("N", True): -0.18,  # aromatic N (pyridine-like)
+    ("O", False): -0.44,  # aliphatic O (ether/alcohol)
+    ("O", True): -0.20,  # aromatic O (furan)
+    ("S", False): 0.19,  # aliphatic S
+    ("S", True): 0.11,  # aromatic S
+    ("F", False): 0.14,
     ("Cl", False): 0.60,
     ("Br", False): 0.82,
-    ("I",  False): 1.10,
-    ("P",  False): -0.15,
+    ("I", False): 1.10,
+    ("P", False): -0.15,
     ("Si", False): 0.20,
-    ("B",  False): 0.10,
+    ("B", False): 0.10,
     ("Se", False): 0.25,
 }
 
 # TPSA contribution per polar atom type (Å²); values from Ertl 2000.
 _TPSA_CONTRIB: dict[tuple[str, bool], float] = {
-    ("N",  False): 26.0,
-    ("N",  True):  12.9,
-    ("O",  False): 20.2,
-    ("O",  True):  13.1,
-    ("S",  False): 25.3,
-    ("S",  True):  28.2,
-    ("P",  False): 40.0,
+    ("N", False): 26.0,
+    ("N", True): 12.9,
+    ("O", False): 20.2,
+    ("O", True): 13.1,
+    ("S", False): 25.3,
+    ("S", True): 28.2,
+    ("P", False): 40.0,
 }
 
 # Single-char organic-subset atoms (uppercase = aliphatic in SMILES).
@@ -83,19 +95,35 @@ _ORGANIC_UPPER = frozenset("BCNOPSFIK")
 # Aromatic-subset (lowercase).
 _ORGANIC_LOWER = frozenset("bcnosp")
 # Two-character atoms handled explicitly.
-_TWO_CHAR = frozenset({"Cl", "Br", "Si", "Se", "Na", "Mg", "Al",
-                        "Ca", "Fe", "Cu", "Zn", "Ge", "As", "Sn"})
+_TWO_CHAR = frozenset(
+    {"Cl", "Br", "Si", "Se", "Na", "Mg", "Al", "Ca", "Fe", "Cu", "Zn", "Ge", "As", "Sn"}
+)
 
 # ---------------------------------------------------------------------------
 # Public data types
 # ---------------------------------------------------------------------------
 
 FEATURE_NAMES: list[str] = [
-    "mw", "heavy_atoms", "n_C", "n_C_arom",
-    "n_N", "n_N_arom", "n_O", "n_S",
-    "n_F", "n_Cl", "n_Br", "n_hbd",
-    "n_hba", "n_rings", "n_aromatic", "n_carbonyl",
-    "logp_contrib", "tpsa_approx", "frac_sp3", "halogen_score",
+    "mw",
+    "heavy_atoms",
+    "n_C",
+    "n_C_arom",
+    "n_N",
+    "n_N_arom",
+    "n_O",
+    "n_S",
+    "n_F",
+    "n_Cl",
+    "n_Br",
+    "n_hbd",
+    "n_hba",
+    "n_rings",
+    "n_aromatic",
+    "n_carbonyl",
+    "logp_contrib",
+    "tpsa_approx",
+    "frac_sp3",
+    "halogen_score",
 ]
 N_FEATURES = len(FEATURE_NAMES)  # 20
 
@@ -111,6 +139,7 @@ class SmilesFeatureVector:
 # ---------------------------------------------------------------------------
 # Featurizer class
 # ---------------------------------------------------------------------------
+
 
 class SmilesFeaturizer:
     """Extract 20 molecular descriptors from a SMILES string.
@@ -140,42 +169,34 @@ class SmilesFeaturizer:
             key = (sym, is_arom)
             by_type[key] = by_type.get(key, 0) + 1
 
-        n_C      = by_type.get(("C", False), 0)
-        n_C_arom = by_type.get(("C", True),  0)
-        n_N      = by_type.get(("N", False), 0)
-        n_N_arom = by_type.get(("N", True),  0)
-        n_O      = (by_type.get(("O", False), 0)
-                    + by_type.get(("O", True),  0))
-        n_S      = (by_type.get(("S", False), 0)
-                    + by_type.get(("S", True),  0))
-        n_F      = by_type.get(("F", False), 0)
-        n_Cl     = by_type.get(("Cl", False), 0)
-        n_Br     = by_type.get(("Br", False), 0)
-        n_I      = by_type.get(("I",  False), 0)
+        n_C = by_type.get(("C", False), 0)
+        n_C_arom = by_type.get(("C", True), 0)
+        n_N = by_type.get(("N", False), 0)
+        n_N_arom = by_type.get(("N", True), 0)
+        n_O = by_type.get(("O", False), 0) + by_type.get(("O", True), 0)
+        n_S = by_type.get(("S", False), 0) + by_type.get(("S", True), 0)
+        n_F = by_type.get(("F", False), 0)
+        n_Cl = by_type.get(("Cl", False), 0)
+        n_Br = by_type.get(("Br", False), 0)
+        n_I = by_type.get(("I", False), 0)
 
         heavy_atoms = len(atoms)
-        n_aromatic  = sum(cnt for (_, arom), cnt in by_type.items() if arom)
+        n_aromatic = sum(cnt for (_, arom), cnt in by_type.items() if arom)
 
         # ---- derived features ----
         n_hba = n_N + n_N_arom + n_O + n_F
         n_hbd = _count_hbd(smiles)
-        n_rings    = _count_rings(smiles)
+        n_rings = _count_rings(smiles)
         n_carbonyl = _count_carbonyl(smiles)
 
         # Molecular weight (sum of heavy-atom MW × 1.08 for implicit H)
         mw = sum(_ATOM_MW.get(sym, 12.011) for sym, _ in atoms) * 1.08
 
         # logP via atom-contribution model
-        logp_contrib = sum(
-            _LOGP_CONTRIB.get((sym, arom), 0.0)
-            for sym, arom in atoms
-        )
+        logp_contrib = sum(_LOGP_CONTRIB.get((sym, arom), 0.0) for sym, arom in atoms)
 
         # TPSA approximation + 10 Å² per HBD for N-H / O-H surface
-        tpsa = sum(
-            _TPSA_CONTRIB.get((sym, arom), 0.0)
-            for sym, arom in atoms
-        ) + 10.0 * n_hbd
+        tpsa = sum(_TPSA_CONTRIB.get((sym, arom), 0.0) for sym, arom in atoms) + 10.0 * n_hbd
 
         # Fraction sp3 C
         total_C = n_C + n_C_arom
@@ -184,13 +205,31 @@ class SmilesFeaturizer:
         # Weighted halogen score (lipophilicity contribution)
         halogen_score = 0.14 * n_F + 0.60 * n_Cl + 0.82 * n_Br + 1.10 * n_I
 
-        descriptors = np.array([
-            mw, heavy_atoms, n_C, n_C_arom,
-            n_N, n_N_arom, n_O, n_S,
-            n_F, n_Cl, n_Br, n_hbd,
-            n_hba, n_rings, n_aromatic, n_carbonyl,
-            logp_contrib, tpsa, frac_sp3, halogen_score,
-        ], dtype=np.float64)
+        descriptors = np.array(
+            [
+                mw,
+                heavy_atoms,
+                n_C,
+                n_C_arom,
+                n_N,
+                n_N_arom,
+                n_O,
+                n_S,
+                n_F,
+                n_Cl,
+                n_Br,
+                n_hbd,
+                n_hba,
+                n_rings,
+                n_aromatic,
+                n_carbonyl,
+                logp_contrib,
+                tpsa,
+                frac_sp3,
+                halogen_score,
+            ],
+            dtype=np.float64,
+        )
 
         return SmilesFeatureVector(
             descriptors=descriptors,
@@ -212,6 +251,7 @@ class SmilesFeaturizer:
 # ---------------------------------------------------------------------------
 # Internal SMILES parsing helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_atoms(smiles: str) -> list[tuple[str, bool]]:
     """Return (symbol, is_aromatic) for each heavy atom in SMILES.

@@ -195,7 +195,6 @@ def evaluate_candidate(
     )
 
 
-
 # ---------------------------------------------------------------------------
 # New SMILES-based pipeline (Task 1)
 # ---------------------------------------------------------------------------
@@ -215,15 +214,15 @@ class SimulationRequest:
 
 @dataclass
 class SimulationResult:
-    time_h: "NDArray[np.float64]"
-    cp_mg_L: "NDArray[np.float64]"
+    time_h: NDArray[np.float64]
+    cp_mg_L: NDArray[np.float64]
     cmax_mg_L: float
     tmax_h: float
     auc0t_mg_h_L: float
     t_half_h: float
-    adme_properties: "dict[str, Any]"
+    adme_properties: dict[str, Any]
     confidence: str
-    warnings: "list[str]"
+    warnings: list[str]
 
 
 class OmegaPipeline:
@@ -236,12 +235,13 @@ class OmegaPipeline:
             return
         try:
             from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+
             self._adme_predictor = ADMEPredictor()
         except Exception:
             self._adme_predictor = None
         self._initialized = True
 
-    def simulate(self, request: "SimulationRequest") -> "SimulationResult":
+    def simulate(self, request: SimulationRequest) -> SimulationResult:
         self._ensure_initialized()
         warnings_list: list = []
         adme_props = self._predict_adme(request.smiles, warnings_list)
@@ -261,9 +261,15 @@ class OmegaPipeline:
             t_half = float("nan")
         confidence = adme_props.get("confidence", "low")
         return SimulationResult(
-            time_h=time_h, cp_mg_L=cp, cmax_mg_L=cmax, tmax_h=tmax,
-            auc0t_mg_h_L=auc, t_half_h=t_half, adme_properties=adme_props,
-            confidence=confidence, warnings=warnings_list,
+            time_h=time_h,
+            cp_mg_L=cp,
+            cmax_mg_L=cmax,
+            tmax_h=tmax,
+            auc0t_mg_h_L=auc,
+            t_half_h=t_half,
+            adme_properties=adme_props,
+            confidence=confidence,
+            warnings=warnings_list,
         )
 
     def _predict_adme(self, smiles: str, warnings_list: list) -> dict:
@@ -271,21 +277,33 @@ class OmegaPipeline:
             try:
                 props = self._adme_predictor.predict(smiles)
                 return {
-                    "mw": props.mw, "logP": props.logP, "logS": props.logS,
-                    "fup": props.fup, "rbp": props.rbp, "clint_3a4": props.clint_3a4,
-                    "herg_ic50_uM": props.herg_ic50_uM, "confidence": props.confidence,
+                    "mw": props.mw,
+                    "logP": props.logP,
+                    "logS": props.logS,
+                    "fup": props.fup,
+                    "rbp": props.rbp,
+                    "clint_3a4": props.clint_3a4,
+                    "herg_ic50_uM": props.herg_ic50_uM,
+                    "confidence": props.confidence,
                 }
             except Exception as e:
                 warnings_list.append(f"ADME prediction failed: {e}; using defaults")
         else:
             warnings_list.append("ADMEPredictor not available; using default ADME values")
         return {
-            "mw": 300.0, "logP": 2.0, "logS": -3.0, "fup": 0.1, "rbp": 0.55,
-            "clint_3a4": 5.0, "herg_ic50_uM": 10.0, "confidence": "low",
+            "mw": 300.0,
+            "logP": 2.0,
+            "logS": -3.0,
+            "fup": 0.1,
+            "rbp": 0.55,
+            "clint_3a4": 5.0,
+            "herg_ic50_uM": 10.0,
+            "confidence": "low",
         }
 
     def _build_drug(self, smiles: str, adme: dict, warnings_list: list):
         from omega_pbpk.drugs.drug import Drug
+
         fup = max(float(adme.get("fup", 0.1)), 0.001)
         logP = float(adme.get("logP", 2.0))
         clint_in_vitro = float(adme.get("clint_3a4", 5.0))
@@ -296,7 +314,8 @@ class OmegaPipeline:
         return Drug(
             name=f"compound_{smiles[:8]}",
             mw=float(adme.get("mw", 300.0)),
-            logP=logP, fup=fup,
+            logP=logP,
+            fup=fup,
             rbp=float(adme.get("rbp", 0.55)),
             clint_hepatic_L_per_h=clint_L_per_h,
             peff=1.0,
@@ -304,6 +323,7 @@ class OmegaPipeline:
 
     def _run_simulation(self, drug, request, warnings_list):
         from omega_pbpk.core.body import WholeBodyPBPK
+
         time_h = np.linspace(0, request.duration_h, request.n_timepoints)
         try:
             model = WholeBodyPBPK(drug=drug)
@@ -329,15 +349,19 @@ class OmegaPipeline:
                 cp = (request.dose_mg / vd) * np.exp(-ke * time_h)
             else:
                 ka = 1.0
-                cp = (request.dose_mg / vd) * (ka / (ka - ke)) * (np.exp(-ke * time_h) - np.exp(-ka * time_h))
+                cp = (
+                    (request.dose_mg / vd)
+                    * (ka / (ka - ke))
+                    * (np.exp(-ke * time_h) - np.exp(-ka * time_h))
+                )
             return time_h, np.maximum(cp, 0.0)
 
 
 def simulate_with_uncertainty(
-    request: "SimulationRequest",
+    request: SimulationRequest,
     n_samples: int = 100,
     adme_cv: float = 0.3,
-    seed: "int | None" = None,
+    seed: int | None = None,
 ) -> dict:
     rng = np.random.default_rng(seed)
     pipeline = OmegaPipeline()
@@ -351,8 +375,12 @@ def simulate_with_uncertainty(
     sigma = float(np.sqrt(np.log(1.0 + adme_cv**2)))
     for _ in range(n_samples):
         perturbed_adme = dict(adme_nominal)
-        perturbed_adme["fup"] = float(adme_nominal.get("fup", 0.1)) * float(rng.lognormal(mean=0.0, sigma=sigma))
-        perturbed_adme["clint_3a4"] = float(adme_nominal.get("clint_3a4", 5.0)) * float(rng.lognormal(mean=0.0, sigma=sigma))
+        perturbed_adme["fup"] = float(adme_nominal.get("fup", 0.1)) * float(
+            rng.lognormal(mean=0.0, sigma=sigma)
+        )
+        perturbed_adme["clint_3a4"] = float(adme_nominal.get("clint_3a4", 5.0)) * float(
+            rng.lognormal(mean=0.0, sigma=sigma)
+        )
         perturbed_adme["fup"] = float(np.clip(perturbed_adme["fup"], 0.001, 1.0))
         perturbed_adme["clint_3a4"] = float(np.clip(perturbed_adme["clint_3a4"], 0.001, 1000.0))
         sample_warnings: list = []
@@ -379,15 +407,15 @@ def simulate_with_uncertainty(
 class SimulationResult2:
     """Output from OmegaPipeline simulation (Phase 2 alias for SimulationResult)."""
 
-    time_h: "NDArray[np.float64]"
-    cp_mg_L: "NDArray[np.float64]"
+    time_h: NDArray[np.float64]
+    cp_mg_L: NDArray[np.float64]
     cmax_mg_L: float
     tmax_h: float
     auc0t_mg_h_L: float
     t_half_h: float
-    adme_properties: "dict[str, Any]"
+    adme_properties: dict[str, Any]
     confidence: str
-    warnings: "list[str]"
+    warnings: list[str]
 
 
 __all__ = [

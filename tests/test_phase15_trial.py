@@ -39,6 +39,7 @@ from omega_pbpk.drugs.drug import Drug
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def fast_drug():
     """Fast-clearing oral drug suitable for short simulations."""
@@ -49,7 +50,7 @@ def fast_drug():
         fup=0.30,
         rbp=1.0,
         pka=[8.0],
-        clint_hepatic_L_per_h=25.0,   # high CLint → short t½
+        clint_hepatic_L_per_h=25.0,  # high CLint → short t½
         clr_L_per_h=0.5,
     )
 
@@ -64,7 +65,7 @@ def slow_drug():
         fup=0.15,
         rbp=1.0,
         pka=[7.5],
-        clint_hepatic_L_per_h=1.5,    # low CLint → longer t½, accumulation
+        clint_hepatic_L_per_h=1.5,  # low CLint → longer t½, accumulation
         clr_L_per_h=0.1,
     )
 
@@ -82,6 +83,7 @@ def regimen_bid():
 # ============================================================================
 # DoseRegimen
 # ============================================================================
+
 
 class TestDoseRegimen:
     def test_total_duration(self):
@@ -103,6 +105,7 @@ class TestDoseRegimen:
 # ============================================================================
 # Internal helpers
 # ============================================================================
+
 
 class TestSuperpose:
     def test_output_shape(self):
@@ -137,7 +140,7 @@ class TestSuperpose:
         t_md1, cp_md1 = _superpose_doses(cp, t, interval_h=interval, n_doses=1)
         t_md10, cp_md10 = _superpose_doses(cp, t, interval_h=interval, n_doses=10)
 
-        cmax_1  = float(np.max(cp_md1))
+        cmax_1 = float(np.max(cp_md1))
         # Cmax at SS: last interval of the 10-dose run
         mask_ss = t_md10 >= 9 * interval
         cmax_ss = float(np.max(cp_md10[mask_ss]))
@@ -205,6 +208,7 @@ class TestTerminalHalfLife:
 # SubjectPKResult
 # ============================================================================
 
+
 class TestSubjectPKResult:
     @pytest.fixture
     def pk(self):
@@ -236,18 +240,23 @@ class TestSubjectPKResult:
 # ArmPKSummary
 # ============================================================================
 
+
 class TestArmPKSummary:
     @pytest.fixture
     def subjects(self):
         return [
-            SubjectPKResult(i, 70.0, 1.0,
-                            cmax_ss=1.0 + i * 0.1,
-                            cmin_ss=0.1 + i * 0.01,
-                            auc_tau=10.0 + i,
-                            cmax_1=0.8,
-                            auc_inf=8.0,
-                            t_half_h=6.0 + i * 0.5,
-                            tmax_h=1.0)
+            SubjectPKResult(
+                i,
+                70.0,
+                1.0,
+                cmax_ss=1.0 + i * 0.1,
+                cmin_ss=0.1 + i * 0.01,
+                auc_tau=10.0 + i,
+                cmax_1=0.8,
+                auc_inf=8.0,
+                t_half_h=6.0 + i * 0.5,
+                tmax_h=1.0,
+            )
             for i in range(10)
         ]
 
@@ -277,6 +286,7 @@ class TestArmPKSummary:
 # Bioequivalence
 # ============================================================================
 
+
 class TestWelchCI:
     def test_identical_arms_gmr_one(self):
         vals = np.array([1.0, 1.1, 0.9, 1.05, 0.95])
@@ -289,7 +299,7 @@ class TestWelchCI:
         assert lo <= 1.0 <= hi
 
     def test_test_twice_ref_gmr_two(self):
-        ref  = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        ref = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
         test = np.array([2.0, 2.0, 2.0, 2.0, 2.0])
         gmr, _, _ = _welch_90ci_ratio(test, ref)
         assert gmr == pytest.approx(2.0, abs=0.01)
@@ -311,9 +321,14 @@ class TestWelchCI:
 class TestBioequivalenceResult:
     def test_within_be_window(self):
         be = BioequivalenceResult(
-            test_arm="T", reference_arm="R",
-            auc_gmr=1.0, auc_ci_90_lower=0.85, auc_ci_90_upper=1.18,
-            cmax_gmr=1.0, cmax_ci_90_lower=0.82, cmax_ci_90_upper=1.20,
+            test_arm="T",
+            reference_arm="R",
+            auc_gmr=1.0,
+            auc_ci_90_lower=0.85,
+            auc_ci_90_upper=1.18,
+            cmax_gmr=1.0,
+            cmax_ci_90_lower=0.82,
+            cmax_ci_90_upper=1.20,
         )
         assert be.is_bioequivalent is True
         assert be.auc_be is True
@@ -321,17 +336,27 @@ class TestBioequivalenceResult:
 
     def test_outside_be_window_upper(self):
         be = BioequivalenceResult(
-            test_arm="T", reference_arm="R",
-            auc_gmr=1.3, auc_ci_90_lower=1.10, auc_ci_90_upper=1.50,
-            cmax_gmr=1.3, cmax_ci_90_lower=1.10, cmax_ci_90_upper=1.50,
+            test_arm="T",
+            reference_arm="R",
+            auc_gmr=1.3,
+            auc_ci_90_lower=1.10,
+            auc_ci_90_upper=1.50,
+            cmax_gmr=1.3,
+            cmax_ci_90_lower=1.10,
+            cmax_ci_90_upper=1.50,
         )
         assert be.is_bioequivalent is False
 
     def test_outside_be_window_lower(self):
         be = BioequivalenceResult(
-            test_arm="T", reference_arm="R",
-            auc_gmr=0.70, auc_ci_90_lower=0.55, auc_ci_90_upper=0.82,
-            cmax_gmr=0.70, cmax_ci_90_lower=0.55, cmax_ci_90_upper=0.82,
+            test_arm="T",
+            reference_arm="R",
+            auc_gmr=0.70,
+            auc_ci_90_lower=0.55,
+            auc_ci_90_upper=0.82,
+            cmax_gmr=0.70,
+            cmax_ci_90_lower=0.55,
+            cmax_ci_90_upper=0.82,
         )
         assert be.is_bioequivalent is False
 
@@ -339,34 +364,43 @@ class TestBioequivalenceResult:
 class TestComputeBioequivalence:
     def _make_subjects(self, cmax_vals, auc_vals):
         return [
-            SubjectPKResult(i, 70.0, 1.0,
-                            cmax_ss=c, cmin_ss=c*0.2, auc_tau=a,
-                            cmax_1=c*0.8, auc_inf=a*1.5,
-                            t_half_h=8.0, tmax_h=1.0)
+            SubjectPKResult(
+                i,
+                70.0,
+                1.0,
+                cmax_ss=c,
+                cmin_ss=c * 0.2,
+                auc_tau=a,
+                cmax_1=c * 0.8,
+                auc_inf=a * 1.5,
+                t_half_h=8.0,
+                tmax_h=1.0,
+            )
             for i, (c, a) in enumerate(zip(cmax_vals, auc_vals))
         ]
 
     def test_returns_be_result(self):
-        test = self._make_subjects([1.1]*6, [11.0]*6)
-        ref  = self._make_subjects([1.0]*6, [10.0]*6)
+        test = self._make_subjects([1.1] * 6, [11.0] * 6)
+        ref = self._make_subjects([1.0] * 6, [10.0] * 6)
         be = compute_bioequivalence(test, ref)
         assert isinstance(be, BioequivalenceResult)
 
     def test_auc_gmr_positive(self):
-        test = self._make_subjects([1.0]*5, [10.0]*5)
-        ref  = self._make_subjects([1.0]*5, [10.0]*5)
+        test = self._make_subjects([1.0] * 5, [10.0] * 5)
+        ref = self._make_subjects([1.0] * 5, [10.0] * 5)
         be = compute_bioequivalence(test, ref)
         assert be.auc_gmr > 0.0
 
     def test_be_for_identical_arms(self):
-        data = self._make_subjects([1.0, 1.05, 0.95, 1.02, 0.98, 1.01],
-                                    [10.0, 10.5, 9.5, 10.2, 9.8, 10.1])
+        data = self._make_subjects(
+            [1.0, 1.05, 0.95, 1.02, 0.98, 1.01], [10.0, 10.5, 9.5, 10.2, 9.8, 10.1]
+        )
         be = compute_bioequivalence(data, data)
         assert be.is_bioequivalent is True
 
     def test_arm_names_set(self):
-        test = self._make_subjects([1.0]*4, [10.0]*4)
-        ref  = self._make_subjects([1.0]*4, [10.0]*4)
+        test = self._make_subjects([1.0] * 4, [10.0] * 4)
+        ref = self._make_subjects([1.0] * 4, [10.0] * 4)
         be = compute_bioequivalence(test, ref, "TestDrug", "PlaceboRef")
         assert be.test_arm == "TestDrug"
         assert be.reference_arm == "PlaceboRef"
@@ -375,6 +409,7 @@ class TestComputeBioequivalence:
 # ============================================================================
 # simulate_arm (integration — small n for speed)
 # ============================================================================
+
 
 class TestSimulateArm:
     def test_returns_list(self, fast_drug, regimen_qd):
@@ -426,6 +461,7 @@ class TestSimulateArm:
 # run_clinical_trial
 # ============================================================================
 
+
 class TestRunClinicalTrial:
     def test_single_arm_returns_trial_result(self, fast_drug, regimen_qd):
         arm = TrialArm("Mono", fast_drug, regimen_qd)
@@ -438,7 +474,7 @@ class TestRunClinicalTrial:
         assert result.bioequivalence is None
 
     def test_two_arms_has_be(self, fast_drug, regimen_qd, regimen_bid):
-        arm_a = TrialArm("Test",      fast_drug, regimen_qd)
+        arm_a = TrialArm("Test", fast_drug, regimen_qd)
         arm_b = TrialArm("Reference", fast_drug, regimen_bid)
         result = run_clinical_trial([arm_a, arm_b], n_subjects=3, seed=12)
         assert result.bioequivalence is not None
@@ -460,8 +496,7 @@ class TestRunClinicalTrial:
         assert "regimens" in result.design
 
     def test_summary_table_rows(self, fast_drug, regimen_qd, regimen_bid):
-        arms = [TrialArm("A", fast_drug, regimen_qd),
-                TrialArm("B", fast_drug, regimen_bid)]
+        arms = [TrialArm("A", fast_drug, regimen_qd), TrialArm("B", fast_drug, regimen_bid)]
         result = run_clinical_trial(arms, n_subjects=3, seed=15)
         table = result.summary_table()
         assert len(table) == 2
@@ -477,12 +512,12 @@ class TestRunClinicalTrial:
         assert r1.arm_summaries[0].cmax_ss["mean"] == r2.arm_summaries[0].cmax_ss["mean"]
 
     def test_higher_dose_higher_exposure(self, fast_drug):
-        low_dose  = DoseRegimen(dose_mg=50,  n_doses=5, interval_h=24)
+        low_dose = DoseRegimen(dose_mg=50, n_doses=5, interval_h=24)
         high_dose = DoseRegimen(dose_mg=200, n_doses=5, interval_h=24)
-        arm_low  = TrialArm("Low",  fast_drug, low_dose)
+        arm_low = TrialArm("Low", fast_drug, low_dose)
         arm_high = TrialArm("High", fast_drug, high_dose)
         result = run_clinical_trial([arm_low, arm_high], n_subjects=3, seed=20)
-        s_low  = result.arm_summaries[0].auc_tau["mean"]
+        s_low = result.arm_summaries[0].auc_tau["mean"]
         s_high = result.arm_summaries[1].auc_tau["mean"]
         assert s_high > s_low
 
@@ -490,7 +525,7 @@ class TestRunClinicalTrial:
         """Identical arms should give GMR ≈ 1 and pass BE."""
         reg = DoseRegimen(dose_mg=100, n_doses=5, interval_h=24)
         arm_t = TrialArm("Test", fast_drug, reg)
-        arm_r = TrialArm("Ref",  fast_drug, reg)
+        arm_r = TrialArm("Ref", fast_drug, reg)
         result = run_clinical_trial([arm_t, arm_r], n_subjects=5, seed=30)
         be = result.bioequivalence
         assert be is not None

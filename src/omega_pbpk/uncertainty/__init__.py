@@ -180,9 +180,7 @@ def monte_carlo_propagation(
                 continue
     else:
         # Parallel mechanistic path — dispatch each sample to a worker
-        worker_args = [
-            (params, dose_mg, route, body_weight, t_end_h) for params in all_params
-        ]
+        worker_args = [(params, dose_mg, route, body_weight, t_end_h) for params in all_params]
         max_workers = min(n_workers, n_samples)
         # Collect results preserving insertion order to match sampled_params
         pk_results: list[dict[str, float] | None] = [None] * n_samples

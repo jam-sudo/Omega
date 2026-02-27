@@ -1,17 +1,25 @@
 """ADME predictor benchmarking against reference dataset."""
+
 from __future__ import annotations
+
 import csv
 import logging
 import math
 from pathlib import Path
+
 logger = logging.getLogger(__name__)
+
 
 def _aafe(predicted: list[float], measured: list[float]) -> float:
     """Absolute average fold error."""
     if not predicted:
         return float("nan")
-    fes = [abs(math.log10(max(p, 1e-9) / max(m, 1e-9))) for p, m in zip(predicted, measured)]
+    fes = [
+        abs(math.log10(max(p, 1e-9) / max(m, 1e-9)))
+        for p, m in zip(predicted, measured, strict=False)
+    ]
     return 10 ** (sum(fes) / len(fes))
+
 
 def benchmark_adme_predictor(predictor=None) -> dict[str, float]:
     """Benchmark ADMEPredictor against reference dataset.
@@ -20,11 +28,17 @@ def benchmark_adme_predictor(predictor=None) -> dict[str, float]:
     """
     if predictor is None:
         from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+
         predictor = ADMEPredictor()
     ref_path = Path(__file__).parent.parent.parent.parent.parent / "data" / "adme_reference.csv"
     if not ref_path.exists():
         logger.warning("adme_reference.csv not found; skipping benchmark")
-        return {"logP_aafe": float("nan"), "logS_aafe": float("nan"), "fup_aafe": float("nan"), "n_compounds": 0}
+        return {
+            "logP_aafe": float("nan"),
+            "logS_aafe": float("nan"),
+            "fup_aafe": float("nan"),
+            "n_compounds": 0,
+        }
 
     pred_logP, meas_logP = [], []
     pred_logS, meas_logS = [], []
@@ -43,7 +57,7 @@ def benchmark_adme_predictor(predictor=None) -> dict[str, float]:
                 meas_fup.append(max(float(row["fup"]), 1e-4))
                 n += 1
             except Exception as e:
-                logger.debug(f"Skipped {row.get('name','?')}: {e}")
+                logger.debug(f"Skipped {row.get('name', '?')}: {e}")
 
     return {
         "logP_aafe": _aafe(pred_logP, meas_logP),
@@ -51,6 +65,7 @@ def benchmark_adme_predictor(predictor=None) -> dict[str, float]:
         "fup_aafe": _aafe(pred_fup, meas_fup),
         "n_compounds": n,
     }
+
 
 def print_benchmark_report(results: dict[str, float]) -> None:
     print(f"\nADME Predictor Benchmark (n={results['n_compounds']})")

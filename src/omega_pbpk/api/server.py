@@ -97,7 +97,6 @@ def create_app() -> Any:
         route: str = "oral"
         n_subjects: int = 50
 
-
     class NewMoleculeRequest(BaseModel):
         smiles: str
         dose_mg: float = 100.0
@@ -266,11 +265,11 @@ def create_app() -> Any:
             "Cmax_95th_pct": round(float(np.percentile(arr, 95)), 6),
         }
 
-
     @app.post("/predict/new-molecule")
     async def predict_new_molecule(body: NewMoleculeRequest) -> NewMoleculeResponse:
         """Predict PK profile for any drug given by SMILES string."""
-        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
+        from omega_pbpk.pipeline import SimulationRequest
+
         pipeline = _get_pipeline()
         req = SimulationRequest(
             smiles=body.smiles,
@@ -280,7 +279,9 @@ def create_app() -> Any:
             species=body.species,
         )
         result = pipeline.simulate(req)
-        adme_float = {k: float(v) for k, v in result.adme_properties.items() if isinstance(v, (int, float))}
+        adme_float = {
+            k: float(v) for k, v in result.adme_properties.items() if isinstance(v, (int, float))
+        }
         return NewMoleculeResponse(
             cmax_mg_L=result.cmax_mg_L,
             tmax_h=result.tmax_h,
@@ -295,7 +296,9 @@ def create_app() -> Any:
     async def predict_with_uncertainty(body: UncertaintyRequest) -> UncertaintyResponse:
         """Monte Carlo uncertainty quantification for PK predictions."""
         import numpy as np
+
         from omega_pbpk.pipeline import SimulationRequest, simulate_with_uncertainty
+
         req = SimulationRequest(
             smiles=body.smiles,
             dose_mg=body.dose_mg,
@@ -319,7 +322,7 @@ def create_app() -> Any:
     @app.get("/pipeline/health")
     async def pipeline_health() -> dict:
         """Check if the full pipeline (ADME predictor + PBPK) is operational."""
-        from omega_pbpk.pipeline import OmegaPipeline
+
         pipeline = _get_pipeline()
         adme_ok = pipeline._adme_predictor is not None
         return {
@@ -329,7 +332,6 @@ def create_app() -> Any:
             "pipeline": "operational",
         }
 
-
     # Pipeline singleton for reuse
     _pipeline_instance = None
 
@@ -337,6 +339,7 @@ def create_app() -> Any:
         nonlocal _pipeline_instance
         if _pipeline_instance is None:
             from omega_pbpk.pipeline import OmegaPipeline
+
             _pipeline_instance = OmegaPipeline()
             _pipeline_instance._ensure_initialized()
         return _pipeline_instance

@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Trial design types
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class DoseRegimen:
@@ -77,13 +78,14 @@ class TrialArm:
     """
 
     name: str
-    drug: Any          # omega_pbpk.drugs.drug.Drug
+    drug: Any  # omega_pbpk.drugs.drug.Drug
     regimen: DoseRegimen
 
 
 # ---------------------------------------------------------------------------
 # Per-subject PK result
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SubjectPKResult:
@@ -97,15 +99,15 @@ class SubjectPKResult:
     cyp3a4_activity: float
 
     # --- Steady-state (last dosing interval) ---
-    cmax_ss: float       # Peak plasma conc at steady state (mg/L)
-    cmin_ss: float       # Trough plasma conc at steady state (mg/L)
-    auc_tau: float       # AUC over one dosing interval at SS (mg·h/L)
+    cmax_ss: float  # Peak plasma conc at steady state (mg/L)
+    cmin_ss: float  # Trough plasma conc at steady state (mg/L)
+    auc_tau: float  # AUC over one dosing interval at SS (mg·h/L)
 
     # --- Single-dose ---
-    cmax_1: float        # Peak after first dose
-    auc_inf: float       # AUC from 0 to ∞ (single dose)
-    t_half_h: float      # Terminal half-life (h)
-    tmax_h: float        # Time of Cmax (first dose, h)
+    cmax_1: float  # Peak after first dose
+    auc_inf: float  # AUC from 0 to ∞ (single dose)
+    t_half_h: float  # Terminal half-life (h)
+    tmax_h: float  # Time of Cmax (first dose, h)
 
     # --- Derived ---
     @property
@@ -123,6 +125,7 @@ class SubjectPKResult:
 # Arm-level summary statistics
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ArmPKSummary:
     """Population PK summary for one trial arm."""
@@ -130,7 +133,7 @@ class ArmPKSummary:
     arm_name: str
     n: int
 
-    cmax_ss: dict[str, float]       # mean, median, cv_pct, p5, p95
+    cmax_ss: dict[str, float]  # mean, median, cv_pct, p5, p95
     cmin_ss: dict[str, float]
     auc_tau: dict[str, float]
     t_half: dict[str, float]
@@ -142,11 +145,11 @@ class ArmPKSummary:
             return {"mean": 0.0, "median": 0.0, "cv_pct": 0.0, "p5": 0.0, "p95": 0.0}
         mean_ = float(np.mean(values))
         return {
-            "mean":   round(mean_, 4),
+            "mean": round(mean_, 4),
             "median": round(float(np.median(values)), 4),
             "cv_pct": round(float(np.std(values) / max(mean_, 1e-12) * 100), 2),
-            "p5":     round(float(np.percentile(values, 5)), 4),
-            "p95":    round(float(np.percentile(values, 95)), 4),
+            "p5": round(float(np.percentile(values, 5)), 4),
+            "p95": round(float(np.percentile(values, 95)), 4),
         }
 
     @classmethod
@@ -167,6 +170,7 @@ class ArmPKSummary:
 # Bioequivalence analysis
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BioequivalenceResult:
     """Parallel-group bioequivalence analysis (EMA / FDA 2022 guideline).
@@ -178,7 +182,7 @@ class BioequivalenceResult:
     test_arm: str
     reference_arm: str
 
-    auc_gmr: float          # AUC geometric mean ratio (test/ref)
+    auc_gmr: float  # AUC geometric mean ratio (test/ref)
     auc_ci_90_lower: float  # 90 % CI lower bound
     auc_ci_90_upper: float  # 90 % CI upper bound
 
@@ -206,12 +210,13 @@ class BioequivalenceResult:
 # Trial result
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TrialResult:
     """Complete clinical trial simulation output."""
 
-    arm_results:    list[list[SubjectPKResult]]
-    arm_summaries:  list[ArmPKSummary]
+    arm_results: list[list[SubjectPKResult]]
+    arm_summaries: list[ArmPKSummary]
     bioequivalence: BioequivalenceResult | None
     design: dict[str, Any]
 
@@ -219,17 +224,19 @@ class TrialResult:
         """Return list of arm-summary dicts for tabular display."""
         rows = []
         for s in self.arm_summaries:
-            rows.append({
-                "arm":                  s.arm_name,
-                "n":                    s.n,
-                "Cmax_ss_mean_mg_L":    s.cmax_ss["mean"],
-                "Cmax_ss_cv%":          s.cmax_ss["cv_pct"],
-                "AUCtau_mean_mgh_L":    s.auc_tau["mean"],
-                "AUCtau_cv%":           s.auc_tau["cv_pct"],
-                "Cmin_ss_mean_mg_L":    s.cmin_ss["mean"],
-                "t_half_mean_h":        s.t_half["mean"],
-                "AI_mean":              s.accumulation_index["mean"],
-            })
+            rows.append(
+                {
+                    "arm": s.arm_name,
+                    "n": s.n,
+                    "Cmax_ss_mean_mg_L": s.cmax_ss["mean"],
+                    "Cmax_ss_cv%": s.cmax_ss["cv_pct"],
+                    "AUCtau_mean_mgh_L": s.auc_tau["mean"],
+                    "AUCtau_cv%": s.auc_tau["cv_pct"],
+                    "Cmin_ss_mean_mg_L": s.cmin_ss["mean"],
+                    "t_half_mean_h": s.t_half["mean"],
+                    "AI_mean": s.accumulation_index["mean"],
+                }
+            )
         return rows
 
 
@@ -237,11 +244,16 @@ class TrialResult:
 # Core simulation functions
 # ---------------------------------------------------------------------------
 
-def _simulate_single_dose(drug: Any, dose_mg: float, route: str,
-                           body_weight: float,
-                           hepatic_scale: float,
-                           cyp3a4: float,
-                           n_points: int = 500) -> tuple[NDArray, NDArray]:
+
+def _simulate_single_dose(
+    drug: Any,
+    dose_mg: float,
+    route: str,
+    body_weight: float,
+    hepatic_scale: float,
+    cyp3a4: float,
+    n_points: int = 500,
+) -> tuple[NDArray, NDArray]:
     """Run a single-dose PBPK simulation.
 
     Returns (time_h, cp_mg_L) arrays of length n_points.
@@ -263,9 +275,14 @@ def _simulate_single_dose(drug: Any, dose_mg: float, route: str,
         **{
             attr: getattr(drug, attr)
             for attr in (
-                "drug_type", "clint_gut_L_per_h", "peff",
-                "solubility_mg_mL", "fm", "kp",
-                "partition_method", "compound_type",
+                "drug_type",
+                "clint_gut_L_per_h",
+                "peff",
+                "solubility_mg_mL",
+                "fm",
+                "kp",
+                "partition_method",
+                "compound_type",
             )
             if hasattr(drug, attr) and getattr(drug, attr) is not None
         },
@@ -284,7 +301,7 @@ def _simulate_single_dose(drug: Any, dose_mg: float, route: str,
 
     result = model.simulate(t_end_h=t_end, dt_h=t_end / (n_points - 1))
     cp_raw = result.plasma_concentration()
-    t_raw  = result.time_h
+    t_raw = result.time_h
 
     # Uniform time grid
     t_out = np.linspace(0.0, t_end, n_points)
@@ -292,8 +309,9 @@ def _simulate_single_dose(drug: Any, dose_mg: float, route: str,
     return t_out, cp_out
 
 
-def _superpose_doses(cp_single: NDArray, t_single: NDArray,
-                     interval_h: float, n_doses: int) -> tuple[NDArray, NDArray]:
+def _superpose_doses(
+    cp_single: NDArray, t_single: NDArray, interval_h: float, n_doses: int
+) -> tuple[NDArray, NDArray]:
     """Superimpose n_doses single-dose profiles to get multi-dose curve.
 
     The superposition principle is valid for linear (first-order) PK.
@@ -317,25 +335,26 @@ def _superpose_doses(cp_single: NDArray, t_single: NDArray,
     return t_md, cp_md
 
 
-def _extract_ss_pk(t_md: NDArray, cp_md: NDArray, interval_h: float,
-                   n_doses: int) -> tuple[float, float, float]:
+def _extract_ss_pk(
+    t_md: NDArray, cp_md: NDArray, interval_h: float, n_doses: int
+) -> tuple[float, float, float]:
     """Extract SS endpoints from the last dosing interval.
 
     Returns (cmax_ss, cmin_ss, auc_tau).
     """
     # Last dosing interval: [(n_doses-1)*tau, n_doses*tau]
     t_start = (n_doses - 1) * interval_h
-    t_end   = n_doses * interval_h
+    t_end = n_doses * interval_h
 
     mask = (t_md >= t_start) & (t_md <= t_end)
     if not np.any(mask):
         return 0.0, 0.0, 0.0
 
     cp_interval = cp_md[mask]
-    t_interval  = t_md[mask]
+    t_interval = t_md[mask]
 
     cmax_ss = float(np.max(cp_interval))
-    cmin_ss = float(cp_interval[-1])   # trough at end of interval
+    cmin_ss = float(cp_interval[-1])  # trough at end of interval
     auc_tau = float(np.trapezoid(cp_interval, t_interval))
     return cmax_ss, cmin_ss, auc_tau
 
@@ -350,7 +369,7 @@ def _terminal_half_life(t: NDArray, cp: NDArray) -> float:
     tail_start = max(i_max + 1, int(0.6 * n))
     if tail_start >= n - 2:
         return 99.0
-    t_tail  = t[tail_start:]
+    t_tail = t[tail_start:]
     cp_tail = cp[tail_start:]
     pos = cp_tail > 1e-12
     if np.sum(pos) < 2:
@@ -381,21 +400,21 @@ def _simulate_one_subject(
         )
 
         # Single-dose PK
-        i_max   = int(np.argmax(cp_single))
-        cmax_1  = float(cp_single[i_max])
-        tmax_h  = float(t_single[i_max])
+        i_max = int(np.argmax(cp_single))
+        cmax_1 = float(cp_single[i_max])
+        tmax_h = float(t_single[i_max])
         auc_inf = float(np.trapezoid(cp_single, t_single))
-        t_half  = _terminal_half_life(t_single, cp_single)
+        t_half = _terminal_half_life(t_single, cp_single)
 
         # Multi-dose superposition
         t_md, cp_md = _superpose_doses(
-            cp_single, t_single,
+            cp_single,
+            t_single,
             interval_h=regimen.interval_h,
             n_doses=regimen.n_doses,
         )
 
-        cmax_ss, cmin_ss, auc_tau = _extract_ss_pk(t_md, cp_md, regimen.interval_h,
-                                                     regimen.n_doses)
+        cmax_ss, cmin_ss, auc_tau = _extract_ss_pk(t_md, cp_md, regimen.interval_h, regimen.n_doses)
 
         return SubjectPKResult(
             subject_id=subj_id,
@@ -458,6 +477,7 @@ def simulate_arm(
 # Bioequivalence
 # ---------------------------------------------------------------------------
 
+
 def _welch_90ci_ratio(
     test_values: NDArray[np.float64],
     ref_values: NDArray[np.float64],
@@ -470,7 +490,7 @@ def _welch_90ci_ratio(
         (gmr, ci_lower, ci_upper) — all as fractions (not percentages).
     """
     ln_test = np.log(np.maximum(test_values, 1e-12))
-    ln_ref  = np.log(np.maximum(ref_values, 1e-12))
+    ln_ref = np.log(np.maximum(ref_values, 1e-12))
 
     n1, n2 = len(ln_test), len(ln_ref)
     if n1 < 2 or n2 < 2:
@@ -479,46 +499,45 @@ def _welch_90ci_ratio(
 
     mean_diff = float(np.mean(ln_test) - np.mean(ln_ref))
     var1 = float(np.var(ln_test, ddof=1))
-    var2 = float(np.var(ln_ref,  ddof=1))
-    se   = math.sqrt(var1 / n1 + var2 / n2)
+    var2 = float(np.var(ln_ref, ddof=1))
+    se = math.sqrt(var1 / n1 + var2 / n2)
 
     # Welch-Satterthwaite degrees of freedom
     if se == 0.0:
         nu = n1 + n2 - 2.0
     else:
         nu = (var1 / n1 + var2 / n2) ** 2 / (
-            (var1 / n1) ** 2 / max(n1 - 1, 1)
-            + (var2 / n2) ** 2 / max(n2 - 1, 1)
+            (var1 / n1) ** 2 / max(n1 - 1, 1) + (var2 / n2) ** 2 / max(n2 - 1, 1)
         )
 
-    t_crit = float(t_dist.ppf(0.95, nu))   # 90 % two-sided = 5 % one-sided each
+    t_crit = float(t_dist.ppf(0.95, nu))  # 90 % two-sided = 5 % one-sided each
 
-    ci_low_ln  = mean_diff - t_crit * se
+    ci_low_ln = mean_diff - t_crit * se
     ci_high_ln = mean_diff + t_crit * se
 
-    gmr   = math.exp(mean_diff)
+    gmr = math.exp(mean_diff)
     ci_lo = math.exp(ci_low_ln)
     ci_hi = math.exp(ci_high_ln)
     return round(gmr, 4), round(ci_lo, 4), round(ci_hi, 4)
 
 
 def compute_bioequivalence(
-    test_results:  list[SubjectPKResult],
-    ref_results:   list[SubjectPKResult],
+    test_results: list[SubjectPKResult],
+    ref_results: list[SubjectPKResult],
     test_arm_name: str = "Test",
-    ref_arm_name:  str = "Reference",
+    ref_arm_name: str = "Reference",
 ) -> BioequivalenceResult:
     """Parallel-group bioequivalence analysis.
 
     Applies EMA/FDA standard: ln-transform + 90 % CI from Welch t-test.
     BE window: 80.00 – 125.00 % for both AUC_tau and Cmax_ss.
     """
-    auc_test  = np.array([r.auc_tau  for r in test_results], dtype=float)
-    auc_ref   = np.array([r.auc_tau  for r in ref_results],  dtype=float)
-    cmax_test = np.array([r.cmax_ss  for r in test_results], dtype=float)
-    cmax_ref  = np.array([r.cmax_ss  for r in ref_results],  dtype=float)
+    auc_test = np.array([r.auc_tau for r in test_results], dtype=float)
+    auc_ref = np.array([r.auc_tau for r in ref_results], dtype=float)
+    cmax_test = np.array([r.cmax_ss for r in test_results], dtype=float)
+    cmax_ref = np.array([r.cmax_ss for r in ref_results], dtype=float)
 
-    auc_gmr, auc_lo, auc_hi   = _welch_90ci_ratio(auc_test,  auc_ref)
+    auc_gmr, auc_lo, auc_hi = _welch_90ci_ratio(auc_test, auc_ref)
     cmax_gmr, cmax_lo, cmax_hi = _welch_90ci_ratio(cmax_test, cmax_ref)
 
     return BioequivalenceResult(
@@ -536,6 +555,7 @@ def compute_bioequivalence(
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 def run_clinical_trial(
     arms: list[TrialArm],
@@ -571,16 +591,16 @@ def run_clinical_trial(
         )
 
     design: dict[str, Any] = {
-        "arms":         [a.name for a in arms],
-        "n_subjects":   n_subjects,
-        "seed":         seed,
-        "regimens":     [
+        "arms": [a.name for a in arms],
+        "n_subjects": n_subjects,
+        "seed": seed,
+        "regimens": [
             {
-                "arm":         a.name,
-                "dose_mg":     a.regimen.dose_mg,
-                "n_doses":     a.regimen.n_doses,
-                "interval_h":  a.regimen.interval_h,
-                "route":       a.regimen.route,
+                "arm": a.name,
+                "dose_mg": a.regimen.dose_mg,
+                "n_doses": a.regimen.n_doses,
+                "interval_h": a.regimen.interval_h,
+                "route": a.regimen.route,
             }
             for a in arms
         ],

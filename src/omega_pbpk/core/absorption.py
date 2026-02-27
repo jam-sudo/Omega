@@ -37,8 +37,7 @@ Reference physiology:
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -54,6 +53,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # GI segment physiological data
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class GISegment:
@@ -90,75 +90,107 @@ class GISegment:
 GI_SEGMENTS: list[GISegment] = [
     GISegment(
         name="stomach",
-        ph_fasted=1.5,   ph_fed=4.5,
-        volume_fasted_L=0.050, volume_fed_L=0.200,
-        length_cm=20.0,  radius_cm=5.0,
+        ph_fasted=1.5,
+        ph_fed=4.5,
+        volume_fasted_L=0.050,
+        volume_fed_L=0.200,
+        length_cm=20.0,
+        radius_cm=5.0,
         surface_area_cm2=600.0,
-        ka_fraction=0.0,         # no absorption from stomach
-        bile_mM_fasted=0.0, bile_mM_fed=0.0,
+        ka_fraction=0.0,  # no absorption from stomach
+        bile_mM_fasted=0.0,
+        bile_mM_fed=0.0,
     ),
     GISegment(
         name="duodenum",
-        ph_fasted=5.5,   ph_fed=5.8,
-        volume_fasted_L=0.030, volume_fed_L=0.050,
-        length_cm=25.0,  radius_cm=1.75,
+        ph_fasted=5.5,
+        ph_fed=5.8,
+        volume_fasted_L=0.030,
+        volume_fed_L=0.050,
+        length_cm=25.0,
+        radius_cm=1.75,
         surface_area_cm2=7_680.0,
         ka_fraction=1.0,
-        bile_mM_fasted=3.0, bile_mM_fed=15.0,
+        bile_mM_fasted=3.0,
+        bile_mM_fed=15.0,
     ),
     GISegment(
         name="jejunum1",
-        ph_fasted=6.0,   ph_fed=6.2,
-        volume_fasted_L=0.085, volume_fed_L=0.120,
-        length_cm=150.0, radius_cm=1.60,
+        ph_fasted=6.0,
+        ph_fed=6.2,
+        volume_fasted_L=0.085,
+        volume_fed_L=0.120,
+        length_cm=150.0,
+        radius_cm=1.60,
         surface_area_cm2=30_000.0,
         ka_fraction=1.0,
-        bile_mM_fasted=3.0, bile_mM_fed=15.0,
+        bile_mM_fasted=3.0,
+        bile_mM_fed=15.0,
     ),
     GISegment(
         name="jejunum2",
-        ph_fasted=6.2,   ph_fed=6.4,
-        volume_fasted_L=0.085, volume_fed_L=0.120,
-        length_cm=150.0, radius_cm=1.60,
+        ph_fasted=6.2,
+        ph_fed=6.4,
+        volume_fasted_L=0.085,
+        volume_fed_L=0.120,
+        length_cm=150.0,
+        radius_cm=1.60,
         surface_area_cm2=30_000.0,
         ka_fraction=1.0,
-        bile_mM_fasted=3.0, bile_mM_fed=15.0,
+        bile_mM_fasted=3.0,
+        bile_mM_fed=15.0,
     ),
     GISegment(
         name="ileum1",
-        ph_fasted=6.8,   ph_fed=7.0,
-        volume_fasted_L=0.060, volume_fed_L=0.080,
-        length_cm=100.0, radius_cm=1.50,
+        ph_fasted=6.8,
+        ph_fed=7.0,
+        volume_fasted_L=0.060,
+        volume_fed_L=0.080,
+        length_cm=100.0,
+        radius_cm=1.50,
         surface_area_cm2=21_000.0,
         ka_fraction=0.8,
-        bile_mM_fasted=2.0, bile_mM_fed=10.0,
+        bile_mM_fasted=2.0,
+        bile_mM_fed=10.0,
     ),
     GISegment(
         name="ileum2",
-        ph_fasted=7.0,   ph_fed=7.2,
-        volume_fasted_L=0.060, volume_fed_L=0.080,
-        length_cm=100.0, radius_cm=1.50,
+        ph_fasted=7.0,
+        ph_fed=7.2,
+        volume_fasted_L=0.060,
+        volume_fed_L=0.080,
+        length_cm=100.0,
+        radius_cm=1.50,
         surface_area_cm2=21_000.0,
         ka_fraction=0.6,
-        bile_mM_fasted=2.0, bile_mM_fed=8.0,
+        bile_mM_fasted=2.0,
+        bile_mM_fed=8.0,
     ),
     GISegment(
         name="ileum3",
-        ph_fasted=7.0,   ph_fed=7.4,
-        volume_fasted_L=0.060, volume_fed_L=0.080,
-        length_cm=100.0, radius_cm=1.50,
+        ph_fasted=7.0,
+        ph_fed=7.4,
+        volume_fasted_L=0.060,
+        volume_fed_L=0.080,
+        length_cm=100.0,
+        radius_cm=1.50,
         surface_area_cm2=21_000.0,
         ka_fraction=0.3,
-        bile_mM_fasted=1.0, bile_mM_fed=5.0,
+        bile_mM_fasted=1.0,
+        bile_mM_fed=5.0,
     ),
     GISegment(
         name="colon",
-        ph_fasted=6.8,   ph_fed=6.8,
-        volume_fasted_L=0.270, volume_fed_L=0.270,
-        length_cm=100.0, radius_cm=2.50,
+        ph_fasted=6.8,
+        ph_fed=6.8,
+        volume_fasted_L=0.270,
+        volume_fed_L=0.270,
+        length_cm=100.0,
+        radius_cm=2.50,
         surface_area_cm2=4_500.0,
         ka_fraction=0.05,
-        bile_mM_fasted=0.5, bile_mM_fed=0.5,
+        bile_mM_fasted=0.5,
+        bile_mM_fed=0.5,
     ),
 ]
 
@@ -169,6 +201,7 @@ _GI_SEGMENT_MAP: dict[str, GISegment] = {s.name: s for s in GI_SEGMENTS}
 # ---------------------------------------------------------------------------
 # Food effect parameters
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class FoodEffect:
@@ -187,16 +220,17 @@ class FoodEffect:
             precipitate back to the equilibrium solubility (h⁻¹).
     """
 
-    gastric_delay_factor: float = 2.0           # fed: 2× longer gastric residence
-    intestinal_transit_factor: float = 1.0      # typically no change for SI
+    gastric_delay_factor: float = 2.0  # fed: 2× longer gastric residence
+    intestinal_transit_factor: float = 1.0  # typically no change for SI
     solubility_enhancement_per_logP: float = 0.05  # (mM bile)⁻¹ · logP⁻¹
-    supersaturation_ratio: float = 1.0          # 1 = no supersaturation
-    precipitation_rate_per_h: float = 0.0       # 0 = no precipitation modelled
+    supersaturation_ratio: float = 1.0  # 1 = no supersaturation
+    precipitation_rate_per_h: float = 0.0  # 0 = no precipitation modelled
 
 
 # ---------------------------------------------------------------------------
 # Main absorption model
 # ---------------------------------------------------------------------------
+
 
 class AbsorptionModel:
     """Pre-compute and provide per-segment absorption kinetics for a drug.

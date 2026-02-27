@@ -42,7 +42,7 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -65,6 +65,7 @@ __all__ = [
 # TMDD Model
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class TmddParams:
     """Parameters for the full TMDD model.
@@ -82,13 +83,13 @@ class TmddParams:
                  at high kon). Default False = full model.
     """
 
-    kon_per_nM_per_h: float = 0.091    # typical mAb: 0.091 nM⁻¹ h⁻¹
-    koff_per_h: float = 0.001          # typical Kd ≈ 10 nM
-    ke_L_per_h: float = 0.02           # free drug elimination
-    ke_LR_per_h: float = 0.005         # complex elimination (typically < ke_L)
-    ksyn_nM_per_h: float = 0.11        # target synthesis
-    kdeg_per_h: float = 0.01           # target degradation
-    r0_nM: float = 0.0                 # 0 → auto-compute from ksyn/kdeg
+    kon_per_nM_per_h: float = 0.091  # typical mAb: 0.091 nM⁻¹ h⁻¹
+    koff_per_h: float = 0.001  # typical Kd ≈ 10 nM
+    ke_L_per_h: float = 0.02  # free drug elimination
+    ke_LR_per_h: float = 0.005  # complex elimination (typically < ke_L)
+    ksyn_nM_per_h: float = 0.11  # target synthesis
+    kdeg_per_h: float = 0.01  # target degradation
+    r0_nM: float = 0.0  # 0 → auto-compute from ksyn/kdeg
     use_qss: bool = False
 
     @property
@@ -202,8 +203,14 @@ def simulate_tmdd(
     t_eval = np.arange(0.0, t_end_h + dt_h / 2, dt_h)
 
     sol = solve_ivp(
-        _rhs, (0.0, t_end_h), y0, method="LSODA",
-        t_eval=t_eval, rtol=1e-8, atol=1e-10, max_step=dt_h,
+        _rhs,
+        (0.0, t_end_h),
+        y0,
+        method="LSODA",
+        t_eval=t_eval,
+        rtol=1e-8,
+        atol=1e-10,
+        max_step=dt_h,
     )
     y = np.maximum(sol.y, 0.0)
 
@@ -230,7 +237,7 @@ def _simulate_tmdd_qss(
         Ltot, Rtot = max(y[0], 0.0), max(y[1], 0.0)
         # Quadratic QSS: LR = ...
         _s = Ltot + Rtot + Km
-        discriminant = max(_s ** 2 - 4 * Ltot * Rtot, 0.0)
+        discriminant = max(_s**2 - 4 * Ltot * Rtot, 0.0)
         LR = (_s - math.sqrt(discriminant)) / 2.0
         L = max(Ltot - LR, 0.0)
 
@@ -242,15 +249,20 @@ def _simulate_tmdd_qss(
     t_eval = np.arange(0.0, t_end_h + dt_h / 2, dt_h)
 
     sol = solve_ivp(
-        _rhs_qss, (0.0, t_end_h), y0, method="LSODA",
-        t_eval=t_eval, rtol=1e-8, atol=1e-10,
+        _rhs_qss,
+        (0.0, t_end_h),
+        y0,
+        method="LSODA",
+        t_eval=t_eval,
+        rtol=1e-8,
+        atol=1e-10,
     )
     y = np.maximum(sol.y, 0.0)
 
     Ltot = y[0]
     Rtot = y[1]
     _s = Ltot + Rtot + Km
-    discriminant = np.maximum(_s ** 2 - 4 * Ltot * Rtot, 0.0)
+    discriminant = np.maximum(_s**2 - 4 * Ltot * Rtot, 0.0)
     LR = (_s - np.sqrt(discriminant)) / 2.0
     L = np.maximum(Ltot - LR, 0.0)
     R = np.maximum(Rtot - LR, 0.0)
@@ -268,6 +280,7 @@ def _simulate_tmdd_qss(
 # ---------------------------------------------------------------------------
 # Receptor Occupancy
 # ---------------------------------------------------------------------------
+
 
 def receptor_occupancy(
     concentration: NDArray[np.floating[Any]],
@@ -293,6 +306,7 @@ def receptor_occupancy(
 # ---------------------------------------------------------------------------
 # Direct Effect Emax Model
 # ---------------------------------------------------------------------------
+
 
 def emax_effect(
     concentration: NDArray[np.floating[Any]],
@@ -329,6 +343,7 @@ def emax_effect(
 # Indirect Response Models
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class IndirectResponseModel:
     """Parameters for indirect response PD models (Dayneka et al. 1993).
@@ -349,13 +364,13 @@ class IndirectResponseModel:
         r0: Initial response level. If 0, computed as kin/kout.
     """
 
-    model_type: str = "IV"        # 'I', 'II', 'III', 'IV'
-    kin: float = 1.0              # zero-order production rate (response units/h)
-    kout: float = 0.1             # first-order loss rate (h⁻¹); R0 = kin/kout = 10
-    e_max: float = 0.8            # maximum stimulation or inhibition fraction
-    ec50: float = 1.0             # EC50 (same units as concentration)
+    model_type: str = "IV"  # 'I', 'II', 'III', 'IV'
+    kin: float = 1.0  # zero-order production rate (response units/h)
+    kout: float = 0.1  # first-order loss rate (h⁻¹); R0 = kin/kout = 10
+    e_max: float = 0.8  # maximum stimulation or inhibition fraction
+    ec50: float = 1.0  # EC50 (same units as concentration)
     hill: float = 1.0
-    r0: float = 0.0               # 0 → auto from kin/kout
+    r0: float = 0.0  # 0 → auto from kin/kout
 
     @property
     def baseline_response(self) -> float:

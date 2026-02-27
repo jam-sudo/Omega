@@ -345,7 +345,8 @@ def pgx_sim(
 
     Example:
 
-        omega pgx-sim --smiles "CCc1ccc(NC(=O)c2cc(OC)c(OC)c(OC)c2)cc1" --dose 100 --gene CYP2D6 --out pgx_report.html
+        omega pgx-sim --smiles "CCc1ccc(NC(=O)c2cc(OC)c(OC)c(OC)c2)cc1" \
+            --dose 100 --gene CYP2D6 --out pgx_report.html
     """
     from omega_pbpk.clinical.pgx_pbpk import pgx_report_html, run_pgx_pbpk
     from omega_pbpk.drugs.drug import Drug
@@ -383,7 +384,8 @@ def pgx_sim(
     # Print summary table
     typer.echo(f"\nPGx-PBPK Results — {gene}")
     typer.echo(
-        f"  {'Phenotype':<10}  {'AUC (mg·h/L)':>14}  {'Cmax (mg/L)':>12}  {'AUC Ratio':>10}  {'Pop. Freq.':>10}"
+        f"  {'Phenotype':<10}  {'AUC (mg·h/L)':>14}  {'Cmax (mg/L)':>12}"
+        f"  {'AUC Ratio':>10}  {'Pop. Freq.':>10}"
     )
     typer.echo("  " + "-" * 64)
     for rec in result.phenotype_results:
@@ -723,10 +725,12 @@ def population(
     typer.echo(f"\nPopulation PK Results (n={result.n_subjects})")
     typer.echo(f"{'=' * 45}")
     typer.echo(
-        f"Cmax (mg/L):  median={cmax['median']:.3f}, p5={cmax['p5']:.3f}, p95={cmax['p95']:.3f}, CV={cmax['cv_pct']:.1f}%"
+        f"Cmax (mg/L):  median={cmax['median']:.3f}, p5={cmax['p5']:.3f},"
+        f" p95={cmax['p95']:.3f}, CV={cmax['cv_pct']:.1f}%"
     )
     typer.echo(
-        f"AUC  (mg·h/L): median={auc['median']:.3f}, p5={auc['p5']:.3f}, p95={auc['p95']:.3f}, CV={auc['cv_pct']:.1f}%"
+        f"AUC  (mg·h/L): median={auc['median']:.3f}, p5={auc['p5']:.3f},"
+        f" p95={auc['p95']:.3f}, CV={auc['cv_pct']:.1f}%"
     )
     if result.n_failed > 0:
         typer.echo(f"Warning: {result.n_failed} subjects failed simulation")

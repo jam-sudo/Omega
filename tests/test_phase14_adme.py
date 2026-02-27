@@ -30,20 +30,21 @@ from omega_pbpk.prediction.adme_predictor import ADMEPredictor
 # ---------------------------------------------------------------------------
 # Reference molecules (all valid SMILES)
 # ---------------------------------------------------------------------------
-ASPIRIN  = "CC(=O)Oc1ccccc1C(=O)O"        # logP ~1.2, MW ~180, 1 ring
-CAFFEINE = "Cn1cnc2c1c(=O)n(c(=O)n2C)C"   # logP ~-0.07, MW ~194, 3 rings (2 fused)
-PARACETAMOL = "CC(=O)Nc1ccc(O)cc1"         # logP ~0.46, MW ~151, 1 ring, HBD=2
-IBUPROFEN   = "CC(C)Cc1ccc(cc1)C(C)C(=O)O"  # logP ~3.5, MW ~206, 1 ring
-METHANE     = "C"
-ETHANOL     = "CCO"
-ANILINE     = "Nc1ccccc1"                  # aromatic amine
-PYRIDINE    = "c1ccncc1"                   # aromatic N
+ASPIRIN = "CC(=O)Oc1ccccc1C(=O)O"  # logP ~1.2, MW ~180, 1 ring
+CAFFEINE = "Cn1cnc2c1c(=O)n(c(=O)n2C)C"  # logP ~-0.07, MW ~194, 3 rings (2 fused)
+PARACETAMOL = "CC(=O)Nc1ccc(O)cc1"  # logP ~0.46, MW ~151, 1 ring, HBD=2
+IBUPROFEN = "CC(C)Cc1ccc(cc1)C(C)C(=O)O"  # logP ~3.5, MW ~206, 1 ring
+METHANE = "C"
+ETHANOL = "CCO"
+ANILINE = "Nc1ccccc1"  # aromatic amine
+PYRIDINE = "c1ccncc1"  # aromatic N
 CHLOROBENZENE = "Clc1ccccc1"
 
 
 # ============================================================================
 # SmilesFeaturizer
 # ============================================================================
+
 
 class TestSmilesFeaturizer:
     @pytest.fixture
@@ -68,15 +69,16 @@ class TestSmilesFeaturizer:
         for smi in [ASPIRIN, CAFFEINE, PARACETAMOL, IBUPROFEN]:
             fv = featurizer.featurize(smi)
             # logp_contrib (index 16) can be negative; all counts should be ≥ 0
-            counts = fv.descriptors[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-                                     11, 12, 13, 14, 15, 17, 18, 19]]
+            counts = fv.descriptors[
+                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 19]
+            ]
             assert np.all(counts >= 0), f"Negative count in {smi}"
 
     def test_methane_mostly_zero(self, featurizer):
         fv = featurizer.featurize(METHANE)
         x = fv.descriptors
-        assert x[2] == 1.0   # 1 aliphatic C
-        assert x[3] == 0.0   # 0 aromatic C
+        assert x[2] == 1.0  # 1 aliphatic C
+        assert x[3] == 0.0  # 0 aromatic C
         assert x[13] == 0.0  # 0 rings
         assert x[14] == 0.0  # 0 aromatic atoms
 
@@ -93,7 +95,7 @@ class TestSmilesFeaturizer:
 
     def test_aspirin_ring_count(self, featurizer):
         fv = featurizer.featurize(ASPIRIN)
-        assert fv.descriptors[13] == 1.0   # 1 benzene ring
+        assert fv.descriptors[13] == 1.0  # 1 benzene ring
 
     def test_caffeine_ring_count(self, featurizer):
         fv = featurizer.featurize(CAFFEINE)
@@ -103,26 +105,26 @@ class TestSmilesFeaturizer:
     def test_aromatic_carbon_benzene(self, featurizer):
         benzene = "c1ccccc1"
         fv = featurizer.featurize(benzene)
-        assert fv.descriptors[3] == 6.0   # 6 aromatic C
-        assert fv.descriptors[2] == 0.0   # 0 aliphatic C
+        assert fv.descriptors[3] == 6.0  # 6 aromatic C
+        assert fv.descriptors[2] == 0.0  # 0 aliphatic C
 
     def test_aromatic_N_pyridine(self, featurizer):
         fv = featurizer.featurize(PYRIDINE)
-        assert fv.descriptors[5] == 1.0   # 1 aromatic N
-        assert fv.descriptors[4] == 0.0   # 0 aliphatic N
+        assert fv.descriptors[5] == 1.0  # 1 aromatic N
+        assert fv.descriptors[4] == 0.0  # 0 aliphatic N
 
     def test_chlorobenzene_Cl_count(self, featurizer):
         fv = featurizer.featurize(CHLOROBENZENE)
-        assert fv.descriptors[9] == 1.0   # 1 Cl
+        assert fv.descriptors[9] == 1.0  # 1 Cl
 
     def test_ibuprofen_has_carbonyl(self, featurizer):
         fv = featurizer.featurize(IBUPROFEN)
-        assert fv.descriptors[15] >= 1    # C=O in carboxylic acid
+        assert fv.descriptors[15] >= 1  # C=O in carboxylic acid
 
     def test_paracetamol_hbd_positive(self, featurizer):
         """Paracetamol has NH and OH → at least 1 HBD."""
         fv = featurizer.featurize(PARACETAMOL)
-        assert fv.descriptors[11] >= 1   # HBD ≥ 1
+        assert fv.descriptors[11] >= 1  # HBD ≥ 1
 
     def test_hba_counts_N_O(self, featurizer):
         """HBA = N + O + F atoms."""
@@ -134,7 +136,7 @@ class TestSmilesFeaturizer:
 
     def test_ethanol_oxygen_count(self, featurizer):
         fv = featurizer.featurize(ETHANOL)
-        assert fv.descriptors[6] == 1.0   # 1 O
+        assert fv.descriptors[6] == 1.0  # 1 O
 
     def test_frac_sp3_benzene_is_zero(self, featurizer):
         benzene = "c1ccccc1"
@@ -188,6 +190,7 @@ class TestSmilesFeaturizer:
 # ============================================================================
 # Low-level parsing helpers
 # ============================================================================
+
 
 class TestParseAtoms:
     def test_methane_one_C(self):
@@ -266,6 +269,7 @@ class TestCountHBD:
 # NumpyADMEPredictor
 # ============================================================================
 
+
 class TestNumpyADMEPredictor:
     @pytest.fixture
     def predictor(self):
@@ -273,6 +277,7 @@ class TestNumpyADMEPredictor:
 
     def test_returns_gnn_result(self, predictor):
         from omega_pbpk.ml_models.numpy_adme import GNNADMEResult
+
         res = predictor.predict(ASPIRIN)
         assert isinstance(res, GNNADMEResult)
 
@@ -326,33 +331,40 @@ class TestNumpyADMEPredictor:
     def test_lipophilic_has_higher_logP_than_polar(self, predictor):
         """Ibuprofen (logP ~3.5) should have higher logP than paracetamol (logP ~0.46)."""
         lipophilic = predictor.predict(IBUPROFEN)
-        polar      = predictor.predict(PARACETAMOL)
+        polar = predictor.predict(PARACETAMOL)
         assert lipophilic.logP > polar.logP
 
     def test_lipophilic_has_lower_logS_than_polar(self, predictor):
         """Higher logP → lower solubility (ESOL model)."""
         lipophilic = predictor.predict(IBUPROFEN)
-        polar      = predictor.predict(PARACETAMOL)
+        polar = predictor.predict(PARACETAMOL)
         assert lipophilic.logS < polar.logS
 
     def test_lipophilic_has_lower_fup_than_polar(self, predictor):
         """More lipophilic → more protein bound → lower fup."""
         lipophilic = predictor.predict(IBUPROFEN)
-        polar      = predictor.predict(CAFFEINE)
+        polar = predictor.predict(CAFFEINE)
         assert lipophilic.fup < polar.fup
 
     def test_halogenated_higher_logP(self, predictor):
         """Chlorobenzene should be more lipophilic than benzene."""
         halogened = predictor.predict(CHLOROBENZENE)
-        parent    = predictor.predict("c1ccccc1")
+        parent = predictor.predict("c1ccccc1")
         assert halogened.logP > parent.logP
 
     def test_to_dict_keys(self, predictor):
         d = predictor.predict(ASPIRIN).to_dict()
         assert set(d.keys()) == {
-            "logP", "logS", "logPeff", "logfup",
-            "logCLint_3A4", "loghERG_IC50",
-            "peff", "fup", "clint_3a4", "herg_ic50_uM",
+            "logP",
+            "logS",
+            "logPeff",
+            "logfup",
+            "logCLint_3A4",
+            "loghERG_IC50",
+            "peff",
+            "fup",
+            "clint_3a4",
+            "herg_ic50_uM",
         }
 
     def test_batch_prediction_length(self, predictor):
@@ -381,7 +393,7 @@ class TestNumpyADMEPredictor:
 
     def test_high_tpsa_low_peff(self, predictor):
         """Paracetamol (higher TPSA via NH, OH) should have lower Peff than ibuprofen."""
-        polar     = predictor.predict(PARACETAMOL)
+        polar = predictor.predict(PARACETAMOL)
         lipophilic = predictor.predict(IBUPROFEN)
         assert polar.logPeff < lipophilic.logPeff
 
@@ -390,12 +402,13 @@ class TestNumpyADMEPredictor:
         r1 = predictor.predict(ASPIRIN)
         r2 = predictor.predict(ASPIRIN)
         assert r1.logP == r2.logP
-        assert r1.fup  == r2.fup
+        assert r1.fup == r2.fup
 
 
 # ============================================================================
 # ADMEPredictor integration — numpy GNN used when no RDKit
 # ============================================================================
+
 
 class TestADMEPredictorNumpyFallback:
     @pytest.fixture
@@ -404,6 +417,7 @@ class TestADMEPredictorNumpyFallback:
 
     def test_predict_returns_adme_properties(self, adme):
         from omega_pbpk.prediction.adme_predictor import ADMEProperties
+
         result = adme.predict(ASPIRIN)
         assert isinstance(result, ADMEProperties)
 
@@ -431,6 +445,7 @@ class TestADMEPredictorNumpyFallback:
     def test_numpy_gnn_method_confidence_is_medium(self, adme):
         """_predict_numpy_gnn directly returns 'medium' (better than 'low' heuristic)."""
         from omega_pbpk.prediction.adme_predictor import HAS_RDKIT, _NUMPY_PREDICTOR
+
         if HAS_RDKIT or _NUMPY_PREDICTOR is None:
             pytest.skip("numpy GNN only tested when no RDKit")
         result = adme._predict_numpy_gnn(ASPIRIN)
@@ -443,6 +458,7 @@ class TestADMEPredictorNumpyFallback:
 
     def test_predict_from_dict(self, adme):
         from omega_pbpk.prediction.adme_predictor import ADMEProperties
+
         result = adme.predict_from_dict({"logP": 2.5, "mw": 250.0, "fup": 0.3})
         assert isinstance(result, ADMEProperties)
         assert result.logP == 2.5
