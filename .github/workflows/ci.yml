@@ -40,5 +40,5 @@ jobs:
 
       - name: Check test count
         run: |
-          COUNT=$(python -m pytest tests/ --collect-only -q 2>&1 | grep "selected" | grep -oP '\d+')
+          COUNT=$(python -m pytest tests/ --collect-only -q 2>&1 | grep -oP '^\d+' | head -1)
           echo "Collected $COUNT tests"
