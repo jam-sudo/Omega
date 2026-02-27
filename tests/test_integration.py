@@ -41,7 +41,17 @@ class TestADMEPredictorReturnsValidProperties:
         props = predictor.predict(MIDAZOLAM_SMILES)
 
         # Every numeric field must be finite
-        for field_name in ("mw", "logP", "logS", "peff", "fup", "rbp", "clint_3a4", "clint_2d6", "herg_ic50_uM"):
+        for field_name in (
+            "mw",
+            "logP",
+            "logS",
+            "peff",
+            "fup",
+            "rbp",
+            "clint_3a4",
+            "clint_2d6",
+            "herg_ic50_uM",
+        ):
             val = getattr(props, field_name)
             assert math.isfinite(val), f"{field_name} is not finite: {val}"
 
@@ -63,9 +73,7 @@ class TestADMEPredictorReturnsValidProperties:
         predictor = _get_adme_predictor()
         props_mdz = predictor.predict(MIDAZOLAM_SMILES)
         props_caf = predictor.predict(CAFFEINE_SMILES)
-        assert props_mdz.logP != props_caf.logP, (
-            "logP should differ between midazolam and caffeine"
-        )
+        assert props_mdz.logP != props_caf.logP, "logP should differ between midazolam and caffeine"
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +92,7 @@ class TestRDKitFeaturizer:
         RDKitFeaturizer = features_mod.RDKitFeaturizer
         featurizer = RDKitFeaturizer()
         descriptors = featurizer.featurize(MIDAZOLAM_SMILES)
-        assert descriptors.shape[0] >= 10, (
-            f"Expected >= 10 descriptors, got {descriptors.shape[0]}"
-        )
+        assert descriptors.shape[0] >= 10, f"Expected >= 10 descriptors, got {descriptors.shape[0]}"
 
     def test_rdkit_featurizer_batch(self):
         """Batch featurization returns shape (n_smiles, n_features)."""
@@ -117,7 +123,9 @@ def _get_species_physiology(species: str):
     try:
         from omega_pbpk.population.physiology import get_species_physiology
     except ImportError:
-        pytest.skip("get_species_physiology not yet implemented in omega_pbpk.population.physiology")
+        pytest.skip(
+            "get_species_physiology not yet implemented in omega_pbpk.population.physiology"
+        )
     return get_species_physiology(species)
 
 

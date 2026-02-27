@@ -1,4 +1,5 @@
 """Population PK simulator — runs PBPK for N virtual subjects with covariate scaling."""
+
 from __future__ import annotations
 
 import logging
@@ -16,10 +17,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PopPKResult:
     """Population PK simulation results."""
+
     time_h: NDArray[np.float64]
-    cp_matrix: NDArray[np.float64]       # shape (n_subjects, n_timepoints)
-    cmax_samples: NDArray[np.float64]    # shape (n_subjects,)
-    auc_samples: NDArray[np.float64]     # shape (n_subjects,)
+    cp_matrix: NDArray[np.float64]  # shape (n_subjects, n_timepoints)
+    cmax_samples: NDArray[np.float64]  # shape (n_subjects,)
+    auc_samples: NDArray[np.float64]  # shape (n_subjects,)
     t_half_samples: NDArray[np.float64]  # shape (n_subjects,)
     n_subjects: int
     n_failed: int
@@ -33,15 +35,23 @@ class PopPKResult:
 
     def cmax_stats(self) -> dict[str, float]:
         c = self.cmax_samples
-        return {"mean": float(np.mean(c)), "median": float(np.median(c)),
-                "p5": float(np.percentile(c, 5)), "p95": float(np.percentile(c, 95)),
-                "cv_pct": float(np.std(c) / np.mean(c) * 100)}
+        return {
+            "mean": float(np.mean(c)),
+            "median": float(np.median(c)),
+            "p5": float(np.percentile(c, 5)),
+            "p95": float(np.percentile(c, 95)),
+            "cv_pct": float(np.std(c) / np.mean(c) * 100),
+        }
 
     def auc_stats(self) -> dict[str, float]:
         a = self.auc_samples
-        return {"mean": float(np.mean(a)), "median": float(np.median(a)),
-                "p5": float(np.percentile(a, 5)), "p95": float(np.percentile(a, 95)),
-                "cv_pct": float(np.std(a) / np.mean(a) * 100)}
+        return {
+            "mean": float(np.mean(a)),
+            "median": float(np.median(a)),
+            "p5": float(np.percentile(a, 5)),
+            "p95": float(np.percentile(a, 95)),
+            "cv_pct": float(np.std(a) / np.mean(a) * 100),
+        }
 
 
 def _run_subject_sim(args: tuple) -> tuple[int, NDArray | None, float, float, float]:
@@ -156,10 +166,22 @@ class PopulationSimulator:
         }
         # Carry over additional optional fields if they are non-default
         for attr in (
-            "drug_type", "smiles", "clint", "fm", "clint_gut_L_per_h",
-            "peff", "solubility_mg_mL", "particle_radius_um", "particle_density",
-            "kp", "permeability_limited", "partition_method", "compound_type",
-            "gut_clint_multiplier", "ka_sc", "f_sc",
+            "drug_type",
+            "smiles",
+            "clint",
+            "fm",
+            "clint_gut_L_per_h",
+            "peff",
+            "solubility_mg_mL",
+            "particle_radius_um",
+            "particle_density",
+            "kp",
+            "permeability_limited",
+            "partition_method",
+            "compound_type",
+            "gut_clint_multiplier",
+            "ka_sc",
+            "f_sc",
         ):
             if hasattr(drug, attr):
                 val = getattr(drug, attr)

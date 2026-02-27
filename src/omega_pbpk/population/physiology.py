@@ -156,8 +156,7 @@ _SPECIES_BW: dict[str, float] = {
 
 # Pre-computed species physiology dicts
 SPECIES_PHYSIOLOGY: dict[str, dict[str, float]] = {
-    species: _build_species_physiology(bw)
-    for species, bw in _SPECIES_BW.items()
+    species: _build_species_physiology(bw) for species, bw in _SPECIES_BW.items()
 }
 
 
@@ -181,9 +180,7 @@ def get_species_physiology(species: str = "human") -> dict[str, float]:
     key = species.lower().strip()
     if key not in SPECIES_PHYSIOLOGY:
         supported = ", ".join(sorted(SPECIES_PHYSIOLOGY.keys()))
-        raise ValueError(
-            f"Unknown species '{species}'. Supported species: {supported}."
-        )
+        raise ValueError(f"Unknown species '{species}'. Supported species: {supported}.")
     return SPECIES_PHYSIOLOGY[key]
 
 

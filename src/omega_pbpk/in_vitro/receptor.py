@@ -50,6 +50,7 @@ from omega_pbpk._compat import np_trapz
 # Result dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class OccupancyResult:
     """Receptor occupancy and functional effect over time.
@@ -99,6 +100,7 @@ class EC50Result:
 # ---------------------------------------------------------------------------
 # Equilibrium occupancy model
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class EquilibriumOccupancy:
@@ -156,6 +158,7 @@ class EquilibriumOccupancy:
 # Kinetic occupancy model
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class KineticOccupancy:
     """Kinetic receptor binding ODE model.
@@ -206,8 +209,10 @@ class KineticOccupancy:
             OccupancyResult with kinetic occupancy time course.
         """
         cp_interp = interp1d(
-            time_h, np.maximum(cp_mg_L, 0.0),
-            kind="linear", fill_value="extrapolate",
+            time_h,
+            np.maximum(cp_mg_L, 0.0),
+            kind="linear",
+            fill_value="extrapolate",
         )
 
         def rhs(t: float, y: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -250,6 +255,7 @@ class KineticOccupancy:
 # ---------------------------------------------------------------------------
 # Operational model (Black & Leff 1983)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class OperationalModel:
@@ -307,6 +313,7 @@ class OperationalModel:
 # EC50 extractor (dose-response fitting)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class EC50Extractor:
     """Extract functional EC50 from simulated dose-response data.
@@ -350,9 +357,7 @@ class EC50Extractor:
         for i, c in enumerate(cmax):
             dummy_cp = np.array([c, c])
             if isinstance(self.occupancy_model, EquilibriumOccupancy):
-                res = self.occupancy_model.compute(
-                    dummy_time, dummy_cp, self.operational_model
-                )
+                res = self.occupancy_model.compute(dummy_time, dummy_cp, self.operational_model)
             else:
                 res = self.occupancy_model.compute(
                     dummy_time, dummy_cp, operational_model=self.operational_model
@@ -392,7 +397,7 @@ def _fit_hill(
         c: NDArray[np.float64], ec50: float, emax: float, gamma: float
     ) -> NDArray[np.float64]:
         c_g = np.power(np.maximum(c, 0.0), gamma)
-        ec50_g = ec50 ** gamma
+        ec50_g = ec50**gamma
         return e0 + (emax - e0) * c_g / (ec50_g + c_g)
 
     try:

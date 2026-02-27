@@ -98,7 +98,6 @@ def create_app() -> Any:
         route: str = "oral"
         n_subjects: int = 50
 
-
     class NewMoleculeRequest(BaseModel):
         smiles: str
         dose_mg: float = 100.0
@@ -267,11 +266,11 @@ def create_app() -> Any:
             "Cmax_95th_pct": round(float(np.percentile(arr, 95)), 6),
         }
 
-
     @app.post("/predict/new-molecule")
     async def predict_new_molecule(body: NewMoleculeRequest) -> NewMoleculeResponse:
         """Predict PK profile for any drug given by SMILES string."""
         from omega_pbpk.pipeline import SimulationRequest
+
         pipeline = _get_pipeline()
         req = SimulationRequest(
             smiles=body.smiles,
@@ -300,6 +299,7 @@ def create_app() -> Any:
         import numpy as np
 
         from omega_pbpk.pipeline import SimulationRequest, simulate_with_uncertainty
+
         req = SimulationRequest(
             smiles=body.smiles,
             dose_mg=body.dose_mg,
@@ -332,7 +332,6 @@ def create_app() -> Any:
             "pipeline": "operational",
         }
 
-
     # Pipeline singleton for reuse
     _pipeline_instance = None
 
@@ -340,6 +339,7 @@ def create_app() -> Any:
         nonlocal _pipeline_instance
         if _pipeline_instance is None:
             from omega_pbpk.pipeline import OmegaPipeline
+
             _pipeline_instance = OmegaPipeline()
             _pipeline_instance._ensure_initialized()
         return _pipeline_instance

@@ -1,4 +1,5 @@
 """Surrogate model training on real PBPK ODE simulations."""
+
 from __future__ import annotations
 
 import csv
@@ -24,15 +25,17 @@ def _load_ref_drugs() -> list[dict]:
     with open(path) as f:
         for row in csv.DictReader(f):
             try:
-                drugs.append({
-                    "name": row["name"],
-                    "mw": float(row["mw"]),
-                    "logP": float(row["logP"]),
-                    "fup": float(row["fup"]),
-                    "rbp": float(row["rbp"]),
-                    "clint": float(row["clint_3a4_uL_min_pmol"]) * 3.6,  # → L/h
-                    "peff": float(row["peff_cm_s"]),
-                })
+                drugs.append(
+                    {
+                        "name": row["name"],
+                        "mw": float(row["mw"]),
+                        "logP": float(row["logP"]),
+                        "fup": float(row["fup"]),
+                        "rbp": float(row["rbp"]),
+                        "clint": float(row["clint_3a4_uL_min_pmol"]) * 3.6,  # → L/h
+                        "peff": float(row["peff_cm_s"]),
+                    }
+                )
             except (ValueError, KeyError):
                 continue
     return drugs
@@ -152,7 +155,7 @@ def build_training_dataset(
         if r is not None:
             successful += 1
         if (i + 1) % 50 == 0:
-            logger.info(f"  {i+1}/{len(all_params)} done ({successful} successful)")
+            logger.info(f"  {i + 1}/{len(all_params)} done ({successful} successful)")
 
     # Filter out failed simulations
     X_list, y_list = [], []
@@ -224,6 +227,7 @@ def train_surrogate(
 
 if __name__ == "__main__":
     import os
+
     logging.basicConfig(level=logging.INFO)
     save = str(_REPO_ROOT / "models" / "surrogate_real.npz")
     os.makedirs(os.path.dirname(save), exist_ok=True)

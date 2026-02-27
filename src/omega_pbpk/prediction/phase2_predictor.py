@@ -60,6 +60,7 @@ except ImportError:
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Phase2Properties:
     """Predicted Phase 2 metabolic properties.
@@ -92,6 +93,7 @@ class Phase2Properties:
 # ---------------------------------------------------------------------------
 # Predictor class
 # ---------------------------------------------------------------------------
+
 
 class Phase2Predictor:
     """QSPR-based Phase 2 metabolism predictor.
@@ -129,9 +131,9 @@ class Phase2Predictor:
         MolSurf.TPSA(mol)
         hbd = rdMolDescriptors.CalcNumHBD(mol)
         rdMolDescriptors.CalcNumHBA(mol)
-        n_oh = self._count_oh(mol)           # aliphatic OH
-        n_phenol = self._count_phenol(mol)   # aromatic OH
-        n_cooh = self._count_cooh(mol)       # carboxylic acid
+        n_oh = self._count_oh(mol)  # aliphatic OH
+        n_phenol = self._count_phenol(mol)  # aromatic OH
+        n_cooh = self._count_cooh(mol)  # carboxylic acid
         n_nh2 = self._count_primary_amine(mol)  # primary amine
         n_nh = self._count_secondary_amine(mol)  # secondary amine
 
@@ -150,41 +152,38 @@ class Phase2Predictor:
             - 1.80
         )
         ugt_substrate_prob = float(np.clip(1.0 / (1.0 + np.exp(-ugt_features)), 0.0, 1.0))
-        clint_ugt = float(np.clip(
-            ugt_substrate_prob * (0.2 + 0.5 * n_phenol + 0.3 * n_oh + 0.4 * n_cooh),
-            0.0, 50.0,
-        ))
+        clint_ugt = float(
+            np.clip(
+                ugt_substrate_prob * (0.2 + 0.5 * n_phenol + 0.3 * n_oh + 0.4 * n_cooh),
+                0.0,
+                50.0,
+            )
+        )
 
         # --- SULT prediction ---
         # SULT substrates: phenols (esp. para-OH), primary alcohols
         # High capacity but easily saturated; high logP attenuates
-        sult_features = (
-            1.20 * n_phenol
-            + 0.60 * n_oh
-            - 0.30 * logp
-            + 0.10 * hbd
-            - 0.80
-        )
+        sult_features = 1.20 * n_phenol + 0.60 * n_oh - 0.30 * logp + 0.10 * hbd - 0.80
         sult_substrate_prob = float(np.clip(1.0 / (1.0 + np.exp(-sult_features)), 0.0, 1.0))
-        clint_sult = float(np.clip(
-            sult_substrate_prob * (0.5 * n_phenol + 0.2 * n_oh),
-            0.0, 20.0,
-        ))
+        clint_sult = float(
+            np.clip(
+                sult_substrate_prob * (0.5 * n_phenol + 0.2 * n_oh),
+                0.0,
+                20.0,
+            )
+        )
 
         # --- MAO prediction ---
         # MAO substrates: primary monoamines (especially catecholamines)
-        mao_features = (
-            2.00 * n_nh2
-            + 0.80 * n_nh
-            - 0.20 * logp
-            - 0.01 * mw
-            - 1.50
-        )
+        mao_features = 2.00 * n_nh2 + 0.80 * n_nh - 0.20 * logp - 0.01 * mw - 1.50
         mao_substrate_prob = float(np.clip(1.0 / (1.0 + np.exp(-mao_features)), 0.0, 1.0))
-        clint_mao = float(np.clip(
-            mao_substrate_prob * (1.0 * n_nh2 + 0.3 * n_nh),
-            0.0, 15.0,
-        ))
+        clint_mao = float(
+            np.clip(
+                mao_substrate_prob * (1.0 * n_nh2 + 0.3 * n_nh),
+                0.0,
+                15.0,
+            )
+        )
 
         clint_total = clint_ugt + clint_sult + clint_mao
         dominant = _dominant_pathway(clint_ugt, clint_sult, clint_mao)
@@ -216,9 +215,9 @@ class Phase2Predictor:
         n_nh2 = s.count("N") - s.count("NC=O") - s.count("N(=O)")
         n_nh2 = max(0, n_nh2)
 
-        ugt_substrate_prob = float(np.clip(
-            0.4 * n_phenol + 0.2 * n_oh_generic + 0.3 * n_cooh, 0.0, 1.0
-        ))
+        ugt_substrate_prob = float(
+            np.clip(0.4 * n_phenol + 0.2 * n_oh_generic + 0.3 * n_cooh, 0.0, 1.0)
+        )
         sult_substrate_prob = float(np.clip(0.5 * n_phenol + 0.2 * n_oh_generic, 0.0, 1.0))
         mao_substrate_prob = float(np.clip(0.4 * n_nh2, 0.0, 1.0))
 
@@ -288,6 +287,7 @@ class Phase2Predictor:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _dominant_pathway(clint_ugt: float, clint_sult: float, clint_mao: float) -> str:
     """Return name of the dominant Phase 2 pathway."""

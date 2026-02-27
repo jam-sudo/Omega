@@ -26,6 +26,7 @@ from omega_pbpk.drugs.drug import Drug
 # Shared test fixture — a simple CYP2D6 substrate drug with moderate CLint
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def cyp2d6_drug() -> Drug:
     """A simple Drug whose hepatic clearance is predominantly via CYP2D6."""
@@ -47,6 +48,7 @@ def cyp2d6_drug() -> Drug:
 def pgx_result(cyp2d6_drug: Drug):
     """Run once and reuse across multiple tests."""
     from omega_pbpk.clinical.pgx_pbpk import run_pgx_pbpk
+
     return run_pgx_pbpk(
         drug=cyp2d6_drug,
         gene="CYP2D6",
@@ -61,16 +63,19 @@ def pgx_result(cyp2d6_drug: Drug):
 # Test 1 — return type
 # ---------------------------------------------------------------------------
 
+
 class TestRunPgxPbpkReturnsResult:
     def test_pgx_pbpk_returns_result(self, pgx_result) -> None:
         """run_pgx_pbpk must return a PGxPBPKResult instance."""
         from omega_pbpk.clinical.pgx_pbpk import PGxPBPKResult
+
         assert isinstance(pgx_result, PGxPBPKResult)
 
 
 # ---------------------------------------------------------------------------
 # Test 2 — all four phenotypes present
 # ---------------------------------------------------------------------------
+
 
 class TestFourPhenotypesPresent:
     def test_four_phenotypes_present(self, pgx_result) -> None:
@@ -87,6 +92,7 @@ class TestFourPhenotypesPresent:
 # Test 3 — NM ratio is 1.0
 # ---------------------------------------------------------------------------
 
+
 class TestNmRatioIsOne:
     def test_nm_ratio_is_one(self, pgx_result) -> None:
         """NM AUC ratio vs NM must equal 1.0 by definition."""
@@ -97,6 +103,7 @@ class TestNmRatioIsOne:
 # ---------------------------------------------------------------------------
 # Test 4 — PM AUC higher than NM (lower CLint → more exposure)
 # ---------------------------------------------------------------------------
+
 
 class TestPmAucHigherThanNm:
     def test_pm_auc_higher_than_nm(self, pgx_result) -> None:
@@ -117,6 +124,7 @@ class TestPmAucHigherThanNm:
 # Test 5 — UM AUC lower than NM (higher CLint → less exposure)
 # ---------------------------------------------------------------------------
 
+
 class TestUmAucLowerThanNm:
     def test_um_auc_lower_than_nm(self, pgx_result) -> None:
         """For a CYP2D6 substrate, UM phenotype should produce a lower AUC than NM."""
@@ -136,6 +144,7 @@ class TestUmAucLowerThanNm:
 # Test 6 — gene sensitivity index is positive
 # ---------------------------------------------------------------------------
 
+
 class TestGeneSensitivityIndex:
     def test_gene_sensitivity_index_positive(self, pgx_result) -> None:
         """Gene sensitivity index must be strictly positive."""
@@ -151,10 +160,12 @@ class TestGeneSensitivityIndex:
 # Test 7 — plot_pgx_forest runs without error
 # ---------------------------------------------------------------------------
 
+
 class TestPlotPgxForest:
     def test_plot_returns_base64_string_when_no_out_path(self, pgx_result) -> None:
         """plot_pgx_forest without out_path returns a non-empty base-64 string."""
         from omega_pbpk.clinical.pgx_pbpk import plot_pgx_forest
+
         output = plot_pgx_forest(pgx_result, out_path=None)
         assert isinstance(output, str)
         assert output.startswith("data:image/png;base64,")
@@ -163,6 +174,7 @@ class TestPlotPgxForest:
     def test_plot_saves_file_when_out_path_given(self, pgx_result) -> None:
         """plot_pgx_forest with an out_path saves a PNG file and returns the path."""
         from omega_pbpk.clinical.pgx_pbpk import plot_pgx_forest
+
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             tmp_path = f.name
         try:
@@ -177,6 +189,7 @@ class TestPlotPgxForest:
     def test_plot_returns_bytes_or_path(self, pgx_result) -> None:
         """Convenience alias test: plot runs without raising an exception."""
         from omega_pbpk.clinical.pgx_pbpk import plot_pgx_forest
+
         output = plot_pgx_forest(pgx_result)
         assert output  # truthy — either a non-empty string (base64) or file path
 
@@ -185,20 +198,24 @@ class TestPlotPgxForest:
 # Test 8 — public import from omega_pbpk.clinical
 # ---------------------------------------------------------------------------
 
+
 class TestImportFromClinical:
     def test_import_run_pgx_pbpk(self) -> None:
         """run_pgx_pbpk must be importable from omega_pbpk.clinical."""
         from omega_pbpk.clinical import run_pgx_pbpk  # noqa: F401
+
         assert callable(run_pgx_pbpk)
 
     def test_import_pgx_pbpk_result(self) -> None:
         """PGxPBPKResult must be importable from omega_pbpk.clinical."""
         from omega_pbpk.clinical import PGxPBPKResult  # noqa: F401
+
         assert PGxPBPKResult is not None
 
     def test_import_plot_pgx_forest(self) -> None:
         """plot_pgx_forest must be importable from omega_pbpk.clinical."""
         from omega_pbpk.clinical import plot_pgx_forest  # noqa: F401
+
         assert callable(plot_pgx_forest)
 
 
@@ -206,10 +223,12 @@ class TestImportFromClinical:
 # Test 9 — pgx_report_html returns valid HTML
 # ---------------------------------------------------------------------------
 
+
 class TestPgxReportHtml:
     def test_html_report_is_non_empty_string(self, pgx_result) -> None:
         """pgx_report_html must return a non-empty string."""
         from omega_pbpk.clinical.pgx_pbpk import pgx_report_html
+
         html = pgx_report_html(pgx_result, drug_name="TestDrug")
         assert isinstance(html, str)
         assert len(html) > 500
@@ -217,6 +236,7 @@ class TestPgxReportHtml:
     def test_html_contains_phenotype_labels(self, pgx_result) -> None:
         """HTML report must include all four phenotype labels."""
         from omega_pbpk.clinical.pgx_pbpk import pgx_report_html
+
         html = pgx_report_html(pgx_result, drug_name="TestDrug")
         for pheno in ("PM", "IM", "NM", "UM"):
             assert pheno in html, f"Phenotype {pheno} not found in HTML report"
@@ -224,12 +244,14 @@ class TestPgxReportHtml:
     def test_html_contains_forest_plot(self, pgx_result) -> None:
         """HTML report must contain an embedded base-64 PNG image."""
         from omega_pbpk.clinical.pgx_pbpk import pgx_report_html
+
         html = pgx_report_html(pgx_result, drug_name="TestDrug")
         assert "data:image/png;base64," in html
 
     def test_html_contains_gene_name(self, pgx_result) -> None:
         """HTML report must mention the gene name."""
         from omega_pbpk.clinical.pgx_pbpk import pgx_report_html
+
         html = pgx_report_html(pgx_result, drug_name="TestDrug")
         assert "CYP2D6" in html
 
@@ -237,6 +259,7 @@ class TestPgxReportHtml:
 # ---------------------------------------------------------------------------
 # Test 10 — result fields are well-formed
 # ---------------------------------------------------------------------------
+
 
 class TestResultFieldsSanity:
     def test_nm_auc_is_positive(self, pgx_result) -> None:
@@ -269,6 +292,7 @@ class TestResultFieldsSanity:
     def test_cyp2c19_gene_works(self, cyp2d6_drug: Drug) -> None:
         """run_pgx_pbpk also works for CYP2C19 (different gene)."""
         from omega_pbpk.clinical.pgx_pbpk import run_pgx_pbpk
+
         result = run_pgx_pbpk(
             drug=cyp2d6_drug,
             gene="CYP2C19",
@@ -284,6 +308,7 @@ class TestResultFieldsSanity:
     def test_iv_route_works(self, cyp2d6_drug: Drug) -> None:
         """run_pgx_pbpk must also work with intravenous route."""
         from omega_pbpk.clinical.pgx_pbpk import run_pgx_pbpk
+
         result = run_pgx_pbpk(
             drug=cyp2d6_drug,
             gene="CYP2D6",

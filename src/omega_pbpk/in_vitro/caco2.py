@@ -48,8 +48,8 @@ from scipy.integrate import solve_ivp
 # Standard Caco-2 insert geometry
 # ---------------------------------------------------------------------------
 
-STANDARD_SURFACE_AREA_CM2: float = 1.12   # 12-well insert (Corning Transwell)
-MINI_SURFACE_AREA_CM2: float = 0.33        # 24-well insert
+STANDARD_SURFACE_AREA_CM2: float = 1.12  # 12-well insert (Corning Transwell)
+MINI_SURFACE_AREA_CM2: float = 0.33  # 24-well insert
 APICAL_VOLUME_uL: float = 500.0
 BASOLATERAL_VOLUME_uL: float = 1500.0
 
@@ -57,6 +57,7 @@ BASOLATERAL_VOLUME_uL: float = 1500.0
 # ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Caco2Result:
@@ -89,6 +90,7 @@ class Caco2Result:
 # Caco-2 assay
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Caco2Assay:
     """Caco-2 bidirectional permeability assay simulator.
@@ -117,7 +119,7 @@ class Caco2Assay:
     surface_area_cm2: float = STANDARD_SURFACE_AREA_CM2
     v_apical_uL: float = APICAL_VOLUME_uL
     v_basolateral_uL: float = BASOLATERAL_VOLUME_uL
-    papp_ab_cm_s: float = 1e-6     # baseline passive permeability
+    papp_ab_cm_s: float = 1e-6  # baseline passive permeability
     papp_ba_cm_s: float | None = None
     clint_gut_ul_min_mg: float = 0.0
     protein_conc_cell_mg_mL: float = 0.05
@@ -159,11 +161,7 @@ class Caco2Assay:
         k_gut_per_min = 0.0
         if self.clint_gut_ul_min_mg > 0.0:
             protein_mg_well = self.protein_conc_cell_mg_mL * v_a_mL
-            k_gut_per_min = (
-                self.clint_gut_ul_min_mg
-                * protein_mg_well
-                / (self.v_apical_uL)
-            )
+            k_gut_per_min = self.clint_gut_ul_min_mg * protein_mg_well / (self.v_apical_uL)
 
         # Initial amounts (nmol = µM × mL)
         m_a0 = c0_apical_uM * v_a_mL
@@ -174,8 +172,8 @@ class Caco2Assay:
 
         def rhs(t: float, y: NDArray[np.float64]) -> NDArray[np.float64]:
             m_a, m_b = max(y[0], 0.0), max(y[1], 0.0)
-            c_a = m_a / v_a_mL   # µM
-            c_b = m_b / v_b_mL   # µM
+            c_a = m_a / v_a_mL  # µM
+            c_b = m_b / v_b_mL  # µM
 
             # Flux A→B and B→A (nmol/min)
             flux_ab = p_ab_cm_min * sa_cm2 * c_a  # nmol/min
@@ -205,17 +203,18 @@ class Caco2Assay:
 
         # Apparent permeability from linear flux over assay duration (FDA 2020 method)
         # Papp = (dM_receiver/dt) / (C_donor_initial × SA)
-        delta_m_b = float(m_b[-1] - m_b[0])   # nmol transported A→B
+        delta_m_b = float(m_b[-1] - m_b[0])  # nmol transported A→B
         float(m_a[-1] - m_a[0]) + float(m_a[0])  # B→A direction
 
         # A→B: receiver is B
         (
-            delta_m_b / (t_end_min * 60.0)  # nmol/s
+            delta_m_b
+            / (t_end_min * 60.0)  # nmol/s
             / (c0_apical_uM * v_a_mL / v_a_mL * 1e-9 * 1e3)  # nmol/mL × 1e-6 mol/mL ... simplify
         ) if c0_apical_uM > 0 else 0.0
 
         # Use analytical Papp directly (more stable than numerical)
-        papp_ab_out = self.papp_ab_cm_s * 1e6   # report in ×10⁻⁶ cm/s
+        papp_ab_out = self.papp_ab_cm_s * 1e6  # report in ×10⁻⁶ cm/s
         papp_ba_out = papp_ba * 1e6
 
         efflux_ratio = papp_ba_out / max(papp_ab_out, 1e-12)
@@ -275,7 +274,7 @@ class Caco2Assay:
             Hou T et al. J Chem Inf Model. 2004;44(6):1585-600.
         """
         log_papp = 0.3 * logP - 0.01 * tpsa - 5.0
-        return float(np.clip(10.0 ** log_papp, 1e-9, 1e-4))
+        return float(np.clip(10.0**log_papp, 1e-9, 1e-4))
 
 
 __all__ = [

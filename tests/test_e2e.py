@@ -2,6 +2,7 @@
 
 Covers the complete flow: SMILES -> PK simulation -> NCA -> DDI -> PopPK -> Report.
 """
+
 from __future__ import annotations
 
 import math
@@ -23,8 +24,10 @@ PROPRANOLOL_SMILES = "CC(C)NCC(O)COc1cccc2ccccc12"
 # Helper — build a minimal Drug inline (avoids dependency on YAML files)
 # ---------------------------------------------------------------------------
 
+
 def _make_minimal_drug(name: str = "test_compound") -> "Drug":
     from omega_pbpk.drugs.drug import Drug
+
     return Drug(
         name=name,
         mw=325.8,
@@ -38,17 +41,20 @@ def _make_minimal_drug(name: str = "test_compound") -> "Drug":
 
 def _make_midazolam_drug() -> "Drug":
     from omega_pbpk.drugs.midazolam import MIDAZOLAM
+
     return MIDAZOLAM
 
 
 def _make_caffeine_drug() -> "Drug":
     from omega_pbpk.drugs.caffeine import CAFFEINE
+
     return CAFFEINE
 
 
 # ===========================================================================
 # Class 1: OmegaPipeline end-to-end (SMILES -> PK)
 # ===========================================================================
+
 
 class TestOmegaPipelineE2E:
     """Full SMILES -> OmegaPipeline -> SimulationResult tests."""
@@ -125,6 +131,7 @@ class TestOmegaPipelineE2E:
 # Class 2: NCA integration
 # ===========================================================================
 
+
 class TestNCAIntegration:
     """NCA on pipeline output."""
 
@@ -184,6 +191,7 @@ class TestNCAIntegration:
 # Class 3: DDI integration
 # ===========================================================================
 
+
 class TestDDIIntegration:
     """DDI risk assessment integration tests."""
 
@@ -225,6 +233,7 @@ class TestDDIIntegration:
 # ===========================================================================
 # Class 4: Population PK integration
 # ===========================================================================
+
 
 class TestPopPKIntegration:
     """PopulationSimulator integration tests."""
@@ -277,6 +286,7 @@ class TestPopPKIntegration:
 # Class 5: Clinical modules integration
 # ===========================================================================
 
+
 class TestClinicalModulesIntegration:
     """Integration tests for allometry, IVIVE, and the HTML report generator."""
 
@@ -286,7 +296,7 @@ class TestClinicalModulesIntegration:
 
         # Step 1: allometric prediction from rat and dog data
         preclinical = {
-            "rat": (0.8, 0.25),   # (CL L/h/kg, Vd L/kg)
+            "rat": (0.8, 0.25),  # (CL L/h/kg, Vd L/kg)
             "dog": (5.0, 12.0),
         }
         human_pred = predict_human_from_preclinical(

@@ -222,6 +222,7 @@ def plot_pgx_forest(
         in HTML).
     """
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import matplotlib.ticker as ticker

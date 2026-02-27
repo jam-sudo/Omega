@@ -3,6 +3,7 @@
 Extracts 15 molecular descriptors from SMILES strings.
 Gracefully falls back to zero vectors when RDKit is not available.
 """
+
 from __future__ import annotations
 
 import logging

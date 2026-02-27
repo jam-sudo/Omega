@@ -2,6 +2,7 @@
 
 Standard NCA methods per FDA bioanalytical guidance.
 """
+
 from __future__ import annotations
 
 import math
@@ -16,16 +17,17 @@ from omega_pbpk._compat import np_trapz
 @dataclass(frozen=True)
 class NCAResult:
     """Standard NCA PK parameters."""
+
     cmax_mg_L: float
     tmax_h: float
-    auc0t_mg_h_L: float          # AUC from 0 to last measurable point (linear-log trapezoidal)
-    auc0inf_mg_h_L: float        # AUC extrapolated to infinity
-    t_half_h: float              # terminal half-life
-    kel_per_h: float             # terminal elimination rate constant
-    vz_L: float                  # apparent volume of distribution (F·Vz for oral)
-    cl_L_per_h: float            # apparent clearance (F·CL for oral)
-    mrt_h: float                 # mean residence time
-    r_squared: float             # R² of terminal log-linear regression
+    auc0t_mg_h_L: float  # AUC from 0 to last measurable point (linear-log trapezoidal)
+    auc0inf_mg_h_L: float  # AUC extrapolated to infinity
+    t_half_h: float  # terminal half-life
+    kel_per_h: float  # terminal elimination rate constant
+    vz_L: float  # apparent volume of distribution (F·Vz for oral)
+    cl_L_per_h: float  # apparent clearance (F·CL for oral)
+    mrt_h: float  # mean residence time
+    r_squared: float  # R² of terminal log-linear regression
 
 
 def run_nca(

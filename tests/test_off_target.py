@@ -19,8 +19,17 @@ from omega_pbpk.docking.off_target import (
 
 # Expected target and enzyme names from the module docstring
 EXPECTED_SAFETY_TARGETS = {
-    "hERG", "Nav1.5", "Cav1.2", "5-HT2B", "D2",
-    "M2", "alpha1A", "H1", "MOR", "GABA-A", "PXR",
+    "hERG",
+    "Nav1.5",
+    "Cav1.2",
+    "5-HT2B",
+    "D2",
+    "M2",
+    "alpha1A",
+    "H1",
+    "MOR",
+    "GABA-A",
+    "PXR",
 }
 EXPECTED_CYP_ENZYMES = {"CYP1A2", "CYP2C9", "CYP2C19", "CYP2D6", "CYP3A4"}
 
@@ -124,9 +133,7 @@ class TestHERGClassification:
         # Force cmax_unbound to be huge so margin < 30
         report = _assess(cmax_uM=1000.0, fup=1.0)
         herg = self._get_herg(report)
-        assert herg.flag == "risk", (
-            f"Expected risk, got {herg.flag!r} (margin={herg.margin})"
-        )
+        assert herg.flag == "risk", f"Expected risk, got {herg.flag!r} (margin={herg.margin})"
         assert herg.margin < 30
 
     def test_herg_caution_in_intermediate_range(self) -> None:
@@ -136,6 +143,7 @@ class TestHERGClassification:
         # For margin=40 we need cmax_unbound = 17.78 / 40 ≈ 0.444 µM
         # Use fup=1.0, cmax_uM=0.444
         import math
+
         coeffs = SAFETY_TARGET_MODELS["hERG"]
         logP, mw, tpsa, pka = 2.0, 300.0, 50.0, 7.0
         log_ic50 = (
@@ -145,15 +153,12 @@ class TestHERGClassification:
             + coeffs["TPSA"] * tpsa
             + coeffs["pKa"] * pka
         )
-        ic50 = 10 ** log_ic50  # µM
+        ic50 = 10**log_ic50  # µM
         # Target margin = 50 (caution: 30 ≤ margin < 90)
         cmax_unbound_target = ic50 / 50.0
-        report = _assess(logP=logP, mw=mw, tpsa=tpsa, pka=pka,
-                         cmax_uM=cmax_unbound_target, fup=1.0)
+        report = _assess(logP=logP, mw=mw, tpsa=tpsa, pka=pka, cmax_uM=cmax_unbound_target, fup=1.0)
         herg = self._get_herg(report)
-        assert herg.flag == "caution", (
-            f"Expected caution, got {herg.flag!r} (margin={herg.margin})"
-        )
+        assert herg.flag == "caution", f"Expected caution, got {herg.flag!r} (margin={herg.margin})"
 
     def test_herg_threshold_is_30(self) -> None:
         """hERG TargetResult should have threshold_margin == 30."""
@@ -172,8 +177,12 @@ class TestLipophilicityEffect:
         low_logP_report = panel.assess("Low", logP=1.0, mw=300.0)
         high_logP_report = panel.assess("High", logP=5.0, mw=300.0)
 
-        low_ic50 = next(r for r in low_logP_report.target_results if r.target == "hERG").predicted_ic50_uM
-        high_ic50 = next(r for r in high_logP_report.target_results if r.target == "hERG").predicted_ic50_uM
+        low_ic50 = next(
+            r for r in low_logP_report.target_results if r.target == "hERG"
+        ).predicted_ic50_uM
+        high_ic50 = next(
+            r for r in high_logP_report.target_results if r.target == "hERG"
+        ).predicted_ic50_uM
 
         assert high_ic50 < low_ic50, (
             f"Higher logP should reduce hERG IC50; got low={low_ic50:.2f}, high={high_ic50:.2f}"
@@ -231,9 +240,7 @@ class TestCYPInhibitionPrediction:
         """When cmax_unbound << IC50 the DDI risk should be 'unlikely'."""
         report = _assess(cmax_uM=0.00001, fup=1.0)
         for cr in report.cyp_results:
-            assert cr.ddi_risk == "unlikely", (
-                f"{cr.enzyme} should be unlikely; got {cr.ddi_risk!r}"
-            )
+            assert cr.ddi_risk == "unlikely", f"{cr.enzyme} should be unlikely; got {cr.ddi_risk!r}"
 
     def test_cyp_inhibition_models_have_five_entries(self) -> None:
         """The CYP_INHIBITION_MODELS dict must contain exactly 5 enzymes."""

@@ -144,7 +144,9 @@ class TestIDRBaseline:
 
     @pytest.mark.parametrize("idr_type", [1, 2, 3, 4])
     def test_baseline_equilibrium(self, idr_type):
-        m = IndirectResponseModel(idr_type=idr_type, kin=2.0, kout=0.2, imax_or_smax=0.8, ic50_or_sc50=1.0)
+        m = IndirectResponseModel(
+            idr_type=idr_type, kin=2.0, kout=0.2, imax_or_smax=0.8, ic50_or_sc50=1.0
+        )
         t, cp = _IDRFixture.flat_cp(0.0)
         r = m.simulate(t, cp)
         r0 = 2.0 / 0.2  # = 10.0
@@ -163,7 +165,9 @@ class TestIDRType1:
         assert r_drug[-1] < r_no_drug[-1]
 
     def test_full_inhibition_approaches_zero(self):
-        m = IndirectResponseModel(idr_type=1, kin=2.0, kout=0.2, imax_or_smax=1.0, ic50_or_sc50=0.01)
+        m = IndirectResponseModel(
+            idr_type=1, kin=2.0, kout=0.2, imax_or_smax=1.0, ic50_or_sc50=0.01
+        )
         t, cp = _IDRFixture.flat_cp(100.0)  # Very high drug, near full inhibition
         r = m.simulate(t, cp)
         assert r[-1] < 1.0  # Should be well below baseline of 10.0

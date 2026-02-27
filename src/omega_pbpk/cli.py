@@ -127,9 +127,7 @@ def simulate(
     qsp_model: str | None = typer.Option(
         None, "--qsp-model", help="QSP model name (e.g. 'turnover')."
     ),
-    qsp_config: str | None = typer.Option(
-        None, "--qsp-config", help="Path to QSP config YAML."
-    ),
+    qsp_config: str | None = typer.Option(None, "--qsp-config", help="Path to QSP config YAML."),
     qsp_mode: str = typer.Option(
         "posthoc", "--qsp-mode", help="QSP coupling mode: 'posthoc' or 'coupled'."
     ),
@@ -202,25 +200,19 @@ def simulate(
         from physio_sim.qsp.registry import get_qsp_model as _get_qsp
 
         _qsp_raw = (
-            _yaml.safe_load(Path(qsp_config).read_text(encoding="utf-8"))
-            if qsp_config
-            else {}
+            _yaml.safe_load(Path(qsp_config).read_text(encoding="utf-8")) if qsp_config else {}
         )
         _qsp_params = _qsp_raw.get("params", _qsp_raw)
         _qsp_inst = _get_qsp(qsp_model)
         _qsp_inst.validate_params(_qsp_params)
-        _cp_fn = interp1d(
-            sim_time, cp, kind="linear", bounds_error=False, fill_value=0.0
-        )
+        _cp_fn = interp1d(sim_time, cp, kind="linear", bounds_error=False, fill_value=0.0)
 
         def _qsp_rhs(t: float, y: object) -> object:  # type: ignore[return]
             sigs = {"C_signal": max(0.0, float(_cp_fn(t)))}
             return _qsp_inst.rhs(t, y, sigs, _qsp_params)  # type: ignore[arg-type]
 
         _y0 = _qsp_inst.initial_state(_qsp_params)
-        _sol = solve_ivp(
-            _qsp_rhs, [0.0, t_end_h], _y0, t_eval=sim_time, method="RK45"
-        )
+        _sol = solve_ivp(_qsp_rhs, [0.0, t_end_h], _y0, t_eval=sim_time, method="RK45")
         b_biomarker = _sol.y[0].tolist()
         _bmax_idx = int(_np.argmax(b_biomarker))
         qsp_summary = {
@@ -322,9 +314,7 @@ def simulate(
         )
         sens_df = sens_result.metrics.copy()
         if len(sens_df) > 0:
-            sens_df["parameter"] = sens_df["parameter"].map(
-                lambda x: display_map.get(x, x)
-            )
+            sens_df["parameter"] = sens_df["parameter"].map(lambda x: display_map.get(x, x))
         sens_df.to_csv(out_path / "sensitivity.csv", index=False)
         ranking = {"ranked_parameter_influence": sens_df["parameter"].tolist()}
         (out_path / "sensitivity_ranked.json").write_text(
@@ -363,18 +353,13 @@ def simulate(
         except Exception:
             _pkg_ver = "dev"
         _ts = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-        _det_str = (
-            "enabled (seed=0, BDF solver)" if deterministic else "disabled"
-        )
+        _det_str = "enabled (seed=0, BDF solver)" if deterministic else "disabled"
         if sens_df is not None and len(sens_df) > 0:
             _rows = [
                 f"| {r['parameter']} | {r.get('influence_abs_sum', 0.0):.4f} |"
                 for _, r in sens_df.iterrows()
             ]
-            _sens_tbl = (
-                "| Parameter | Influence |\n|-----------|----------|\n"
-                + "\n".join(_rows)
-            )
+            _sens_tbl = "| Parameter | Influence |\n|-----------|----------|\n" + "\n".join(_rows)
         else:
             _sens_tbl = "_Sensitivity analysis not run._"
         _pop_txt = (
@@ -707,8 +692,17 @@ def calibrate(
     out: str = typer.Option("outputs/calibration", help="Output directory."),
 ) -> None:
     """Run Bayesian MCMC calibration against observed clinical data."""
-    _audit("calibrate", compound=compound, observed=observed, dose_mg=dose_mg,
-           route=route, body_weight=body_weight, n_samples=n_samples, seed=seed, out=out)
+    _audit(
+        "calibrate",
+        compound=compound,
+        observed=observed,
+        dose_mg=dose_mg,
+        route=route,
+        body_weight=body_weight,
+        n_samples=n_samples,
+        seed=seed,
+        out=out,
+    )
 
     import pandas as pd
 
@@ -998,8 +992,15 @@ def population(
     seed: int = typer.Option(42, "--seed", help="Random seed"),
 ) -> None:
     """Run population PK simulation across N virtual subjects."""
-    _audit("population", compound=compound, n_subjects=n_subjects, dose_mg=dose,
-           route=route, duration_h=duration, seed=seed)
+    _audit(
+        "population",
+        compound=compound,
+        n_subjects=n_subjects,
+        dose_mg=dose,
+        route=route,
+        duration_h=duration,
+        seed=seed,
+    )
 
     from omega_pbpk.config import load_compound
     from omega_pbpk.population.pop_simulator import PopulationSimulator
@@ -1038,8 +1039,15 @@ def report(
     population: int = typer.Option(0, "--population", "-p", help="N subjects for PopPK (0=skip)"),
 ) -> None:
     """Generate a regulatory-grade HTML report (NCA + DDI + PopPK)."""
-    _audit("report", smiles=smiles, name=name, dose_mg=dose, route=route,
-           out=out, population=population)
+    _audit(
+        "report",
+        smiles=smiles,
+        name=name,
+        dose_mg=dose,
+        route=route,
+        out=out,
+        population=population,
+    )
 
     from omega_pbpk.clinical.report import quick_report
 
@@ -1059,7 +1067,9 @@ def report(
 def invitro_cmd(
     smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug."),
     assay_type: str = typer.Option(
-        "hepatocyte", "--assay-type", "-a",
+        "hepatocyte",
+        "--assay-type",
+        "-a",
         help="Assay type: 'microsomes' (Phase 1 only) or 'hepatocyte' (Phase 1+2).",
     ),
     c0_uM: float = typer.Option(1.0, "--c0", help="Initial drug concentration in well (µM)."),
@@ -1171,7 +1181,9 @@ def invitro_cmd(
                 "papp_ba": result.caco2.papp_ba_cm_s,
                 "efflux_ratio": result.caco2.efflux_ratio,
                 "flag": result.caco2.pgp_bcrp_flag,
-            } if result.caco2 else None,
+            }
+            if result.caco2
+            else None,
             "warnings": result.warnings,
         }
         with open(out, "w") as f:
@@ -1185,7 +1197,9 @@ def invitro_pipeline_cmd(
     name: str = typer.Option("compound", "--name", "-n", help="Drug display name."),
     dose: float = typer.Option(100.0, "--dose", "-d", help="Dose for PBPK simulation (mg)."),
     assay_type: str = typer.Option(
-        "hepatocyte", "--assay-type", "-a",
+        "hepatocyte",
+        "--assay-type",
+        "-a",
         help="Assay: 'microsomes' or 'hepatocyte'.",
     ),
     kd: float | None = typer.Option(
@@ -1206,8 +1220,17 @@ def invitro_pipeline_cmd(
         omega invitro-pipeline --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" \
             --name caffeine --dose 200 --out outputs/caffeine_iv
     """
-    _audit("invitro-pipeline", smiles=smiles, name=name, dose_mg=dose,
-           assay_type=assay_type, kd_mg_L=kd, tau=tau, caco2=caco2, out=out)
+    _audit(
+        "invitro-pipeline",
+        smiles=smiles,
+        name=name,
+        dose_mg=dose,
+        assay_type=assay_type,
+        kd_mg_L=kd,
+        tau=tau,
+        caco2=caco2,
+        out=out,
+    )
 
     import yaml
 
@@ -1259,8 +1282,7 @@ def invitro_pipeline_cmd(
         typer.echo()
         typer.echo("Receptor / PD:")
         typer.echo(
-            f"  EC50  = {result.receptor.ec50_mg_L:.4f} mg/L"
-            f" (R²={result.receptor.r_squared:.3f})"
+            f"  EC50  = {result.receptor.ec50_mg_L:.4f} mg/L (R²={result.receptor.r_squared:.3f})"
         )
         typer.echo(f"  Emax  = {result.receptor.emax_effect:.1f}")
 
@@ -1332,13 +1354,17 @@ def invitro_pipeline_cmd(
             "papp_ba_cm_s": result.caco2.papp_ba_cm_s,
             "efflux_ratio": result.caco2.efflux_ratio,
             "flag": result.caco2.pgp_bcrp_flag,
-        } if result.caco2 else None,
+        }
+        if result.caco2
+        else None,
         "receptor": {
             "ec50_mg_L": result.receptor.ec50_mg_L,
             "emax_effect": result.receptor.emax_effect,
             "hill": result.receptor.hill,
             "r_squared": result.receptor.r_squared,
-        } if result.receptor else None,
+        }
+        if result.receptor
+        else None,
         "warnings": result.warnings,
     }
     json_path = out_path / "invitro_summary.json"

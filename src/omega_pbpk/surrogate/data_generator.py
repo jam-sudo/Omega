@@ -146,8 +146,7 @@ def generate_training_data(
         {name: float(X[i, j]) for j, name in enumerate(param_names)} for i in range(n_samples)
     ]
     worker_args = [
-        (params, dose_mg, route, body_weight, t_end_h, i)
-        for i, params in enumerate(all_params)
+        (params, dose_mg, route, body_weight, t_end_h, i) for i, params in enumerate(all_params)
     ]
 
     # Run simulations — parallel or serial

@@ -38,8 +38,8 @@ def _hill_maturation(age_years: float, tm50: float, hill: float) -> float:
         age_years = 0.0
     if tm50 <= 0.0:
         raise ValueError(f"TM50 must be positive, got {tm50}")
-    age_h = age_years ** hill
-    tm50_h = tm50 ** hill
+    age_h = age_years**hill
+    tm50_h = tm50**hill
     return age_h / (age_h + tm50_h)
 
 

@@ -79,8 +79,8 @@ class Drug:
     gut_clint_multiplier: float = 1.0
 
     # SC (subcutaneous) absorption parameters
-    ka_sc: float = 0.2   # SC absorption rate constant (h^-1), first-order
-    f_sc: float = 1.0    # SC bioavailability fraction (no first-pass effect)
+    ka_sc: float = 0.2  # SC absorption rate constant (h^-1), first-order
+    f_sc: float = 1.0  # SC bioavailability fraction (no first-pass effect)
 
     # Dosing (set at simulation time)
     dose_mg: float = 0.0

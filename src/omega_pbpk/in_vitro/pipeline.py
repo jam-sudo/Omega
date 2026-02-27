@@ -70,6 +70,7 @@ logger = logging.getLogger(__name__)
 # Request / Result dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class InVitroRequest:
     """Input specification for the in vitro pipeline.
@@ -96,7 +97,7 @@ class InVitroRequest:
 
     smiles: str
     dose_mg: float = 100.0
-    assay_type: str = "hepatocyte"          # "microsomes" or "hepatocyte"
+    assay_type: str = "hepatocyte"  # "microsomes" or "hepatocyte"
     c0_uM: float = 1.0
     run_caco2: bool = True
     kd_mg_L: float | None = None
@@ -128,8 +129,8 @@ class InVitroResult:
     """
 
     request: InVitroRequest
-    adme: Any                           # ADMEProperties
-    phase2: Any                         # Phase2Properties
+    adme: Any  # ADMEProperties
+    phase2: Any  # Phase2Properties
     assay: AssayResult
     caco2: Caco2Result | None
     receptor: EC50Result | None
@@ -137,7 +138,7 @@ class InVitroResult:
     clint_phase2_ul_min_mg: float
     clint_total_ul_min_mg: float
     clh_l_per_h: float
-    drug: Any                           # Drug dataclass
+    drug: Any  # Drug dataclass
     warnings: list[str] = field(default_factory=list)
     confidence: str = "low"
 
@@ -145,6 +146,7 @@ class InVitroResult:
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
+
 
 class InVitroPipeline:
     """Full in vitro → in vivo extrapolation pipeline.
@@ -159,9 +161,11 @@ class InVitroPipeline:
     def _ensure_predictors(self) -> None:
         if self._adme is None:
             from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+
             self._adme = ADMEPredictor()
         if self._phase2 is None:
             from omega_pbpk.prediction.phase2_predictor import Phase2Predictor
+
             self._phase2 = Phase2Predictor()
 
     def run(self, request: InVitroRequest) -> InVitroResult:
@@ -216,8 +220,9 @@ class InVitroPipeline:
             )
         else:
             # Hepatocyte: total Phase 1 + Phase 2 CLint (combined in cells)
-            clint_total_for_hep = _convert_phase1_to_hepatocyte_units(clint_phase1) + \
-                                  _convert_phase2_to_hepatocyte_units(clint_phase2)
+            clint_total_for_hep = _convert_phase1_to_hepatocyte_units(
+                clint_phase1
+            ) + _convert_phase2_to_hepatocyte_units(clint_phase2)
             assay_sim_hep = HepatocyteAssay(
                 cell_density_million_per_mL=request.cell_density_million_per_mL,
                 fu_cell=fu_mic,  # use fu_mic as proxy for fu_cell
@@ -266,6 +271,7 @@ class InVitroPipeline:
             )
             # Use a representative Cmax range (0.1–100× Kd)
             import numpy as np
+
             kd = request.kd_mg_L
             cmax_range = np.array([0.01, 0.1, 0.3, 1.0, 3.0, 10.0, 30.0]) * kd
             doses_est = cmax_range * 50.0  # rough dose proxy
@@ -290,7 +296,8 @@ class InVitroPipeline:
         clh = ivive_result.clh_well_stirred_L_per_h
         logger.info(
             "IVIVE: CLint_total=%.3f µL/min/mg → CLh=%.3f L/h",
-            clint_total, clh,
+            clint_total,
+            clh,
         )
 
         # ------------------------------------------------------------------
@@ -337,6 +344,7 @@ class InVitroPipeline:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _convert_phase1_to_hepatocyte_units(clint_ul_min_mg: float) -> float:
     """Convert microsomal CLint (µL/min/mg) to hepatocyte units (µL/min/10⁶ cells).

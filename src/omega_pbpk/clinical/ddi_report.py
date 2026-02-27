@@ -9,6 +9,7 @@ Risk thresholds:
   R1 >= 2.0  → clinical DDI study recommended
   R1gut >= 11 → gut CYP3A4 inhibition study recommended
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,9 +18,10 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class DDIInhibitor:
     """Perpetrator drug properties for DDI risk assessment."""
+
     name: str
-    cmax_uM: float          # Maximum plasma concentration (µM)
-    ki_3a4_uM: float = float("inf")   # CYP3A4 Ki (µM), inf = no inhibition
+    cmax_uM: float  # Maximum plasma concentration (µM)
+    ki_3a4_uM: float = float("inf")  # CYP3A4 Ki (µM), inf = no inhibition
     ki_2d6_uM: float = float("inf")
     ki_2c9_uM: float = float("inf")
     ki_1a2_uM: float = float("inf")
@@ -30,12 +32,13 @@ class DDIInhibitor:
     fa: float = 0.85
     fg: float = 0.6
     ka_per_h: float = 1.0
-    induction_fold_3a4: float = 1.0   # max fold induction
+    induction_fold_3a4: float = 1.0  # max fold induction
 
 
 @dataclass
 class DDIRiskReport:
     """FDA DDI risk assessment results."""
+
     inhibitor_name: str
     # Static inhibition R1 values (>= 2.0 triggers clinical study)
     R1_3a4: float = 1.0
@@ -55,7 +58,7 @@ class DDIRiskReport:
 
 # FDA guidance constants
 KDEG_3A4_PER_H = 0.0005 * 60  # 0.0005 /min × 60 = 0.03 /h
-QGUT_L_PER_H = 18.0            # gut blood flow
+QGUT_L_PER_H = 18.0  # gut blood flow
 FG_DEFAULT = 0.6
 
 

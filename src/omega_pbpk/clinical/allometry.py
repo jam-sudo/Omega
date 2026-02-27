@@ -5,6 +5,7 @@ multi-species regression for human PK prediction from preclinical data.
 
 Reference: Mahmood I, Balian JD. J Pharm Sci 1996;85:103-106.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 # Standard allometric exponents (Boxenbaum 1982)
 EXPONENTS = {
-    "cl": 0.75,         # Clearance ∝ BW^0.75
-    "vd": 1.00,         # Volume of distribution ∝ BW^1.0
-    "t_half": 0.25,     # Half-life ∝ BW^0.25 (derived from CL/Vd)
-    "flow": 0.75,       # Blood flow ∝ BW^0.75
-    "cmax": -0.25,      # Cmax ∝ BW^-0.25 (for fixed mg/kg dose)
+    "cl": 0.75,  # Clearance ∝ BW^0.75
+    "vd": 1.00,  # Volume of distribution ∝ BW^1.0
+    "t_half": 0.25,  # Half-life ∝ BW^0.25 (derived from CL/Vd)
+    "flow": 0.75,  # Blood flow ∝ BW^0.75
+    "cmax": -0.25,  # Cmax ∝ BW^-0.25 (for fixed mg/kg dose)
 }
 
 # Reference body weights (kg)
@@ -38,13 +39,14 @@ BODY_WEIGHTS = {
 @dataclass(frozen=True)
 class AllometricPrediction:
     """Result of allometric scaling to human."""
+
     species_source: str
     cl_human_L_per_h: float
     vd_human_L: float
     t_half_human_h: float
     f_oral_assumed: float
     method: str
-    r_squared: float | None = None   # For multi-species regression
+    r_squared: float | None = None  # For multi-species regression
 
 
 def scale_single_species(
@@ -75,11 +77,11 @@ def scale_single_species(
     vd_animal = vd_L_per_kg * animal_bw
 
     # Allometric coefficient: Y = a × BW^b → a = Y_animal / BW_animal^b
-    a_cl = cl_animal / (animal_bw ** cl_exponent)
-    a_vd = vd_animal / (animal_bw ** vd_exponent)
+    a_cl = cl_animal / (animal_bw**cl_exponent)
+    a_vd = vd_animal / (animal_bw**vd_exponent)
 
-    cl_human = a_cl * (human_bw_kg ** cl_exponent)
-    vd_human = a_vd * (human_bw_kg ** vd_exponent)
+    cl_human = a_cl * (human_bw_kg**cl_exponent)
+    vd_human = a_vd * (human_bw_kg**vd_exponent)
     t_half = float(0.693 * vd_human / max(cl_human, 1e-9))
 
     return AllometricPrediction(
@@ -132,8 +134,8 @@ def scale_multi_species(
     ss_tot = np.sum((cl_log - cl_log.mean()) ** 2)
     r2 = float(1 - ss_res / (ss_tot + 1e-12))
 
-    cl_human = float(math.exp(log_a_cl) * (human_bw_kg ** b_cl))
-    vd_human = float(math.exp(log_a_vd) * (human_bw_kg ** b_vd))
+    cl_human = float(math.exp(log_a_cl) * (human_bw_kg**b_cl))
+    vd_human = float(math.exp(log_a_vd) * (human_bw_kg**b_vd))
     t_half = float(0.693 * vd_human / max(cl_human, 1e-9))
 
     logger.info(

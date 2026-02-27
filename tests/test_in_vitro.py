@@ -94,7 +94,7 @@ class TestMicrosomesAssay:
         assay = MicrosomesAssay(f_unbound_mic=1.0)
         clint_nom = 10.0  # µL/min/mg
         res = assay.simulate(clint_ul_min_mg=clint_nom)
-        expected = clint_nom * MPPGL * LIVER_WEIGHT_G / 1e6 * 60.0   # L/h
+        expected = clint_nom * MPPGL * LIVER_WEIGHT_G / 1e6 * 60.0  # L/h
         assert res.clint_liver_L_per_h == pytest.approx(expected, rel=1e-4)
 
     def test_estimate_fu_mic_decreases_with_logp(self):
@@ -164,7 +164,7 @@ class TestHepatocyteAssay:
         assay = HepatocyteAssay(viability_fraction=1.0, fu_cell=1.0)
         clint = 3.0
         res = assay.simulate(clint_ul_min_million=clint)
-        expected = clint * (HPGL / 1e6) * LIVER_WEIGHT_G / 1e6 * 60.0   # L/h
+        expected = clint * (HPGL / 1e6) * LIVER_WEIGHT_G / 1e6 * 60.0  # L/h
         assert res.clint_liver_L_per_h == pytest.approx(expected, rel=1e-4)
 
     def test_assay_type_is_hepatocytes(self):
@@ -209,7 +209,7 @@ class TestEquilibriumOccupancy:
     def test_peak_occupancy_at_cmax(self):
         model = EquilibriumOccupancy(kd_mg_L=1.0)
         t = np.linspace(0.0, 24.0, 241)
-        cp = np.exp(-0.3 * t) * 5.0   # decaying profile, peak at t=0
+        cp = np.exp(-0.3 * t) * 5.0  # decaying profile, peak at t=0
         res = model.compute(t, cp)
         assert res.tpeak_h == pytest.approx(t[0], abs=0.2)
 
@@ -228,7 +228,7 @@ class TestEquilibriumOccupancy:
     def test_effect_with_operational_model(self):
         occ_model = EquilibriumOccupancy(kd_mg_L=1.0)
         op_model = OperationalModel(e0=0.0, emax=100.0, tau=1.0)
-        t, cp = self._cp(1.0)   # Cp = Kd → occ = 0.5
+        t, cp = self._cp(1.0)  # Cp = Kd → occ = 0.5
         res = occ_model.compute(t, cp, operational_model=op_model)
         # E = 0 + 100 × 1 × 0.5 / (1 + 1 × 0.5) = 50/1.5 ≈ 33.3
         assert res.effect[0] == pytest.approx(100.0 * 0.5 / 1.5, rel=1e-4)
@@ -266,7 +266,7 @@ class TestKineticOccupancy:
     def test_steady_state_approaches_equilibrium(self):
         """At constant Cp, kinetic occupancy should converge to Kd-based prediction."""
         kd = 1.0
-        cp_val = 2.0   # occ_ss = Cp/(Kd+Cp) = 2/3 ≈ 0.667
+        cp_val = 2.0  # occ_ss = Cp/(Kd+Cp) = 2/3 ≈ 0.667
         model = KineticOccupancy(kon_per_h_per_mg_L=1.0, koff_per_h=kd)
         t = np.linspace(0.0, 50.0, 501)
         cp = np.full(501, cp_val)

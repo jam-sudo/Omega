@@ -60,9 +60,7 @@ class TestWarfarin:
         assert 0 < warfarin.fup <= 1.0, f"fup out of range: {warfarin.fup}"
 
     def test_warfarin_logP_known_range(self, warfarin):
-        assert 2.0 <= warfarin.logP <= 4.0, (
-            f"Warfarin logP should be 2-4, got {warfarin.logP}"
-        )
+        assert 2.0 <= warfarin.logP <= 4.0, f"Warfarin logP should be 2-4, got {warfarin.logP}"
 
     def test_warfarin_clint_non_negative(self, warfarin):
         clint_total = sum(warfarin.clint.values()) if warfarin.clint else 0.0
@@ -89,9 +87,7 @@ class TestWarfarinYaml:
             or "clearance" in data
             or any("clint" in str(k).lower() for k in data.keys())
         )
-        assert has_clint, (
-            f"warfarin.yaml missing clearance-related key; keys={list(data.keys())}"
-        )
+        assert has_clint, f"warfarin.yaml missing clearance-related key; keys={list(data.keys())}"
 
     def test_propranolol_yaml_loads(self):
         """Propranolol YAML loads and has a clearance-related key."""
@@ -115,9 +111,7 @@ class TestWarfarinYaml:
             or "clearance" in data
             or any("clint" in str(k).lower() for k in data.keys())
         )
-        assert has_clint, (
-            f"metformin.yaml missing clearance-related key; keys={list(data.keys())}"
-        )
+        assert has_clint, f"metformin.yaml missing clearance-related key; keys={list(data.keys())}"
 
     def test_caffeine_yaml_loads(self):
         """Caffeine YAML loads and has a clearance-related key."""
@@ -130,9 +124,7 @@ class TestWarfarinYaml:
             or "clearance" in data
             or any("clint" in str(k).lower() for k in data.keys())
         )
-        assert has_clint, (
-            f"caffeine.yaml missing clearance-related key; keys={list(data.keys())}"
-        )
+        assert has_clint, f"caffeine.yaml missing clearance-related key; keys={list(data.keys())}"
 
 
 # ---------------------------------------------------------------------------
@@ -219,9 +211,7 @@ class TestCaffeine:
         assert 0 < caffeine.fup <= 1.0, f"fup out of range: {caffeine.fup}"
 
     def test_caffeine_logP_known_range(self, caffeine):
-        assert -1.0 <= caffeine.logP <= 1.0, (
-            f"Caffeine logP should be -1 to 1, got {caffeine.logP}"
-        )
+        assert -1.0 <= caffeine.logP <= 1.0, f"Caffeine logP should be -1 to 1, got {caffeine.logP}"
 
     def test_caffeine_clint_non_negative(self, caffeine):
         clint_total = sum(caffeine.clint.values()) if caffeine.clint else 0.0

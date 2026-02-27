@@ -74,10 +74,9 @@ class ADMEPredictor:
         prediction/ -> omega_pbpk/ -> src/ -> Omega/ -> data/
         """
         ref_path = (
-            Path(__file__).parent  # prediction/
-            .parent                 # omega_pbpk/
-            .parent                 # src/
-            .parent                 # Omega/
+            Path(
+                __file__
+            ).parent.parent.parent.parent  # prediction/  # omega_pbpk/  # src/  # Omega/
             / "data"
             / "adme_reference.csv"
         )
@@ -115,6 +114,7 @@ class ADMEPredictor:
         if self._featurizer is None:
             try:
                 from omega_pbpk.features.rdkit_featurizer import RDKitFeaturizer
+
                 self._featurizer = RDKitFeaturizer()
             except Exception:
                 self._featurizer = False  # mark as unavailable

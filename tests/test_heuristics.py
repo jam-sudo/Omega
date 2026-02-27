@@ -109,7 +109,9 @@ class TestHeuristicKpIonisation:
 
     def test_compound_type_overrides_drug_type(self):
         kp_via_drug_type = heuristic_kp(2.0, pka=8.0, drug_type="base", tissue_name="liver")
-        kp_via_compound_type = heuristic_kp(2.0, pka=8.0, drug_type="neutral", compound_type="base", tissue_name="liver")
+        kp_via_compound_type = heuristic_kp(
+            2.0, pka=8.0, drug_type="neutral", compound_type="base", tissue_name="liver"
+        )
         assert abs(kp_via_drug_type - kp_via_compound_type) < 1e-6
 
 
@@ -136,7 +138,9 @@ class TestRodgersRowlandBasic:
 
     def test_base_higher_than_neutral_in_muscle(self):
         # Bases bind acidic phospholipids → higher Kp
-        kp_neutral = rodgers_rowland_kp(2.0, pka=None, compound_type="neutral", tissue_name="muscle")
+        kp_neutral = rodgers_rowland_kp(
+            2.0, pka=None, compound_type="neutral", tissue_name="muscle"
+        )
         kp_base = rodgers_rowland_kp(2.0, pka=9.0, compound_type="base", tissue_name="muscle")
         assert kp_base > kp_neutral
 
@@ -165,7 +169,9 @@ class TestRodgersRowlandAllTissues:
 
     @pytest.mark.parametrize("tissue", RR_TISSUES)
     def test_zwitterion(self, tissue):
-        kp = rodgers_rowland_kp(1.5, pka=6.5, compound_type="zwitterion", tissue_name=tissue, fup=0.4)
+        kp = rodgers_rowland_kp(
+            1.5, pka=6.5, compound_type="zwitterion", tissue_name=tissue, fup=0.4
+        )
         assert kp >= 0.01
 
 

@@ -1,4 +1,5 @@
 """Visual Predictive Check (VPC) plot for population PK."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,6 +28,7 @@ def plot_vpc(
     """
     try:
         import matplotlib
+
         matplotlib.use("Agg")  # Non-interactive backend
         import matplotlib.pyplot as plt
     except ImportError as err:
@@ -40,19 +42,20 @@ def plot_vpc(
     fig, ax = plt.subplots(figsize=(9, 5))
 
     # Shaded prediction interval
-    ax.fill_between(time_h, lo, hi, alpha=0.25, color="steelblue",
-                    label=f"{p_lo:.0f}–{p_hi:.0f}th percentile")
+    ax.fill_between(
+        time_h, lo, hi, alpha=0.25, color="steelblue", label=f"{p_lo:.0f}–{p_hi:.0f}th percentile"
+    )
     # Median line
-    ax.plot(time_h, med, color="steelblue", linewidth=2,
-            label=f"Median ({p_med:.0f}th)")
+    ax.plot(time_h, med, color="steelblue", linewidth=2, label=f"Median ({p_med:.0f}th)")
     # Boundary lines
     ax.plot(time_h, lo, color="steelblue", linewidth=0.8, linestyle="--", alpha=0.6)
     ax.plot(time_h, hi, color="steelblue", linewidth=0.8, linestyle="--", alpha=0.6)
 
     # Observed data
     if observed_time is not None and observed_cp is not None:
-        ax.scatter(observed_time, observed_cp, color="black", zorder=5,
-                   s=30, label="Observed", alpha=0.8)
+        ax.scatter(
+            observed_time, observed_cp, color="black", zorder=5, s=30, label="Observed", alpha=0.8
+        )
 
     ax.set_xlabel("Time (h)", fontsize=12)
     ax.set_ylabel("Plasma concentration (mg/L)", fontsize=12)
@@ -94,6 +97,7 @@ def plot_forest(
     """
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError as err:

@@ -39,14 +39,15 @@ from scipy.integrate import solve_ivp
 # Scaling constants
 # ---------------------------------------------------------------------------
 
-MPPGL: float = 40.0          # mg microsomal protein / g liver
-HPGL: float = 120e6          # hepatocytes / g liver
+MPPGL: float = 40.0  # mg microsomal protein / g liver
+HPGL: float = 120e6  # hepatocytes / g liver
 LIVER_WEIGHT_G: float = 1500.0  # reference human liver (70 kg)
 
 
 # ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class AssayResult:
@@ -80,6 +81,7 @@ class AssayResult:
 # ---------------------------------------------------------------------------
 # Microsomes assay
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class MicrosomesAssay:
@@ -156,10 +158,7 @@ class MicrosomesAssay:
             c_p, c_m = y[0], y[1]
             loss = k_dep_per_min * max(c_p, 0.0)
             dc_p = -loss
-            dc_m = (
-                self.f_metabolite * loss
-                - (self.k_met_elim_per_h / 60.0) * max(c_m, 0.0)
-            )
+            dc_m = self.f_metabolite * loss - (self.k_met_elim_per_h / 60.0) * max(c_m, 0.0)
             return np.array([dc_p, dc_m])
 
         sol = solve_ivp(
@@ -183,10 +182,10 @@ class MicrosomesAssay:
         # Scale to whole liver (L/h)
         clint_liver_L_per_h = (
             clint_corr  # µL/min/mg
-            * MPPGL      # mg protein/g liver
-            * LIVER_WEIGHT_G   # g liver
-            / 1e6        # µL → L
-            * 60.0       # min → h
+            * MPPGL  # mg protein/g liver
+            * LIVER_WEIGHT_G  # g liver
+            / 1e6  # µL → L
+            * 60.0  # min → h
         )
 
         return AssayResult(
@@ -214,12 +213,13 @@ class MicrosomesAssay:
         Returns:
             fu_mic in range (0, 1].
         """
-        return float(1.0 / (1.0 + 0.0072 * 10.0 ** logP))
+        return float(1.0 / (1.0 + 0.0072 * 10.0**logP))
 
 
 # ---------------------------------------------------------------------------
 # Hepatocyte assay
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class HepatocyteAssay:
@@ -290,10 +290,7 @@ class HepatocyteAssay:
             c_p, c_m = y[0], y[1]
             loss = k_dep_per_min * max(c_p, 0.0)
             dc_p = -loss
-            dc_m = (
-                self.f_metabolite * loss
-                - (self.k_met_elim_per_h / 60.0) * max(c_m, 0.0)
-            )
+            dc_m = self.f_metabolite * loss - (self.k_met_elim_per_h / 60.0) * max(c_m, 0.0)
             return np.array([dc_p, dc_m])
 
         sol = solve_ivp(
@@ -314,11 +311,11 @@ class HepatocyteAssay:
 
         # Scale to whole liver (Barter 2007)
         clint_liver_L_per_h = (
-            clint_viable      # µL/min/10⁶ cells
-            * (HPGL / 1e6)    # 10⁶ cells/g liver
+            clint_viable  # µL/min/10⁶ cells
+            * (HPGL / 1e6)  # 10⁶ cells/g liver
             * LIVER_WEIGHT_G  # g liver
-            / 1e6             # µL → L
-            * 60.0            # min → h
+            / 1e6  # µL → L
+            * 60.0  # min → h
         )
 
         return AssayResult(

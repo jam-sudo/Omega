@@ -152,7 +152,7 @@ class TestCompetitiveInhibition:
 
         inh = DDIInhibitor(
             name="WeakInh",
-            ki_uM=1e9,          # Effectively infinite Ki
+            ki_uM=1e9,  # Effectively infinite Ki
             concentration_uM=1.0,
             target_enzyme="CYP3A4",
             mechanism="competitive",
@@ -303,7 +303,7 @@ class TestNoDDI:
             name="WrongEnzymeInh",
             ki_uM=0.001,
             concentration_uM=100.0,
-            target_enzyme="CYP2D6",   # Drug has fm=0 for CYP2D6
+            target_enzyme="CYP2D6",  # Drug has fm=0 for CYP2D6
             mechanism="competitive",
         )
         result = _clint_eff(drug, [inh])

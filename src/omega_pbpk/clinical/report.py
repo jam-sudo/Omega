@@ -1,4 +1,5 @@
 """FDA-style regulatory HTML report generator."""
+
 from __future__ import annotations
 
 import base64
@@ -12,13 +13,14 @@ from typing import Any
 @dataclass
 class ReportInput:
     """All inputs needed to generate a regulatory report."""
+
     drug_name: str
     smiles: str = ""
     dose_mg: float = 100.0
     route: str = "oral"
-    nca_result: Any = None          # NCAResult or None
-    ddi_report: Any = None          # DDIRiskReport or None
-    pop_pk_result: Any = None       # PopPKResult or None
+    nca_result: Any = None  # NCAResult or None
+    ddi_report: Any = None  # DDIRiskReport or None
+    pop_pk_result: Any = None  # PopPKResult or None
     adme_properties: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
@@ -49,10 +51,7 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
     sections: list[str] = []
 
     # --- Drug summary ---
-    _smiles_td = (
-        '<td style="font-family:monospace;font-size:0.85em">'
-        f"{inp.smiles or '—'}</td>"
-    )
+    _smiles_td = f'<td style="font-family:monospace;font-size:0.85em">{inp.smiles or "—"}</td>'
     sections.append(f"""
     <section>
       <h2>1. Drug Summary</h2>
@@ -67,7 +66,8 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
     if inp.adme_properties:
         rows = "".join(
             f"<tr><th>{k}</th><td>{_fmt(v) if isinstance(v, float) else v}</td></tr>"
-            for k, v in inp.adme_properties.items() if k != "confidence"
+            for k, v in inp.adme_properties.items()
+            if k != "confidence"
         )
         conf = inp.adme_properties.get("confidence", "—")
         sections.append(f"""
@@ -101,17 +101,15 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
     if inp.ddi_report is not None:
         d = inp.ddi_report
         if d.flags:
-            flag_html = "".join(
-                f"<li style='color:darkorange'>⚠ {f}</li>" for f in d.flags
-            )
+            flag_html = "".join(f"<li style='color:darkorange'>⚠ {f}</li>" for f in d.flags)
         else:
             flag_html = "<li style='color:green'>No risk flags</li>"
-        _r3a4 = '⚠ Risk' if d.R1_3a4 >= 2 else '✓ OK'
-        _r2d6 = '⚠ Risk' if d.R1_2d6 >= 2 else '✓ OK'
-        _r2c9 = '⚠ Risk' if d.R1_2c9 >= 2 else '✓ OK'
-        _r1a2 = '⚠ Risk' if d.R1_1a2 >= 2 else '✓ OK'
-        _rgut = '⚠ Risk' if d.R1gut_3a4 >= 11 else '✓ OK'
-        _rmbi = '⚠ Risk' if d.R2_3a4 >= 1.25 else '✓ OK'
+        _r3a4 = "⚠ Risk" if d.R1_3a4 >= 2 else "✓ OK"
+        _r2d6 = "⚠ Risk" if d.R1_2d6 >= 2 else "✓ OK"
+        _r2c9 = "⚠ Risk" if d.R1_2c9 >= 2 else "✓ OK"
+        _r1a2 = "⚠ Risk" if d.R1_1a2 >= 2 else "✓ OK"
+        _rgut = "⚠ Risk" if d.R1gut_3a4 >= 11 else "✓ OK"
+        _rmbi = "⚠ Risk" if d.R2_3a4 >= 1.25 else "✓ OK"
         sections.append(f"""
     <section>
       <h2>4. DDI Risk Assessment (FDA 2020)</h2>
@@ -140,6 +138,7 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
         vpc_img = ""
         try:
             import matplotlib
+
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
 
@@ -168,10 +167,10 @@ def generate_report(inp: ReportInput, output_path: str) -> str:
       <h2>5. Population PK (n={pr.n_subjects})</h2>
       <table>
         <tr><th>Parameter</th><th>Median</th><th>5th %ile</th><th>95th %ile</th><th>CV%</th></tr>
-        <tr><td>C<sub>max</sub> (mg/L)</td><td>{_fmt(cmax_s['median'])}</td>
-          <td>{_fmt(cmax_s['p5'])}</td><td>{_fmt(cmax_s['p95'])}</td><td>{cmax_s['cv_pct']:.1f}%</td></tr>
-        <tr><td>AUC (mg·h/L)</td><td>{_fmt(auc_s['median'])}</td>
-          <td>{_fmt(auc_s['p5'])}</td><td>{_fmt(auc_s['p95'])}</td><td>{auc_s['cv_pct']:.1f}%</td></tr>
+        <tr><td>C<sub>max</sub> (mg/L)</td><td>{_fmt(cmax_s["median"])}</td>
+          <td>{_fmt(cmax_s["p5"])}</td><td>{_fmt(cmax_s["p95"])}</td><td>{cmax_s["cv_pct"]:.1f}%</td></tr>
+        <tr><td>AUC (mg·h/L)</td><td>{_fmt(auc_s["median"])}</td>
+          <td>{_fmt(auc_s["p5"])}</td><td>{_fmt(auc_s["p95"])}</td><td>{auc_s["cv_pct"]:.1f}%</td></tr>
       </table>
       {vpc_img}
     </section>""")
@@ -243,6 +242,7 @@ def quick_report(
     if n_pop_subjects > 0:
         try:
             from omega_pbpk.population.pop_simulator import PopulationSimulator
+
             drug = pipeline._build_drug(sim_result.adme_properties, [])
             pop_sim = PopulationSimulator(drug=drug)
             pop_result = pop_sim.run(n_subjects=n_pop_subjects, dose_mg=dose_mg, route=route)

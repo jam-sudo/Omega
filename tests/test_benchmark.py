@@ -87,9 +87,7 @@ class TestBenchmarkSuite:
         simplified 1-compartment synthetic reference data. We use 0.80 as a
         very permissive upper bound to guard against catastrophic failures.
         """
-        caffeine_results = [
-            r for r in benchmark_summary["results"] if r["drug"] == "caffeine"
-        ]
+        caffeine_results = [r for r in benchmark_summary["results"] if r["drug"] == "caffeine"]
         assert caffeine_results, "No caffeine result found in benchmark summary"
         auc_re = caffeine_results[0]["metrics"]["auc_relative_error"]
         assert auc_re < 0.80, (

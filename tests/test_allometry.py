@@ -33,7 +33,9 @@ def _import_get_species_physiology():
     try:
         from omega_pbpk.population.physiology import get_species_physiology
     except ImportError:
-        pytest.skip("get_species_physiology not yet implemented in omega_pbpk.population.physiology")
+        pytest.skip(
+            "get_species_physiology not yet implemented in omega_pbpk.population.physiology"
+        )
     return get_species_physiology
 
 
@@ -129,9 +131,7 @@ class TestMouseCardiacOutputLessThanRat:
 
         mouse_co = mouse_phys[co_key]
         rat_co = rat_phys[co_key]
-        assert mouse_co < rat_co, (
-            f"Mouse CO ({mouse_co}) should be less than rat CO ({rat_co})"
-        )
+        assert mouse_co < rat_co, f"Mouse CO ({mouse_co}) should be less than rat CO ({rat_co})"
 
 
 class TestSpeciesPhysiologyKeysConsistent:

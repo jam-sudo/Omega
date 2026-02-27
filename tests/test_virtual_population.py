@@ -143,11 +143,13 @@ class TestScalePhysiology:
         # Try with SubjectCovariates if available, otherwise use a dict
         try:
             from omega_pbpk.population.physiology import SubjectCovariates
+
             covariate = SubjectCovariates(body_weight_kg=70.0, age_years=30, sex="M")
         except (ImportError, TypeError):
             # Fallback: try passing a simple dict or keyword args
             try:
                 from omega_pbpk.population.physiology import SubjectCovariates
+
                 covariate = SubjectCovariates(body_weight_kg=70.0)
             except Exception:
                 pytest.skip("SubjectCovariates not yet implemented")

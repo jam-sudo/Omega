@@ -98,7 +98,7 @@ def _rhat_split(chain: NDArray[np.float64]) -> float:
     chains = np.stack([chain[:half], chain[n - half :]])  # shape (2, half)
     m, n_each = chains.shape
 
-    chain_means = chains.mean(axis=1)          # (m,)
+    chain_means = chains.mean(axis=1)  # (m,)
     chain_means.mean()
 
     # Between-chain variance B (scaled by n_each)
