@@ -1,8 +1,8 @@
 """Visual Predictive Check (VPC) plot for population PK."""
 from __future__ import annotations
+
 import numpy as np
 from numpy.typing import NDArray
-from pathlib import Path
 
 
 def plot_vpc(
@@ -29,9 +29,8 @@ def plot_vpc(
         import matplotlib
         matplotlib.use("Agg")  # Non-interactive backend
         import matplotlib.pyplot as plt
-        import matplotlib.patches as mpatches
-    except ImportError:
-        raise ImportError("matplotlib required for VPC plots: pip install matplotlib")
+    except ImportError as err:
+        raise ImportError("matplotlib required for VPC plots: pip install matplotlib") from err
 
     p_lo, p_med, p_hi = percentiles
     lo = np.percentile(cp_matrix, p_lo, axis=0)
@@ -97,14 +96,16 @@ def plot_forest(
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-    except ImportError:
-        raise ImportError("matplotlib required: pip install matplotlib")
+    except ImportError as err:
+        raise ImportError("matplotlib required: pip install matplotlib") from err
 
     n = len(subgroup_labels)
     y_pos = list(range(n))
 
     fig, ax = plt.subplots(figsize=(8, max(3, n * 0.6 + 1)))
-    for i, (label, med, lo, hi) in enumerate(zip(subgroup_labels, medians, p5_values, p95_values)):
+    for i, (_label, med, lo, hi) in enumerate(
+        zip(subgroup_labels, medians, p5_values, p95_values, strict=False)
+    ):
         ax.plot([lo, hi], [i, i], color="steelblue", linewidth=2)
         ax.scatter([med], [i], color="steelblue", s=60, zorder=5)
 

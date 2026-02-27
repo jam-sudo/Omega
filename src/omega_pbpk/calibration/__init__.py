@@ -99,7 +99,7 @@ def _rhat_split(chain: NDArray[np.float64]) -> float:
     m, n_each = chains.shape
 
     chain_means = chains.mean(axis=1)          # (m,)
-    grand_mean = chain_means.mean()
+    chain_means.mean()
 
     # Between-chain variance B (scaled by n_each)
     B = n_each * np.var(chain_means, ddof=1)

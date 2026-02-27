@@ -6,9 +6,11 @@ multi-species regression for human PK prediction from preclinical data.
 Reference: Mahmood I, Balian JD. J Pharm Sci 1996;85:103-106.
 """
 from __future__ import annotations
-import math
+
 import logging
+import math
 from dataclasses import dataclass
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -134,7 +136,9 @@ def scale_multi_species(
     vd_human = float(math.exp(log_a_vd) * (human_bw_kg ** b_vd))
     t_half = float(0.693 * vd_human / max(cl_human, 1e-9))
 
-    logger.info(f"Multi-species allometry: CL exponent={b_cl:.2f}, Vd exponent={b_vd:.2f}, R²={r2:.3f}")
+    logger.info(
+        f"Multi-species allometry: CL exponent={b_cl:.2f}, Vd exponent={b_vd:.2f}, R²={r2:.3f}"
+    )
 
     return AllometricPrediction(
         species_source=f"multi({','.join(species_data.keys())})",

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
@@ -47,7 +47,7 @@ class DrugRequest(BaseModel):
     name: str = "Unknown"
     mw: float = 300.0
     logP: float = 2.0
-    pka: Optional[list[float]] = None
+    pka: list[float] | None = None
     drug_type: str = "neutral"
     fup: float = Field(default=0.5, gt=0, le=1)
     rbp: float = 1.0
@@ -57,8 +57,8 @@ class DrugRequest(BaseModel):
     vdss_L_per_kg: float = Field(default=0.6, gt=0)
     route_of_elimination: str = "hepatic"
     # Optional extra fields passed through
-    clint: Optional[dict[str, float]] = None
-    fm: Optional[dict[str, float]] = None
+    clint: dict[str, float] | None = None
+    fm: dict[str, float] | None = None
 
 
 class SimulateRequest(BaseModel):

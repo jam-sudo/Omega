@@ -3,8 +3,10 @@
 Standard NCA methods per FDA bioanalytical guidance.
 """
 from __future__ import annotations
+
 import math
 from dataclasses import dataclass
+
 import numpy as np
 from numpy.typing import NDArray
 

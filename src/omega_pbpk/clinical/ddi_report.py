@@ -10,8 +10,8 @@ Risk thresholds:
   R1gut >= 11 → gut CYP3A4 inhibition study recommended
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-import math
 
 
 @dataclass(frozen=True)
@@ -100,15 +100,25 @@ def assess_ddi_risk(
 
     # Risk flagging
     if report.R1_3a4 >= 2.0:
-        flags.append(f"CYP3A4 static inhibition R1={report.R1_3a4:.1f} ≥ 2.0 → clinical study recommended")
+        flags.append(
+            f"CYP3A4 static inhibition R1={report.R1_3a4:.1f} ≥ 2.0 → clinical study recommended"
+        )
     if report.R1_2d6 >= 2.0:
-        flags.append(f"CYP2D6 static inhibition R1={report.R1_2d6:.1f} ≥ 2.0 → clinical study recommended")
+        flags.append(
+            f"CYP2D6 static inhibition R1={report.R1_2d6:.1f} ≥ 2.0 → clinical study recommended"
+        )
     if report.R1_2c9 >= 2.0:
-        flags.append(f"CYP2C9 static inhibition R1={report.R1_2c9:.1f} ≥ 2.0 → clinical study recommended")
+        flags.append(
+            f"CYP2C9 static inhibition R1={report.R1_2c9:.1f} ≥ 2.0 → clinical study recommended"
+        )
     if report.R1_1a2 >= 2.0:
-        flags.append(f"CYP1A2 static inhibition R1={report.R1_1a2:.1f} ≥ 2.0 → clinical study recommended")
+        flags.append(
+            f"CYP1A2 static inhibition R1={report.R1_1a2:.1f} ≥ 2.0 → clinical study recommended"
+        )
     if report.R1gut_3a4 >= 11.0:
-        flags.append(f"CYP3A4 gut inhibition R1gut={report.R1gut_3a4:.1f} ≥ 11.0 → intestinal DDI study")
+        flags.append(
+            f"CYP3A4 gut inhibition R1gut={report.R1gut_3a4:.1f} ≥ 11.0 → intestinal DDI study"
+        )
     if report.R2_3a4 >= 1.25:
         flags.append(f"CYP3A4 MBI R2={report.R2_3a4:.2f} ≥ 1.25 → time-dependent study")
     if report.induction_fold_3a4 >= 2.0:
@@ -126,7 +136,7 @@ def format_report(report: DDIRiskReport) -> str:
     lines = [
         f"DDI Risk Assessment: {report.inhibitor_name}",
         "=" * 50,
-        f"Static R1 values (threshold ≥ 2.0):",
+        "Static R1 values (threshold ≥ 2.0):",
         f"  CYP3A4: {report.R1_3a4:.2f}",
         f"  CYP2D6: {report.R1_2d6:.2f}",
         f"  CYP2C9: {report.R1_2c9:.2f}",

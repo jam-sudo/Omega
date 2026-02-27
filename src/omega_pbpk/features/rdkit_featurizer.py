@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from rdkit import Chem
-    from rdkit.Chem import Crippen, Descriptors, Lipinski, MolSurf
-    from rdkit.Chem import rdMolDescriptors
+    from rdkit.Chem import Crippen, Descriptors, Lipinski, MolSurf, rdMolDescriptors
 
     HAS_RDKIT = True
 except ImportError:

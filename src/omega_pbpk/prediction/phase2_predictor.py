@@ -126,9 +126,9 @@ class Phase2Predictor:
         # Molecular descriptors
         mw = Descriptors.MolWt(mol)
         logp = Descriptors.MolLogP(mol)
-        tpsa = MolSurf.TPSA(mol)
+        MolSurf.TPSA(mol)
         hbd = rdMolDescriptors.CalcNumHBD(mol)
-        hba = rdMolDescriptors.CalcNumHBA(mol)
+        rdMolDescriptors.CalcNumHBA(mol)
         n_oh = self._count_oh(mol)           # aliphatic OH
         n_phenol = self._count_phenol(mol)   # aromatic OH
         n_cooh = self._count_cooh(mol)       # carboxylic acid
@@ -245,7 +245,7 @@ class Phase2Predictor:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _count_oh(mol: "Chem.Mol") -> int:
+    def _count_oh(mol: Chem.Mol) -> int:
         """Count aliphatic hydroxyl groups (C-OH, excluding phenols)."""
         patt = Chem.MolFromSmarts("[CX4;!$(C=O)]-[OH]")
         if patt is None:
@@ -253,7 +253,7 @@ class Phase2Predictor:
         return len(mol.GetSubstructMatches(patt))
 
     @staticmethod
-    def _count_phenol(mol: "Chem.Mol") -> int:
+    def _count_phenol(mol: Chem.Mol) -> int:
         """Count aromatic hydroxyl (phenol) groups."""
         patt = Chem.MolFromSmarts("c-[OH]")
         if patt is None:
@@ -261,7 +261,7 @@ class Phase2Predictor:
         return len(mol.GetSubstructMatches(patt))
 
     @staticmethod
-    def _count_cooh(mol: "Chem.Mol") -> int:
+    def _count_cooh(mol: Chem.Mol) -> int:
         """Count carboxylic acid groups."""
         patt = Chem.MolFromSmarts("[CX3](=O)[OH]")
         if patt is None:
@@ -269,7 +269,7 @@ class Phase2Predictor:
         return len(mol.GetSubstructMatches(patt))
 
     @staticmethod
-    def _count_primary_amine(mol: "Chem.Mol") -> int:
+    def _count_primary_amine(mol: Chem.Mol) -> int:
         """Count primary aliphatic amine groups."""
         patt = Chem.MolFromSmarts("[NX3H2;!$(NC=O)]")
         if patt is None:
@@ -277,7 +277,7 @@ class Phase2Predictor:
         return len(mol.GetSubstructMatches(patt))
 
     @staticmethod
-    def _count_secondary_amine(mol: "Chem.Mol") -> int:
+    def _count_secondary_amine(mol: Chem.Mol) -> int:
         """Count secondary aliphatic amine groups."""
         patt = Chem.MolFromSmarts("[NX3H1;!$(NC=O)]")
         if patt is None:

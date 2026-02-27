@@ -4,6 +4,7 @@ Scales microsomal/hepatocyte intrinsic clearance to in vivo hepatic CL.
 Reference: Houston JB, Carlile DJ. Drug Metab Rev 1997;29:891-922.
 """
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 

@@ -55,8 +55,8 @@ from omega_pbpk.in_vitro.receptor import (
     EC50Result,
     EquilibriumOccupancy,
     KineticOccupancy,
-    OperationalModel,
     OccupancyResult,
+    OperationalModel,
 )
 
 __all__ = [

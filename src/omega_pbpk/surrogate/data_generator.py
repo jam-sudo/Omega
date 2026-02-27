@@ -142,7 +142,9 @@ def generate_training_data(
             X[:, j] = lo + X[:, j] * (hi - lo)
 
     # Build worker argument list (index preserved for result ordering)
-    all_params = [{name: float(X[i, j]) for j, name in enumerate(param_names)} for i in range(n_samples)]
+    all_params = [
+        {name: float(X[i, j]) for j, name in enumerate(param_names)} for i in range(n_samples)
+    ]
     worker_args = [
         (params, dose_mg, route, body_weight, t_end_h, i)
         for i, params in enumerate(all_params)

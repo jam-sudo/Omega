@@ -271,7 +271,7 @@ def create_app() -> Any:
     @app.post("/predict/new-molecule")
     async def predict_new_molecule(body: NewMoleculeRequest) -> NewMoleculeResponse:
         """Predict PK profile for any drug given by SMILES string."""
-        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
+        from omega_pbpk.pipeline import SimulationRequest
         pipeline = _get_pipeline()
         req = SimulationRequest(
             smiles=body.smiles,
@@ -281,7 +281,9 @@ def create_app() -> Any:
             species=body.species,
         )
         result = pipeline.simulate(req)
-        adme_float = {k: float(v) for k, v in result.adme_properties.items() if isinstance(v, (int, float))}
+        adme_float = {
+            k: float(v) for k, v in result.adme_properties.items() if isinstance(v, (int, float))
+        }
         return NewMoleculeResponse(
             cmax_mg_L=result.cmax_mg_L,
             tmax_h=result.tmax_h,
@@ -296,6 +298,7 @@ def create_app() -> Any:
     async def predict_with_uncertainty(body: UncertaintyRequest) -> UncertaintyResponse:
         """Monte Carlo uncertainty quantification for PK predictions."""
         import numpy as np
+
         from omega_pbpk.pipeline import SimulationRequest, simulate_with_uncertainty
         req = SimulationRequest(
             smiles=body.smiles,
@@ -320,7 +323,6 @@ def create_app() -> Any:
     @app.get("/pipeline/health")
     async def pipeline_health() -> dict:
         """Check if the full pipeline (ADME predictor + PBPK) is operational."""
-        from omega_pbpk.pipeline import OmegaPipeline
         pipeline = _get_pipeline()
         adme_ok = pipeline._adme_predictor is not None
         return {

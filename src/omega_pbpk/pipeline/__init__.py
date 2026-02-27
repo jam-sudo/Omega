@@ -215,15 +215,15 @@ class SimulationRequest:
 
 @dataclass
 class SimulationResult:
-    time_h: "NDArray[np.float64]"
-    cp_mg_L: "NDArray[np.float64]"
+    time_h: NDArray[np.float64]
+    cp_mg_L: NDArray[np.float64]
     cmax_mg_L: float
     tmax_h: float
     auc0t_mg_h_L: float
     t_half_h: float
-    adme_properties: "dict[str, Any]"
+    adme_properties: dict[str, Any]
     confidence: str
-    warnings: "list[str]"
+    warnings: list[str]
 
 
 class OmegaPipeline:
@@ -241,7 +241,7 @@ class OmegaPipeline:
             self._adme_predictor = None
         self._initialized = True
 
-    def simulate(self, request: "SimulationRequest") -> "SimulationResult":
+    def simulate(self, request: SimulationRequest) -> SimulationResult:
         self._ensure_initialized()
         warnings_list: list = []
         adme_props = self._predict_adme(request.smiles, warnings_list)
@@ -329,15 +329,19 @@ class OmegaPipeline:
                 cp = (request.dose_mg / vd) * np.exp(-ke * time_h)
             else:
                 ka = 1.0
-                cp = (request.dose_mg / vd) * (ka / (ka - ke)) * (np.exp(-ke * time_h) - np.exp(-ka * time_h))
+                cp = (
+                    (request.dose_mg / vd)
+                    * (ka / (ka - ke))
+                    * (np.exp(-ke * time_h) - np.exp(-ka * time_h))
+                )
             return time_h, np.maximum(cp, 0.0)
 
 
 def simulate_with_uncertainty(
-    request: "SimulationRequest",
+    request: SimulationRequest,
     n_samples: int = 100,
     adme_cv: float = 0.3,
-    seed: "int | None" = None,
+    seed: int | None = None,
 ) -> dict:
     rng = np.random.default_rng(seed)
     pipeline = OmegaPipeline()
@@ -351,8 +355,12 @@ def simulate_with_uncertainty(
     sigma = float(np.sqrt(np.log(1.0 + adme_cv**2)))
     for _ in range(n_samples):
         perturbed_adme = dict(adme_nominal)
-        perturbed_adme["fup"] = float(adme_nominal.get("fup", 0.1)) * float(rng.lognormal(mean=0.0, sigma=sigma))
-        perturbed_adme["clint_3a4"] = float(adme_nominal.get("clint_3a4", 5.0)) * float(rng.lognormal(mean=0.0, sigma=sigma))
+        perturbed_adme["fup"] = (
+            float(adme_nominal.get("fup", 0.1)) * float(rng.lognormal(mean=0.0, sigma=sigma))
+        )
+        perturbed_adme["clint_3a4"] = (
+            float(adme_nominal.get("clint_3a4", 5.0)) * float(rng.lognormal(mean=0.0, sigma=sigma))
+        )
         perturbed_adme["fup"] = float(np.clip(perturbed_adme["fup"], 0.001, 1.0))
         perturbed_adme["clint_3a4"] = float(np.clip(perturbed_adme["clint_3a4"], 0.001, 1000.0))
         sample_warnings: list = []
@@ -379,15 +387,15 @@ def simulate_with_uncertainty(
 class SimulationResult2:
     """Output from OmegaPipeline simulation (Phase 2 alias for SimulationResult)."""
 
-    time_h: "NDArray[np.float64]"
-    cp_mg_L: "NDArray[np.float64]"
+    time_h: NDArray[np.float64]
+    cp_mg_L: NDArray[np.float64]
     cmax_mg_L: float
     tmax_h: float
     auc0t_mg_h_L: float
     t_half_h: float
-    adme_properties: "dict[str, Any]"
+    adme_properties: dict[str, Any]
     confidence: str
-    warnings: "list[str]"
+    warnings: list[str]
 
 
 __all__ = [

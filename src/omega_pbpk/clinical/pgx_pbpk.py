@@ -248,7 +248,7 @@ def plot_pgx_forest(
     colors = {"PM": "#d62728", "IM": "#ff7f0e", "NM": "#2ca02c", "UM": "#1f77b4"}
     pheno_labels = [p for p in _PHENOTYPE_ORDER if p in rec_map]
 
-    for i, (label, ratio, pheno) in enumerate(zip(labels, ratios, pheno_labels)):
+    for i, (_label, ratio, pheno) in enumerate(zip(labels, ratios, pheno_labels, strict=False)):
         color = colors.get(pheno, "steelblue")
         ax.scatter([ratio], [i], color=color, s=120, zorder=5, label=pheno)
         # Draw a thin horizontal line through the point as a visual guide

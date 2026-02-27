@@ -36,14 +36,13 @@ EC50Extractor
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 from scipy.interpolate import interp1d
-
 
 # ---------------------------------------------------------------------------
 # Result dataclasses

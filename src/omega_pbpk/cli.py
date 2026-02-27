@@ -383,7 +383,8 @@ def pgx_sim(
 
     Example:
 
-        omega pgx-sim --smiles "CCc1ccc(NC(=O)c2cc(OC)c(OC)c(OC)c2)cc1" --dose 100 --gene CYP2D6 --out pgx_report.html
+        omega pgx-sim --smiles "CCc1ccc(NC(=O)c2cc(OC)c(OC)c(OC)c2)cc1" --dose 100 \
+            --gene CYP2D6 --out pgx_report.html
     """
     from omega_pbpk.clinical.pgx_pbpk import pgx_report_html, run_pgx_pbpk
     from omega_pbpk.drugs.drug import Drug
@@ -420,9 +421,11 @@ def pgx_sim(
 
     # Print summary table
     typer.echo(f"\nPGx-PBPK Results — {gene}")
-    typer.echo(
-        f"  {'Phenotype':<10}  {'AUC (mg·h/L)':>14}  {'Cmax (mg/L)':>12}  {'AUC Ratio':>10}  {'Pop. Freq.':>10}"
+    hdr = (
+        f"  {'Phenotype':<10}  {'AUC (mg·h/L)':>14}"
+        f"  {'Cmax (mg/L)':>12}  {'AUC Ratio':>10}  {'Pop. Freq.':>10}"
     )
+    typer.echo(hdr)
     typer.echo("  " + "-" * 64)
     for rec in result.phenotype_results:
         typer.echo(
@@ -769,10 +772,12 @@ def population(
     typer.echo(f"\nPopulation PK Results (n={result.n_subjects})")
     typer.echo(f"{'=' * 45}")
     typer.echo(
-        f"Cmax (mg/L):  median={cmax['median']:.3f}, p5={cmax['p5']:.3f}, p95={cmax['p95']:.3f}, CV={cmax['cv_pct']:.1f}%"
+        f"Cmax (mg/L):  median={cmax['median']:.3f}, p5={cmax['p5']:.3f},"
+        f" p95={cmax['p95']:.3f}, CV={cmax['cv_pct']:.1f}%"
     )
     typer.echo(
-        f"AUC  (mg·h/L): median={auc['median']:.3f}, p5={auc['p5']:.3f}, p95={auc['p95']:.3f}, CV={auc['cv_pct']:.1f}%"
+        f"AUC  (mg·h/L): median={auc['median']:.3f}, p5={auc['p5']:.3f},"
+        f" p95={auc['p95']:.3f}, CV={auc['cv_pct']:.1f}%"
     )
     if result.n_failed > 0:
         typer.echo(f"Warning: {result.n_failed} subjects failed simulation")
@@ -866,9 +871,18 @@ def invitro_cmd(
     typer.echo(f"  CLh (in vivo) = {result.clh_l_per_h:.3f} L/h")
     typer.echo()
     typer.echo("Phase 2 pathways:")
-    typer.echo(f"  UGT  = {result.phase2.clint_ugt_ul_min_mg:.3f} µL/min/mg  (prob={result.phase2.ugt_substrate_prob:.2f})")
-    typer.echo(f"  SULT = {result.phase2.clint_sult_ul_min_mg:.3f} µL/min/mg  (prob={result.phase2.sult_substrate_prob:.2f})")
-    typer.echo(f"  MAO  = {result.phase2.clint_mao_ul_min_mg:.3f} µL/min/mg  (prob={result.phase2.mao_substrate_prob:.2f})")
+    typer.echo(
+        f"  UGT  = {result.phase2.clint_ugt_ul_min_mg:.3f} µL/min/mg"
+        f"  (prob={result.phase2.ugt_substrate_prob:.2f})"
+    )
+    typer.echo(
+        f"  SULT = {result.phase2.clint_sult_ul_min_mg:.3f} µL/min/mg"
+        f"  (prob={result.phase2.sult_substrate_prob:.2f})"
+    )
+    typer.echo(
+        f"  MAO  = {result.phase2.clint_mao_ul_min_mg:.3f} µL/min/mg"
+        f"  (prob={result.phase2.mao_substrate_prob:.2f})"
+    )
     typer.echo(f"  Dominant pathway: {result.phase2.dominant_pathway}")
 
     if result.caco2 is not None:
@@ -944,7 +958,8 @@ def invitro_pipeline_cmd(
 
     Example::
 
-        omega invitro-pipeline --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --name caffeine --dose 200 --out outputs/caffeine_iv
+        omega invitro-pipeline --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" \
+            --name caffeine --dose 200 --out outputs/caffeine_iv
     """
     _audit("invitro-pipeline", smiles=smiles, name=name, dose_mg=dose,
            assay_type=assay_type, kd_mg_L=kd, tau=tau, caco2=caco2, out=out)
@@ -998,7 +1013,10 @@ def invitro_pipeline_cmd(
     if result.receptor:
         typer.echo()
         typer.echo("Receptor / PD:")
-        typer.echo(f"  EC50  = {result.receptor.ec50_mg_L:.4f} mg/L (R²={result.receptor.r_squared:.3f})")
+        typer.echo(
+            f"  EC50  = {result.receptor.ec50_mg_L:.4f} mg/L"
+            f" (R²={result.receptor.r_squared:.3f})"
+        )
         typer.echo(f"  Emax  = {result.receptor.emax_effect:.1f}")
 
     if result.warnings:
@@ -1084,7 +1102,7 @@ def invitro_pipeline_cmd(
 
     typer.echo(f"\nOutputs saved to {out_path}/")
     typer.echo(f"  Drug YAML : {drug_yaml_path.name}  (use with: omega simulate --compound)")
-    typer.echo(f"  Summary   : invitro_summary.json")
+    typer.echo("  Summary   : invitro_summary.json")
 
 
 @app.command("serve")

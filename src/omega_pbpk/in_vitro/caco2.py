@@ -44,7 +44,6 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
 
-
 # ---------------------------------------------------------------------------
 # Standard Caco-2 insert geometry
 # ---------------------------------------------------------------------------
@@ -207,10 +206,10 @@ class Caco2Assay:
         # Apparent permeability from linear flux over assay duration (FDA 2020 method)
         # Papp = (dM_receiver/dt) / (C_donor_initial × SA)
         delta_m_b = float(m_b[-1] - m_b[0])   # nmol transported A→B
-        delta_m_a_from_b = float(m_a[-1] - m_a[0]) + float(m_a[0])  # B→A direction
+        float(m_a[-1] - m_a[0]) + float(m_a[0])  # B→A direction
 
         # A→B: receiver is B
-        papp_ab_sim = (
+        (
             delta_m_b / (t_end_min * 60.0)  # nmol/s
             / (c0_apical_uM * v_a_mL / v_a_mL * 1e-9 * 1e3)  # nmol/mL × 1e-6 mol/mL ... simplify
         ) if c0_apical_uM > 0 else 0.0

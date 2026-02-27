@@ -57,8 +57,8 @@ from typing import Any
 from omega_pbpk.in_vitro.assay import AssayResult, HepatocyteAssay, MicrosomesAssay
 from omega_pbpk.in_vitro.caco2 import Caco2Assay, Caco2Result
 from omega_pbpk.in_vitro.receptor import (
-    EC50Result,
     EC50Extractor,
+    EC50Result,
     EquilibriumOccupancy,
     OperationalModel,
 )

@@ -1,9 +1,10 @@
 """Surrogate model training on real PBPK ODE simulations."""
 from __future__ import annotations
+
 import csv
 import logging
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -153,7 +154,7 @@ def build_training_dataset(
 
     # Filter out failed simulations
     X_list, y_list = [], []
-    for x, y in zip(all_X, results):
+    for x, y in zip(all_X, results, strict=False):
         if y is not None and np.all(np.isfinite(y)) and np.all(y >= 0):
             X_list.append(x)
             y_list.append(y)
@@ -189,7 +190,9 @@ def train_surrogate(
     from omega_pbpk.surrogate import PKSurrogate
 
     X, y = build_training_dataset(n_samples=n_samples, seed=seed)
-    logger.info(f"Training surrogate: {X.shape[0]} samples, {X.shape[1]} features → {y.shape[1]} outputs")
+    logger.info(
+        f"Training surrogate: {X.shape[0]} samples, {X.shape[1]} features → {y.shape[1]} outputs"
+    )
 
     model = PKSurrogate(n_input=X.shape[1], n_output=y.shape[1])
     model.train(X, y, epochs=epochs, lr=lr, batch_size=min(32, len(X)))
@@ -200,9 +203,13 @@ def train_surrogate(
     for i in range(y.shape[1]):
         mask = y[:, i] > 0
         if mask.sum() > 0:
-            fold_errors = np.abs(np.log10(np.maximum(y_pred[mask, i], 1e-9) / np.maximum(y[:, i][mask], 1e-9)))
+            fold_errors = np.abs(
+                np.log10(np.maximum(y_pred[mask, i], 1e-9) / np.maximum(y[:, i][mask], 1e-9))
+            )
             aafe_per_output.append(float(10 ** np.mean(fold_errors)))
-    logger.info(f"Training AAFE per output (Cmax,AUC,Tmax,t½): {[f'{a:.2f}' for a in aafe_per_output]}")
+    logger.info(
+        f"Training AAFE per output (Cmax,AUC,Tmax,t½): {[f'{a:.2f}' for a in aafe_per_output]}"
+    )
 
     if save_path:
         # PKSurrogate.save() requires a directory path; strip .npz suffix if provided

@@ -30,12 +30,10 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 from scipy.integrate import solve_ivp
-
 
 # ---------------------------------------------------------------------------
 # Scaling constants

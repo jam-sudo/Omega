@@ -1,9 +1,10 @@
 """Population PK simulator — runs PBPK for N virtual subjects with covariate scaling."""
 from __future__ import annotations
+
 import logging
-from dataclasses import dataclass, field
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass
 from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -178,7 +179,8 @@ class PopulationSimulator:
             }
             args_list.append((i, drug_params, phys, dose_mg, route, n_timepoints, t_end_h))
 
-        # Run simulations (sequential for stability; ProcessPoolExecutor has pickling issues with our ODE)
+        # Run simulations (sequential for stability;
+        # ProcessPoolExecutor has pickling issues with our ODE)
         n_t = n_timepoints
         cp_matrix = np.zeros((n_subjects, n_t))
         cmax_arr = np.zeros(n_subjects)
