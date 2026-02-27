@@ -11,15 +11,15 @@ requires-python = ">=3.10"
 license = {text = "MIT"}
 keywords = ["pbpk", "pharmacokinetics", "drug-development", "simulation"]
 dependencies = [
-  "numpy>=1.26,<3.0",
-  "scipy>=1.11,<2.0",
-  "pydantic>=2.0,<3.0",
-  "pyyaml>=6.0,<7.0",
-  "typer>=0.9,<1.0",
-  "matplotlib>=3.7,<4.0",
-  "fastapi>=0.100,<1.0",
-  "uvicorn>=0.20,<1.0",
-  "httpx>=0.24,<1.0",
+  "numpy~=1.26",
+  "scipy~=1.11",
+  "pydantic~=2.0",
+  "pyyaml~=6.0",
+  "typer~=0.9",
+  "matplotlib~=3.7",
+  "fastapi~=0.100",
+  "uvicorn~=0.20",
+  "httpx~=0.24",
 ]
 
 [project.urls]
@@ -27,20 +27,20 @@ Repository = "https://github.com/jam-sudo/Omega"
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.0,<9.0",
-  "ruff>=0.6,<1.0",
-  "mypy>=1.8,<2.0",
+  "pytest~=8.0",
+  "ruff~=0.6",
+  "mypy~=1.8",
   "types-PyYAML",
-  "httpx>=0.24,<1.0",
+  "httpx~=0.24",
 ]
 ml = [
-  "torch>=2.0,<3.0",
+  "torch~=2.0",
   "rdkit>=2023.0",
 ]
 api = [
-  "fastapi>=0.100,<1.0",
-  "uvicorn>=0.20,<1.0",
-  "httpx>=0.24,<1.0",
+  "fastapi~=0.100",
+  "uvicorn~=0.20",
+  "httpx~=0.24",
 ]
 
 [project.scripts]

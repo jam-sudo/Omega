@@ -42,3 +42,15 @@ jobs:
         run: |
           COUNT=$(python -m pytest tests/ --collect-only -q 2>&1 | grep "selected" | grep -oP '\d+')
           echo "Collected $COUNT tests"
+
+      - name: Check version consistency
+        run: |
+          PYPROJECT_VER=$(python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
+          SERVER_VER=$(grep -oP '(?<=version=")[^"]+' src/omega_pbpk/api/server.py | head -1)
+          echo "pyproject.toml version: $PYPROJECT_VER"
+          echo "api/server.py version:  $SERVER_VER"
+          if [ "$PYPROJECT_VER" != "$SERVER_VER" ]; then
+            echo "ERROR: version mismatch between pyproject.toml ($PYPROJECT_VER) and api/server.py ($SERVER_VER)"
+            exit 1
+          fi
+          echo "Version check passed: $PYPROJECT_VER"
