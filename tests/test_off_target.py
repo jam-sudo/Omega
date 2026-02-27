@@ -12,8 +12,8 @@ from __future__ import annotations
 import pytest
 
 from omega_pbpk.docking.off_target import (
-    SAFETY_TARGET_MODELS,
     CYP_INHIBITION_MODELS,
+    SAFETY_TARGET_MODELS,
     SafetyPanel,
 )
 
@@ -142,7 +142,6 @@ class TestHERGClassification:
         # ic50 ≈ 10^(1.8 - 0.45*2 + 0.001*300 + 0.008*50 - 0.05*7) = 10^1.25 ≈ 17.78 µM
         # For margin=40 we need cmax_unbound = 17.78 / 40 ≈ 0.444 µM
         # Use fup=1.0, cmax_uM=0.444
-        import math
 
         coeffs = SAFETY_TARGET_MODELS["hERG"]
         logP, mw, tpsa, pka = 2.0, 300.0, 50.0, 7.0
@@ -198,7 +197,8 @@ class TestLipophilicityEffect:
         high_margin = next(r for r in high_logP_report.target_results if r.target == "hERG").margin
 
         assert high_margin < low_margin, (
-            f"Higher logP should give lower margin; got low={low_margin:.1f}, high={high_margin:.1f}"
+            f"Higher logP should give lower margin; "
+            f"got low={low_margin:.1f}, high={high_margin:.1f}"
         )
 
     def test_high_logP_can_trigger_risk_flag(self) -> None:

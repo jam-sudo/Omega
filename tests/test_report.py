@@ -1,8 +1,8 @@
 """Tests for HTML report generator and VPC plots."""
 
-import numpy as np
-import pytest
 from pathlib import Path
+
+import numpy as np
 
 
 class TestGenerateReport:
@@ -18,8 +18,8 @@ class TestGenerateReport:
         assert "TestDrug" in content
 
     def test_nca_section_present(self, tmp_path):
-        from omega_pbpk.clinical.report import ReportInput, generate_report
         from omega_pbpk.clinical.nca import run_nca
+        from omega_pbpk.clinical.report import ReportInput, generate_report
 
         t = np.linspace(0, 24, 50)
         cp = 2.0 * np.exp(-0.3 * t)
@@ -30,8 +30,8 @@ class TestGenerateReport:
         assert "Non-Compartmental" in Path(out).read_text(encoding="utf-8")
 
     def test_ddi_section_present(self, tmp_path):
-        from omega_pbpk.clinical.report import ReportInput, generate_report
         from omega_pbpk.clinical.ddi_report import DDIInhibitor, assess_ddi_risk
+        from omega_pbpk.clinical.report import ReportInput, generate_report
 
         inh = DDIInhibitor(name="test", cmax_uM=1.0, ki_3a4_uM=0.1)
         ddi = assess_ddi_risk(inh)

@@ -1,6 +1,5 @@
 """Tests for clinical modules: DDI report and NCA."""
 
-import math
 import numpy as np
 import pytest
 

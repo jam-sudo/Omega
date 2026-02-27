@@ -1,7 +1,6 @@
 """Tests for PopulationSimulator."""
 
 import numpy as np
-import pytest
 
 
 def _make_drug():
@@ -59,6 +58,6 @@ class TestPopulationSimulator:
         np.testing.assert_allclose(r1.cmax_samples, r2.cmax_samples, rtol=1e-6)
 
     def test_import_from_population(self):
-        from omega_pbpk.population import PopulationSimulator, PopPKResult
+        from omega_pbpk.population import PopulationSimulator
 
         assert PopulationSimulator is not None

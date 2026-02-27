@@ -35,7 +35,6 @@ from omega_pbpk.in_vitro.receptor import (
 )
 from omega_pbpk.prediction.phase2_predictor import Phase2Predictor
 
-
 # ---------------------------------------------------------------------------
 # MicrosomesAssay
 # ---------------------------------------------------------------------------

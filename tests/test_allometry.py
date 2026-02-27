@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Import helpers
 # ---------------------------------------------------------------------------
@@ -64,7 +63,8 @@ class TestAllometricScale:
         )
         # Rough magnitude check: should be in the range 0.5–5 L/h
         assert 0.5 <= rat_cl <= 5.0, (
-            f"Allometrically scaled rat clearance ({rat_cl:.3f} L/h) outside expected range 0.5–5 L/h"
+            f"Allometrically scaled rat clearance ({rat_cl:.3f} L/h) "
+            "outside expected range 0.5-5 L/h"
         )
 
     def test_allometric_scale_exponent_0_75_for_flow(self):

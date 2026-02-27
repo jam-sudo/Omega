@@ -13,11 +13,9 @@ from __future__ import annotations
 import pytest
 
 from omega_pbpk.pharmacogenomics.cyp_polymorphism import (
-    ALLELE_DB,
     ALLELE_FREQUENCIES,
     PGxAnalyzer,
 )
-
 
 # ------------------------------------------------------------------ helpers
 

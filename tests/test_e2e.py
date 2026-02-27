@@ -5,12 +5,14 @@ Covers the complete flow: SMILES -> PK simulation -> NCA -> DDI -> PopPK -> Repo
 
 from __future__ import annotations
 
-import math
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import pytest
+
+if TYPE_CHECKING:
+    from omega_pbpk.drugs.drug import Drug
 
 # ---------------------------------------------------------------------------
 # SMILES constants used across test classes
@@ -25,7 +27,7 @@ PROPRANOLOL_SMILES = "CC(C)NCC(O)COc1cccc2ccccc12"
 # ---------------------------------------------------------------------------
 
 
-def _make_minimal_drug(name: str = "test_compound") -> "Drug":
+def _make_minimal_drug(name: str = "test_compound") -> Drug:
     from omega_pbpk.drugs.drug import Drug
 
     return Drug(
@@ -39,13 +41,13 @@ def _make_minimal_drug(name: str = "test_compound") -> "Drug":
     )
 
 
-def _make_midazolam_drug() -> "Drug":
+def _make_midazolam_drug() -> Drug:
     from omega_pbpk.drugs.midazolam import MIDAZOLAM
 
     return MIDAZOLAM
 
 
-def _make_caffeine_drug() -> "Drug":
+def _make_caffeine_drug() -> Drug:
     from omega_pbpk.drugs.caffeine import CAFFEINE
 
     return CAFFEINE
@@ -137,8 +139,8 @@ class TestNCAIntegration:
 
     def test_nca_on_pipeline_output(self):
         """Pass pipeline time/concentration arrays directly to run_nca."""
-        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
         from omega_pbpk.clinical import run_nca
+        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
         pipeline = OmegaPipeline()
         req = SimulationRequest(
@@ -158,8 +160,8 @@ class TestNCAIntegration:
 
     def test_nca_auc_matches_pipeline_auc(self):
         """NCA AUC and pipeline AUC (trapezoid) should be within 30% of each other."""
-        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
         from omega_pbpk.clinical import run_nca
+        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
         pipeline = OmegaPipeline()
         req = SimulationRequest(
@@ -197,7 +199,7 @@ class TestDDIIntegration:
 
     def test_ddi_with_itraconazole(self):
         """Itraconazole is a potent CYP3A4 inhibitor; R1_3a4 must be > 1."""
-        from omega_pbpk.clinical import assess_ddi_risk, DDIInhibitor
+        from omega_pbpk.clinical import DDIInhibitor, assess_ddi_risk
 
         # Itraconazole: Cmax ~0.2 µM at typical doses; Ki ~0.0013 µM (very potent)
         itraconazole = DDIInhibitor(
@@ -215,7 +217,7 @@ class TestDDIIntegration:
 
     def test_ddi_format_report(self):
         """format_report should return a non-empty string."""
-        from omega_pbpk.clinical import assess_ddi_risk, DDIInhibitor, format_report
+        from omega_pbpk.clinical import DDIInhibitor, assess_ddi_risk, format_report
 
         inhibitor = DDIInhibitor(
             name="Ketoconazole",
@@ -341,10 +343,10 @@ class TestClinicalModulesIntegration:
             assert "Caffeine" in content, "Drug name must appear in the report"
 
     def test_full_pipeline_caffeine(self):
-        """Full pipeline: caffeine SMILES -> OmegaPipeline -> NCA -> quick_report -> HTML written."""
-        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
+        """Full pipeline: caffeine SMILES -> OmegaPipeline -> NCA -> quick_report -> HTML written."""  # noqa: E501
         from omega_pbpk.clinical import run_nca
         from omega_pbpk.clinical.report import quick_report
+        from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
         # Step 1: SMILES -> simulation
         pipeline = OmegaPipeline()
