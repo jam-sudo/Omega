@@ -12,7 +12,6 @@ from omega_pbpk.contracts.drug_spec import DrugSpec
 from omega_pbpk.contracts.patient_spec import PatientSpec
 from omega_pbpk.plugins import ParameterNetPlugin
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

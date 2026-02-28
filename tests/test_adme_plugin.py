@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omega_pbpk.contracts.drug_spec import DrugSpec
 from omega_pbpk.plugins.adme_plugin import ADMEPredictorPlugin
 from omega_pbpk.plugins.heuristic_kp import HeuristicKpPlugin

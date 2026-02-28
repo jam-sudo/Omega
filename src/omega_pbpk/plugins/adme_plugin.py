@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from omega_pbpk.plugins.base import PluginBase
 from omega_pbpk.contracts import DrugSpec
+from omega_pbpk.plugins.base import PluginBase
 
 
 class ADMEPredictorPlugin(PluginBase):

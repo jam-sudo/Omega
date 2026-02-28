@@ -13,7 +13,6 @@ import pytest
 
 from omega_pbpk.validation import mass_balance_check, oral_mass_balance_check
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

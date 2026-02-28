@@ -66,7 +66,7 @@ def _run_ode(params: list[float], dose_mg: float = 100.0) -> tuple[float, float]
     return cmax, auc
 
 
-def _train_surrogate_on_drugs(drug_params: list[list[float]], n_aug: int = 15) -> "PKSurrogate":  # noqa: F821
+def _train_surrogate_on_drugs(drug_params: list[list[float]], n_aug: int = 15) -> PKSurrogate:  # noqa: F821
     """Train a minimal surrogate on the test drugs with augmentation."""
     from omega_pbpk.surrogate import PKSurrogate
     from omega_pbpk.surrogate.train import build_training_dataset

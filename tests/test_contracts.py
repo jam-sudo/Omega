@@ -4,7 +4,6 @@ import pytest
 
 from omega_pbpk.contracts import DrugSpec, PatientSpec, Regimen
 
-
 # ---------------------------------------------------------------------------
 # DrugSpec.validate()
 # ---------------------------------------------------------------------------

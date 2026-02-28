@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
 
+import pytest
+
 from omega_pbpk.adapters.yaml_loader import (
-    load_drug_spec_by_name,
-    load_drug_spec,
     drug_to_spec,
+    load_drug_spec,
+    load_drug_spec_by_name,
     spec_to_drug,
 )
 from omega_pbpk.contracts import DrugSpec
-from omega_pbpk.drugs.drug import Drug
 
 REPO_ROOT = Path(__file__).parent.parent
 COMPOUNDS_DIR = REPO_ROOT / "compounds"

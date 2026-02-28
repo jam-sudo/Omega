@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Literal
 
-from omega_pbpk.plugins.base import PluginBase
 from omega_pbpk.contracts import DrugSpec
+from omega_pbpk.plugins.base import PluginBase
 
 
 class HeuristicKpPlugin(PluginBase):
@@ -19,7 +19,7 @@ class HeuristicKpPlugin(PluginBase):
         pka = spec.pka[0] if spec.pka else None
 
         if self.method == "rodgers_rowland":
-            from omega_pbpk.core.heuristics import rodgers_rowland_kp, _TISSUE_FACTORS
+            from omega_pbpk.core.heuristics import _TISSUE_FACTORS, rodgers_rowland_kp
 
             kp_dict: dict[str, float] = {
                 tissue: rodgers_rowland_kp(

@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from omega_pbpk.surrogate import PKSurrogate
 from omega_pbpk.surrogate.data_generator import generate_training_data
 
@@ -41,7 +42,7 @@ def test_conformal_calibration_coverage():
 
     # test coverage on calibration set (should be ~90%)
     covered = 0
-    for x, y_true_norm in zip(X_cal, y_cal):
+    for x, y_true_norm in zip(X_cal, y_cal, strict=False):
         y_true_orig = y_true_norm * model.y_std + model.y_mean
         y_pred, ci_lo, ci_hi = model.predict_conformal(x, alpha=0.10)
         if np.all(ci_lo <= y_true_orig) and np.all(y_true_orig <= ci_hi):

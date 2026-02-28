@@ -1409,7 +1409,7 @@ def serve(
         import uvicorn
     except ImportError:
         typer.echo("API server requires [api] extras. Install with: pip install omega-pbpk[api]")
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     typer.echo(f"Starting Omega PBPK API server on http://{host}:{port}")
     uvicorn.run("omega_pbpk.api.app:app", host=host, port=port, reload=reload)
@@ -1642,7 +1642,7 @@ def serve_start(
         import uvicorn
     except ImportError:
         typer.echo("API server requires [api] extras: pip install omega-pbpk[api]", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     typer.echo(f"Starting Omega PBPK API server on http://{host}:{port}")
     uvicorn.run("omega_pbpk.api.app:app", host=host, port=port, reload=reload)

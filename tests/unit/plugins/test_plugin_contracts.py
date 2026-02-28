@@ -1,9 +1,10 @@
 """Plugin 공통 계약 단위 테스트."""
 
 import pytest
+
+from omega_pbpk.adapters.yaml_loader import load_drug_spec_by_name
 from omega_pbpk.plugins import ADMEPredictorPlugin, HeuristicKpPlugin
 from omega_pbpk.plugins.base import PluginBase
-from omega_pbpk.adapters.yaml_loader import load_drug_spec_by_name
 
 
 @pytest.fixture(scope="module")

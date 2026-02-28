@@ -1,11 +1,12 @@
 """Integration: Plugin → DrugSpec → SimulationEngine E2E."""
 
-import pytest
 import numpy as np
+import pytest
+
 from omega_pbpk.adapters.yaml_loader import load_drug_spec_by_name
-from omega_pbpk.plugins import HeuristicKpPlugin
-from omega_pbpk.engine import WholeBodyPBPKEngine
 from omega_pbpk.contracts import PatientSpec, Regimen
+from omega_pbpk.engine import WholeBodyPBPKEngine
+from omega_pbpk.plugins import HeuristicKpPlugin
 
 
 @pytest.fixture(scope="module")

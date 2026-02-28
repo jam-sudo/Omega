@@ -10,7 +10,6 @@ import pytest
 
 from omega_pbpk.validation._param_guard import ParamViolation, check_drug_params
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: valid & invalid param sets
 # ---------------------------------------------------------------------------

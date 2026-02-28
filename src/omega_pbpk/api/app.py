@@ -653,8 +653,8 @@ def train_surrogate(req: TrainSurrogateRequest) -> TrainSurrogateResponse:
     if req.n_samples < 10 or req.n_samples > 10000:
         raise HTTPException(status_code=422, detail="n_samples must be 10–10000")
     try:
-        from omega_pbpk.surrogate.data_generator import generate_training_data
         from omega_pbpk.surrogate import PKSurrogate
+        from omega_pbpk.surrogate.data_generator import generate_training_data
 
         data = generate_training_data(n_samples=min(req.n_samples, 100))  # MVP: 100으로 제한
         model = PKSurrogate(n_input=data.n_params)

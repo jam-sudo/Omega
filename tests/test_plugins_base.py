@@ -8,7 +8,6 @@ from omega_pbpk.contracts import DrugSpec, PatientSpec, Regimen
 from omega_pbpk.engine import SimulationEngine, SimulationResult, WholeBodyPBPKEngine
 from omega_pbpk.plugins import PluginBase, SurrogateModelPlugin
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -117,7 +116,11 @@ def test_import_plugins():
 
 
 def test_import_engine():
-    from omega_pbpk.engine import SimulationEngine, SimulationResult, WholeBodyPBPKEngine  # noqa: F401
+    from omega_pbpk.engine import (  # noqa: F401
+        SimulationEngine,
+        SimulationResult,
+        WholeBodyPBPKEngine,
+    )
 
 
 # ---------------------------------------------------------------------------
