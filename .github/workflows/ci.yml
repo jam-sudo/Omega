@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install pandas && pip install -e ".[dev]"
+      - run: pip install pandas && pip install -e ".[dev,api]"
       - name: Run tests with coverage
         run: |
           pytest tests/ -m "not slow and not benchmark" \
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pandas && pip install -e ".[dev]"
+      - run: pip install pandas && pip install -e ".[dev,api]"
       - name: CLI smoke
         run: omega --help
       - name: Import smoke
