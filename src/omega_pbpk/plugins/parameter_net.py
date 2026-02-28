@@ -3,6 +3,7 @@
 MVP 구현: PGx CYP scaling + 체중/연령 allometric scaling.
 추후 ML NN으로 교체 가능한 PluginBase 구조.
 """
+
 from __future__ import annotations
 
 from omega_pbpk.contracts.drug_spec import DrugSpec

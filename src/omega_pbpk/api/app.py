@@ -24,6 +24,7 @@ from typing import Any
 try:
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import RedirectResponse
+
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
@@ -37,8 +38,7 @@ logger = logging.getLogger(__name__)
 
 if not HAS_FASTAPI:
     raise ImportError(
-        "FastAPI is required to use the API server. "
-        "Install with: pip install omega-pbpk[api]"
+        "FastAPI is required to use the API server. Install with: pip install omega-pbpk[api]"
     )
 
 app = FastAPI(
@@ -653,13 +653,14 @@ def train_surrogate(req: TrainSurrogateRequest) -> TrainSurrogateResponse:
     if req.n_samples < 10 or req.n_samples > 10000:
         raise HTTPException(status_code=422, detail="n_samples must be 10–10000")
     try:
-        from omega_pbpk.surrogate.data_generator import generate_training_data
         from omega_pbpk.surrogate import PKSurrogate
+        from omega_pbpk.surrogate.data_generator import generate_training_data
 
         data = generate_training_data(n_samples=min(req.n_samples, 100))  # MVP: 100으로 제한
         model = PKSurrogate(n_input=data.n_params)
         model.train(data.X, data.y, epochs=min(req.epochs, 20))
         import os
+
         os.makedirs(req.output_dir, exist_ok=True)
         model.save(req.output_dir)
         return TrainSurrogateResponse(
@@ -695,6 +696,8 @@ def validate(req: ValidateRequest) -> ValidateResponse:
         except Exception as exc:
             return ValidateResponse(mode="benchmark", passed=False, results={"error": str(exc)})
     elif req.mode == "sanity":
-        return ValidateResponse(mode="sanity", passed=True, results={"message": "Sanity checks passed"})
+        return ValidateResponse(
+            mode="sanity", passed=True, results={"message": "Sanity checks passed"}
+        )
     else:
         raise HTTPException(status_code=422, detail=f"Unknown mode: {req.mode}")

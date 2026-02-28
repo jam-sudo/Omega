@@ -8,9 +8,9 @@ Usage:
     spec = load_drug_spec("compounds/caffeine.yaml")
     spec.validate()
 """
+
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -34,9 +34,7 @@ _DRUG_TYPE_MAP: dict[str, Literal["neutral", "acid", "base", "zwitterion"]] = {
 
 def drug_to_spec(drug: Drug, param_source: str = "yaml") -> DrugSpec:
     """기존 Drug 객체 → DrugSpec 변환."""
-    compound_type = _DRUG_TYPE_MAP.get(
-        getattr(drug, "drug_type", "neutral"), "neutral"
-    )
+    compound_type = _DRUG_TYPE_MAP.get(getattr(drug, "drug_type", "neutral"), "neutral")
     return DrugSpec(
         name=drug.name,
         smiles=drug.smiles,
@@ -61,8 +59,12 @@ def drug_to_spec(drug: Drug, param_source: str = "yaml") -> DrugSpec:
 def spec_to_drug(spec: DrugSpec) -> Drug:
     """DrugSpec → 기존 Drug 객체 역변환 (ODE 엔진 호환용)."""
     # compound_type → drug_type 역매핑
-    _reverse_map = {"neutral": "neutral", "acid": "monoprotic_acid",
-                    "base": "monoprotic_base", "zwitterion": "diprotic"}
+    _reverse_map = {
+        "neutral": "neutral",
+        "acid": "monoprotic_acid",
+        "base": "monoprotic_base",
+        "zwitterion": "diprotic",
+    }
     return Drug(
         name=spec.name,
         smiles=spec.smiles,
@@ -96,6 +98,7 @@ def load_drug_spec(path: str | Path) -> DrugSpec:
         FileNotFoundError: YAML 파일 없음
     """
     from omega_pbpk.config import load_compound
+
     drug = load_compound(path)
     return drug_to_spec(drug, param_source="yaml")
 

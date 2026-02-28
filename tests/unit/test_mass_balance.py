@@ -13,10 +13,10 @@ import pytest
 
 from omega_pbpk.validation import mass_balance_check, oral_mass_balance_check
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _perfect_amounts(n_time: int, n_states: int, dose_mg: float) -> np.ndarray:
     """Create amounts array where mass is perfectly conserved (all in state 0)."""
@@ -39,6 +39,7 @@ def _depleting_amounts(n_time: int, n_states: int, dose_mg: float) -> np.ndarray
 # ---------------------------------------------------------------------------
 # mass_balance_check (IV route)
 # ---------------------------------------------------------------------------
+
 
 class TestMassBalanceCheckIV:
     def test_perfect_conservation_no_warnings(self):
@@ -126,6 +127,7 @@ class TestMassBalanceCheckIV:
 # oral_mass_balance_check
 # ---------------------------------------------------------------------------
 
+
 class TestOralMassBalanceCheck:
     def test_perfect_conservation_no_warnings(self):
         n_time, n_states, dose = 200, 35, 100.0
@@ -139,7 +141,7 @@ class TestOralMassBalanceCheck:
         n_time, dose = 100, 100.0
         time_h = np.linspace(0, 12, n_time)
         amounts = np.zeros((n_time, 35))
-        amounts[:, 0] = dose * 0.3   # only 30% absorbed
+        amounts[:, 0] = dose * 0.3  # only 30% absorbed
         # GI still holds 70% of dose
         gi_states = np.ones((n_time, 8)) * dose * 0.7 / 8.0
         result = oral_mass_balance_check(
@@ -154,7 +156,7 @@ class TestOralMassBalanceCheck:
         amounts = _perfect_amounts(n_time, 35, dose)
         # Simulate complete absorption: GI residual drops to near 0
         gi_states = np.zeros((n_time, 8))
-        gi_states[:5, :] = dose / 8.0   # GI drains completely by t≈5
+        gi_states[:5, :] = dose / 8.0  # GI drains completely by t≈5
         result = oral_mass_balance_check(amounts, dose, time_h, gi_states=gi_states)
         assert result == []
 
@@ -200,6 +202,7 @@ class TestOralMassBalanceCheck:
 # ---------------------------------------------------------------------------
 # Integration: IV simulation with real ODE
 # ---------------------------------------------------------------------------
+
 
 class TestMassBalanceWithRealSimulation:
     def test_iv_simulation_conserves_mass(self):

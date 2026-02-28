@@ -2,6 +2,7 @@
 
 This module is kept for backward compatibility.
 """
+
 import warnings
 
 warnings.warn(

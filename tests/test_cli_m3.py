@@ -36,9 +36,7 @@ def test_simulate_single_help():
 
 
 def test_simulate_single_json():
-    result = runner.invoke(
-        app, ["simulate", "single", "compounds/caffeine.yaml", "--json"]
-    )
+    result = runner.invoke(app, ["simulate", "single", "compounds/caffeine.yaml", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert "Cmax" in data or "cmax" in data or len(data) > 0

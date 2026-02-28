@@ -12,10 +12,10 @@ import pytest
 
 from omega_pbpk.surrogate import PKSurrogate
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def untrained_surrogate() -> PKSurrogate:
@@ -30,12 +30,14 @@ def trained_surrogate() -> PKSurrogate:
     n = 80
     X = rng.uniform([[-2, 0.01, 0.1, 100, 0.5, 0.5]], [[6, 1.0, 200, 800, 5.0, 10.0]], (n, 6))
     # Synthetic PK outputs: Cmax, AUC, Tmax, t_half (all positive)
-    y = np.column_stack([
-        rng.uniform(0.01, 10, n),   # Cmax
-        rng.uniform(0.1, 100, n),   # AUC
-        rng.uniform(0.25, 6, n),    # Tmax
-        rng.uniform(1, 20, n),      # t_half
-    ])
+    y = np.column_stack(
+        [
+            rng.uniform(0.01, 10, n),  # Cmax
+            rng.uniform(0.1, 100, n),  # AUC
+            rng.uniform(0.25, 6, n),  # Tmax
+            rng.uniform(1, 20, n),  # t_half
+        ]
+    )
     s = PKSurrogate(n_input=6, n_output=4)
     s.param_names = PKSurrogate.EXPECTED_FEATURES
     s.output_names = PKSurrogate.EXPECTED_OUTPUTS
@@ -47,6 +49,7 @@ def trained_surrogate() -> PKSurrogate:
 # T04a: EXPECTED_FEATURES class constant
 # ---------------------------------------------------------------------------
 
+
 class TestExpectedFeaturesContract:
     def test_expected_features_is_class_attribute(self):
         assert hasattr(PKSurrogate, "EXPECTED_FEATURES")
@@ -55,17 +58,13 @@ class TestExpectedFeaturesContract:
         assert len(PKSurrogate.EXPECTED_FEATURES) == 6
 
     def test_expected_features_names(self):
-        assert PKSurrogate.EXPECTED_FEATURES == [
-            "logP", "fup", "clint_L_h", "mw", "rbp", "peff"
-        ]
+        assert PKSurrogate.EXPECTED_FEATURES == ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
 
     def test_expected_outputs_is_class_attribute(self):
         assert hasattr(PKSurrogate, "EXPECTED_OUTPUTS")
 
     def test_expected_outputs_names(self):
-        assert PKSurrogate.EXPECTED_OUTPUTS == [
-            "cmax_mg_L", "auc_mg_h_L", "tmax_h", "t_half_h"
-        ]
+        assert PKSurrogate.EXPECTED_OUTPUTS == ["cmax_mg_L", "auc_mg_h_L", "tmax_h", "t_half_h"]
 
     def test_expected_features_match_n_input_default(self):
         """Default n_input must equal len(EXPECTED_FEATURES)."""
@@ -80,6 +79,7 @@ class TestExpectedFeaturesContract:
 # ---------------------------------------------------------------------------
 # T04b: validate_feature_contract
 # ---------------------------------------------------------------------------
+
 
 class TestValidateFeatureContract:
     def test_valid_params_pass(self, untrained_surrogate):
@@ -101,15 +101,27 @@ class TestValidateFeatureContract:
     def test_extra_keys_allowed(self, untrained_surrogate):
         """Extra keys from ADME plugin must not cause failures."""
         extra = {
-            "logP": 2.0, "fup": 0.5, "clint_L_h": 10.0,
-            "mw": 300.0, "rbp": 1.0, "peff": 2.0,
-            "logD": 1.5, "pka": 7.4,  # extra keys
+            "logP": 2.0,
+            "fup": 0.5,
+            "clint_L_h": 10.0,
+            "mw": 300.0,
+            "rbp": 1.0,
+            "peff": 2.0,
+            "logD": 1.5,
+            "pka": 7.4,  # extra keys
         }
         untrained_surrogate.validate_feature_contract(extra)  # no exception
 
     def test_wrong_feature_name_raises(self, untrained_surrogate):
         """logD instead of logP should raise (missing logP)."""
-        wrong_names = {"logD": 2.0, "fup": 0.5, "clint_L_h": 10.0, "mw": 300.0, "rbp": 1.0, "peff": 2.0}
+        wrong_names = {
+            "logD": 2.0,
+            "fup": 0.5,
+            "clint_L_h": 10.0,
+            "mw": 300.0,
+            "rbp": 1.0,
+            "peff": 2.0,
+        }
         with pytest.raises(ValueError, match="logP"):
             untrained_surrogate.validate_feature_contract(wrong_names)
 
@@ -117,6 +129,7 @@ class TestValidateFeatureContract:
 # ---------------------------------------------------------------------------
 # Non-negativity: outputs must always be ≥ 0
 # ---------------------------------------------------------------------------
+
 
 class TestNonNegativity:
     def test_predict_returns_nonnegative_single(self, trained_surrogate):
@@ -132,10 +145,12 @@ class TestNonNegativity:
 
     def test_predict_with_extreme_inputs_nonnegative(self, trained_surrogate):
         """Even very extreme inputs must not produce negative outputs."""
-        extremes = np.array([
-            [10.0, 0.001, 0.001, 2000.0, 10.0, 0.001],   # extreme high logP
-            [-5.0, 1.0, 500.0, 50.0, 0.1, 50.0],          # extreme negative logP
-        ])
+        extremes = np.array(
+            [
+                [10.0, 0.001, 0.001, 2000.0, 10.0, 0.001],  # extreme high logP
+                [-5.0, 1.0, 500.0, 50.0, 0.1, 50.0],  # extreme negative logP
+            ]
+        )
         y = trained_surrogate.predict(extremes)
         assert np.all(y >= 0)
 
@@ -149,6 +164,7 @@ class TestNonNegativity:
 # ---------------------------------------------------------------------------
 # Reproducibility (determinism)
 # ---------------------------------------------------------------------------
+
 
 class TestReproducibility:
     def test_same_input_same_output_trained(self, trained_surrogate):
@@ -190,6 +206,7 @@ class TestReproducibility:
 # ---------------------------------------------------------------------------
 # Output shape & structure
 # ---------------------------------------------------------------------------
+
 
 class TestOutputShape:
     def test_predict_single_returns_1d_array(self, trained_surrogate):

@@ -1,12 +1,13 @@
 """Unit tests for omega_pbpk.contracts module."""
+
 import pytest
 
 from omega_pbpk.contracts import DrugSpec, PatientSpec, Regimen
 
-
 # ---------------------------------------------------------------------------
 # DrugSpec.validate()
 # ---------------------------------------------------------------------------
+
 
 class TestDrugSpecValidate:
     def test_valid_default(self):
@@ -71,6 +72,7 @@ class TestDrugSpecValidate:
 # PatientSpec.validate()
 # ---------------------------------------------------------------------------
 
+
 class TestPatientSpecValidate:
     def test_valid_default(self):
         PatientSpec().validate()
@@ -105,6 +107,7 @@ class TestPatientSpecValidate:
 # ---------------------------------------------------------------------------
 # Regimen.validate()
 # ---------------------------------------------------------------------------
+
 
 class TestRegimenValidate:
     def test_valid(self):

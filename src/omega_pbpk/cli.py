@@ -42,14 +42,14 @@ app = typer.Typer(
 # 4-verb sub-apps (M3 CLI restructure)
 # ---------------------------------------------------------------------------
 simulate_app = typer.Typer(help="Run PBPK simulations.")
-train_app    = typer.Typer(help="Train ML surrogate or calibrate models.")
+train_app = typer.Typer(help="Train ML surrogate or calibrate models.")
 validate_app = typer.Typer(help="Validate, benchmark, and QA.")
-serve_app    = typer.Typer(help="Start API server.")
+serve_app = typer.Typer(help="Start API server.")
 
 app.add_typer(simulate_app, name="simulate")
-app.add_typer(train_app,    name="train")
+app.add_typer(train_app, name="train")
 app.add_typer(validate_app, name="validate")
-app.add_typer(serve_app,    name="serve")
+app.add_typer(serve_app, name="serve")
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("omega_pbpk")
@@ -1408,10 +1408,8 @@ def serve(
     try:
         import uvicorn
     except ImportError:
-        typer.echo(
-            "API server requires [api] extras. Install with: pip install omega-pbpk[api]"
-        )
-        raise SystemExit(1)
+        typer.echo("API server requires [api] extras. Install with: pip install omega-pbpk[api]")
+        raise SystemExit(1) from None
 
     typer.echo(f"Starting Omega PBPK API server on http://{host}:{port}")
     uvicorn.run("omega_pbpk.api.app:app", host=host, port=port, reload=reload)
@@ -1434,6 +1432,7 @@ def run_tests() -> None:
 # ============================================================================
 
 # --- simulate group ----------------------------------------------------------
+
 
 @simulate_app.command("single")
 def simulate_single(
@@ -1529,6 +1528,7 @@ def simulate_pgx(
 
 # --- train group -------------------------------------------------------------
 
+
 @train_app.command("surrogate")
 def train_surrogate_cmd(
     n_samples: int = typer.Option(500, help="Training samples"),
@@ -1571,6 +1571,7 @@ def train_calibrate_cmd(
 
 
 # --- validate group ----------------------------------------------------------
+
 
 @validate_app.command("benchmark")
 def validate_benchmark_cmd(
@@ -1629,6 +1630,7 @@ def validate_sensitivity_cmd(
 
 # --- serve group -------------------------------------------------------------
 
+
 @serve_app.command("start")
 def serve_start(
     host: str = typer.Option("0.0.0.0", help="Host to bind the server to."),
@@ -1639,10 +1641,8 @@ def serve_start(
     try:
         import uvicorn
     except ImportError:
-        typer.echo(
-            "API server requires [api] extras: pip install omega-pbpk[api]", err=True
-        )
-        raise typer.Exit(1)
+        typer.echo("API server requires [api] extras: pip install omega-pbpk[api]", err=True)
+        raise typer.Exit(1) from None
 
     typer.echo(f"Starting Omega PBPK API server on http://{host}:{port}")
     uvicorn.run("omega_pbpk.api.app:app", host=host, port=port, reload=reload)

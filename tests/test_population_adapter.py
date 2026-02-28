@@ -1,4 +1,5 @@
 """Tests for population_adapter and ParameterNetPlugin."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,10 +12,10 @@ from omega_pbpk.contracts.drug_spec import DrugSpec
 from omega_pbpk.contracts.patient_spec import PatientSpec
 from omega_pbpk.plugins import ParameterNetPlugin
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def base_drug() -> DrugSpec:
@@ -40,6 +41,7 @@ def pm_patient() -> PatientSpec:
 # ---------------------------------------------------------------------------
 # sample_patient_spec
 # ---------------------------------------------------------------------------
+
 
 def test_sample_patient_spec_count():
     specs = sample_patient_spec(n=5, seed=0)
@@ -73,6 +75,7 @@ def test_sample_patient_spec_positive_bw():
 # ---------------------------------------------------------------------------
 # subject_covariates_to_patient_spec field mapping
 # ---------------------------------------------------------------------------
+
 
 def test_sex_mapping_male():
     from omega_pbpk.population.physiology import SubjectCovariates
@@ -150,6 +153,7 @@ def test_renal_cl_factor_normal_gfr():
 # ParameterNetPlugin.predict()
 # ---------------------------------------------------------------------------
 
+
 def test_parameter_net_plugin_provides_keys(em_patient, base_drug):
     plugin = ParameterNetPlugin(patient=em_patient)
     result = plugin.predict(base_drug)
@@ -180,14 +184,13 @@ def test_parameter_net_apply_updates_drug(em_patient, base_drug):
     updated = plugin.apply(base_drug)
     assert isinstance(updated, DrugSpec)
     # Reference patient at 70 kg + EM: scales should be ~1.0
-    assert updated.clint_hepatic_L_per_h == pytest.approx(
-        base_drug.clint_hepatic_L_per_h, rel=0.05
-    )
+    assert updated.clint_hepatic_L_per_h == pytest.approx(base_drug.clint_hepatic_L_per_h, rel=0.05)
 
 
 # ---------------------------------------------------------------------------
 # ParameterNetPlugin.apply_pgx()
 # ---------------------------------------------------------------------------
+
 
 def test_apply_pgx_pm_em_um_differ(base_drug):
     plugin = ParameterNetPlugin()
@@ -218,6 +221,8 @@ def test_apply_pgx_em_full_clint(base_drug):
 # Import check
 # ---------------------------------------------------------------------------
 
+
 def test_parameter_net_plugin_importable():
     from omega_pbpk.plugins import ParameterNetPlugin as PNP  # noqa: F401
+
     assert PNP is ParameterNetPlugin

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -11,12 +12,12 @@ class DrugSpec:
     logP: float = 2.0
     pka: list[float] = field(default_factory=lambda: [7.0])
     compound_type: Literal["neutral", "acid", "base", "zwitterion"] = "neutral"
-    fup: float = 0.5          # fraction unbound in plasma
-    rbp: float = 1.0          # blood:plasma ratio
+    fup: float = 0.5  # fraction unbound in plasma
+    rbp: float = 1.0  # blood:plasma ratio
     clint_hepatic_L_per_h: float = 0.0
     clint_gut_L_per_h: float = 0.0
     clr_L_per_h: float = 0.0
-    peff: float = 1.0         # effective permeability (cm/s × 10^-4)
+    peff: float = 1.0  # effective permeability (cm/s × 10^-4)
     solubility_mg_mL: float = 1.0
     kp: dict[str, float] = field(default_factory=dict)
     permeability_limited: dict[str, dict[str, float]] = field(default_factory=dict)
@@ -32,7 +33,9 @@ class DrugSpec:
         if self.mw <= 0:
             raise ValueError(f"mw must be > 0, got {self.mw}")
         if self.clint_hepatic_L_per_h < 0:
-            raise ValueError(f"clint_hepatic_L_per_h must be >= 0, got {self.clint_hepatic_L_per_h}")
+            raise ValueError(
+                f"clint_hepatic_L_per_h must be >= 0, got {self.clint_hepatic_L_per_h}"
+            )
         if self.clr_L_per_h < 0:
             raise ValueError(f"clr_L_per_h must be >= 0, got {self.clr_L_per_h}")
         if self.peff < 0:

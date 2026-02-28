@@ -10,7 +10,6 @@ import pytest
 
 from omega_pbpk.validation._param_guard import ParamViolation, check_drug_params
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: valid & invalid param sets
 # ---------------------------------------------------------------------------
@@ -31,6 +30,7 @@ VALID_PARAMS = dict(
 # ---------------------------------------------------------------------------
 # Happy-path: all valid params pass without exception
 # ---------------------------------------------------------------------------
+
 
 class TestValidParams:
     def test_valid_params_no_violations(self):
@@ -58,6 +58,7 @@ class TestValidParams:
 # fup boundary cases
 # ---------------------------------------------------------------------------
 
+
 class TestFupBounds:
     def test_fup_zero_raises(self):
         with pytest.raises(ValueError, match="fup"):
@@ -82,6 +83,7 @@ class TestFupBounds:
 # CLint boundary cases
 # ---------------------------------------------------------------------------
 
+
 class TestClintBounds:
     def test_negative_clint_hepatic_raises(self):
         with pytest.raises(ValueError, match="clint_hepatic_L_per_h"):
@@ -101,6 +103,7 @@ class TestClintBounds:
 # ---------------------------------------------------------------------------
 # Kp boundary cases
 # ---------------------------------------------------------------------------
+
 
 class TestKpBounds:
     def test_negative_kp_raises(self):
@@ -125,6 +128,7 @@ class TestKpBounds:
 # ---------------------------------------------------------------------------
 # Multiple violations reported together
 # ---------------------------------------------------------------------------
+
 
 class TestMultipleViolations:
     def test_multiple_violations_all_reported(self):
@@ -155,6 +159,7 @@ class TestMultipleViolations:
 # ---------------------------------------------------------------------------
 # MW, logP, rbp bounds
 # ---------------------------------------------------------------------------
+
 
 class TestOtherBounds:
     def test_low_mw_raises(self):

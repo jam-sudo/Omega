@@ -10,13 +10,13 @@ from dataclasses import dataclass
 
 # Physical plausibility bounds for PBPK parameters
 _BOUNDS: dict[str, tuple[float, float]] = {
-    "clint_hepatic_L_per_h": (0.0, 500.0),    # max ~hepatic blood flow ceiling
+    "clint_hepatic_L_per_h": (0.0, 500.0),  # max ~hepatic blood flow ceiling
     "clint_gut_L_per_h": (0.0, 200.0),
     "fup": (1e-4, 1.0),
     "rbp": (0.1, 20.0),
     "mw": (50.0, 2000.0),
     "logP": (-6.0, 12.0),
-    "peff": (1e-6, 50.0),                      # cm/s × 1e-4 scale typical range
+    "peff": (1e-6, 50.0),  # cm/s × 1e-4 scale typical range
     "ka_per_h": (1e-4, 100.0),
 }
 
@@ -35,9 +35,7 @@ class ParamViolation:
     upper: float
 
     def __str__(self) -> str:
-        return (
-            f"{self.param}={self.value:.4g} outside [{self.lower:.4g}, {self.upper:.4g}]"
-        )
+        return f"{self.param}={self.value:.4g} outside [{self.lower:.4g}, {self.upper:.4g}]"
 
 
 def check_drug_params(
@@ -119,12 +117,12 @@ def check_drug_params(
 # validate_drug_params — legacy-compatible gateway (positional-arg style)
 # ---------------------------------------------------------------------------
 
-CLR_MAX_L_H = 200.0        # Approximate maximum renal blood flow
-CLINT_MAX_L_H = 5000.0     # Realistic maximum CLint
+CLR_MAX_L_H = 200.0  # Approximate maximum renal blood flow
+CLINT_MAX_L_H = 5000.0  # Realistic maximum CLint
 KP_MIN = 1e-4
 KP_MAX = 1000.0
 KA_MIN = 0.0
-KA_MAX = 100.0             # 1/h
+KA_MAX = 100.0  # 1/h
 FUP_MIN = 1e-4
 FUP_MAX = 1.0
 RBP_MIN = 0.1

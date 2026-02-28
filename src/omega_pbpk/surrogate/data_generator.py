@@ -244,12 +244,12 @@ def _run_single_simulation(
 # Grid parameter ranges for generate_grid_dataset() — wider space, includes mw.
 # Feature order matches PKSurrogate.EXPECTED_FEATURES: [logP, fup, clint_L_h, mw, rbp, peff]
 GRID_PARAM_RANGES: dict[str, tuple[float, float]] = {
-    "logP": (-2.0, 6.0),        # linear (already in log scale)
-    "fup": (0.01, 1.0),         # log-uniform
+    "logP": (-2.0, 6.0),  # linear (already in log scale)
+    "fup": (0.01, 1.0),  # log-uniform
     "clint_L_h": (1.0, 500.0),  # log-uniform → clint_hepatic_L_per_h
-    "mw": (100.0, 800.0),       # log-uniform
-    "rbp": (0.5, 5.0),          # log-uniform
-    "peff": (0.5, 10.0),        # log-uniform
+    "mw": (100.0, 800.0),  # log-uniform
+    "rbp": (0.5, 5.0),  # log-uniform
+    "peff": (0.5, 10.0),  # log-uniform
 }
 
 GRID_PARAM_NAMES: list[str] = list(GRID_PARAM_RANGES.keys())
@@ -358,12 +358,10 @@ def generate_grid_dataset(
             X[:, j] = np.exp(np.log(lo) + X_unit[:, j] * (np.log(hi) - np.log(lo)))
 
     all_params = [
-        {name: float(X[i, j]) for j, name in enumerate(GRID_PARAM_NAMES)}
-        for i in range(n_samples)
+        {name: float(X[i, j]) for j, name in enumerate(GRID_PARAM_NAMES)} for i in range(n_samples)
     ]
     worker_args = [
-        (params, dose_mg, route, body_weight, t_end_h, i)
-        for i, params in enumerate(all_params)
+        (params, dose_mg, route, body_weight, t_end_h, i) for i, params in enumerate(all_params)
     ]
 
     pk_rows: list[list[float] | None] = [None] * n_samples
@@ -381,9 +379,7 @@ def generate_grid_dataset(
         max_workers = min(n_workers, n_samples)
         completed = 0
         with ProcessPoolExecutor(max_workers=max_workers) as pool:
-            future_to_idx = {
-                pool.submit(_grid_sim_worker, args): args[-1] for args in worker_args
-            }
+            future_to_idx = {pool.submit(_grid_sim_worker, args): args[-1] for args in worker_args}
             for future in as_completed(future_to_idx):
                 idx, row = future.result()
                 if row is not None:

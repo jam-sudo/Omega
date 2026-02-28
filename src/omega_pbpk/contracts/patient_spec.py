@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Literal
 
@@ -12,7 +13,7 @@ class PatientSpec:
     gfr_mL_min: float = 125.0
     cardiac_output_L_h: float = 390.0
     child_pugh: Literal["normal", "A", "B", "C"] = "normal"
-    cyp3a4_activity: float = 1.0   # relative to EM
+    cyp3a4_activity: float = 1.0  # relative to EM
     cyp2d6_activity: float = 1.0
     cyp2c9_activity: float = 1.0
     hepatic_cl_factor: float = 1.0

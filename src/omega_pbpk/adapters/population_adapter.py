@@ -1,4 +1,5 @@
 """VirtualPopulation → PatientSpec 변환 어댑터."""
+
 from __future__ import annotations
 
 from omega_pbpk.contracts.patient_spec import PatientSpec

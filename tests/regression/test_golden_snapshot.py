@@ -1,4 +1,5 @@
 """Regression: ODE output must not drift from golden snapshot > ±10%."""
+
 from __future__ import annotations
 
 import json

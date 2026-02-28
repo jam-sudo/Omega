@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Literal
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -38,12 +40,12 @@ class PKMetrics:
 
 @dataclass(frozen=True)
 class ADMEOutput:
-    Fa: float = 1.0     # fraction absorbed
-    Fg: float = 1.0     # fraction surviving gut
-    Fh: float = 1.0     # fraction surviving liver
+    Fa: float = 1.0  # fraction absorbed
+    Fg: float = 1.0  # fraction surviving gut
+    Fh: float = 1.0  # fraction surviving liver
     CLint: float = 0.0  # intrinsic clearance L/h
-    fu: float = 0.5     # fraction unbound
-    Vd: float = 30.0    # volume of distribution L
+    fu: float = 0.5  # fraction unbound
+    Vd: float = 30.0  # volume of distribution L
     confidence: Literal["low", "medium", "high"] = "low"
 
 

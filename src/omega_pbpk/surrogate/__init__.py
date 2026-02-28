@@ -59,21 +59,33 @@ class PKSurrogate:
 
     # 18D extended feature lists
     PATIENT_FEATURES: ClassVar[list[str]] = [
-        "body_weight_kg", "age_years", "sex_binary",
-        "gfr_mL_min", "cardiac_output_L_h",
-        "cyp3a4_activity", "cyp2d6_activity",
-        "hepatic_cl_factor", "renal_cl_factor",
+        "body_weight_kg",
+        "age_years",
+        "sex_binary",
+        "gfr_mL_min",
+        "cardiac_output_L_h",
+        "cyp3a4_activity",
+        "cyp2d6_activity",
+        "hepatic_cl_factor",
+        "renal_cl_factor",
     ]
     REGIMEN_FEATURES: ClassVar[list[str]] = [
-        "dose_mg", "route_binary", "n_doses",
+        "dose_mg",
+        "route_binary",
+        "n_doses",
     ]
     FULL_FEATURES: ClassVar[list[str]] = (
         ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
         + [
-            "body_weight_kg", "age_years", "sex_binary",
-            "gfr_mL_min", "cardiac_output_L_h",
-            "cyp3a4_activity", "cyp2d6_activity",
-            "hepatic_cl_factor", "renal_cl_factor",
+            "body_weight_kg",
+            "age_years",
+            "sex_binary",
+            "gfr_mL_min",
+            "cardiac_output_L_h",
+            "cyp3a4_activity",
+            "cyp2d6_activity",
+            "hepatic_cl_factor",
+            "renal_cl_factor",
         ]
         + ["dose_mg", "route_binary", "n_doses"]
     )
