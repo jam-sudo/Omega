@@ -3,11 +3,12 @@
 Implements victim drug assessment per FDA 2020 Drug Interaction Guidance.
 Static inhibition: R1 = 1 + [I]/Ki  (plasma)
              R1gut = 1 + Fg·ka·Dose / (Q_gut · Ki_gut)
-MBI (time-dependent): R2 = kinact/(kinact + kdeg) × 1/(1 + kdeg·t½_drug)
+MBI (time-dependent): R2 = 1 / (1 + (kinact/kdeg) · [I]/(KI + [I]))
 
 Risk thresholds:
   R1 >= 2.0  → clinical DDI study recommended
   R1gut >= 11 → gut CYP3A4 inhibition study recommended
+  R2 < 0.8   → strong MBI inhibitor (FDA guidance)
 """
 
 from __future__ import annotations
@@ -33,6 +34,9 @@ class DDIInhibitor:
     fg: float = 0.6
     ka_per_h: float = 1.0
     induction_fold_3a4: float = 1.0  # max fold induction
+    # FDA 2020 static MBI parameters (optional; None = skip MBI calc)
+    kinact: float | None = None  # MBI kinact (h⁻¹)
+    KI: float | None = None  # MBI KI (µM)
 
 
 @dataclass
@@ -51,6 +55,8 @@ class DDIRiskReport:
     R2_3a4: float = 1.0
     # Induction
     induction_fold_3a4: float = 1.0
+    # Interaction mechanism: "competitive", "MBI", or "combined"
+    mechanism: str = "competitive"
     # Risk flags
     flags: list[str] = field(default_factory=list)
     recommendation: str = "No clinical DDI study warranted"
@@ -60,6 +66,15 @@ class DDIRiskReport:
 KDEG_3A4_PER_H = 0.0005 * 60  # 0.0005 /min × 60 = 0.03 /h
 QGUT_L_PER_H = 18.0  # gut blood flow
 FG_DEFAULT = 0.6
+
+# CYP3A4 hepatic degradation rate constant (Obach et al. 2007)
+KDEG_CYP3A4_OBACH = 0.000289  # h⁻¹
+
+# Warning text for MBI static model limitation
+DDI_MBI_LIMITATION = (
+    "MBI static model assumes steady-state inhibitor concentration "
+    "and maximal enzyme inactivation; actual in-vivo effect may differ."
+)
 
 
 def assess_ddi_risk(
@@ -92,11 +107,43 @@ def assess_ddi_risk(
     R1gut_numerator = inhibitor.fa * inhibitor.ka_per_h * dose_mol
     report.R1gut_3a4 = 1.0 + R1gut_numerator / (QGUT_L_PER_H * max(inhibitor.ki_3a4_uM, 1e-9))
 
-    # MBI R2 = kinact/(kinact + kdeg) × correction
-    kinact = inhibitor.kinact_3a4_per_h
-    ki_mbi = inhibitor.ki_mbi_3a4_uM
-    if kinact > 0 and ki_mbi < float("inf"):
-        report.R2_3a4 = 1.0 / (1.0 - kinact / (kinact + KDEG_3A4_PER_H) * cmax / (cmax + ki_mbi))
+    # Legacy MBI R2 calculation (kinact_3a4_per_h / ki_mbi_3a4_uM path)
+    kinact_legacy = inhibitor.kinact_3a4_per_h
+    ki_mbi_legacy = inhibitor.ki_mbi_3a4_uM
+    if kinact_legacy > 0 and ki_mbi_legacy < float("inf"):
+        report.R2_3a4 = 1.0 / (
+            1.0 - kinact_legacy / (kinact_legacy + KDEG_3A4_PER_H) * cmax / (cmax + ki_mbi_legacy)
+        )
+
+    # --- FDA 2020 static MBI equation (new kinact/KI path) ---
+    # R2 = 1 / (1 + (kinact / kdeg) * [I] / (KI + [I]))
+    # where kdeg = 0.000289 h⁻¹ (CYP3A4, Obach et al. 2007)
+    has_mbi = inhibitor.kinact is not None and inhibitor.KI is not None
+    has_reversible = inhibitor.ki_3a4_uM < float("inf")
+
+    if has_mbi:
+        kinact_val = inhibitor.kinact  # type: ignore[assignment]
+        ki_val = inhibitor.KI  # type: ignore[assignment]
+        r2_mbi = 1.0 / (1.0 + (kinact_val / KDEG_CYP3A4_OBACH) * cmax / (ki_val + cmax))
+        report.R2_3a4 = r2_mbi
+
+        if has_reversible:
+            # Combined: R_combined = R_reversible * R_MBI
+            # R_reversible = 1 / R1 (reciprocal of R1 for AUC ratio context)
+            # For combined DDI, the net effect on AUC is R1 * (1/R2)
+            # Store the raw R2 for the MBI component
+            report.mechanism = "combined"
+        else:
+            report.mechanism = "MBI"
+
+        # MBI limitation warning
+        flags.append(f"DDI_MBI_LIMITATION: {DDI_MBI_LIMITATION}")
+
+        # Strong MBI inhibitor warning per FDA guidance
+        if r2_mbi < 0.8:
+            flags.append(f"Strong MBI inhibitor: R2={r2_mbi:.3f} < 0.8 (FDA guidance threshold)")
+    else:
+        report.mechanism = "competitive"
 
     # Induction
     report.induction_fold_3a4 = inhibitor.induction_fold_3a4
@@ -104,28 +151,28 @@ def assess_ddi_risk(
     # Risk flagging
     if report.R1_3a4 >= 2.0:
         flags.append(
-            f"CYP3A4 static inhibition R1={report.R1_3a4:.1f} ≥ 2.0 → clinical study recommended"
+            f"CYP3A4 static inhibition R1={report.R1_3a4:.1f} >= 2.0 -> clinical study recommended"
         )
     if report.R1_2d6 >= 2.0:
         flags.append(
-            f"CYP2D6 static inhibition R1={report.R1_2d6:.1f} ≥ 2.0 → clinical study recommended"
+            f"CYP2D6 static inhibition R1={report.R1_2d6:.1f} >= 2.0 -> clinical study recommended"
         )
     if report.R1_2c9 >= 2.0:
         flags.append(
-            f"CYP2C9 static inhibition R1={report.R1_2c9:.1f} ≥ 2.0 → clinical study recommended"
+            f"CYP2C9 static inhibition R1={report.R1_2c9:.1f} >= 2.0 -> clinical study recommended"
         )
     if report.R1_1a2 >= 2.0:
         flags.append(
-            f"CYP1A2 static inhibition R1={report.R1_1a2:.1f} ≥ 2.0 → clinical study recommended"
+            f"CYP1A2 static inhibition R1={report.R1_1a2:.1f} >= 2.0 -> clinical study recommended"
         )
     if report.R1gut_3a4 >= 11.0:
         flags.append(
-            f"CYP3A4 gut inhibition R1gut={report.R1gut_3a4:.1f} ≥ 11.0 → intestinal DDI study"
+            f"CYP3A4 gut inhibition R1gut={report.R1gut_3a4:.1f} >= 11.0 -> intestinal DDI study"
         )
     if report.R2_3a4 >= 1.25:
-        flags.append(f"CYP3A4 MBI R2={report.R2_3a4:.2f} ≥ 1.25 → time-dependent study")
+        flags.append(f"CYP3A4 MBI R2={report.R2_3a4:.2f} >= 1.25 -> time-dependent study")
     if report.induction_fold_3a4 >= 2.0:
-        flags.append(f"CYP3A4 induction {report.induction_fold_3a4:.1f}× → induction study")
+        flags.append(f"CYP3A4 induction {report.induction_fold_3a4:.1f}x -> induction study")
 
     report.flags = flags
     if flags:
@@ -139,18 +186,19 @@ def format_report(report: DDIRiskReport) -> str:
     lines = [
         f"DDI Risk Assessment: {report.inhibitor_name}",
         "=" * 50,
-        "Static R1 values (threshold ≥ 2.0):",
+        "Static R1 values (threshold >= 2.0):",
         f"  CYP3A4: {report.R1_3a4:.2f}",
         f"  CYP2D6: {report.R1_2d6:.2f}",
         f"  CYP2C9: {report.R1_2c9:.2f}",
         f"  CYP1A2: {report.R1_1a2:.2f}",
-        f"Gut R1gut CYP3A4: {report.R1gut_3a4:.2f} (threshold ≥ 11.0)",
-        f"MBI R2  CYP3A4:  {report.R2_3a4:.2f} (threshold ≥ 1.25)",
-        f"Induction CYP3A4: {report.induction_fold_3a4:.1f}× (threshold ≥ 2.0)",
+        f"Gut R1gut CYP3A4: {report.R1gut_3a4:.2f} (threshold >= 11.0)",
+        f"MBI R2  CYP3A4:  {report.R2_3a4:.2f} (threshold >= 1.25)",
+        f"Mechanism: {report.mechanism}",
+        f"Induction CYP3A4: {report.induction_fold_3a4:.1f}x (threshold >= 2.0)",
         "",
         "Flags:" if report.flags else "No risk flags.",
     ]
     for flag in report.flags:
-        lines.append(f"  ⚠  {flag}")
+        lines.append(f"  !  {flag}")
     lines.append(f"\nRecommendation: {report.recommendation}")
     return "\n".join(lines)
