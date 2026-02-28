@@ -38,6 +38,19 @@ app = typer.Typer(
     add_completion=False,
 )
 
+# ---------------------------------------------------------------------------
+# 4-verb sub-apps (M3 CLI restructure)
+# ---------------------------------------------------------------------------
+simulate_app = typer.Typer(help="Run PBPK simulations.")
+train_app    = typer.Typer(help="Train ML surrogate or calibrate models.")
+validate_app = typer.Typer(help="Validate, benchmark, and QA.")
+serve_app    = typer.Typer(help="Start API server.")
+
+app.add_typer(simulate_app, name="simulate")
+app.add_typer(train_app,    name="train")
+app.add_typer(validate_app, name="validate")
+app.add_typer(serve_app,    name="serve")
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("omega_pbpk")
 
@@ -76,6 +89,15 @@ def _ensure_dir(path: Path) -> Path:
     return path
 
 
+def _output(data: dict, json_output: bool) -> None:
+    """Output data as JSON or plain key:value pairs."""
+    if json_output:
+        typer.echo(json.dumps(data, indent=2))
+    else:
+        for k, v in data.items():
+            typer.echo(f"{k}: {v}")
+
+
 # Aliases: CLI/legacy parameter name → Drug field name for sensitivity analysis
 _SENS_PARAM_ALIASES: dict[str, str] = {
     "clint_L_per_h": "clint_hepatic_L_per_h",
@@ -84,7 +106,7 @@ _SENS_PARAM_ALIASES: dict[str, str] = {
 }
 
 
-@app.command()
+@app.command("simulate-legacy", hidden=True)
 def simulate(
     compound: str = typer.Option(..., help="Path to compound YAML file."),
     dose_mg: float = typer.Option(10.0, help="Dose in mg."),
@@ -197,7 +219,7 @@ def simulate(
         from scipy.integrate import solve_ivp
         from scipy.interpolate import interp1d
 
-        from physio_sim.qsp.registry import get_qsp_model as _get_qsp
+        from omega_pbpk.experimental.physio_sim.qsp.registry import get_qsp_model as _get_qsp
 
         _qsp_raw = (
             _yaml.safe_load(Path(qsp_config).read_text(encoding="utf-8")) if qsp_config else {}
@@ -814,7 +836,7 @@ def sensitivity_cmd(
     typer.echo(f"\nResults saved to {out_path}/sensitivity.csv")
 
 
-@app.command("validate")
+@app.command("validate-legacy", hidden=True)
 def validate_cmd(
     compound: str = typer.Option(..., help="Path to compound YAML file."),
     dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
@@ -1376,14 +1398,20 @@ def invitro_pipeline_cmd(
     typer.echo("  Summary   : invitro_summary.json")
 
 
-@app.command("serve")
+@app.command("serve-legacy", hidden=True)
 def serve(
     host: str = typer.Option("0.0.0.0", help="Host to bind the server to."),
     port: int = typer.Option(8000, help="Port to listen on."),
     reload: bool = typer.Option(False, help="Enable auto-reload on code changes."),
 ) -> None:
     """Start the FastAPI PBPK REST API server."""
-    import uvicorn
+    try:
+        import uvicorn
+    except ImportError:
+        typer.echo(
+            "API server requires [api] extras. Install with: pip install omega-pbpk[api]"
+        )
+        raise SystemExit(1)
 
     typer.echo(f"Starting Omega PBPK API server on http://{host}:{port}")
     uvicorn.run("omega_pbpk.api.app:app", host=host, port=port, reload=reload)
@@ -1399,6 +1427,225 @@ def run_tests() -> None:
         cwd=str(Path(__file__).parent.parent.parent),
     )
     raise typer.Exit(result.returncode)
+
+
+# ============================================================================
+# M3: 4-verb sub-app commands
+# ============================================================================
+
+# --- simulate group ----------------------------------------------------------
+
+@simulate_app.command("single")
+def simulate_single(
+    compound: str = typer.Argument(..., help="Compound name or YAML path"),
+    dose: float = typer.Option(100.0, help="Dose in mg"),
+    route: str = typer.Option("oral", help="oral / iv / sc"),
+    t_end: float = typer.Option(24.0, help="Simulation end time (h)"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Single-dose PBPK simulation."""
+    _audit("simulate.single", compound=compound, dose_mg=dose, route=route, t_end_h=t_end)
+
+    from omega_pbpk.config import load_compound
+    from omega_pbpk.core.body import WholeBodyPBPK
+
+    drug = load_compound(compound)
+    model = WholeBodyPBPK(drug, body_weight=70.0)
+    if route == "iv":
+        model.setup_iv(dose)
+    else:
+        model.setup_oral(dose)
+
+    result = model.simulate(t_end_h=t_end)
+    pk = result.pk_summary()
+
+    if json_output:
+        _output(pk, json_output=True)
+    else:
+        # Delegate to full legacy simulate command for file outputs
+        simulate(
+            compound=compound,
+            dose_mg=dose,
+            route=route,
+            t_end_h=t_end,
+            body_weight=70.0,
+            smiles=None,
+            out="outputs/run",
+            subject=None,
+            deterministic=False,
+            sensitivity=False,
+            sensitivity_params=None,
+            sensitivity_eps=0.01,
+            population=0,
+            academic_report=False,
+            qsp_model=None,
+            qsp_config=None,
+            qsp_mode="posthoc",
+        )
+
+
+@simulate_app.command("population")
+def simulate_population(
+    compound: str = typer.Argument(..., help="Path to compound YAML"),
+    n_subjects: int = typer.Option(50, "--n-subjects", "-n", help="Number of virtual subjects"),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
+    route: str = typer.Option("oral", "--route", "-r", help="oral / iv"),
+    duration: float = typer.Option(24.0, "--duration", help="Simulation duration (h)"),
+    seed: int = typer.Option(42, "--seed", help="Random seed"),
+) -> None:
+    """Population PK simulation (virtual subjects)."""
+    # TODO: delegate remaining population options
+    population(
+        compound=compound,
+        n_subjects=n_subjects,
+        dose=dose,
+        route=route,
+        duration=duration,
+        seed=seed,
+    )
+
+
+@simulate_app.command("pgx")
+def simulate_pgx(
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug."),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg."),
+    gene: str = typer.Option("CYP2D6", "--gene", "-g", help="CYP gene."),
+    route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv."),
+    t_end_h: float = typer.Option(24.0, "--t-end", help="Simulation end time (h)."),
+    body_weight: float = typer.Option(70.0, "--bw", help="Body weight (kg)."),
+    out: str | None = typer.Option(None, "--out", "-o", help="Output HTML report path."),
+) -> None:
+    """PGx-stratified PBPK simulation."""
+    pgx_sim(
+        smiles=smiles,
+        dose=dose,
+        gene=gene,
+        route=route,
+        t_end_h=t_end_h,
+        body_weight=body_weight,
+        out=out,
+    )
+
+
+# --- train group -------------------------------------------------------------
+
+@train_app.command("surrogate")
+def train_surrogate_cmd(
+    n_samples: int = typer.Option(500, help="Training samples"),
+    output_dir: str = typer.Option("models/", help="Output directory"),
+    epochs: int = typer.Option(300, help="Training epochs"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Train neural surrogate model."""
+    import os
+
+    save = os.path.join(output_dir, "surrogate_real.npz")
+    surrogate_cmd(train=True, n_samples=n_samples, save=save, epochs=epochs)
+    if json_output:
+        _output({"status": "ok", "save_path": save, "n_samples": n_samples}, json_output=True)
+
+
+@train_app.command("calibrate")
+def train_calibrate_cmd(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    observed: str = typer.Option(..., help="Path to observed data CSV."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    n_samples: int = typer.Option(2000, help="MCMC iterations."),
+    out: str = typer.Option("outputs/calibration", help="Output directory."),
+) -> None:
+    """Bayesian MCMC parameter calibration."""
+    # TODO: expose additional calibrate options (burn_in, seed, body_weight, t_end_h)
+    calibrate(
+        compound=compound,
+        observed=observed,
+        dose_mg=dose_mg,
+        route=route,
+        body_weight=70.0,
+        t_end_h=24.0,
+        n_samples=n_samples,
+        burn_in=500,
+        seed=None,
+        out=out,
+    )
+
+
+# --- validate group ----------------------------------------------------------
+
+@validate_app.command("benchmark")
+def validate_benchmark_cmd(
+    suite_dir: str = typer.Option("benchmarks", help="Path to benchmark suite directory."),
+    out: str = typer.Option("outputs/benchmark", help="Output directory."),
+    body_weight: float = typer.Option(70.0, help="Body weight (kg)."),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
+    """Run multi-drug benchmark validation."""
+    if json_output:
+        from omega_pbpk.validation.benchmarks import run_benchmark_suite
+
+        summary = run_benchmark_suite(suite_dir, out, body_weight=body_weight)
+        _output(summary, json_output=True)
+    else:
+        benchmark(suite_dir=suite_dir, out=out, body_weight=body_weight)
+
+
+@validate_app.command("mass-balance")
+def validate_mass_balance_cmd(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    body_weight: float = typer.Option(70.0, help="Body weight (kg)."),
+    t_end_h: float = typer.Option(24.0, help="Simulation end time (h)."),
+) -> None:
+    """Mass balance and physiological sanity checks."""
+    validate_cmd(
+        compound=compound,
+        dose_mg=dose_mg,
+        route=route,
+        body_weight=body_weight,
+        t_end_h=t_end_h,
+    )
+
+
+@validate_app.command("sensitivity")
+def validate_sensitivity_cmd(
+    compound: str = typer.Option(..., help="Path to compound YAML file."),
+    dose_mg: float = typer.Option(10.0, help="Dose (mg)."),
+    route: str = typer.Option("oral", help="Route: 'oral' or 'iv'."),
+    body_weight: float = typer.Option(70.0, help="Body weight (kg)."),
+    t_end_h: float = typer.Option(24.0, help="Simulation end time (h)."),
+    out: str = typer.Option("outputs/sensitivity", help="Output directory."),
+) -> None:
+    """Local sensitivity analysis."""
+    sensitivity_cmd(
+        compound=compound,
+        dose_mg=dose_mg,
+        route=route,
+        body_weight=body_weight,
+        t_end_h=t_end_h,
+        out=out,
+    )
+
+
+# --- serve group -------------------------------------------------------------
+
+@serve_app.command("start")
+def serve_start(
+    host: str = typer.Option("0.0.0.0", help="Host to bind the server to."),
+    port: int = typer.Option(8000, help="Port to listen on."),
+    reload: bool = typer.Option(False, help="Enable auto-reload on code changes."),
+) -> None:
+    """Start FastAPI REST server."""
+    try:
+        import uvicorn
+    except ImportError:
+        typer.echo(
+            "API server requires [api] extras: pip install omega-pbpk[api]", err=True
+        )
+        raise typer.Exit(1)
+
+    typer.echo(f"Starting Omega PBPK API server on http://{host}:{port}")
+    uvicorn.run("omega_pbpk.api.app:app", host=host, port=port, reload=reload)
 
 
 def main() -> None:

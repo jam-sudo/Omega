@@ -1,0 +1,14 @@
+{
+  "drug": "midazolam",
+  "dose_mg": 100.0,
+  "route": "oral",
+  "patient": "default_70kg",
+  "engine_version": "ode_35state",
+  "generated_at": "2026-02-28",
+  "metrics": {
+    "Cmax": 0.6528425494364116,
+    "Tmax": 0.6000000000000001,
+    "AUC": 1.1087223661651586,
+    "t_half": Infinity
+  }
+}

@@ -15,7 +15,7 @@ def test_simulate_deterministic_reproducible(tmp_path: Path) -> None:
         sys.executable,
         "-m",
         "omega_pbpk.cli",
-        "simulate",
+        "simulate-legacy",
         "--compound",
         "compounds/caffeine.yaml",
         "--subject",

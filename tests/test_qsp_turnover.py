@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from physio_sim.qsp.registry import get_qsp_model
+from omega_pbpk.experimental.physio_sim.qsp.registry import get_qsp_model
 
 
 def test_turnover_rhs_negative_when_drug_and_no_input() -> None:

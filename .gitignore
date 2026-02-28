@@ -17,3 +17,7 @@ outputs/
 secrets.yaml
 secrets.yml
 *_credentials.json
+
+# Trained model artifacts
+models/*.npy
+models/meta.json

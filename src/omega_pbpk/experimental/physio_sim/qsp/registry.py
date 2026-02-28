@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
-from physio_sim.qsp.base import BaseQSPModel
+from omega_pbpk.experimental.physio_sim.qsp.base import BaseQSPModel
 
 _MODEL_REGISTRY: dict[str, BaseQSPModel] = {}
 
@@ -36,4 +36,4 @@ def list_qsp_models() -> list[str]:
 
 def _ensure_builtin_models_registered() -> None:
     # Import side effects register built-in models.
-    import physio_sim.qsp.models  # noqa: F401
+    import omega_pbpk.experimental.physio_sim.qsp.models  # noqa: F401

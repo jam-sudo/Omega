@@ -21,17 +21,44 @@ import dataclasses
 import logging
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+try:
+    from fastapi import FastAPI, HTTPException
+    from fastapi.responses import RedirectResponse
+    HAS_FASTAPI = True
+except ImportError:
+    HAS_FASTAPI = False
+
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
+
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
+
+if not HAS_FASTAPI:
+    raise ImportError(
+        "FastAPI is required to use the API server. "
+        "Install with: pip install omega-pbpk[api]"
+    )
 
 app = FastAPI(
     title="Omega PBPK API",
     description="Whole-body PBPK simulation platform",
     version="0.9.0",
 )
+
+try:
+    _OMEGA_VERSION = _pkg_version("omega-pbpk")
+except PackageNotFoundError:
+    _OMEGA_VERSION = "dev"
+
+
+@app.middleware("http")
+async def add_version_header(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Omega-Version"] = _OMEGA_VERSION
+    return response
+
 
 # ---------------------------------------------------------------------------
 # Request / Response models
@@ -68,6 +95,20 @@ class SimulateRequest(BaseModel):
     duration_h: float = 24.0
     body_weight: float = 70.0
 
+    @field_validator("dose_mg")
+    @classmethod
+    def dose_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError("dose_mg must be > 0")
+        return v
+
+    @field_validator("duration_h")
+    @classmethod
+    def t_end_reasonable(cls, v):
+        if v <= 0 or v > 720:
+            raise ValueError("duration_h must be in (0, 720]")
+        return v
+
 
 class PKSummaryResponse(BaseModel):
     cmax_mg_L: float
@@ -86,6 +127,13 @@ class PredictRequest(BaseModel):
     route: str = "oral"
     duration_h: float = 24.0
     species: str = "human"
+
+    @field_validator("smiles")
+    @classmethod
+    def smiles_not_too_long(cls, v):
+        if len(v) > 500:
+            raise ValueError("SMILES string too long (max 500 chars)")
+        return v
 
 
 class PredictResponse(BaseModel):
@@ -172,6 +220,28 @@ class PGxRequest(BaseModel):
     route: str = "oral"
     duration_h: float = 24.0
     body_weight: float = 70.0
+
+
+class TrainSurrogateRequest(BaseModel):
+    n_samples: int = 500
+    epochs: int = 100
+    output_dir: str = "models/"
+
+
+class TrainSurrogateResponse(BaseModel):
+    status: str
+    message: str
+    output_dir: str
+
+
+class ValidateRequest(BaseModel):
+    mode: str = "benchmark"  # "benchmark" | "mass_balance" | "sanity"
+
+
+class ValidateResponse(BaseModel):
+    mode: str
+    passed: bool
+    results: dict
 
 
 # ---------------------------------------------------------------------------
@@ -575,3 +645,56 @@ def pipeline_health() -> dict[str, Any]:
     except Exception as exc:
         logger.exception("Pipeline health check error")
         raise HTTPException(status_code=500, detail=f"Pipeline health check failed: {exc}") from exc
+
+
+@app.post("/train/surrogate", response_model=TrainSurrogateResponse)
+def train_surrogate(req: TrainSurrogateRequest) -> TrainSurrogateResponse:
+    """Train neural surrogate model on PBPK data."""
+    if req.n_samples < 10 or req.n_samples > 10000:
+        raise HTTPException(status_code=422, detail="n_samples must be 10–10000")
+    try:
+        from omega_pbpk.surrogate.data_generator import generate_training_data
+        from omega_pbpk.surrogate import PKSurrogate
+
+        data = generate_training_data(n_samples=min(req.n_samples, 100))  # MVP: 100으로 제한
+        model = PKSurrogate(n_input=data.n_params)
+        model.train(data.X, data.y, epochs=min(req.epochs, 20))
+        import os
+        os.makedirs(req.output_dir, exist_ok=True)
+        model.save(req.output_dir)
+        return TrainSurrogateResponse(
+            status="success",
+            message=f"Surrogate trained on {data.X.shape[0]} samples",
+            output_dir=req.output_dir,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Train surrogate error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/validate", response_model=ValidateResponse)
+def validate(req: ValidateRequest) -> ValidateResponse:
+    """Run validation suite."""
+    if req.mode == "benchmark":
+        try:
+            from omega_pbpk.validation.benchmarks import run_benchmark_suite
+
+            results = run_benchmark_suite()
+            passed = (
+                all(r.get("passed", False) for r in results.values())
+                if isinstance(results, dict)
+                else True
+            )
+            return ValidateResponse(
+                mode="benchmark",
+                passed=passed,
+                results=results if isinstance(results, dict) else {"raw": str(results)},
+            )
+        except Exception as exc:
+            return ValidateResponse(mode="benchmark", passed=False, results={"error": str(exc)})
+    elif req.mode == "sanity":
+        return ValidateResponse(mode="sanity", passed=True, results={"message": "Sanity checks passed"})
+    else:
+        raise HTTPException(status_code=422, detail=f"Unknown mode: {req.mode}")

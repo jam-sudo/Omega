@@ -5,8 +5,8 @@ from collections.abc import Mapping
 import numpy as np
 from numpy.typing import NDArray
 
-from physio_sim.qsp.base import BaseQSPModel
-from physio_sim.qsp.registry import register_qsp_model
+from omega_pbpk.experimental.physio_sim.qsp.base import BaseQSPModel
+from omega_pbpk.experimental.physio_sim.qsp.registry import register_qsp_model
 
 
 @register_qsp_model("turnover")
