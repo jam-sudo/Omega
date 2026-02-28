@@ -585,18 +585,16 @@ class WholeBodyPBPK:
 
         amounts = sol.y.T.copy()
 
-        # Log clipping events (do NOT clip inside RHS)
-        neg_mask = amounts < 0
-        if np.any(neg_mask):
-            max_neg = float(np.min(amounts[neg_mask]))
-            n_events = int(np.sum(neg_mask))
-            logger.warning(
-                "Negative state clipping: %d events, max magnitude %.2e mg. "
-                "Consider tightening solver tolerances.",
-                n_events,
-                abs(max_neg),
-            )
-            amounts = np.maximum(amounts, 0.0)
+        # Post-solve check: warn if any state went significantly negative
+        neg_min = np.min(amounts, axis=0)  # minimum value per state
+        for state_idx in range(N_STATES):
+            if neg_min[state_idx] < -1e-6:
+                logger.warning(
+                    "Negative state detected: state[%d] min=%.3e mg. "
+                    "Consider tightening solver tolerances.",
+                    state_idx,
+                    float(neg_min[state_idx]),
+                )
 
         return SimulationResult(
             time_h=sol.t,
