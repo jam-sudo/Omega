@@ -31,6 +31,7 @@ import sys
 from pathlib import Path
 
 import typer
+from typer.core import TyperGroup
 
 app = typer.Typer(
     name="omega",
@@ -41,7 +42,22 @@ app = typer.Typer(
 # ---------------------------------------------------------------------------
 # 4-verb sub-apps (M3 CLI restructure)
 # ---------------------------------------------------------------------------
-simulate_app = typer.Typer(help="Run PBPK simulations.")
+
+
+class _SimulateGroup(TyperGroup):
+    """Custom Typer Group that falls back to 'single' subcommand."""
+
+    def parse_args(self, ctx: typer.Context, args: list[str]) -> list[str]:  # type: ignore[override]
+        # If the first arg looks like a file path (not a known subcommand), prepend "single"
+        if args and args[0] not in self.commands and not args[0].startswith("-"):
+            args = ["single"] + args
+        return super().parse_args(ctx, args)
+
+
+simulate_app = typer.Typer(
+    help="Run PBPK simulations.",
+    cls=_SimulateGroup,
+)
 train_app = typer.Typer(help="Train ML surrogate or calibrate models.")
 validate_app = typer.Typer(help="Validate, benchmark, and QA.")
 serve_app = typer.Typer(help="Start API server.")
@@ -1434,15 +1450,14 @@ def run_tests() -> None:
 # --- simulate group ----------------------------------------------------------
 
 
-@simulate_app.command("single")
-def simulate_single(
-    compound: str = typer.Argument(..., help="Compound name or YAML path"),
-    dose: float = typer.Option(100.0, help="Dose in mg"),
-    route: str = typer.Option("oral", help="oral / iv / sc"),
-    t_end: float = typer.Option(24.0, help="Simulation end time (h)"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+def _run_single_sim(
+    compound: str,
+    dose: float,
+    route: str,
+    t_end: float,
+    json_output: bool,
 ) -> None:
-    """Single-dose PBPK simulation."""
+    """Shared logic for single-dose PBPK simulation."""
     _audit("simulate.single", compound=compound, dose_mg=dose, route=route, t_end_h=t_end)
 
     from omega_pbpk.config import load_compound
@@ -1481,6 +1496,18 @@ def simulate_single(
             qsp_config=None,
             qsp_mode="posthoc",
         )
+
+
+@simulate_app.command("single")
+def simulate_single(
+    compound: str = typer.Argument(..., help="Compound name or YAML path"),
+    dose: float = typer.Option(100.0, help="Dose in mg"),
+    route: str = typer.Option("oral", help="oral / iv / sc"),
+    t_end: float = typer.Option(24.0, help="Simulation end time (h)"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output results as JSON"),
+) -> None:
+    """Single-dose PBPK simulation."""
+    _run_single_sim(compound, dose, route, t_end, json_output)
 
 
 @simulate_app.command("population")
