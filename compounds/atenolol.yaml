@@ -1,0 +1,60 @@
+name: Atenolol
+mw: 266.34
+logP: 0.16
+pka: [9.6]
+drug_type: monoprotic_base
+compound_type: base
+partition_method: heuristic
+fup: 0.95
+rbp: 1.0
+smiles: "CC(C)NCC(O)COc1ccc(CC(N)=O)cc1"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP3A4: 0.0
+    CYP2D6: 0.0
+  fm:
+    other: 1.0
+  # Atenolol: primarily renally cleared, minimal hepatic metabolism
+  # Literature CL_plasma ~ 10.5 L/h, ~90% renal
+  # Very low hepatic CLint
+  clint_hepatic_L_per_h: 1.0
+  clint_gut_L_per_h: 0.0
+  # Renal clearance (L/h) — dominant elimination route
+  clr_L_per_h: 10.0
+
+absorption:
+  peff: 0.4
+  solubility_mg_mL: 26.5
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 0.8
+    brain: 0.15
+    heart: 0.9
+    kidney: 1.2
+    liver: 0.7
+    spleen: 0.6
+    gut_wall: 0.8
+    pancreas: 0.5
+    thymus: 0.4
+    reproductive: 0.5
+    rest: 0.5
+  permeability_limited:
+    adipose:
+      kp: 0.1
+      ps: 5.0
+    muscle:
+      kp: 0.5
+      ps: 15.0
+    bone:
+      kp: 0.3
+      ps: 3.0
+    skin:
+      kp: 0.4
+      ps: 5.0
+
+gut_metabolism:
+  gut_clint_multiplier: 0.0
