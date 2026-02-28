@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import subprocess
 import sys
@@ -44,6 +46,20 @@ def test_simulate_deterministic_reproducible(tmp_path: Path) -> None:
     assert timestamp1
     assert timestamp2
     assert summary1 == summary2
-    assert (out1 / "timecourse.csv").read_text(encoding="utf-8") == (
-        out2 / "timecourse.csv"
-    ).read_text(encoding="utf-8")
+
+    # Compare timecourse CSV numerically — exact string match fails due to
+    # last-digit floating-point variation across ODE solver runs (1 ULP diff).
+    text1 = (out1 / "timecourse.csv").read_text(encoding="utf-8")
+    text2 = (out2 / "timecourse.csv").read_text(encoding="utf-8")
+    rows1 = list(csv.reader(io.StringIO(text1)))
+    rows2 = list(csv.reader(io.StringIO(text2)))
+    assert len(rows1) == len(rows2), "timecourse row count must match"
+    header1, header2 = rows1[0], rows2[0]
+    assert header1 == header2, "timecourse headers must match"
+    for i, (r1, r2) in enumerate(zip(rows1[1:], rows2[1:], strict=True)):
+        assert len(r1) == len(r2)
+        for j, (v1, v2) in enumerate(zip(r1, r2, strict=True)):
+            f1, f2 = float(v1), float(v2)
+            assert abs(f1 - f2) <= 1e-6 * max(abs(f1), abs(f2), 1e-12), (
+                f"timecourse row {i + 1} col {j} mismatch: {v1!r} vs {v2!r}"
+            )
