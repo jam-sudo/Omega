@@ -44,7 +44,7 @@ jobs:
 
       - name: Check version consistency
         run: |
-          PYPROJECT_VER=$(python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
+          PYPROJECT_VER=$(grep -m1 '^version = ' pyproject.toml | grep -oP '(?<=")[^"]+')
           SERVER_VER=$(grep -oP '(?<=version=")[^"]+' src/omega_pbpk/api/server.py | head -1)
           echo "pyproject.toml version: $PYPROJECT_VER"
           echo "api/server.py version:  $SERVER_VER"
