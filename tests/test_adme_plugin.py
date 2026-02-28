@@ -34,9 +34,11 @@ SPEC_NO_SMILES = DrugSpec(
 # Import guard (works without torch)
 # ---------------------------------------------------------------------------
 
+
 def test_import_plugins():
     """플러그인이 torch 없이도 import 성공해야 한다."""
     from omega_pbpk.plugins import ADMEPredictorPlugin, HeuristicKpPlugin  # noqa: F401
+
     assert ADMEPredictorPlugin is not None
     assert HeuristicKpPlugin is not None
 
@@ -44,6 +46,7 @@ def test_import_plugins():
 # ---------------------------------------------------------------------------
 # ADMEPredictorPlugin
 # ---------------------------------------------------------------------------
+
 
 class TestADMEPredictorPlugin:
     def setup_method(self):
@@ -95,6 +98,7 @@ class TestADMEPredictorPlugin:
 # ---------------------------------------------------------------------------
 # HeuristicKpPlugin
 # ---------------------------------------------------------------------------
+
 
 class TestHeuristicKpPlugin:
     def setup_method(self):

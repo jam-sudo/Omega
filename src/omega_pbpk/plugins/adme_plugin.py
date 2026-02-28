@@ -12,6 +12,7 @@ class ADMEPredictorPlugin(PluginBase):
 
     def __init__(self) -> None:
         from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+
         self._predictor = ADMEPredictor()
 
     def predict(self, spec: DrugSpec) -> dict[str, float | dict]:
@@ -21,13 +22,15 @@ class ADMEPredictorPlugin(PluginBase):
             props = self._predictor.predict(smiles)
         else:
             # SMILES 없을 때: DrugSpec의 physicochemical 값으로 fallback
-            props = self._predictor.predict_from_dict({
-                "mw": spec.mw,
-                "logP": spec.logP,
-                "fup": spec.fup,
-                "rbp": spec.rbp,
-                "peff": spec.peff,
-            })
+            props = self._predictor.predict_from_dict(
+                {
+                    "mw": spec.mw,
+                    "logP": spec.logP,
+                    "fup": spec.fup,
+                    "rbp": spec.rbp,
+                    "peff": spec.peff,
+                }
+            )
 
         return {
             "fup": float(props.fup),

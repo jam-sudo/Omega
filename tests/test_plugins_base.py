@@ -13,6 +13,7 @@ from omega_pbpk.plugins import PluginBase, SurrogateModelPlugin
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _caffeine_spec() -> DrugSpec:
     return DrugSpec(
         name="caffeine",
@@ -36,6 +37,7 @@ def _oral_regimen(dose_mg: float = 200.0) -> Regimen:
 # ---------------------------------------------------------------------------
 # PluginBase tests
 # ---------------------------------------------------------------------------
+
 
 class _GoodPlugin(PluginBase):
     @property
@@ -94,6 +96,7 @@ def test_surrogate_model_plugin_is_protocol():
 # SimulationEngine ABC tests
 # ---------------------------------------------------------------------------
 
+
 def test_simulation_engine_cannot_be_instantiated():
     with pytest.raises(TypeError):
         SimulationEngine()  # type: ignore[abstract]
@@ -108,6 +111,7 @@ def test_whole_body_pbpk_engine_is_instance_of_simulation_engine():
 # Import tests
 # ---------------------------------------------------------------------------
 
+
 def test_import_plugins():
     from omega_pbpk.plugins import PluginBase, SurrogateModelPlugin  # noqa: F401
 
@@ -119,6 +123,7 @@ def test_import_engine():
 # ---------------------------------------------------------------------------
 # WholeBodyPBPKEngine functional test
 # ---------------------------------------------------------------------------
+
 
 def test_engine_run_caffeine_oral():
     engine = WholeBodyPBPKEngine()

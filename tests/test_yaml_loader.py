@@ -1,4 +1,5 @@
 """Tests for YAML → DrugSpec adapter (M0-3)."""
+
 from __future__ import annotations
 
 import pytest

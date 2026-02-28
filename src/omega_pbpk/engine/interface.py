@@ -15,7 +15,7 @@ class SimulationResult:
     """ODE 시뮬레이션 결과."""
 
     t: NDArray[np.float64]
-    amounts: NDArray[np.float64]           # shape (n_states, n_timepoints)
+    amounts: NDArray[np.float64]  # shape (n_states, n_timepoints)
     plasma_concentration: NDArray[np.float64]  # shape (n_timepoints,)
     drug_name: str = ""
     route: str = "oral"

@@ -24,13 +24,21 @@ def test_fup_above_one_raises():
 
 def test_negative_kp_raises():
     with pytest.raises(ValueError, match="kp"):
-        validate_drug_params(clint_hepatic=0, clint_gut=0, clr=0, fup=0.5, rbp=1.0,
-                             kp={"liver": -0.1})
+        validate_drug_params(
+            clint_hepatic=0, clint_gut=0, clr=0, fup=0.5, rbp=1.0, kp={"liver": -0.1}
+        )
 
 
 def test_valid_params_pass():
-    validate_drug_params(clint_hepatic=10.0, clint_gut=5.0, clr=2.0,
-                         fup=0.1, rbp=0.9, kp={"liver": 2.0, "muscle": 0.5}, ka=1.5)
+    validate_drug_params(
+        clint_hepatic=10.0,
+        clint_gut=5.0,
+        clr=2.0,
+        fup=0.1,
+        rbp=0.9,
+        kp={"liver": 2.0, "muscle": 0.5},
+        ka=1.5,
+    )
 
 
 def test_extreme_clint_raises():

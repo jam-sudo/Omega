@@ -1,10 +1,12 @@
 """Tests for M3-2 FastAPI integration — new endpoints and validators."""
+
 from __future__ import annotations
 
 import pytest
 
 try:
     from omega_pbpk.api.app import app
+
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
@@ -13,6 +15,7 @@ pytestmark = pytest.mark.skipif(not HAS_FASTAPI, reason="fastapi not installed")
 
 if HAS_FASTAPI:
     from fastapi.testclient import TestClient
+
     client = TestClient(app)
 else:
     client = None  # type: ignore[assignment]

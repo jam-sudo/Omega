@@ -284,15 +284,14 @@ def train_with_grid_data(
         return 1.0 - ss_res / (ss_tot + 1e-12)
 
     y_pred_test = model.predict(X_test)
-    auc_r2 = _r2(y_test[:, 1], y_pred_test[:, 1])   # AUC column
+    auc_r2 = _r2(y_test[:, 1], y_pred_test[:, 1])  # AUC column
     cmax_r2 = _r2(y_test[:, 0], y_pred_test[:, 0])  # Cmax column
 
     _Path(output_dir).mkdir(parents=True, exist_ok=True)
     model.save(output_dir)
 
     logger.info(
-        "train_with_grid_data: n_train=%d n_val=%d n_test=%d "
-        "loss=%.4f auc_r2=%.3f cmax_r2=%.3f",
+        "train_with_grid_data: n_train=%d n_val=%d n_test=%d loss=%.4f auc_r2=%.3f cmax_r2=%.3f",
         n_train,
         n_val,
         len(X_test),

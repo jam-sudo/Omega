@@ -23,21 +23,22 @@ import pytest
 # Constants
 # ---------------------------------------------------------------------------
 
-AUC_RE_MAX = 0.20   # surrogate AUC must be within 20% of ODE AUC
+AUC_RE_MAX = 0.20  # surrogate AUC must be within 20% of ODE AUC
 CMAX_RE_MAX = 0.25  # surrogate Cmax must be within 25% of ODE Cmax
 
 # Canonical parameter set for test drugs (input feature order matches EXPECTED_FEATURES)
 # [logP, fup, clint_L_h, mw, rbp, peff]
 TEST_DRUGS = {
-    "caffeine":   [0.07, 0.65, 2.0,  194.19, 0.8,  4.0],
-    "midazolam":  [3.89, 0.03, 60.0, 325.77, 0.53, 2.0],
-    "propranolol":[3.48, 0.13, 70.0, 259.34, 0.81, 3.0],
+    "caffeine": [0.07, 0.65, 2.0, 194.19, 0.8, 4.0],
+    "midazolam": [3.89, 0.03, 60.0, 325.77, 0.53, 2.0],
+    "propranolol": [3.48, 0.13, 70.0, 259.34, 0.81, 3.0],
 }
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run_ode(params: list[float], dose_mg: float = 100.0) -> tuple[float, float]:
     """Run ODE simulation for given params, return (Cmax, AUC)."""
@@ -82,6 +83,7 @@ def _train_surrogate_on_drugs(drug_params: list[list[float]], n_aug: int = 15) -
 # Contract: surrogate EXPECTED_FEATURES matches ODE input convention
 # ---------------------------------------------------------------------------
 
+
 class TestFeatureOrderContract:
     def test_surrogate_feature_order_matches_train_order(self):
         """EXPECTED_FEATURES must match the column order in train._params_to_array."""
@@ -90,8 +92,12 @@ class TestFeatureOrderContract:
 
         expected = PKSurrogate.EXPECTED_FEATURES
         ref_drug = {
-            "logP": 2.0, "fup": 0.5, "clint": 10.0,
-            "mw": 300.0, "rbp": 1.0, "peff": 2.0,
+            "logP": 2.0,
+            "fup": 0.5,
+            "clint": 10.0,
+            "mw": 300.0,
+            "rbp": 1.0,
+            "peff": 2.0,
         }
         arr = _params_to_array(ref_drug)
         for i, feat_name in enumerate(expected):
@@ -106,16 +112,19 @@ class TestFeatureOrderContract:
 
     def test_expected_features_count_matches_default_n_input(self):
         from omega_pbpk.surrogate import PKSurrogate
+
         assert len(PKSurrogate.EXPECTED_FEATURES) == PKSurrogate().n_input
 
     def test_expected_outputs_count_matches_default_n_output(self):
         from omega_pbpk.surrogate import PKSurrogate
+
         assert len(PKSurrogate.EXPECTED_OUTPUTS) == PKSurrogate().n_output
 
 
 # ---------------------------------------------------------------------------
 # ODE: baseline outputs for reference drugs
 # ---------------------------------------------------------------------------
+
 
 class TestODEBaseline:
     def test_ode_caffeine_positive_cmax_auc(self):
@@ -138,6 +147,7 @@ class TestODEBaseline:
 # ---------------------------------------------------------------------------
 # Surrogate vs ODE agreement (slow — requires training)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.slow
 class TestSurrogateVsODE:

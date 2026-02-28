@@ -183,7 +183,9 @@ def oral_mass_balance_check(
 
     total_mass = float(np.sum(amounts[check_idx]))
     deviation_frac = abs(total_mass - dose_mg) / dose_mg
-    t_val = float(time_h[check_idx]) if time_h is not None and len(time_h) > abs(check_idx) else None
+    t_val = (
+        float(time_h[check_idx]) if time_h is not None and len(time_h) > abs(check_idx) else None
+    )
 
     if deviation_frac > tolerance_frac:
         t_info = f" at t={t_val:.2f}h" if t_val is not None else ""
