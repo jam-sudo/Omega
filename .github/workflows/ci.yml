@@ -40,8 +40,7 @@ jobs:
 
       - name: Check test count
         run: |
-          COUNT=$(python -m pytest tests/ --collect-only -q 2>&1 | grep "selected" | grep -oP '\d+')
-          echo "Collected $COUNT tests"
+          python -m pytest tests/ --collect-only -q 2>&1 | tail -1
 
       - name: Check version consistency
         run: |
