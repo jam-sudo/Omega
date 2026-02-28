@@ -241,4 +241,186 @@ def _run_single_simulation(
     return pk
 
 
-__all__ = ["TrainingDataset", "generate_training_data", "PARAM_RANGES", "PK_OUTPUT_NAMES"]
+# Grid parameter ranges for generate_grid_dataset() — wider space, includes mw.
+# Feature order matches PKSurrogate.EXPECTED_FEATURES: [logP, fup, clint_L_h, mw, rbp, peff]
+GRID_PARAM_RANGES: dict[str, tuple[float, float]] = {
+    "logP": (-2.0, 6.0),        # linear (already in log scale)
+    "fup": (0.01, 1.0),         # log-uniform
+    "clint_L_h": (1.0, 500.0),  # log-uniform → clint_hepatic_L_per_h
+    "mw": (100.0, 800.0),       # log-uniform
+    "rbp": (0.5, 5.0),          # log-uniform
+    "peff": (0.5, 10.0),        # log-uniform
+}
+
+GRID_PARAM_NAMES: list[str] = list(GRID_PARAM_RANGES.keys())
+
+
+def _grid_sim_worker(
+    args: tuple[dict[str, float], float, str, float, float, int],
+) -> tuple[int, list[float] | None]:
+    """Worker: run one PBPK simulation using grid parameter set (includes mw).
+
+    Args:
+        args: Tuple of (params, dose_mg, route, body_weight, t_end_h, index).
+            params keys: logP, fup, clint_L_h, mw, rbp, peff.
+
+    Returns:
+        (index, pk_row) where pk_row is None on failure or invalid PK values.
+    """
+    params, dose_mg, route, body_weight, t_end_h, idx = args
+    try:
+        drug = Drug(
+            name="grid_sample",
+            logP=params["logP"],
+            fup=max(params["fup"], 1e-6),
+            rbp=params["rbp"],
+            peff=params["peff"],
+            mw=params["mw"],
+            clint_hepatic_L_per_h=params["clint_L_h"],
+        )
+        model = WholeBodyPBPK(drug, body_weight=body_weight)
+        if route == "iv":
+            model.setup_iv(dose_mg)
+        else:
+            model.setup_oral(dose_mg)
+        result = model.simulate(t_end_h=t_end_h, dt_h=0.1)
+        pk = result.pk_summary()
+
+        if pk["half_life_h"] == float("inf") or pk["half_life_h"] > 1e6:
+            pk["half_life_h"] = t_end_h * 10.0
+
+        row = [pk[k] for k in PK_OUTPUT_NAMES]
+        if any(v <= 0 or not np.isfinite(v) for v in row):
+            return idx, None
+        return idx, row
+    except Exception as e:
+        logger.debug("Grid sample %d failed: %s", idx, e)
+        return idx, None
+
+
+def generate_grid_dataset(
+    n_samples: int = 500,
+    dose_mg: float = 10.0,
+    route: str = "oral",
+    body_weight: float = 70.0,
+    t_end_h: float = 24.0,
+    seed: int = 42,
+    verbose: bool = True,
+    n_workers: int | None = None,
+) -> TrainingDataset:
+    """Grid-based synthetic compound dataset generation.
+
+    Samples the 6-dimensional parameter space via LHS, then applies
+    log-uniform scaling to each axis.  Parameter order matches
+    PKSurrogate.EXPECTED_FEATURES: [logP, fup, clint_L_h, mw, rbp, peff].
+
+    Parameter space:
+        logP: [-2, 6] (linear — already in log scale)
+        fup: [0.01, 1.0] (log-uniform)
+        clint_L_h: [1, 500] (log-uniform, maps to clint_hepatic_L_per_h)
+        mw: [100, 800] (log-uniform)
+        rbp: [0.5, 5.0] (log-uniform)
+        peff: [0.5, 10.0] (log-uniform)
+
+    Samples that fail ODE integration or yield non-positive PK values are
+    filtered out.  Expect ≥ 80 % success rate for the default ranges.
+
+    Args:
+        n_samples: Number of parameter combinations to sample.
+        dose_mg: Dose (mg).
+        route: 'oral' or 'iv'.
+        body_weight: Subject body weight (kg).
+        t_end_h: Simulation end time (h).
+        seed: Random seed.
+        verbose: Whether to log progress.
+        n_workers: Worker processes (None → os.cpu_count(), 1 → serial).
+
+    Returns:
+        TrainingDataset with X shape (n_valid, 6) and y shape (n_valid, 4).
+    """
+    if n_workers is None:
+        n_workers = os.cpu_count() or 1
+
+    rng = np.random.default_rng(seed)
+    n_params = len(GRID_PARAM_NAMES)
+
+    # Latin Hypercube Sampling in [0, 1]^d
+    X_unit = _latin_hypercube(n_samples, n_params, rng)
+    X = np.empty_like(X_unit)
+
+    for j, name in enumerate(GRID_PARAM_NAMES):
+        lo, hi = GRID_PARAM_RANGES[name]
+        if name == "logP":
+            # logP is already on a log scale — sample linearly
+            X[:, j] = lo + X_unit[:, j] * (hi - lo)
+        else:
+            # Log-uniform for all strictly positive parameters
+            X[:, j] = np.exp(np.log(lo) + X_unit[:, j] * (np.log(hi) - np.log(lo)))
+
+    all_params = [
+        {name: float(X[i, j]) for j, name in enumerate(GRID_PARAM_NAMES)}
+        for i in range(n_samples)
+    ]
+    worker_args = [
+        (params, dose_mg, route, body_weight, t_end_h, i)
+        for i, params in enumerate(all_params)
+    ]
+
+    pk_rows: list[list[float] | None] = [None] * n_samples
+    valid_mask: list[bool] = [False] * n_samples
+
+    if n_workers == 1 or n_samples <= 1:
+        for args in worker_args:
+            idx, row = _grid_sim_worker(args)
+            if row is not None:
+                pk_rows[idx] = row
+                valid_mask[idx] = True
+            if verbose and (idx + 1) % 50 == 0:
+                logger.info("Grid dataset: %d/%d samples", idx + 1, n_samples)
+    else:
+        max_workers = min(n_workers, n_samples)
+        completed = 0
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            future_to_idx = {
+                pool.submit(_grid_sim_worker, args): args[-1] for args in worker_args
+            }
+            for future in as_completed(future_to_idx):
+                idx, row = future.result()
+                if row is not None:
+                    pk_rows[idx] = row
+                    valid_mask[idx] = True
+                completed += 1
+                if verbose and completed % 50 == 0:
+                    logger.info("Grid dataset: %d/%d samples", completed, n_samples)
+
+    mask = np.array(valid_mask)
+    X_valid = X[mask]
+    y_valid = np.array([r for r in pk_rows if r is not None], dtype=np.float64)
+
+    logger.info(
+        "Grid dataset: %d/%d valid samples (%d params → %d outputs)",
+        X_valid.shape[0],
+        n_samples,
+        n_params,
+        len(PK_OUTPUT_NAMES),
+    )
+
+    return TrainingDataset(
+        X=X_valid,
+        y=y_valid,
+        param_names=list(GRID_PARAM_NAMES),
+        output_names=list(PK_OUTPUT_NAMES),
+        dose_mg=dose_mg,
+        route=route,
+    )
+
+
+__all__ = [
+    "TrainingDataset",
+    "generate_training_data",
+    "generate_grid_dataset",
+    "PARAM_RANGES",
+    "GRID_PARAM_RANGES",
+    "GRID_PARAM_NAMES",
+    "PK_OUTPUT_NAMES",
+]

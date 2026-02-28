@@ -12,7 +12,7 @@ def test_academic_report_contains_required_sections(tmp_path: Path) -> None:
             sys.executable,
             "-m",
             "omega_pbpk.cli",
-            "simulate",
+            "simulate-legacy",
             "--compound",
             "compounds/caffeine.yaml",
             "--subject",

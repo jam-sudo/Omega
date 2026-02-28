@@ -1,0 +1,14 @@
+{
+  "drug": "warfarin",
+  "dose_mg": 100.0,
+  "route": "oral",
+  "patient": "default_70kg",
+  "engine_version": "ode_35state",
+  "generated_at": "2026-02-28",
+  "metrics": {
+    "Cmax": 14.2914245796649,
+    "Tmax": 1.5,
+    "AUC": 275.6474311951136,
+    "t_half": 40.22205271974736
+  }
+}

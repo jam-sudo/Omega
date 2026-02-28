@@ -20,7 +20,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 from numpy.typing import NDArray
@@ -51,6 +51,33 @@ class PKSurrogate:
         n_layers: Number of hidden layers.
     """
 
+    # Feature/output contracts — must match train.py _params_to_array order.
+    # Any ADME plugin supplying input to the surrogate must provide exactly
+    # these keys (validated in predict_dict).
+    EXPECTED_FEATURES: ClassVar[list[str]] = ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
+    EXPECTED_OUTPUTS: ClassVar[list[str]] = ["cmax_mg_L", "auc_mg_h_L", "tmax_h", "t_half_h"]
+
+    # 18D extended feature lists
+    PATIENT_FEATURES: ClassVar[list[str]] = [
+        "body_weight_kg", "age_years", "sex_binary",
+        "gfr_mL_min", "cardiac_output_L_h",
+        "cyp3a4_activity", "cyp2d6_activity",
+        "hepatic_cl_factor", "renal_cl_factor",
+    ]
+    REGIMEN_FEATURES: ClassVar[list[str]] = [
+        "dose_mg", "route_binary", "n_doses",
+    ]
+    FULL_FEATURES: ClassVar[list[str]] = (
+        ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
+        + [
+            "body_weight_kg", "age_years", "sex_binary",
+            "gfr_mL_min", "cardiac_output_L_h",
+            "cyp3a4_activity", "cyp2d6_activity",
+            "hepatic_cl_factor", "renal_cl_factor",
+        ]
+        + ["dose_mg", "route_binary", "n_doses"]
+    )
+
     n_input: int = 6
     n_output: int = 4
     hidden_dim: int = 64
@@ -71,6 +98,10 @@ class PKSurrogate:
     training_loss: float = float("inf")
     param_names: list[str] = field(default_factory=list)
     output_names: list[str] = field(default_factory=list)
+
+    # Conformal prediction state
+    _cal_scores: NDArray[np.float64] = field(default_factory=lambda: np.array([]))
+    _is_calibrated: bool = False
 
     def __post_init__(self) -> None:
         if not self.weights:
@@ -138,11 +169,120 @@ class PKSurrogate:
 
         return y[0] if single else y
 
+    def validate_feature_contract(self, params: dict[str, float]) -> None:
+        """Raise ValueError if params dict is missing expected feature keys.
+
+        Call this before predict_dict to catch ADME plugin contract violations
+        early with a clear error message.
+        """
+        missing = [k for k in self.EXPECTED_FEATURES if k not in params]
+        if missing:
+            raise ValueError(
+                f"PKSurrogate feature contract violation: missing keys {missing}. "
+                f"Expected: {self.EXPECTED_FEATURES}, got: {sorted(params.keys())}"
+            )
+
     def predict_dict(self, params: dict[str, float]) -> dict[str, float]:
         """Predict PK from a parameter dict, return named dict."""
         x = np.array([params.get(name, 0.0) for name in self.param_names])
         y = self.predict(x)
         return {name: float(y[i]) for i, name in enumerate(self.output_names)}
+
+    def predict_with_patient(
+        self,
+        drug_params: dict[str, float],
+        patient_params: dict[str, float],
+        regimen_params: dict[str, float],
+    ) -> NDArray[np.float64]:
+        """Predict PK using 18D input (drug + patient + regimen).
+
+        Args:
+            drug_params: Drug parameters keyed by EXPECTED_FEATURES names.
+            patient_params: Patient parameters keyed by PATIENT_FEATURES names.
+            regimen_params: Regimen parameters keyed by REGIMEN_FEATURES names.
+
+        Returns:
+            Array of shape (n_output,) with PK predictions.
+
+        Raises:
+            ValueError: If n_input != 18 or required keys are missing.
+        """
+        if self.n_input != 18:
+            raise ValueError("predict_with_patient requires n_input=18 model")
+        try:
+            x = np.array(
+                [
+                    *[drug_params[k] for k in self.EXPECTED_FEATURES],
+                    *[patient_params[k] for k in self.PATIENT_FEATURES],
+                    *[regimen_params[k] for k in self.REGIMEN_FEATURES],
+                ],
+                dtype=float,
+            )
+        except KeyError as exc:
+            raise ValueError(
+                f"predict_with_patient: missing required key {exc}. "
+                f"drug_params needs {self.EXPECTED_FEATURES}, "
+                f"patient_params needs {self.PATIENT_FEATURES}, "
+                f"regimen_params needs {self.REGIMEN_FEATURES}."
+            ) from exc
+        return self.predict(x)
+
+    def calibrate(
+        self,
+        X_cal: NDArray[np.float64],
+        y_cal: NDArray[np.float64],
+    ) -> None:
+        """Split conformal calibration.
+
+        Computes nonconformity scores on the calibration set so that
+        predict_conformal() can produce valid prediction intervals.
+
+        Args:
+            X_cal: Calibration inputs, shape (n, n_input).
+            y_cal: Calibration targets, shape (n, n_output).
+        """
+        y_pred = np.array([self.predict(x) for x in X_cal])
+        # Apply consistent affine transform to both predictions and targets
+        y_pred_orig = y_pred * self.y_std + self.y_mean
+        y_cal_orig = y_cal * self.y_std + self.y_mean
+        # Nonconformity score: absolute relative error per output.
+        # Use y_pred_orig as denominator so the score definition matches the
+        # interval check in predict_conformal (which also divides by y_pred_orig).
+        eps = 1e-8
+        scores = np.abs(y_cal_orig - y_pred_orig) / (np.abs(y_pred_orig) + eps)
+        # Per-sample max score (worst output), sorted ascending
+        self._cal_scores = np.sort(scores.max(axis=1))
+        self._is_calibrated = True
+
+    def predict_conformal(
+        self,
+        x: NDArray[np.float64],
+        alpha: float = 0.10,
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+        """Conformal prediction interval at coverage level (1 - alpha).
+
+        Args:
+            x: Input array of shape (n_input,).
+            alpha: Miscoverage level; default 0.10 gives 90% coverage.
+
+        Returns:
+            (y_pred, ci_lower, ci_upper) — all in the same scale as calibrate().
+
+        Raises:
+            RuntimeError: If calibrate() has not been called first.
+        """
+        if not self._is_calibrated:
+            raise RuntimeError("Call calibrate() before predict_conformal()")
+        y_pred = self.predict(x)
+        y_orig = y_pred * self.y_std + self.y_mean
+        # Conformal quantile
+        n = len(self._cal_scores)
+        q_idx = int(np.ceil((1 - alpha) * (n + 1))) - 1
+        q_idx = min(q_idx, n - 1)
+        q_hat = float(self._cal_scores[q_idx])
+        ci_lower = y_orig * (1 - q_hat)
+        ci_upper = y_orig * (1 + q_hat)
+        return y_orig, ci_lower, ci_upper
 
     def train(
         self,

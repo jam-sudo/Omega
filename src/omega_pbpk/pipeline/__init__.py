@@ -404,27 +404,11 @@ def simulate_with_uncertainty(
     }
 
 
-@dataclass
-class SimulationResult2:
-    """Output from OmegaPipeline simulation (Phase 2 alias for SimulationResult)."""
-
-    time_h: NDArray[np.float64]
-    cp_mg_L: NDArray[np.float64]
-    cmax_mg_L: float
-    tmax_h: float
-    auc0t_mg_h_L: float
-    t_half_h: float
-    adme_properties: dict[str, Any]
-    confidence: str
-    warnings: list[str]
-
-
 __all__ = [
     "CandidateReport",
     "evaluate_candidate",
     "SimulationRequest",
     "SimulationResult",
-    "SimulationResult2",
     "OmegaPipeline",
     "simulate_with_uncertainty",
 ]

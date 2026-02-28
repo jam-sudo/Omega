@@ -225,6 +225,92 @@ def train_surrogate(
     return model
 
 
+def train_with_grid_data(
+    n_samples: int = 300,
+    train_ratio: float = 0.70,
+    val_ratio: float = 0.15,
+    epochs: int = 50,
+    output_dir: str = "models/",
+    seed: int = 42,
+    verbose: bool = True,
+) -> dict:
+    """Train surrogate on a freshly generated grid dataset.
+
+    Generates n_samples via generate_grid_dataset(), splits into train/val/test,
+    trains PKSurrogate, runs split-conformal calibration on the val set, and
+    evaluates R² on the held-out test set.
+
+    Args:
+        n_samples: Total number of simulated samples.
+        train_ratio: Fraction used for training.
+        val_ratio: Fraction used for conformal calibration.
+        epochs: Training epochs.
+        output_dir: Directory to save trained model files.
+        seed: Random seed.
+        verbose: Log training progress.
+
+    Returns:
+        Dict with keys: n_train, n_val, n_test, training_loss,
+        test_auc_r2, test_cmax_r2.
+    """
+    from pathlib import Path as _Path
+
+    from omega_pbpk.surrogate import PKSurrogate
+    from omega_pbpk.surrogate.data_generator import generate_grid_dataset
+
+    data = generate_grid_dataset(n_samples=n_samples, seed=seed, verbose=verbose)
+
+    n = data.X.shape[0]
+    n_train = int(n * train_ratio)
+    n_val = int(n * val_ratio)
+
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(n)
+
+    X_train = data.X[idx[:n_train]]
+    y_train = data.y[idx[:n_train]]
+    X_val = data.X[idx[n_train : n_train + n_val]]
+    y_val = data.y[idx[n_train : n_train + n_val]]
+    X_test = data.X[idx[n_train + n_val :]]
+    y_test = data.y[idx[n_train + n_val :]]
+
+    model = PKSurrogate(n_input=data.n_params, n_output=data.n_outputs)
+    model.train(X_train, y_train, epochs=epochs, verbose=verbose)
+    model.calibrate(X_val, y_val)
+
+    def _r2(y_true: NDArray, y_pred: NDArray) -> float:
+        ss_res = float(((y_true - y_pred) ** 2).sum())
+        ss_tot = float(((y_true - y_true.mean()) ** 2).sum())
+        return 1.0 - ss_res / (ss_tot + 1e-12)
+
+    y_pred_test = model.predict(X_test)
+    auc_r2 = _r2(y_test[:, 1], y_pred_test[:, 1])   # AUC column
+    cmax_r2 = _r2(y_test[:, 0], y_pred_test[:, 0])  # Cmax column
+
+    _Path(output_dir).mkdir(parents=True, exist_ok=True)
+    model.save(output_dir)
+
+    logger.info(
+        "train_with_grid_data: n_train=%d n_val=%d n_test=%d "
+        "loss=%.4f auc_r2=%.3f cmax_r2=%.3f",
+        n_train,
+        n_val,
+        len(X_test),
+        model.training_loss,
+        auc_r2,
+        cmax_r2,
+    )
+
+    return {
+        "n_train": n_train,
+        "n_val": n_val,
+        "n_test": len(X_test),
+        "training_loss": model.training_loss,
+        "test_auc_r2": auc_r2,
+        "test_cmax_r2": cmax_r2,
+    }
+
+
 if __name__ == "__main__":
     import os
 

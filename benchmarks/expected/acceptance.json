@@ -4,11 +4,17 @@
     "cmax_relative_error_max": 0.80,
     "tmax_abs_error_h_max": 3.0
   },
+  "regression": {
+    "auc_relative_error_max": 0.10,
+    "cmax_relative_error_max": 0.10,
+    "tmax_abs_error_h_max": 1.0,
+    "description": "Golden snapshot regression — ODE output must not drift > 10%"
+  },
   "drugs": {
-    "caffeine": {},
-    "warfarin": {},
-    "metoprolol": {},
-    "midazolam": {},
-    "propranolol": {}
+    "caffeine":   {"auc_relative_error_max": 0.50, "cmax_relative_error_max": 0.50},
+    "warfarin":   {"auc_relative_error_max": 0.80, "cmax_relative_error_max": 0.80},
+    "metoprolol": {"auc_relative_error_max": 0.70, "cmax_relative_error_max": 0.70},
+    "midazolam":  {"auc_relative_error_max": 0.80, "cmax_relative_error_max": 0.80},
+    "propranolol":{"auc_relative_error_max": 0.70, "cmax_relative_error_max": 0.70}
   }
 }

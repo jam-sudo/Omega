@@ -1,0 +1,14 @@
+{
+  "drug": "caffeine",
+  "dose_mg": 100.0,
+  "route": "oral",
+  "patient": "default_70kg",
+  "engine_version": "ode_35state",
+  "generated_at": "2026-02-28",
+  "metrics": {
+    "Cmax": 2.888373845710444,
+    "Tmax": 0.4,
+    "AUC": 13.289322549519873,
+    "t_half": 5.213585388358842
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "drug": "midazolam",
+  "generated_by": "ODE WholeBodyPBPK v0.9.0",
+  "note": "Golden snapshot for regression testing. Compare future ODE output against these values.",
+  "tolerance": {"auc_relative_error_max": 0.10, "cmax_relative_error_max": 0.10, "tmax_abs_error_h_max": 1.0},
+  "simulated": {
+    "cmax_mg_L": 0.012980716051048296,
+    "auc_mg_h_L": 0.02272159509201797,
+    "tmax_h": 0.5
+  }
+}
