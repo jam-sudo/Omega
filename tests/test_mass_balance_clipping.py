@@ -1,4 +1,10 @@
-"""Tests for negative-state detection and mass balance after clipping removal."""
+"""Tests for negative-state detection and mass balance after clipping removal.
+
+Verifies that after ODE clipping removal (Task #1):
+1. Normal simulations produce no negative states (all states >= -1e-6)
+2. The post-solve warning fires when solver returns negative states
+3. Mass balance holds (±0.5%) for all 5 reference compounds
+"""
 
 from __future__ import annotations
 
@@ -7,7 +13,7 @@ import logging
 import numpy as np
 import pytest
 
-from omega_pbpk.core.body import WholeBodyPBPK
+from omega_pbpk.core.body import N_STATES, WholeBodyPBPK
 from omega_pbpk.drugs.caffeine import CAFFEINE
 from omega_pbpk.drugs.metformin import METFORMIN
 from omega_pbpk.drugs.midazolam import MIDAZOLAM
@@ -25,10 +31,23 @@ class TestNoNegativeStatesNormal:
         model.setup_iv(dose_mg=200.0)
         result = model.simulate(t_end_h=24.0, dt_h=0.1)
 
-        min_val = float(np.min(result.amounts))
-        assert min_val >= -1e-6, (
-            f"Negative state detected in normal caffeine simulation: min value = {min_val:.3e}"
-        )
+        min_per_state = np.min(result.amounts, axis=0)
+        for idx in range(N_STATES):
+            assert min_per_state[idx] >= -1e-6, (
+                f"State[{idx}] went negative: min={min_per_state[idx]:.3e} mg"
+            )
+
+    def test_caffeine_oral_no_negative_states(self) -> None:
+        """A normal caffeine oral simulation should have all states >= -1e-6."""
+        model = WholeBodyPBPK(CAFFEINE)
+        model.setup_oral(dose_mg=100.0)
+        result = model.simulate(t_end_h=24.0, dt_h=0.1)
+
+        min_per_state = np.min(result.amounts, axis=0)
+        for idx in range(N_STATES):
+            assert min_per_state[idx] >= -1e-6, (
+                f"State[{idx}] went negative: min={min_per_state[idx]:.3e} mg"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -103,5 +122,20 @@ class TestMassBalanceAllCompounds:
             deviation = abs(total - dose_mg) / dose_mg
             assert deviation < 0.005, (
                 f"[{name}] Mass balance violated at t={result.time_h[i]:.1f}h: "
+                f"{total:.6f} mg (expected {dose_mg} mg, deviation {deviation:.4%})"
+            )
+
+    @pytest.mark.parametrize("name,drug,dose_mg", REFERENCE_COMPOUNDS)
+    def test_oral_mass_balance(self, name: str, drug: object, dose_mg: float) -> None:
+        """Oral mass balance must hold at ±0.5% for all reference compounds."""
+        model = WholeBodyPBPK(drug)  # type: ignore[arg-type]
+        model.setup_oral(dose_mg)
+        result = model.simulate(t_end_h=24.0, dt_h=0.1)
+        mb = result.mass_balance()
+
+        for i, total in enumerate(mb):
+            deviation = abs(total - dose_mg) / dose_mg
+            assert deviation < 0.005, (
+                f"[{name}] Oral mass balance violated at t={result.time_h[i]:.1f}h: "
                 f"{total:.6f} mg (expected {dose_mg} mg, deviation {deviation:.4%})"
             )
