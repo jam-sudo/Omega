@@ -29,6 +29,8 @@ References:
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -37,6 +39,8 @@ from numpy.typing import NDArray
 
 from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
+
+logger = logging.getLogger(__name__)
 
 
 def _ess_single(chain: NDArray[np.float64]) -> float:
@@ -159,6 +163,7 @@ class CalibrationResult:
     acceptance_rate: float
     map_estimate: dict[str, float] = field(default_factory=dict)
     convergence: dict[str, dict[str, float]] = field(default_factory=dict)
+    final_proposal_sd: float = 0.0
 
 
 def _log_likelihood(
@@ -229,6 +234,9 @@ def run_mh_calibration(
     observation_sigma: float = 0.1,
     calibrate_gut: bool = True,
     seed: int | None = None,
+    adaptive: bool = True,
+    adapt_interval: int = 100,
+    adapt_end: int | None = None,
 ) -> CalibrationResult:
     """Run Metropolis-Hastings MCMC calibration against observed data.
 
@@ -237,6 +245,11 @@ def run_mh_calibration(
     Calibrates:
       - clint_hepatic_L_per_h (hepatic intrinsic clearance, in vivo)
       - clint_gut_L_per_h (gut intrinsic clearance, in vivo) if calibrate_gut=True
+
+    When ``adaptive=True``, Robbins-Monro scaling is applied to the proposal
+    standard deviations every ``adapt_interval`` steps until step
+    ``adapt_end`` (default: ``n_samples // 2``).  The target acceptance rate
+    is 0.234 (optimal for random-walk Metropolis in high dimensions).
 
     Args:
         observed: DataFrame with 'time_h' and 'C_plasma_mg_per_L' columns.
@@ -252,10 +265,16 @@ def run_mh_calibration(
         observation_sigma: Assumed observation noise SD (mg/L).
         calibrate_gut: Whether to also calibrate gut CLint.
         seed: Random seed for reproducibility.
+        adaptive: Enable Robbins-Monro adaptive proposal scaling.
+        adapt_interval: Number of steps between adaptation updates.
+        adapt_end: Step at which to stop adapting (default: n_samples // 2).
 
     Returns:
         CalibrationResult with posterior samples and diagnostics.
     """
+    if adapt_end is None:
+        adapt_end = n_samples // 2
+
     rng = np.random.default_rng(seed)
 
     obs_time = observed["time_h"].to_numpy(dtype=np.float64)
@@ -288,6 +307,9 @@ def run_mh_calibration(
     if calibrate_gut:
         best_params["clint_gut_L_per_h"] = current_gut or 0.0
 
+    # Adaptive tracking
+    window_accepts: list[bool] = []
+
     for i in range(n_samples):
         # Propose new parameters in log-space
         proposal_clint = float(
@@ -304,6 +326,24 @@ def run_mh_calibration(
             )
         except Exception:
             # Simulation failed — reject proposal
+            window_accepts.append(False)
+            # Robbins-Monro adaptation check (even on failed sims)
+            if adaptive and i < adapt_end and len(window_accepts) >= adapt_interval:
+                _rate = sum(window_accepts[-adapt_interval:]) / adapt_interval
+                if _rate > 0.234:
+                    proposal_sd_log_clint = min(proposal_sd_log_clint * 1.1, 1e3)
+                    proposal_sd_log_gut = min(proposal_sd_log_gut * 1.1, 1e3)
+                else:
+                    proposal_sd_log_clint = max(proposal_sd_log_clint * 0.9, 1e-6)
+                    proposal_sd_log_gut = max(proposal_sd_log_gut * 0.9, 1e-6)
+                logger.info(
+                    "Step %d: acceptance_rate=%.3f proposal_sd_clint=%.6f proposal_sd_gut=%.6f",
+                    i,
+                    _rate,
+                    proposal_sd_log_clint,
+                    proposal_sd_log_gut,
+                )
+                window_accepts.clear()
             continue
 
         proposal_log_post = _log_likelihood(
@@ -315,7 +355,10 @@ def run_mh_calibration(
 
         # Metropolis acceptance criterion
         log_alpha = proposal_log_post - current_log_post
-        if np.log(rng.uniform()) < log_alpha:
+        step_accepted = np.log(rng.uniform()) < log_alpha
+        window_accepts.append(bool(step_accepted))
+
+        if step_accepted:
             current_clint = proposal_clint
             current_gut = proposal_gut
             current_log_post = proposal_log_post
@@ -327,6 +370,24 @@ def run_mh_calibration(
                 best_params = {"clint_hepatic_L_per_h": current_clint}
                 if calibrate_gut and current_gut is not None:
                     best_params["clint_gut_L_per_h"] = current_gut
+
+        # Robbins-Monro adaptive proposal scaling
+        if adaptive and i < adapt_end and len(window_accepts) >= adapt_interval:
+            _rate = sum(window_accepts[-adapt_interval:]) / adapt_interval
+            if _rate > 0.234:
+                proposal_sd_log_clint = min(proposal_sd_log_clint * 1.1, 1e3)
+                proposal_sd_log_gut = min(proposal_sd_log_gut * 1.1, 1e3)
+            else:
+                proposal_sd_log_clint = max(proposal_sd_log_clint * 0.9, 1e-6)
+                proposal_sd_log_gut = max(proposal_sd_log_gut * 0.9, 1e-6)
+            logger.info(
+                "Step %d: acceptance_rate=%.3f proposal_sd_clint=%.6f proposal_sd_gut=%.6f",
+                i,
+                _rate,
+                proposal_sd_log_clint,
+                proposal_sd_log_gut,
+            )
+            window_accepts.clear()
 
         if i >= burn_in:
             row: dict[str, float] = {
@@ -348,17 +409,122 @@ def run_mh_calibration(
     acceptance_rate = accepted / max(n_samples, 1)
     convergence = compute_convergence_diagnostics(posterior_samples)
 
+    final_sd = (proposal_sd_log_clint + proposal_sd_log_gut) / 2.0
+
+    if acceptance_rate < 0.15 or acceptance_rate > 0.45:
+        logger.warning(
+            "Final acceptance rate %.3f is outside recommended range [0.15, 0.45]",
+            acceptance_rate,
+        )
+
     return CalibrationResult(
         posterior_samples=posterior_samples,
         posterior_predictive=posterior_predictive,
         acceptance_rate=acceptance_rate,
         map_estimate=best_params,
         convergence=convergence,
+        final_proposal_sd=final_sd,
+    )
+
+
+def calibrate(
+    log_prob: Callable[[NDArray[np.float64]], float],
+    x0: NDArray[np.float64],
+    n_steps: int = 2000,
+    proposal_sd: float = 0.1,
+    seed: int | None = None,
+    adaptive: bool = True,
+    adapt_interval: int = 100,
+    adapt_end: int | None = None,
+) -> CalibrationResult:
+    """Generic Metropolis-Hastings sampler with optional Robbins-Monro adaptation.
+
+    This is a lightweight entry-point for sampling from an arbitrary
+    unnormalised log-probability.  For PBPK-specific calibration against
+    observed PK data, see :func:`run_mh_calibration`.
+
+    Args:
+        log_prob: Callable accepting a 1-D numpy array and returning
+            the (unnormalised) log-probability.
+        x0: Initial state vector (1-D).
+        n_steps: Total number of MCMC iterations.
+        proposal_sd: Initial isotropic proposal standard deviation.
+        seed: Random seed for reproducibility.
+        adaptive: Enable Robbins-Monro adaptive proposal scaling.
+        adapt_interval: Number of steps between adaptation updates.
+        adapt_end: Step at which to stop adapting (default: n_steps // 2).
+
+    Returns:
+        CalibrationResult.  ``posterior_samples`` contains columns
+        ``x0, x1, …`` plus ``log_posterior``.  ``posterior_predictive``
+        is empty.  ``acceptance_rate`` and ``final_proposal_sd`` are
+        populated.
+    """
+    if adapt_end is None:
+        adapt_end = n_steps // 2
+
+    rng = np.random.default_rng(seed)
+    x = np.array(x0, dtype=np.float64)
+    d = x.shape[0]
+    current_lp = log_prob(x)
+
+    accepted = 0
+    window_accepts: list[bool] = []
+    rows: list[dict[str, float]] = []
+
+    for i in range(n_steps):
+        proposal = x + rng.normal(0.0, proposal_sd, size=d)
+        prop_lp = log_prob(proposal)
+
+        log_alpha = prop_lp - current_lp
+        step_accepted = bool(np.log(rng.uniform()) < log_alpha)
+        window_accepts.append(step_accepted)
+
+        if step_accepted:
+            x = proposal
+            current_lp = prop_lp
+            accepted += 1
+
+        # Robbins-Monro adaptive proposal scaling
+        if adaptive and i < adapt_end and len(window_accepts) >= adapt_interval:
+            rate = sum(window_accepts[-adapt_interval:]) / adapt_interval
+            if rate > 0.234:
+                proposal_sd = min(proposal_sd * 1.1, 1e3)
+            else:
+                proposal_sd = max(proposal_sd * 0.9, 1e-6)
+            logger.info(
+                "Step %d: acceptance_rate=%.3f proposal_sd=%.6f",
+                i,
+                rate,
+                proposal_sd,
+            )
+            window_accepts.clear()
+
+        row: dict[str, float] = {"log_posterior": current_lp}
+        for j in range(d):
+            row[f"x{j}"] = x[j]
+        rows.append(row)
+
+    posterior_samples = pd.DataFrame(rows)
+    acceptance_rate = accepted / max(n_steps, 1)
+
+    if acceptance_rate < 0.15 or acceptance_rate > 0.45:
+        logger.warning(
+            "Final acceptance rate %.3f is outside recommended range [0.15, 0.45]",
+            acceptance_rate,
+        )
+
+    return CalibrationResult(
+        posterior_samples=posterior_samples,
+        posterior_predictive=pd.DataFrame(),
+        acceptance_rate=acceptance_rate,
+        final_proposal_sd=proposal_sd,
     )
 
 
 __all__ = [
     "CalibrationResult",
+    "calibrate",
     "run_mh_calibration",
     "compute_convergence_diagnostics",
 ]
