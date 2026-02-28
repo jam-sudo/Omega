@@ -76,18 +76,31 @@ pythonpath = ["src"]
 
 [[tool.mypy.overrides]]
 module = [
-  "omega_pbpk.cli",
+  "omega_pbpk._compat",
+  "omega_pbpk.api.app",
   "omega_pbpk.api.server",
-  "omega_pbpk.ml_models.gnn_adme",
-  "omega_pbpk.core.body",
-  "omega_pbpk.core.heuristics",
+  "omega_pbpk.cli",
   "omega_pbpk.clinical.allometry",
+  "omega_pbpk.clinical.dose_optimization",
   "omega_pbpk.clinical.nca",
   "omega_pbpk.clinical.ontogeny",
+  "omega_pbpk.clinical.pgx_pbpk",
+  "omega_pbpk.clinical.report",
+  "omega_pbpk.core.body",
+  "omega_pbpk.core.heuristics",
   "omega_pbpk.in_vitro.receptor",
+  "omega_pbpk.ml_models.gnn_adme",
+  "omega_pbpk.pipeline",
   "omega_pbpk.population.physiology",
+  "omega_pbpk.population.pop_simulator",
   "omega_pbpk.prediction.adme_predictor",
   "omega_pbpk.qsp.pd_models",
+  "omega_pbpk.sensitivity",
+  "omega_pbpk.surrogate.train",
+  "omega_pbpk.uncertainty",
+  "omega_pbpk.validation.adme_benchmark",
+  "omega_pbpk.validation.benchmarks",
+  "omega_pbpk.visualization.vpc",
 ]
 ignore_errors = true
 

@@ -6,15 +6,12 @@ numpy >= 2.0: use np.trapezoid (np.trapz deprecated in 2.0, removed in 2.4)
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
 import numpy as np
 
-# Use getattr to avoid mypy attr-defined errors on cross-version numpy stubs.
-# getattr returns Any so no type: ignore comments are needed.
-np_trapz: Callable[..., Any] = getattr(np, "trapezoid", None) or getattr(  # noqa: B009
-    np, "trapz", None
-)
+# Resolve the trapezoid function dynamically to support both numpy <2.0
+# (np.trapz) and numpy >=2.0 (np.trapezoid, np.trapz removed in 2.4).
+# Dynamic lookup avoids mypy attr-defined errors on cross-version stubs.
+_names = ("trapezoid", "trapz")
+np_trapz = next(getattr(np, n) for n in _names if hasattr(np, n))
 
 __all__ = ["np_trapz"]
