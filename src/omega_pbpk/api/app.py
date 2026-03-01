@@ -31,6 +31,7 @@ except ImportError:
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -242,6 +243,60 @@ class ValidateResponse(BaseModel):
     mode: str
     passed: bool
     results: dict
+
+
+class IVIVERequest(BaseModel):
+    clint_uL_min: float = Field(..., gt=0)
+    clint_system: Literal["microsomes", "hepatocytes"] = "microsomes"
+    fup: float = Field(..., gt=0, le=1)
+    fu_mic: float | None = Field(default=None, gt=0, le=1)
+    logP: float | None = None
+    papp_ab_cm_s: float | None = Field(default=None, gt=0)
+    papp_ba_cm_s: float | None = Field(default=None, gt=0)
+    rbp: float | None = Field(default=None, gt=0)
+    mw: float = Field(default=300.0, gt=0)
+    drug_name: str = "ivive_compound"
+    clint_gut_uL_min_mg: float = Field(default=0.0, ge=0)
+    liver_weight_g: float = Field(default=1500.0, gt=0)
+    q_liver_L_per_h: float = Field(default=96.6, gt=0)
+
+
+class IVIVEClearanceResponse(BaseModel):
+    clint_in_vitro: float
+    system: str
+    clint_liver_L_per_h: float
+    clh_well_stirred_L_per_h: float
+    fu_mic: float
+    fup: float
+
+
+class IVIVEPermeabilityResponse(BaseModel):
+    papp_ab_cm_s: float
+    papp_ba_cm_s: float | None
+    peff_10_4_cm_s: float
+    efflux_ratio: float
+    fa_predicted: float
+    fg_predicted: float
+    absorption_classification: str
+    pgp_flag: str
+
+
+class IVIVEBindingResponse(BaseModel):
+    fup_measured: float
+    fup_corrected: float
+    fu_mic: float
+    fu_mic_source: str
+    rbp: float
+    rbp_source: str
+
+
+class IVIVEResponse(BaseModel):
+    clearance: IVIVEClearanceResponse
+    permeability: IVIVEPermeabilityResponse | None
+    binding: IVIVEBindingResponse
+    drug_params: dict[str, float | str]
+    confidence: str
+    warnings: list[str]
 
 
 # ---------------------------------------------------------------------------
@@ -672,6 +727,73 @@ def train_surrogate(req: TrainSurrogateRequest) -> TrainSurrogateResponse:
         raise
     except Exception as exc:
         logger.exception("Train surrogate error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/ivive", response_model=IVIVEResponse)
+def ivive(req: IVIVERequest) -> IVIVEResponse:
+    """In vitro → in vivo extrapolation: clearance, permeability, and protein binding."""
+    try:
+        from omega_pbpk.clinical.ivive_engine import run_ivive_bundle
+
+        result = run_ivive_bundle(
+            clint_uL_min=req.clint_uL_min,
+            clint_system=req.clint_system,
+            fup=req.fup,
+            fu_mic=req.fu_mic,
+            logP=req.logP,
+            papp_ab_cm_s=req.papp_ab_cm_s,
+            papp_ba_cm_s=req.papp_ba_cm_s,
+            rbp=req.rbp,
+            mw=req.mw,
+            drug_name=req.drug_name,
+            clint_gut_uL_min_mg=req.clint_gut_uL_min_mg,
+            liver_weight_g=req.liver_weight_g,
+            q_liver_L_per_h=req.q_liver_L_per_h,
+        )
+        cl = result.clearance
+        cl_resp = IVIVEClearanceResponse(
+            clint_in_vitro=cl.clint_in_vitro,
+            system=cl.system,
+            clint_liver_L_per_h=cl.clint_liver_L_per_h,
+            clh_well_stirred_L_per_h=cl.clh_well_stirred_L_per_h,
+            fu_mic=cl.fu_mic,
+            fup=cl.fup,
+        )
+        perm_resp = None
+        if result.permeability is not None:
+            p = result.permeability
+            perm_resp = IVIVEPermeabilityResponse(
+                papp_ab_cm_s=p.papp_ab_cm_s,
+                papp_ba_cm_s=p.papp_ba_cm_s,
+                peff_10_4_cm_s=p.peff_10_4_cm_s,
+                efflux_ratio=p.efflux_ratio,
+                fa_predicted=p.fa_predicted,
+                fg_predicted=p.fg_predicted,
+                absorption_classification=p.absorption_classification,
+                pgp_flag=p.pgp_flag,
+            )
+        b = result.binding
+        bind_resp = IVIVEBindingResponse(
+            fup_measured=b.fup_measured,
+            fup_corrected=b.fup_corrected,
+            fu_mic=b.fu_mic,
+            fu_mic_source=b.fu_mic_source,
+            rbp=b.rbp,
+            rbp_source=b.rbp_source,
+        )
+        return IVIVEResponse(
+            clearance=cl_resp,
+            permeability=perm_resp,
+            binding=bind_resp,
+            drug_params=result.drug_params,
+            confidence=result.confidence,
+            warnings=list(result.warnings),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("IVIVE error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
