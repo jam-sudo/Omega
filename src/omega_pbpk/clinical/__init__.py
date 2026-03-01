@@ -23,6 +23,14 @@ from omega_pbpk.clinical.ivive import (
     scale_hepatocyte_clint,
     scale_microsomal_clint,
 )
+from omega_pbpk.clinical.ivive_engine import (
+    Caco2IVIVEResult,
+    IVIVEBundleResult,
+    PPBIVIVEResult,
+    run_ivive_bundle,
+    scale_caco2_papp,
+    scale_ppb,
+)
 from omega_pbpk.clinical.nca import (
     NCAResult,
     run_nca,
@@ -68,6 +76,12 @@ __all__ = [
     "scale_microsomal_clint",
     "scale_hepatocyte_clint",
     "estimate_clint_for_target_clh",
+    "Caco2IVIVEResult",
+    "PPBIVIVEResult",
+    "IVIVEBundleResult",
+    "scale_caco2_papp",
+    "scale_ppb",
+    "run_ivive_bundle",
     "PGxPBPKResult",
     "run_pgx_pbpk",
     "plot_pgx_forest",
