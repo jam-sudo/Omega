@@ -21,6 +21,7 @@ class DrugSpec:
     solubility_mg_mL: float = 1.0
     kp: dict[str, float] = field(default_factory=dict)
     permeability_limited: dict[str, dict[str, float]] = field(default_factory=dict)
+    transporter_profile: dict = field(default_factory=dict)
     param_source: Literal["yaml", "python", "ml_predicted", "measured"] = "yaml"
     prediction_confidence: str = "unknown"
 
