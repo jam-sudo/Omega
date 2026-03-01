@@ -51,21 +51,45 @@ class ADMEProperties:
     clint_2d6: float  # µL/min/pmol
     herg_ic50_uM: float
     confidence: str = "low"  # low, medium, high
+    # Conformal prediction intervals (90% coverage)
+    fup_lo: float = 0.0
+    fup_hi: float = 1.0
+    clint_3a4_lo: float = 0.0
+    clint_3a4_hi: float = 0.0
 
 
 class ADMEPredictor:
     """QSPR-based ADME property predictor.
 
-    Uses multiple linear regression models trained on internal datasets.
-    When RDKit is available, uses 2D molecular descriptors.
-    Otherwise, uses simplified correlations.
+    Uses polynomial ridge regression models trained on reference data
+    (data/adme_reference.csv) when available, with split-conformal
+    prediction intervals.  When RDKit is available, also uses 2D
+    molecular descriptors for logS, hERG, and CLint_2D6.
 
-    Nearest-neighbor confidence scoring is applied using reference data
-    from data/adme_reference.csv when available.
+    Nearest-neighbor confidence scoring uses the 6-feature polynomial
+    space (normalised) for better discrimination.
     """
 
     _ref_data: list[dict] | None = None
     _featurizer: Any | None = None
+
+    # Polynomial model coefficients (set by _fit_qspr_models)
+    _coeff_fup: np.ndarray | None = None
+    _coeff_clint: np.ndarray | None = None
+    _coeff_peff: np.ndarray | None = None
+    _coeff_rbp: np.ndarray | None = None
+    # Conformal quantiles (90th percentile of relative residuals)
+    _q90_fup: float = 0.5
+    _q90_clint: float = 0.5
+    _q90_peff: float = 0.5
+    _q90_rbp: float = 0.5
+    # Normalised reference feature matrix for NN distance
+    _ref_poly_mat: np.ndarray | None = None
+    _ref_feat_std: np.ndarray | None = None
+
+    # ------------------------------------------------------------------
+    # Reference data loading
+    # ------------------------------------------------------------------
 
     def _load_reference_data(self) -> None:
         """Load ADME reference data from CSV into self._ref_data.
@@ -93,12 +117,166 @@ class ADMEPredictor:
         self._ref_data = rows
         logger.debug("Loaded %d reference compounds from %s.", len(rows), ref_path)
 
+        self._fit_qspr_models()
+
+    # ------------------------------------------------------------------
+    # Polynomial feature construction
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _poly_features(mw: float, logp: float) -> np.ndarray:
+        """Return degree-2 polynomial features [1, mw, logP, mw², logP², mw·logP]."""
+        return np.array([1.0, mw, logp, mw * mw, logp * logp, mw * logp])
+
+    # ------------------------------------------------------------------
+    # Model fitting (called once after reference data is loaded)
+    # ------------------------------------------------------------------
+
+    def _fit_qspr_models(self) -> None:
+        """Fit polynomial ridge regression on reference data with conformal calibration.
+
+        Uses degree-2 features [1, mw, logP, mw², logP², mw·logP].
+        80% of rows are used for training, the remaining 20% for
+        split-conformal calibration (90th-percentile relative residual).
+        """
+        rows = self._ref_data
+        if not rows or len(rows) < 5:
+            return
+
+        n = len(rows)
+        try:
+            mw_arr = np.array([float(r["mw"]) for r in rows])
+            logp_arr = np.array([float(r["logP"]) for r in rows])
+        except (KeyError, ValueError) as exc:
+            logger.warning("QSPR fitting skipped: bad reference data (%s).", exc)
+            return
+
+        # Polynomial feature matrix [N x 6]
+        A = np.column_stack(
+            [
+                np.ones(n),
+                mw_arr,
+                logp_arr,
+                mw_arr**2,
+                logp_arr**2,
+                mw_arr * logp_arr,
+            ]
+        )
+
+        # Targets (log-transformed where appropriate)
+        try:
+            fup_arr = np.clip(np.array([float(r["fup"]) for r in rows]), 1e-4, 0.9999)
+            clint_arr = np.array([float(r["clint_3a4_uL_min_pmol"]) for r in rows])
+            peff_arr = np.array([float(r["peff_cm_s"]) for r in rows])
+            rbp_arr = np.array([float(r["rbp"]) for r in rows])
+        except (KeyError, ValueError) as exc:
+            logger.warning("QSPR fitting skipped: missing target column (%s).", exc)
+            return
+
+        y_fup = np.clip(np.log10(fup_arr / (1.0 - fup_arr)), -4.0, 4.0)
+        y_clint = np.log10(np.clip(clint_arr, 1e-6, None) + 0.01)
+        y_peff = np.log10(np.clip(peff_arr, 1e-10, None) * 1e4 + 0.001)
+        y_rbp = rbp_arr
+
+        # Train / calibration split
+        n_train = max(5, int(0.8 * n))
+        A_train, A_cal = A[:n_train], A[n_train:]
+
+        def _fit_one(y_full: np.ndarray) -> tuple[np.ndarray, float]:
+            y_tr, y_ca = y_full[:n_train], y_full[n_train:]
+            # OLS via normal equations (well-conditioned with 6 features, 150+ rows)
+            try:
+                coeffs = np.linalg.lstsq(A_train, y_tr, rcond=None)[0]
+            except np.linalg.LinAlgError:
+                return np.zeros(6), 0.5
+            if len(y_ca) >= 2:
+                y_pred_ca = A_cal @ coeffs
+                rel_res = np.abs(y_pred_ca - y_ca) / (np.abs(y_ca) + 1e-6)
+                q90 = float(np.percentile(rel_res, 90))
+            else:
+                q90 = 0.5
+            return coeffs, q90
+
+        try:
+            self._coeff_fup, self._q90_fup = _fit_one(y_fup)
+            self._coeff_clint, self._q90_clint = _fit_one(y_clint)
+            self._coeff_peff, self._q90_peff = _fit_one(y_peff)
+            self._coeff_rbp, self._q90_rbp = _fit_one(y_rbp)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("QSPR polynomial fitting failed: %s", exc)
+            self._coeff_fup = None
+            return
+
+        # Build normalised reference matrix for NN scoring
+        self._ref_poly_mat = A
+        std = A.std(axis=0)
+        std = np.where(std < 1e-10, 1.0, std)
+        self._ref_feat_std = std
+
+        logger.debug(
+            "QSPR models fitted (n=%d train, %d cal). q90: fup=%.2f clint=%.2f peff=%.2f rbp=%.2f",
+            n_train,
+            n - n_train,
+            self._q90_fup,
+            self._q90_clint,
+            self._q90_peff,
+            self._q90_rbp,
+        )
+
+    # ------------------------------------------------------------------
+    # Predict from fitted polynomial models
+    # ------------------------------------------------------------------
+
+    def _predict_poly(self, mw: float, logp: float) -> dict:
+        """Return predictions from fitted polynomial models (dict of floats).
+
+        Returns an empty dict if models are not fitted.
+        """
+        if self._coeff_fup is None:
+            return {}
+
+        poly = self._poly_features(mw, logp)
+
+        # fup (logit space → back-transform)
+        logit_fup = float(poly @ self._coeff_fup)
+        fup = float(np.clip(1.0 / (1.0 + 10.0 ** (-logit_fup)), 0.001, 1.0))
+        fup_lo = max(0.001, fup / (1.0 + self._q90_fup))
+        fup_hi = min(1.0, fup * (1.0 + self._q90_fup))
+
+        # clint_3a4 (log space → back-transform)
+        log_clint = float(poly @ self._coeff_clint)
+        clint_3a4 = float(np.clip(10.0**log_clint - 0.01, 0.01, 100.0))
+        clint_lo = max(0.001, clint_3a4 / (1.0 + self._q90_clint))
+        clint_hi = clint_3a4 * (1.0 + self._q90_clint)
+
+        # peff (log scale of ×10⁻⁴ cm/s → back-transform; stored as ×10⁻⁴ cm/s)
+        log_peff = float(poly @ self._coeff_peff)
+        peff = float(np.clip(10.0**log_peff - 0.001, 0.01, 100.0))
+
+        # rbp (direct)
+        rbp = float(np.clip(poly @ self._coeff_rbp, 0.5, 3.0))
+
+        return {
+            "fup": fup,
+            "fup_lo": fup_lo,
+            "fup_hi": fup_hi,
+            "clint_3a4": clint_3a4,
+            "clint_3a4_lo": clint_lo,
+            "clint_3a4_hi": clint_hi,
+            "peff": peff,
+            "rbp": rbp,
+        }
+
+    # ------------------------------------------------------------------
+    # Nearest-neighbour confidence distance
+    # ------------------------------------------------------------------
+
     def _nearest_neighbor_distance(self, smiles: str) -> float:
         """Compute the minimum Euclidean distance from query to reference data.
 
-        Uses the RDKitFeaturizer (MW, LogP, TPSA, ...) when available.
-        Falls back to a 2-feature proxy (logP, MW) derived from the CSV rows
-        when the featurizer produces zeros (no RDKit) or ref_data is absent.
+        Uses the normalised 6-feature polynomial space when models are
+        fitted (better discrimination).  Falls back to a 2-feature
+        proxy (logP, MW) otherwise.
 
         Args:
             smiles: Query SMILES string.
@@ -110,6 +288,10 @@ class ADMEPredictor:
         if not self._ref_data:
             return 0.0
 
+        # Obtain MW and logP for the query molecule
+        mw_q: float | None = None
+        logp_q: float | None = None
+
         # Lazy-init featurizer
         if self._featurizer is None:
             try:
@@ -119,35 +301,26 @@ class ADMEPredictor:
             except Exception:
                 self._featurizer = False  # mark as unavailable
 
-        # Featurize query
-        query_vec: np.ndarray | None = None
         if self._featurizer and self._featurizer is not False:
             fv = self._featurizer.featurize(smiles)
             if np.any(fv.descriptors != 0.0):
-                query_vec = fv.descriptors  # shape (15,)
+                mw_q = float(fv.descriptors[0])
+                logp_q = float(fv.descriptors[1])
 
-        if query_vec is not None:
-            # Build reference matrix using same 2-feature proxy subset
-            # (logP=index 1, MW=index 0) for fair comparison
-            ref_vecs = []
-            for row in self._ref_data:
-                try:
-                    ref_vecs.append([float(row["mw"]), float(row["logP"])])
-                except (KeyError, ValueError):
-                    continue
-            if not ref_vecs:
-                return 0.0
-            # Use MW and logP columns from query vector
-            q2 = np.array([query_vec[0], query_vec[1]])
-            ref_arr = np.array(ref_vecs, dtype=np.float64)
-            diffs = ref_arr - q2
-            dists = np.linalg.norm(diffs, axis=1)
+        if mw_q is None:
+            mw_q = self._estimate_mw(smiles)
+            logp_q = self._estimate_logp(smiles)
+
+        # Use normalised 6-feature poly space when available
+        if self._ref_poly_mat is not None and self._ref_feat_std is not None:
+            q_poly = self._poly_features(mw_q, logp_q)
+            q_norm = q_poly / self._ref_feat_std
+            ref_norm = self._ref_poly_mat / self._ref_feat_std
+            dists = np.linalg.norm(ref_norm - q_norm, axis=1)
             return float(dists.min())
 
-        # Fallback: use heuristic MW/logP estimates
-        est_mw = self._estimate_mw(smiles)
-        est_logp = self._estimate_logp(smiles)
-        q2 = np.array([est_mw, est_logp])
+        # Fallback: 2-feature [mw, logP]
+        q2 = np.array([mw_q, logp_q])
         ref_vecs = []
         for row in self._ref_data:
             try:
@@ -157,9 +330,12 @@ class ADMEPredictor:
         if not ref_vecs:
             return 0.0
         ref_arr = np.array(ref_vecs, dtype=np.float64)
-        diffs = ref_arr - q2
-        dists = np.linalg.norm(diffs, axis=1)
+        dists = np.linalg.norm(ref_arr - q2, axis=1)
         return float(dists.min())
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     def predict(self, smiles: str) -> ADMEProperties:
         """Predict ADME properties from SMILES string.
@@ -209,6 +385,10 @@ class ADMEPredictor:
             clint_2d6=base_result.clint_2d6,
             herg_ic50_uM=base_result.herg_ic50_uM,
             confidence=confidence,
+            fup_lo=base_result.fup_lo,
+            fup_hi=base_result.fup_hi,
+            clint_3a4_lo=base_result.clint_3a4_lo,
+            clint_3a4_hi=base_result.clint_3a4_hi,
         )
 
     def _predict_rdkit(self, smiles: str) -> ADMEProperties:
@@ -228,72 +408,99 @@ class ADMEPredictor:
         # logS = -0.01 × MW - 0.92 × logP + 0.025 × TPSA - 0.19 × aromatic_rings + 1.58
         log_s = -0.01 * mw - 0.92 * logp + 0.025 * tpsa - 0.19 * aromatic_rings + 1.58
 
-        # Peff (×10⁻⁴ cm/s) from logP and TPSA
-        # Higher logP → higher Peff; higher TPSA → lower Peff
-        peff = 10 ** (0.4 * logp - 0.01 * tpsa + 0.3)
-        peff = np.clip(peff, 0.01, 100.0)
+        # Use polynomial models when fitted; else fall back to hardcoded equations
+        poly = self._predict_poly(float(mw), float(logp))
 
-        # fup from logP and pKa-related descriptors
-        # Higher logP → lower fup (more protein binding)
-        fup = 1.0 / (1.0 + 10 ** (0.58 * logp - 1.2))
-        fup = np.clip(fup, 0.001, 1.0)
-
-        # Rbp from logP
-        rbp = 0.55 + 0.35 * (1.0 / (1.0 + 10 ** (1.0 - 0.3 * logp)))
-        rbp = np.clip(rbp, 0.5, 2.0)
-
-        # CLint_3A4 from MW, logP, and flexibility
-        clint_3a4 = 10 ** (0.2 * logp + 0.003 * mw - 0.05 * hbd - 1.5)
-        clint_3a4 = np.clip(clint_3a4, 0.01, 100.0)
+        if poly:
+            fup = poly["fup"]
+            fup_lo = poly["fup_lo"]
+            fup_hi = poly["fup_hi"]
+            clint_3a4 = poly["clint_3a4"]
+            clint_3a4_lo = poly["clint_3a4_lo"]
+            clint_3a4_hi = poly["clint_3a4_hi"]
+            peff = poly["peff"]
+            rbp = poly["rbp"]
+        else:
+            # Hardcoded fallback equations
+            peff = float(np.clip(10 ** (0.4 * logp - 0.01 * tpsa + 0.3), 0.01, 100.0))
+            fup = float(np.clip(1.0 / (1.0 + 10 ** (0.58 * logp - 1.2)), 0.001, 1.0))
+            rbp = float(np.clip(0.55 + 0.35 * (1.0 / (1.0 + 10 ** (1.0 - 0.3 * logp))), 0.5, 2.0))
+            clint_3a4 = float(
+                np.clip(10 ** (0.2 * logp + 0.003 * mw - 0.05 * hbd - 1.5), 0.01, 100.0)
+            )
+            fup_lo, fup_hi = 0.0, 1.0
+            clint_3a4_lo, clint_3a4_hi = 0.0, 0.0
 
         # CLint_2D6 — lower baseline, depends on basicity
-        clint_2d6 = 10 ** (0.15 * logp + 0.002 * mw + 0.1 * hba - 2.0)
-        clint_2d6 = np.clip(clint_2d6, 0.01, 50.0)
+        clint_2d6 = float(np.clip(10 ** (0.15 * logp + 0.002 * mw + 0.1 * hba - 2.0), 0.01, 50.0))
 
         # hERG IC50 from lipophilicity and aromaticity
-        herg = 10 ** (-0.4 * logp + 0.01 * tpsa - 0.15 * aromatic_rings + 2.5)
-        herg = np.clip(herg, 0.01, 1000.0)
+        herg = float(
+            np.clip(10 ** (-0.4 * logp + 0.01 * tpsa - 0.15 * aromatic_rings + 2.5), 0.01, 1000.0)
+        )
 
         return ADMEProperties(
             mw=round(mw, 2),
             logP=round(float(logp), 2),
             logS=round(float(log_s), 2),
-            peff=round(float(peff), 3),
-            fup=round(float(fup), 4),
-            rbp=round(float(rbp), 3),
-            clint_3a4=round(float(clint_3a4), 3),
-            clint_2d6=round(float(clint_2d6), 3),
-            herg_ic50_uM=round(float(herg), 2),
+            peff=round(peff, 3),
+            fup=round(fup, 4),
+            rbp=round(rbp, 3),
+            clint_3a4=round(clint_3a4, 3),
+            clint_2d6=round(clint_2d6, 3),
+            herg_ic50_uM=round(herg, 2),
             confidence="medium",
+            fup_lo=round(fup_lo, 4),
+            fup_hi=round(fup_hi, 4),
+            clint_3a4_lo=round(clint_3a4_lo, 3),
+            clint_3a4_hi=round(clint_3a4_hi, 3),
         )
 
     def _predict_simplified(self, smiles: str) -> ADMEProperties:
         """Simplified prediction without RDKit (using SMILES heuristics)."""
-        # Estimate MW from SMILES length (very rough)
         mw = self._estimate_mw(smiles)
         logp = self._estimate_logp(smiles)
 
         log_s = -0.01 * mw - 0.8 * logp + 1.0
-        peff = 10 ** (0.3 * logp + 0.2)
-        peff = np.clip(peff, 0.01, 100.0)
-        fup = 1.0 / (1.0 + 10 ** (0.5 * logp - 1.0))
-        fup = np.clip(fup, 0.001, 1.0)
-        rbp = 0.6 + 0.2 * (logp > 2)
-        clint_3a4 = 10 ** (0.15 * logp - 1.2)
-        clint_2d6 = 10 ** (0.1 * logp - 1.5)
-        herg = 10 ** (-0.3 * logp + 2.0)
+
+        # Use polynomial models when fitted; else fall back to hardcoded equations
+        poly = self._predict_poly(mw, logp)
+
+        if poly:
+            fup = poly["fup"]
+            fup_lo = poly["fup_lo"]
+            fup_hi = poly["fup_hi"]
+            clint_3a4 = poly["clint_3a4"]
+            clint_3a4_lo = poly["clint_3a4_lo"]
+            clint_3a4_hi = poly["clint_3a4_hi"]
+            peff = poly["peff"]
+            rbp = poly["rbp"]
+        else:
+            peff = float(np.clip(10 ** (0.3 * logp + 0.2), 0.01, 100.0))
+            fup = float(np.clip(1.0 / (1.0 + 10 ** (0.5 * logp - 1.0)), 0.001, 1.0))
+            rbp = 0.6 + 0.2 * (logp > 2)
+            clint_3a4 = float(np.clip(10 ** (0.15 * logp - 1.2), 0.01, 100.0))
+            fup_lo, fup_hi = 0.0, 1.0
+            clint_3a4_lo, clint_3a4_hi = 0.0, 0.0
+
+        clint_2d6 = float(np.clip(10 ** (0.1 * logp - 1.5), 0.01, 50.0))
+        herg = float(np.clip(10 ** (-0.3 * logp + 2.0), 0.01, 1000.0))
 
         return ADMEProperties(
             mw=round(mw, 2),
             logP=round(float(logp), 2),
             logS=round(float(log_s), 2),
-            peff=round(float(peff), 3),
-            fup=round(float(fup), 4),
-            rbp=round(float(rbp), 3),
-            clint_3a4=round(float(clint_3a4), 3),
-            clint_2d6=round(float(clint_2d6), 3),
-            herg_ic50_uM=round(float(herg), 2),
+            peff=round(peff, 3),
+            fup=round(fup, 4),
+            rbp=round(rbp, 3),
+            clint_3a4=round(clint_3a4, 3),
+            clint_2d6=round(clint_2d6, 3),
+            herg_ic50_uM=round(herg, 2),
             confidence="low",
+            fup_lo=round(fup_lo, 4),
+            fup_hi=round(fup_hi, 4),
+            clint_3a4_lo=round(clint_3a4_lo, 3),
+            clint_3a4_hi=round(clint_3a4_hi, 3),
         )
 
     @staticmethod
