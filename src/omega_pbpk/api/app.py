@@ -223,6 +223,44 @@ class PGxRequest(BaseModel):
     body_weight: float = 70.0
 
 
+class DDISimulateRequest(BaseModel):
+    victim_drug: DrugRequest
+    perpetrator_name: str
+    perpetrator_ki_uM: float
+    perpetrator_target_enzyme: str = "CYP3A4"
+    perpetrator_mechanism: str = "competitive"
+    perpetrator_kinact_per_h: float = 0.0
+    perpetrator_kdeg_per_h: float = 0.02
+    perpetrator_fold_induction: float = 1.0
+    perpetrator_cmax_uM: float | None = None
+    dose_mg: float = 100.0
+    route: str = "oral"
+    body_weight: float = 70.0
+    duration_h: float = 24.0
+
+
+class DDISimulateResponse(BaseModel):
+    victim_name: str
+    perpetrator_name: str
+    target_enzyme: str
+    mechanism: str
+    auc_alone_mg_h_L: float
+    cmax_alone_mg_L: float
+    t_half_alone_h: float
+    auc_ddi_mg_h_L: float
+    cmax_ddi_mg_L: float
+    t_half_ddi_h: float
+    auc_ratio: float
+    cmax_ratio: float
+    classification: str
+    perpetrator_cmax_uM: float
+    static_r1: float
+    time_h: list[float]
+    cp_alone_mg_L: list[float]
+    cp_ddi_mg_L: list[float]
+    warnings: list[str]
+
+
 class ConformalUQRequest(BaseModel):
     drug_name: str
     dose_mg: float
@@ -567,6 +605,64 @@ def ddi(req: DDIRequest) -> list[dict[str, Any]]:
         raise
     except Exception as exc:
         logger.exception("DDI error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/ddi/simulate", response_model=DDISimulateResponse)
+def ddi_simulate(req: DDISimulateRequest) -> DDISimulateResponse:
+    """Dynamic DDI simulation: victim PK alone vs with perpetrator inhibitor/inducer."""
+    if req.route not in ("oral", "iv", "sc"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid route '{req.route}'. Must be 'oral', 'iv', or 'sc'.",
+        )
+    try:
+        from omega_pbpk.clinical.ddi_simulation import PerpetratorSpec, simulate_ddi
+
+        victim = _drug_request_to_drug(req.victim_drug)
+        perpetrator = PerpetratorSpec(
+            name=req.perpetrator_name,
+            ki_uM=req.perpetrator_ki_uM,
+            target_enzyme=req.perpetrator_target_enzyme,
+            mechanism=req.perpetrator_mechanism,
+            kinact_per_h=req.perpetrator_kinact_per_h,
+            kdeg_per_h=req.perpetrator_kdeg_per_h,
+            fold_induction=req.perpetrator_fold_induction,
+            cmax_uM=req.perpetrator_cmax_uM,
+        )
+        result = simulate_ddi(
+            victim_drug=victim,
+            perpetrator=perpetrator,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            body_weight=req.body_weight,
+            t_end_h=req.duration_h,
+        )
+        return DDISimulateResponse(
+            victim_name=result.victim_name,
+            perpetrator_name=result.perpetrator_name,
+            target_enzyme=result.target_enzyme,
+            mechanism=result.mechanism,
+            auc_alone_mg_h_L=result.auc_alone_mg_h_L,
+            cmax_alone_mg_L=result.cmax_alone_mg_L,
+            t_half_alone_h=result.t_half_alone_h,
+            auc_ddi_mg_h_L=result.auc_ddi_mg_h_L,
+            cmax_ddi_mg_L=result.cmax_ddi_mg_L,
+            t_half_ddi_h=result.t_half_ddi_h,
+            auc_ratio=result.auc_ratio,
+            cmax_ratio=result.cmax_ratio,
+            classification=result.classification,
+            perpetrator_cmax_uM=result.perpetrator_cmax_uM,
+            static_r1=result.static_r1,
+            time_h=list(result.time_h),
+            cp_alone_mg_L=list(result.cp_alone_mg_L),
+            cp_ddi_mg_L=list(result.cp_ddi_mg_L),
+            warnings=list(result.warnings),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("DDI simulate error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
