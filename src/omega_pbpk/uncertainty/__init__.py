@@ -20,6 +20,13 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from omega_pbpk.uncertainty.conformal_uq import (
+    ConformalUQResult,
+    ParameterBounds,
+    build_bounds_from_adme,
+    propagate_conformal_intervals,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -243,4 +250,12 @@ def _run_mechanistic(
     return result.pk_summary()
 
 
-__all__ = ["DistributionSpec", "UncertaintyResult", "monte_carlo_propagation"]
+__all__ = [
+    "DistributionSpec",
+    "UncertaintyResult",
+    "monte_carlo_propagation",
+    "ParameterBounds",
+    "ConformalUQResult",
+    "build_bounds_from_adme",
+    "propagate_conformal_intervals",
+]
