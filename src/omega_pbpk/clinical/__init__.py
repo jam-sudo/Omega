@@ -12,6 +12,12 @@ from omega_pbpk.clinical.ddi_report import (
     assess_ddi_risk,
     format_report,
 )
+from omega_pbpk.clinical.ddi_simulation import (
+    DDISimulationResult,
+    PerpetratorSpec,
+    classify_ddi,
+    simulate_ddi,
+)
 from omega_pbpk.clinical.dose_optimization import (
     DoseOptimizer,
     FormulationComparator,
@@ -86,4 +92,8 @@ __all__ = [
     "run_pgx_pbpk",
     "plot_pgx_forest",
     "pgx_report_html",
+    "PerpetratorSpec",
+    "DDISimulationResult",
+    "classify_ddi",
+    "simulate_ddi",
 ]
