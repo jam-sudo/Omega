@@ -169,6 +169,16 @@ def simulate(
     qsp_mode: str = typer.Option(
         "posthoc", "--qsp-mode", help="QSP coupling mode: 'posthoc' or 'coupled'."
     ),
+    uncertainty: bool = typer.Option(
+        False,
+        "--uncertainty/--no-uncertainty",
+        help="Run conformal UQ propagation.",
+    ),
+    uncertainty_samples: int = typer.Option(
+        200,
+        "--uncertainty-samples",
+        help="LHS samples for conformal UQ.",
+    ),
 ) -> None:
     """Run PBPK simulation for a compound."""
     _audit(
@@ -433,6 +443,40 @@ def simulate(
         )
         (out_path / "report_academic.md").write_text(_rep, encoding="utf-8")
         typer.echo(f"  Academic report saved to {out_path}/report_academic.md")
+
+    # --- Conformal UQ --------------------------------------------------------
+    if uncertainty:
+        from omega_pbpk.uncertainty.conformal_uq import (
+            ParameterBounds,
+            propagate_conformal_intervals,
+        )
+
+        bounds = ParameterBounds(
+            fup_lo=drug.fup * 0.5,
+            fup_hi=min(drug.fup * 2.0, 1.0),
+            clint_lo=0.001,
+            clint_hi=50.0,
+            peff_lo=1e-6,
+            peff_hi=5e-4,
+            rbp_lo=0.55,
+            rbp_hi=2.0,
+        )
+        uq = propagate_conformal_intervals(
+            drug_name=drug.name,
+            dose_mg=dose_mg,
+            route=route,
+            bounds=bounds,
+            n_samples=uncertainty_samples,
+        )
+        typer.echo("\n=== Uncertainty Quantification (Conformal Intervals) ===")
+        typer.echo(
+            f"Cmax [mg/L]: p5={uq.cmax_p5:.4f}, p50={uq.cmax_p50:.4f}, p95={uq.cmax_p95:.4f}"
+        )
+        typer.echo(f"AUC  [mg·h/L]: p5={uq.auc_p5:.4f}, p50={uq.auc_p50:.4f}, p95={uq.auc_p95:.4f}")
+        typer.echo(f"Tmax [h]:   p5={uq.tmax_p5:.4f}, p50={uq.tmax_p50:.4f}, p95={uq.tmax_p95:.4f}")
+        typer.echo(
+            f"t½   [h]:   p5={uq.t_half_p5:.4f}, p50={uq.t_half_p50:.4f}, p95={uq.t_half_p95:.4f}"
+        )
 
 
 @app.command()

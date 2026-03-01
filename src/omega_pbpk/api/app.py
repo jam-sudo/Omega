@@ -223,6 +223,41 @@ class PGxRequest(BaseModel):
     body_weight: float = 70.0
 
 
+class ConformalUQRequest(BaseModel):
+    drug_name: str
+    dose_mg: float
+    route: str = "oral"
+    smiles: str | None = None
+    mw: float | None = None
+    logP: float | None = None
+    fup_lo: float | None = None
+    fup_hi: float | None = None
+    clint_lo: float | None = None
+    clint_hi: float | None = None
+    peff_lo: float | None = None
+    peff_hi: float | None = None
+    rbp_lo: float | None = None
+    rbp_hi: float | None = None
+    n_samples: int = 200
+
+
+class ConformalUQResponse(BaseModel):
+    cmax_p5: float
+    cmax_p50: float
+    cmax_p95: float
+    auc_p5: float
+    auc_p50: float
+    auc_p95: float
+    tmax_p5: float
+    tmax_p50: float
+    tmax_p95: float
+    t_half_p5: float
+    t_half_p50: float
+    t_half_p95: float
+    n_samples: int
+    warnings: list[str]
+
+
 class TrainSurrogateRequest(BaseModel):
     n_samples: int = 500
     epochs: int = 100
@@ -795,6 +830,83 @@ def ivive(req: IVIVERequest) -> IVIVEResponse:
     except Exception as exc:
         logger.exception("IVIVE error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/simulate/uncertainty", response_model=ConformalUQResponse)
+def simulate_uncertainty(req: ConformalUQRequest) -> ConformalUQResponse:
+    """Conformal UQ propagation via LHS sampling over parameter bounds."""
+    from omega_pbpk.uncertainty.conformal_uq import (
+        ParameterBounds,
+        build_bounds_from_adme,
+        propagate_conformal_intervals,
+    )
+
+    if req.route not in ("oral", "iv"):
+        raise HTTPException(status_code=400, detail="route must be 'oral' or 'iv'")
+
+    all_bounds_provided = all(
+        v is not None
+        for v in [
+            req.fup_lo,
+            req.fup_hi,
+            req.clint_lo,
+            req.clint_hi,
+            req.peff_lo,
+            req.peff_hi,
+            req.rbp_lo,
+            req.rbp_hi,
+        ]
+    )
+
+    if all_bounds_provided:
+        bounds = ParameterBounds(
+            fup_lo=req.fup_lo,
+            fup_hi=req.fup_hi,
+            clint_lo=req.clint_lo,
+            clint_hi=req.clint_hi,
+            peff_lo=req.peff_lo,
+            peff_hi=req.peff_hi,
+            rbp_lo=req.rbp_lo,
+            rbp_hi=req.rbp_hi,
+        )
+    else:
+        from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+
+        predictor = ADMEPredictor()
+        if req.smiles:
+            props = predictor.predict(req.smiles)
+        elif req.mw is not None and req.logP is not None:
+            props = predictor.predict_from_dict({"mw": req.mw, "logP": req.logP})
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Provide smiles or mw+logP, or all 8 bound values",
+            )
+        bounds = build_bounds_from_adme(props)
+
+    result = propagate_conformal_intervals(
+        drug_name=req.drug_name,
+        dose_mg=req.dose_mg,
+        route=req.route,
+        bounds=bounds,
+        n_samples=req.n_samples,
+    )
+    return ConformalUQResponse(
+        cmax_p5=result.cmax_p5,
+        cmax_p50=result.cmax_p50,
+        cmax_p95=result.cmax_p95,
+        auc_p5=result.auc_p5,
+        auc_p50=result.auc_p50,
+        auc_p95=result.auc_p95,
+        tmax_p5=result.tmax_p5,
+        tmax_p50=result.tmax_p50,
+        tmax_p95=result.tmax_p95,
+        t_half_p5=result.t_half_p5,
+        t_half_p50=result.t_half_p50,
+        t_half_p95=result.t_half_p95,
+        n_samples=result.n_samples,
+        warnings=list(result.warnings),
+    )
 
 
 @app.post("/validate", response_model=ValidateResponse)

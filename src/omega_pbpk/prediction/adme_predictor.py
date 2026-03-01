@@ -56,6 +56,10 @@ class ADMEProperties:
     fup_hi: float = 1.0
     clint_3a4_lo: float = 0.0
     clint_3a4_hi: float = 0.0
+    peff_lo: float = 0.0
+    peff_hi: float = 0.0
+    rbp_lo: float = 0.0
+    rbp_hi: float = 0.0
 
 
 class ADMEPredictor:
@@ -252,9 +256,13 @@ class ADMEPredictor:
         # peff (log scale of ×10⁻⁴ cm/s → back-transform; stored as ×10⁻⁴ cm/s)
         log_peff = float(poly @ self._coeff_peff)
         peff = float(np.clip(10.0**log_peff - 0.001, 0.01, 100.0))
+        peff_lo = max(0.001, peff / (1.0 + self._q90_peff))
+        peff_hi = peff * (1.0 + self._q90_peff)
 
         # rbp (direct)
         rbp = float(np.clip(poly @ self._coeff_rbp, 0.5, 3.0))
+        rbp_lo = max(0.5, rbp / (1.0 + self._q90_rbp))
+        rbp_hi = min(3.0, rbp * (1.0 + self._q90_rbp))
 
         return {
             "fup": fup,
@@ -264,7 +272,11 @@ class ADMEPredictor:
             "clint_3a4_lo": clint_lo,
             "clint_3a4_hi": clint_hi,
             "peff": peff,
+            "peff_lo": peff_lo,
+            "peff_hi": peff_hi,
             "rbp": rbp,
+            "rbp_lo": rbp_lo,
+            "rbp_hi": rbp_hi,
         }
 
     # ------------------------------------------------------------------
@@ -389,6 +401,10 @@ class ADMEPredictor:
             fup_hi=base_result.fup_hi,
             clint_3a4_lo=base_result.clint_3a4_lo,
             clint_3a4_hi=base_result.clint_3a4_hi,
+            peff_lo=base_result.peff_lo,
+            peff_hi=base_result.peff_hi,
+            rbp_lo=base_result.rbp_lo,
+            rbp_hi=base_result.rbp_hi,
         )
 
     def _predict_rdkit(self, smiles: str) -> ADMEProperties:
@@ -419,7 +435,11 @@ class ADMEPredictor:
             clint_3a4_lo = poly["clint_3a4_lo"]
             clint_3a4_hi = poly["clint_3a4_hi"]
             peff = poly["peff"]
+            peff_lo = poly["peff_lo"]
+            peff_hi = poly["peff_hi"]
             rbp = poly["rbp"]
+            rbp_lo = poly["rbp_lo"]
+            rbp_hi = poly["rbp_hi"]
         else:
             # Hardcoded fallback equations
             peff = float(np.clip(10 ** (0.4 * logp - 0.01 * tpsa + 0.3), 0.01, 100.0))
@@ -430,6 +450,8 @@ class ADMEPredictor:
             )
             fup_lo, fup_hi = 0.0, 1.0
             clint_3a4_lo, clint_3a4_hi = 0.0, 0.0
+            peff_lo, peff_hi = 0.0, 0.0
+            rbp_lo, rbp_hi = 0.0, 0.0
 
         # CLint_2D6 — lower baseline, depends on basicity
         clint_2d6 = float(np.clip(10 ** (0.15 * logp + 0.002 * mw + 0.1 * hba - 2.0), 0.01, 50.0))
@@ -454,6 +476,10 @@ class ADMEPredictor:
             fup_hi=round(fup_hi, 4),
             clint_3a4_lo=round(clint_3a4_lo, 3),
             clint_3a4_hi=round(clint_3a4_hi, 3),
+            peff_lo=round(peff_lo, 4),
+            peff_hi=round(peff_hi, 4),
+            rbp_lo=round(rbp_lo, 4),
+            rbp_hi=round(rbp_hi, 4),
         )
 
     def _predict_simplified(self, smiles: str) -> ADMEProperties:
@@ -474,7 +500,11 @@ class ADMEPredictor:
             clint_3a4_lo = poly["clint_3a4_lo"]
             clint_3a4_hi = poly["clint_3a4_hi"]
             peff = poly["peff"]
+            peff_lo = poly["peff_lo"]
+            peff_hi = poly["peff_hi"]
             rbp = poly["rbp"]
+            rbp_lo = poly["rbp_lo"]
+            rbp_hi = poly["rbp_hi"]
         else:
             peff = float(np.clip(10 ** (0.3 * logp + 0.2), 0.01, 100.0))
             fup = float(np.clip(1.0 / (1.0 + 10 ** (0.5 * logp - 1.0)), 0.001, 1.0))
@@ -482,6 +512,8 @@ class ADMEPredictor:
             clint_3a4 = float(np.clip(10 ** (0.15 * logp - 1.2), 0.01, 100.0))
             fup_lo, fup_hi = 0.0, 1.0
             clint_3a4_lo, clint_3a4_hi = 0.0, 0.0
+            peff_lo, peff_hi = 0.0, 0.0
+            rbp_lo, rbp_hi = 0.0, 0.0
 
         clint_2d6 = float(np.clip(10 ** (0.1 * logp - 1.5), 0.01, 50.0))
         herg = float(np.clip(10 ** (-0.3 * logp + 2.0), 0.01, 1000.0))
@@ -501,6 +533,10 @@ class ADMEPredictor:
             fup_hi=round(fup_hi, 4),
             clint_3a4_lo=round(clint_3a4_lo, 3),
             clint_3a4_hi=round(clint_3a4_hi, 3),
+            peff_lo=round(peff_lo, 4),
+            peff_hi=round(peff_hi, 4),
+            rbp_lo=round(rbp_lo, 4),
+            rbp_hi=round(rbp_hi, 4),
         )
 
     @staticmethod
