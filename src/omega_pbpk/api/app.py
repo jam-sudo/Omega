@@ -296,6 +296,33 @@ class ConformalUQResponse(BaseModel):
     warnings: list[str]
 
 
+class PediatricSimulateRequest(BaseModel):
+    drug: DrugRequest
+    dose_mg: float = 100.0
+    route: str = "oral"
+    duration_h: float = 24.0
+    age_years: float = Field(..., ge=0.0, le=18.0)
+    body_weight_kg: float = Field(..., gt=0)
+
+
+class PediatricSimulateResponse(BaseModel):
+    pediatric_cmax_mg_L: float
+    pediatric_tmax_h: float
+    pediatric_auc_mg_h_L: float
+    pediatric_t_half_h: float
+    adult_cmax_mg_L: float
+    adult_auc_mg_h_L: float
+    adult_t_half_h: float
+    cmax_ratio: float
+    auc_ratio: float
+    ontogeny_factors: dict[str, float]
+    dose_adjustment_factor: float
+    time_h: list[float]
+    cp_pediatric_mg_L: list[float]
+    cp_adult_mg_L: list[float]
+    warnings: list[str]
+
+
 class TrainSurrogateRequest(BaseModel):
     n_samples: int = 500
     epochs: int = 100
@@ -663,6 +690,94 @@ def ddi_simulate(req: DDISimulateRequest) -> DDISimulateResponse:
         raise
     except Exception as exc:
         logger.exception("DDI simulate error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/simulate/pediatric", response_model=PediatricSimulateResponse)
+def simulate_pediatric(req: PediatricSimulateRequest) -> PediatricSimulateResponse:
+    """Pediatric PBPK simulation with ontogeny-based enzyme maturation and GFR scaling."""
+    if req.route not in ("oral", "iv", "sc"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid route '{req.route}'. Must be 'oral', 'iv', or 'sc'.",
+        )
+    try:
+        import numpy as np
+
+        from omega_pbpk.clinical.ontogeny import get_pediatric_scaling
+        from omega_pbpk.core.body import WholeBodyPBPK
+
+        drug = _drug_request_to_drug(req.drug)
+        warnings: list[str] = []
+
+        def _run_sim(bw: float, age: float | None):
+            m = WholeBodyPBPK(drug=drug, body_weight=bw, age_years=age)
+            if req.route == "oral":
+                m.setup_oral(req.dose_mg)
+            elif req.route == "iv":
+                m.setup_iv(req.dose_mg)
+            else:
+                m.setup_sc(req.dose_mg)
+            return m.simulate(t_end_h=req.duration_h)
+
+        ped_result = _run_sim(req.body_weight_kg, req.age_years)
+        ped_pk = ped_result.pk_summary()
+        ped_cp = ped_result.plasma_concentration()
+        ped_t = ped_result.time_h
+
+        adult_result = _run_sim(70.0, None)
+        adult_pk = adult_result.pk_summary()
+        adult_cp = adult_result.plasma_concentration()
+        adult_t = adult_result.time_h
+
+        adult_cp_interp = np.interp(ped_t, adult_t, adult_cp)
+
+        ped_t_half = ped_pk.get("half_life_h", 0.0)
+        if ped_t_half == float("inf") or ped_t_half > 1e6:
+            ped_t_half = 0.0
+        adult_t_half = adult_pk.get("half_life_h", 0.0)
+        if adult_t_half == float("inf") or adult_t_half > 1e6:
+            adult_t_half = 0.0
+
+        ped_auc = ped_pk["AUC_mg_h_L"]
+        adult_auc = adult_pk["AUC_mg_h_L"]
+        ped_cmax = ped_pk["Cmax_mg_L"]
+        adult_cmax = adult_pk["Cmax_mg_L"]
+
+        auc_ratio = ped_auc / max(adult_auc, 1e-12)
+        cmax_ratio = ped_cmax / max(adult_cmax, 1e-12)
+        dose_adjustment_factor = auc_ratio * (req.body_weight_kg / 70.0)
+
+        ontogeny = get_pediatric_scaling(req.age_years, req.body_weight_kg)
+
+        if req.age_years < 1.0:
+            warnings.append("Neonatal/infant subject: maturation uncertainty is high")
+        if req.body_weight_kg < 5.0:
+            warnings.append("Very low body weight (<5 kg): use results with caution")
+
+        return PediatricSimulateResponse(
+            pediatric_cmax_mg_L=ped_cmax,
+            pediatric_tmax_h=ped_pk["Tmax_h"],
+            pediatric_auc_mg_h_L=ped_auc,
+            pediatric_t_half_h=ped_t_half,
+            adult_cmax_mg_L=adult_cmax,
+            adult_auc_mg_h_L=adult_auc,
+            adult_t_half_h=adult_t_half,
+            cmax_ratio=cmax_ratio,
+            auc_ratio=auc_ratio,
+            ontogeny_factors=ontogeny,
+            dose_adjustment_factor=dose_adjustment_factor,
+            time_h=ped_t.tolist() if hasattr(ped_t, "tolist") else list(ped_t),
+            cp_pediatric_mg_L=ped_cp.tolist() if hasattr(ped_cp, "tolist") else list(ped_cp),
+            cp_adult_mg_L=adult_cp_interp.tolist()
+            if hasattr(adult_cp_interp, "tolist")
+            else list(adult_cp_interp),
+            warnings=warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Pediatric simulation error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
