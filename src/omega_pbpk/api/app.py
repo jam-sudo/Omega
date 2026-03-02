@@ -296,6 +296,49 @@ class ConformalUQResponse(BaseModel):
     warnings: list[str]
 
 
+class FullPredictRequest(BaseModel):
+    smiles: str
+    dose_mg: float = 100.0
+    route: str = "oral"
+    duration_h: float = 24.0
+    n_uq_samples: int = 50
+
+    @field_validator("smiles")
+    @classmethod
+    def smiles_not_too_long(cls, v):
+        if len(v) > 500:
+            raise ValueError("SMILES string too long (max 500 chars)")
+        return v
+
+
+class FullPredictResponse(BaseModel):
+    drug_name: str
+    smiles: str
+    adme: dict[str, Any]
+    adme_confidence: str
+    transporter_substrates: list[str]
+    transporter_inhibitors: list[str]
+    transporter_ddi_flags: list[str]
+    transporter_confidence: str
+    cmax_mg_L: float
+    tmax_h: float
+    auc0t_mg_h_L: float
+    t_half_h: float
+    time_h: list[float]
+    cp_mg_L: list[float]
+    cmax_p5: float
+    cmax_p50: float
+    cmax_p95: float
+    auc_p5: float
+    auc_p50: float
+    auc_p95: float
+    risk_flags: dict[str, bool]
+    risk_count: int
+    overall_risk_level: str
+    confidence: str
+    warnings: list[str]
+
+
 class PediatricSimulateRequest(BaseModel):
     drug: DrugRequest
     dose_mg: float = 100.0
@@ -1146,3 +1189,50 @@ def validate(req: ValidateRequest) -> ValidateResponse:
         )
     else:
         raise HTTPException(status_code=422, detail=f"Unknown mode: {req.mode}")
+
+
+@app.post("/predict/full", response_model=FullPredictResponse)
+def predict_full(req: FullPredictRequest) -> FullPredictResponse:
+    """Full end-to-end PK assessment: SMILES → ADME + transporters + PBPK + UQ + risk."""
+    try:
+        from omega_pbpk.prediction.full_pipeline import run_full_prediction
+
+        result = run_full_prediction(
+            smiles=req.smiles,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            duration_h=req.duration_h,
+            n_uq_samples=req.n_uq_samples,
+        )
+        return FullPredictResponse(
+            drug_name=result.drug_name,
+            smiles=result.smiles,
+            adme=result.adme,
+            adme_confidence=result.adme_confidence,
+            transporter_substrates=list(result.transporter_substrates),
+            transporter_inhibitors=list(result.transporter_inhibitors),
+            transporter_ddi_flags=list(result.transporter_ddi_flags),
+            transporter_confidence=result.transporter_confidence,
+            cmax_mg_L=result.cmax_mg_L,
+            tmax_h=result.tmax_h,
+            auc0t_mg_h_L=result.auc0t_mg_h_L,
+            t_half_h=result.t_half_h,
+            time_h=list(result.time_h),
+            cp_mg_L=list(result.cp_mg_L),
+            cmax_p5=result.cmax_p5,
+            cmax_p50=result.cmax_p50,
+            cmax_p95=result.cmax_p95,
+            auc_p5=result.auc_p5,
+            auc_p50=result.auc_p50,
+            auc_p95=result.auc_p95,
+            risk_flags=result.risk_flags,
+            risk_count=result.risk_count,
+            overall_risk_level=result.overall_risk_level,
+            confidence=result.confidence,
+            warnings=list(result.warnings),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Full prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
