@@ -228,13 +228,29 @@ class WholeBodyPBPK:
         result = model.simulate(t_end_h=24.0)
     """
 
-    def __init__(self, drug: Drug, body_weight: float = 70.0) -> None:
+    def __init__(
+        self, drug: Drug, body_weight: float = 70.0, age_years: float | None = None
+    ) -> None:
         self.drug = drug
         self.body_weight = body_weight
+        self.age_years = age_years
         self.organs: dict[str, Organ] = {}
         self.inhibitors: list[DDIInhibitor] = []
         self._y0 = np.zeros(N_STATES)
+        self._ontogeny_factors = self._compute_ontogeny_factors()
         self._build_organs()
+
+    def _compute_ontogeny_factors(self) -> dict[str, float]:
+        """Compute pediatric ontogeny scaling factors.
+
+        Returns all-1.0 for adults (age_years is None or >= 18).
+        For pediatric subjects, returns enzyme and GFR maturation factors.
+        """
+        if self.age_years is None or self.age_years >= 18.0:
+            return {"cyp3a4": 1.0, "cyp2d6": 1.0, "cyp1a2": 1.0, "gfr": 1.0}
+        from omega_pbpk.clinical.ontogeny import get_pediatric_scaling
+
+        return get_pediatric_scaling(self.age_years, self.body_weight)
 
     def _build_organs(self) -> None:
         """Construct organ compartments from ICRP reference man physiology.
@@ -242,7 +258,10 @@ class WholeBodyPBPK:
         Scaled linearly by body_weight/70.
         """
         scale = self.body_weight / 70.0
-        co = 390.0 * scale  # Cardiac output (L/h)
+        if self.age_years is not None and self.age_years < 18.0:
+            co = 390.0 * self._ontogeny_factors["cardiac_output"]
+        else:
+            co = 390.0 * scale  # Cardiac output (L/h)
 
         # Blood pools
         self.organs["venous_blood"] = Organ(
@@ -317,10 +336,25 @@ class WholeBodyPBPK:
         return q_gut / (q_gut + self.drug.fup * cl_gut)
 
     def _clint_effective(self) -> float:
-        """Effective hepatic CLint considering DDI inhibitors (L/h)."""
+        """Effective hepatic CLint considering pediatric maturation and DDI inhibitors (L/h)."""
         base_clint = self.drug.clint_scaled_L_per_h
+
+        # Apply pediatric enzyme maturation
+        if self.age_years is not None and self.age_years < 18.0:
+            fm = self.drug.fm
+            if fm:
+                enzyme_map = {"CYP3A4": "cyp3a4", "CYP2D6": "cyp2d6", "CYP1A2": "cyp1a2"}
+                weighted_mat = 0.0
+                for enz, frac in fm.items():
+                    onto_key = enzyme_map.get(enz)
+                    mat = self._ontogeny_factors.get(onto_key, 1.0) if onto_key else 1.0
+                    weighted_mat += frac * mat
+                base_clint *= weighted_mat
+            else:
+                base_clint *= self._ontogeny_factors.get("cyp3a4", 1.0)
+
         if not self.inhibitors:
-            return base_clint
+            return max(base_clint, 0.0)
 
         # Apply inhibition for each enzyme
         for inh in self.inhibitors:
@@ -452,7 +486,8 @@ class WholeBodyPBPK:
             elif name == "kidney":
                 # CLr defined on total plasma concentration basis
                 c_plasma_out = y[idx] / (v_t * kp)
-                renal_cl_rate = self.drug.clr_L_per_h * c_plasma_out
+                gfr_factor = self._ontogeny_factors.get("gfr", 1.0)
+                renal_cl_rate = self.drug.clr_L_per_h * gfr_factor * c_plasma_out
 
                 dydt[idx] = q * c_art - q * c_out - renal_cl_rate
                 dydt[IDX_EXC_RENAL] += renal_cl_rate

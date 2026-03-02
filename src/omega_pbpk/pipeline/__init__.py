@@ -327,7 +327,8 @@ class OmegaPipeline:
 
         time_h = np.linspace(0, request.duration_h, request.n_timepoints)
         try:
-            model = WholeBodyPBPK(drug=drug)
+            bw = request.subject_weight_kg if request.subject_weight_kg is not None else 70.0
+            model = WholeBodyPBPK(drug=drug, body_weight=bw, age_years=request.subject_age_years)
             if request.route == "iv":
                 model.setup_iv(request.dose_mg)
             elif request.route == "sc":
