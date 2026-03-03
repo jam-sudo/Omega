@@ -17,6 +17,7 @@ Endpoints:
   POST /tdm                    — TDM MAP-Bayesian dose individualization
   POST /be/design              — bioequivalence study design & sample size
   POST /toxicity               — organ-specific toxicity risk scoring
+  POST /phenotyping            — metabolic reaction phenotyping (CYP contribution)
 """
 
 from __future__ import annotations
@@ -1927,4 +1928,136 @@ def toxicity_assessment(req: ToxicityRequest) -> ToxicityResponse:
         raise
     except Exception as exc:
         logger.exception("Toxicity assessment error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /phenotyping — metabolic reaction phenotyping (CYP contribution)
+# ---------------------------------------------------------------------------
+
+
+class InhibitionExperimentRequest(BaseModel):
+    enzyme: str
+    inhibitor_name: str
+    control_clint: float = Field(..., gt=0)
+    inhibited_clint: float = Field(..., ge=0)
+    inhibitor_conc_uM: float | None = None
+    ki_uM: float | None = None
+
+
+class RecombinantCYPDataRequest(BaseModel):
+    enzyme: str
+    velocity_pmol_min_pmol: float = Field(..., gt=0)
+    isef: float | None = None
+    raf: float | None = None
+    abundance_pmol_mg: float | None = None
+
+
+class PhenotypingRequest(BaseModel):
+    drug_name: str = "compound"
+    inhibition_experiments: list[InhibitionExperimentRequest] | None = None
+    recombinant_data: list[RecombinantCYPDataRequest] | None = None
+    method: str = Field(default="auto", description="inhibition, recombinant, combined, or auto")
+
+    @field_validator("method")
+    @classmethod
+    def method_valid(cls, v: str) -> str:
+        allowed = ("auto", "inhibition", "recombinant", "combined")
+        if v not in allowed:
+            raise ValueError(f"method must be one of {allowed}")
+        return v
+
+
+class CYPContributionResponse(BaseModel):
+    enzyme: str
+    fm: float
+    clint_enzyme_uL_min_mg: float
+    method: str
+    confidence: str
+
+
+class PhenotypingResponse(BaseModel):
+    drug_name: str
+    total_clint_uL_min_mg: float
+    contributions: list[CYPContributionResponse]
+    fm_dict: dict[str, float]
+    primary_enzyme: str
+    fm_primary: float
+    ddi_vulnerability: str
+    pgx_sensitivity: str
+    method: str
+    warnings: list[str]
+    recommendation: str
+
+
+@app.post("/phenotyping", response_model=PhenotypingResponse)
+def phenotyping(req: PhenotypingRequest) -> PhenotypingResponse:
+    """Metabolic reaction phenotyping: determine CYP enzyme contributions."""
+    try:
+        from omega_pbpk.clinical.reaction_phenotyping import (
+            InhibitionExperiment,
+            RecombinantCYPData,
+            run_reaction_phenotyping,
+        )
+
+        inh_exps = None
+        if req.inhibition_experiments:
+            inh_exps = [
+                InhibitionExperiment(
+                    enzyme=e.enzyme,
+                    inhibitor_name=e.inhibitor_name,
+                    control_clint=e.control_clint,
+                    inhibited_clint=e.inhibited_clint,
+                    inhibitor_conc_uM=e.inhibitor_conc_uM,
+                    ki_uM=e.ki_uM,
+                )
+                for e in req.inhibition_experiments
+            ]
+
+        rec_data = None
+        if req.recombinant_data:
+            rec_data = [
+                RecombinantCYPData(
+                    enzyme=d.enzyme,
+                    velocity_pmol_min_pmol=d.velocity_pmol_min_pmol,
+                    isef=d.isef,
+                    raf=d.raf,
+                    abundance_pmol_mg=d.abundance_pmol_mg,
+                )
+                for d in req.recombinant_data
+            ]
+
+        result = run_reaction_phenotyping(
+            drug_name=req.drug_name,
+            inhibition_experiments=inh_exps,
+            recombinant_data=rec_data,
+            method=req.method,
+        )
+
+        return PhenotypingResponse(
+            drug_name=result.drug_name,
+            total_clint_uL_min_mg=result.total_clint_uL_min_mg,
+            contributions=[
+                CYPContributionResponse(
+                    enzyme=c.enzyme,
+                    fm=c.fm,
+                    clint_enzyme_uL_min_mg=c.clint_enzyme_uL_min_mg,
+                    method=c.method,
+                    confidence=c.confidence,
+                )
+                for c in result.contributions
+            ],
+            fm_dict=result.fm_dict,
+            primary_enzyme=result.primary_enzyme,
+            fm_primary=result.fm_primary,
+            ddi_vulnerability=result.ddi_vulnerability,
+            pgx_sensitivity=result.pgx_sensitivity,
+            method=result.method,
+            warnings=list(result.warnings),
+            recommendation=result.recommendation,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Phenotyping error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
