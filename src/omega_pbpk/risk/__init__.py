@@ -92,4 +92,18 @@ def compute_risk_flags(
     )
 
 
-__all__ = ["RiskFlags", "compute_risk_flags"]
+from omega_pbpk.risk.organ_toxicity import (  # noqa: E402
+    OrganExposure,
+    OrganToxicityReport,
+    OrganToxicityScore,
+    run_organ_toxicity_assessment,
+)
+
+__all__ = [
+    "RiskFlags",
+    "compute_risk_flags",
+    "OrganExposure",
+    "OrganToxicityScore",
+    "OrganToxicityReport",
+    "run_organ_toxicity_assessment",
+]
