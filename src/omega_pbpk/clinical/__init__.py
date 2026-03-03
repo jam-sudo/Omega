@@ -41,6 +41,15 @@ from omega_pbpk.clinical.dose_optimization import (
     FormulationComparator,
     MultiDoseSimulator,
 )
+from omega_pbpk.clinical.drug_comparison import (
+    CandidatePKProfile,
+    CandidateSafetyProfile,
+    ComparisonCandidate,
+    ComparisonDimension,
+    DrugComparisonResult,
+    compare_drugs,
+    format_comparison_table,
+)
 from omega_pbpk.clinical.ivive import (
     IVIVEResult,
     estimate_clint_for_target_clh,
@@ -146,4 +155,11 @@ __all__ = [
     "CrossoverTrialResult",
     "SubjectPeriodResult",
     "run_crossover_trial",
+    "ComparisonCandidate",
+    "CandidatePKProfile",
+    "CandidateSafetyProfile",
+    "ComparisonDimension",
+    "DrugComparisonResult",
+    "compare_drugs",
+    "format_comparison_table",
 ]

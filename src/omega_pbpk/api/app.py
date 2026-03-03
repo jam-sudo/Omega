@@ -21,6 +21,7 @@ Endpoints:
   POST /sensitivity/sobol      — Sobol global sensitivity analysis
   POST /simulate/formulation   — ER/MR formulation release + PK simulation
   POST /trial/crossover        — virtual 2×2 crossover BE trial simulation
+  POST /compare                — multi-candidate drug comparison & ranking
 """
 
 from __future__ import annotations
@@ -2466,4 +2467,117 @@ def trial_crossover(req: CrossoverTrialRequest) -> CrossoverTrialResponse:
         raise
     except Exception as exc:
         logger.exception("Crossover trial error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Drug comparison endpoint
+# ---------------------------------------------------------------------------
+
+
+class ComparisonCandidateRequest(BaseModel):
+    drug: DrugRequest
+    dose_mg: float = Field(default=100.0, gt=0)
+    route: str = Field(default="oral")
+    label: str = ""
+    herg_ic50_uM: float | None = None
+
+    @field_validator("route")
+    @classmethod
+    def route_valid(cls, v: str) -> str:
+        allowed = ("oral", "iv")
+        if v not in allowed:
+            raise ValueError(f"route must be one of {allowed}")
+        return v
+
+
+class DrugComparisonRequest(BaseModel):
+    candidates: list[ComparisonCandidateRequest] = Field(..., min_length=2, max_length=5)
+    t_end_h: float = Field(default=24.0, gt=0, le=720)
+    weights: dict[str, float] | None = None
+
+
+class DrugComparisonResponse(BaseModel):
+    n_candidates: int
+    candidate_labels: list[str]
+    composite_scores: dict[str, float]
+    overall_ranking: list[str]
+    best_candidate: str
+    decision_summary: str
+    pk_profiles: list[dict[str, Any]]
+    safety_profiles: list[dict[str, Any]]
+    dimension_rankings: list[dict[str, Any]]
+    warnings: list[str]
+
+
+@app.post("/compare", response_model=DrugComparisonResponse)
+def compare_drugs_endpoint(req: DrugComparisonRequest) -> DrugComparisonResponse:
+    """Compare 2–5 drug candidates on PK, safety, and composite scores."""
+    try:
+        from omega_pbpk.clinical.drug_comparison import (
+            ComparisonCandidate,
+            compare_drugs,
+        )
+        from omega_pbpk.drugs.drug import Drug
+
+        candidates = []
+        for c_req in req.candidates:
+            drug_kwargs: dict[str, Any] = {
+                "name": c_req.drug.name,
+                "mw": c_req.drug.mw,
+                "logP": c_req.drug.logP,
+                "fup": c_req.drug.fup,
+                "rbp": c_req.drug.rbp,
+                "drug_type": c_req.drug.drug_type,
+                "clint_hepatic_L_per_h": c_req.drug.clint_hepatic_L_per_h,
+                "clr_L_per_h": c_req.drug.clr_L_per_h,
+                "peff": c_req.drug.peff,
+            }
+            if c_req.drug.pka is not None:
+                drug_kwargs["pka"] = c_req.drug.pka
+            if c_req.drug.clint is not None:
+                drug_kwargs["clint"] = c_req.drug.clint
+            if c_req.drug.fm is not None:
+                drug_kwargs["fm"] = c_req.drug.fm
+            drug = Drug(**drug_kwargs)
+            candidates.append(
+                ComparisonCandidate(
+                    drug=drug,
+                    dose_mg=c_req.dose_mg,
+                    route=c_req.route,
+                    label=c_req.label,
+                    herg_ic50_uM=c_req.herg_ic50_uM,
+                )
+            )
+
+        result = compare_drugs(candidates, t_end_h=req.t_end_h, weights=req.weights)
+
+        # Serialise dataclasses to dicts
+        pk_dicts = [dataclasses.asdict(p) for p in result.pk_profiles]
+        # Trim large arrays for response size
+        for d in pk_dicts:
+            d["time_h"] = list(d["time_h"][:51])
+            d["cp_mg_L"] = list(d["cp_mg_L"][:51])
+
+        safety_dicts = [dataclasses.asdict(s) for s in result.safety_profiles]
+        dim_dicts = [dataclasses.asdict(d) for d in result.dimension_rankings]
+
+        return DrugComparisonResponse(
+            n_candidates=result.n_candidates,
+            candidate_labels=result.candidate_labels,
+            composite_scores=result.composite_scores,
+            overall_ranking=result.overall_ranking,
+            best_candidate=result.best_candidate,
+            decision_summary=result.decision_summary,
+            pk_profiles=pk_dicts,
+            safety_profiles=safety_dicts,
+            dimension_rankings=dim_dicts,
+            warnings=result.warnings,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Drug comparison error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
