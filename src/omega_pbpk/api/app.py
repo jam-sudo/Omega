@@ -22,6 +22,7 @@ Endpoints:
   POST /simulate/formulation   — ER/MR formulation release + PK simulation
   POST /trial/crossover        — virtual 2×2 crossover BE trial simulation
   POST /compare                — multi-candidate drug comparison & ranking
+  POST /mist                   — MIST metabolite safety assessment (FDA guidance)
 """
 
 from __future__ import annotations
@@ -2580,4 +2581,153 @@ def compare_drugs_endpoint(req: DrugComparisonRequest) -> DrugComparisonResponse
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Drug comparison error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /mist — MIST metabolite safety assessment
+# ---------------------------------------------------------------------------
+
+
+class MetaboliteSpecRequest(BaseModel):
+    name: str = Field(description="Metabolite name")
+    mw: float = Field(gt=0, description="Metabolite molecular weight (g/mol)")
+    fm_parent: float = Field(
+        ge=0, le=1, description="Fraction of parent metabolised to this metabolite"
+    )
+    clint_met_L_per_h: float = Field(ge=0, description="Metabolite intrinsic clearance (L/h)")
+    fup_met: float = Field(
+        default=0.5, gt=0, le=1, description="Metabolite fraction unbound in plasma"
+    )
+    pharmacologically_active: bool = Field(
+        default=False, description="Is this metabolite pharmacologically active?"
+    )
+    unique_human: bool = Field(default=False, description="Is this metabolite unique to humans?")
+
+
+class MISTRequest(BaseModel):
+    drug: DrugRequest = Field(description="Parent drug parameters")
+    metabolites: list[MetaboliteSpecRequest] = Field(
+        min_length=1, description="Metabolite specifications (≥1)"
+    )
+    dose_mg: float = Field(default=100.0, gt=0, description="Dose in mg")
+    route: str = Field(default="oral", description="Administration route: oral or iv")
+    body_weight: float = Field(default=70.0, gt=0, description="Body weight in kg")
+
+    @field_validator("route")
+    @classmethod
+    def route_valid(cls, v: str) -> str:
+        allowed = ("oral", "iv")
+        if v not in allowed:
+            raise ValueError(f"route must be one of {allowed}")
+        return v
+
+
+class MetaboliteMISTResultResponse(BaseModel):
+    name: str
+    auc_met_mg_h_L: float
+    auc_parent_mg_h_L: float
+    met_to_parent_ratio: float
+    exceeds_10pct: bool
+    classification: str
+    risk_level: str
+    recommendation: str
+    warnings: list[str]
+
+
+class MISTResponse(BaseModel):
+    drug_name: str
+    parent_auc_mg_h_L: float
+    parent_cmax_mg_L: float
+    metabolite_results: list[MetaboliteMISTResultResponse]
+    n_flagged: int
+    overall_mist_risk: str
+    summary: str
+    recommendations: list[str]
+    warnings: list[str]
+
+
+@app.post("/mist", response_model=MISTResponse)
+def mist_assessment(req: MISTRequest) -> MISTResponse:
+    """MIST (Metabolites in Safety Testing) assessment — FDA guidance."""
+    try:
+        from omega_pbpk.drugs.drug import Drug
+        from omega_pbpk.risk.mist_assessment import (
+            MetaboliteSpec,
+            run_mist_assessment,
+        )
+
+        # Build Drug object
+        drug_kwargs: dict[str, Any] = {
+            "name": req.drug.name,
+            "mw": req.drug.mw,
+            "logP": req.drug.logP,
+            "fup": req.drug.fup,
+            "rbp": req.drug.rbp,
+            "drug_type": req.drug.drug_type,
+            "clint_hepatic_L_per_h": req.drug.clint_hepatic_L_per_h,
+            "clr_L_per_h": req.drug.clr_L_per_h,
+            "peff": req.drug.peff,
+        }
+        if req.drug.pka is not None:
+            drug_kwargs["pka"] = req.drug.pka
+        if req.drug.clint is not None:
+            drug_kwargs["clint"] = req.drug.clint
+        if req.drug.fm is not None:
+            drug_kwargs["fm"] = req.drug.fm
+        drug = Drug(**drug_kwargs)
+
+        # Build MetaboliteSpec list
+        met_specs = [
+            MetaboliteSpec(
+                name=m.name,
+                mw=m.mw,
+                fm_parent=m.fm_parent,
+                clint_met_L_per_h=m.clint_met_L_per_h,
+                fup_met=m.fup_met,
+                pharmacologically_active=m.pharmacologically_active,
+                unique_human=m.unique_human,
+            )
+            for m in req.metabolites
+        ]
+
+        report = run_mist_assessment(
+            drug=drug,
+            metabolites=met_specs,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            body_weight=req.body_weight,
+            vdss_L_per_kg=req.drug.vdss_L_per_kg,
+        )
+
+        return MISTResponse(
+            drug_name=report.drug_name,
+            parent_auc_mg_h_L=report.parent_auc_mg_h_L,
+            parent_cmax_mg_L=report.parent_cmax_mg_L,
+            metabolite_results=[
+                MetaboliteMISTResultResponse(
+                    name=r.name,
+                    auc_met_mg_h_L=r.auc_met_mg_h_L,
+                    auc_parent_mg_h_L=r.auc_parent_mg_h_L,
+                    met_to_parent_ratio=r.met_to_parent_ratio,
+                    exceeds_10pct=r.exceeds_10pct,
+                    classification=r.classification,
+                    risk_level=r.risk_level,
+                    recommendation=r.recommendation,
+                    warnings=r.warnings,
+                )
+                for r in report.metabolite_results
+            ],
+            n_flagged=report.n_flagged,
+            overall_mist_risk=report.overall_mist_risk,
+            summary=report.summary,
+            recommendations=report.recommendations,
+            warnings=report.warnings,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("MIST assessment error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
