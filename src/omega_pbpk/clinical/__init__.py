@@ -62,6 +62,12 @@ from omega_pbpk.clinical.regimen_optimizer import (
     optimize_regimen,
 )
 from omega_pbpk.clinical.report import ReportInput, generate_report, quick_report
+from omega_pbpk.clinical.tdm import (
+    ObservedConcentration,
+    PopulationPrior,
+    TDMResult,
+    run_tdm,
+)
 
 __all__ = [
     "DoseOptimizer",
@@ -108,4 +114,8 @@ __all__ = [
     "TherapeuticTarget",
     "RegimenResult",
     "optimize_regimen",
+    "ObservedConcentration",
+    "PopulationPrior",
+    "TDMResult",
+    "run_tdm",
 ]
