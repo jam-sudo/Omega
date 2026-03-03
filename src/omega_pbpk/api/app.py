@@ -25,6 +25,7 @@ Endpoints:
   POST /mist                   — MIST metabolite safety assessment (FDA guidance)
   POST /bcs                    — BCS classification and bioavailability prediction
   POST /induction              — enzyme induction time course (PXR/CAR pathway)
+  POST /predict/gat            — Graph Attention Network ADME prediction
 """
 
 from __future__ import annotations
@@ -3053,4 +3054,77 @@ def enzyme_induction(req: InductionRequest) -> InductionResponse:
         raise
     except Exception as exc:
         logger.exception("Enzyme induction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/gat
+# ---------------------------------------------------------------------------
+
+
+class GATRequest(BaseModel):
+    """Request model for GAT-based ADME prediction."""
+
+    smiles: str = Field(..., description="SMILES string of the molecule")
+
+
+class GATModelInfo(BaseModel):
+    type: str
+    trained: bool
+    hidden_dim: int
+    n_rounds: int
+
+
+class GATResponse(BaseModel):
+    """Response model for GAT-based ADME prediction."""
+
+    smiles: str
+    fup: float = Field(description="Fraction unbound in plasma (0–1)")
+    clint_3a4: float = Field(description="CYP3A4 intrinsic clearance (µL/min/pmol)")
+    peff: float = Field(description="Intestinal permeability (×10⁻⁴ cm/s)")
+    logS: float = Field(description="Aqueous solubility (log10 mol/L)")
+    confidence: float = Field(description="Model confidence (0–1)")
+    model_info: GATModelInfo
+    warnings: list[str] = Field(default_factory=list)
+
+
+@app.post("/predict/gat", response_model=GATResponse, tags=["predict"])
+async def predict_gat(req: GATRequest) -> GATResponse:
+    """Predict ADME properties using the Graph Attention Network (GAT).
+
+    Uses a pure-NumPy multi-task GAT trained on the ADME reference
+    dataset. Predicts fup, CLint_3A4, Peff and logS simultaneously.
+
+    The model is lazy-loaded and trained on first call.
+    """
+    try:
+        from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+
+        predictor = ADMEPredictor()
+        result = predictor.predict_gat(req.smiles)
+
+        warnings: list[str] = []
+        if result["confidence"] < 0.3:
+            warnings.append("Low confidence prediction: molecule may be outside training domain.")
+
+        mi = result.get("model_info", {})
+        return GATResponse(
+            smiles=req.smiles,
+            fup=result["fup"],
+            clint_3a4=result["clint_3a4"],
+            peff=result["peff"],
+            logS=result["logS"],
+            confidence=result["confidence"],
+            model_info=GATModelInfo(
+                type=mi.get("type", "MolecularGAT"),
+                trained=mi.get("trained", False),
+                hidden_dim=mi.get("hidden_dim", 32),
+                n_rounds=mi.get("n_rounds", 3),
+            ),
+            warnings=warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("GAT prediction error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
