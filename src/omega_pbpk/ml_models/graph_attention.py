@@ -521,7 +521,7 @@ class MultiHeadGraphAttention:
     def set_params(self, p: dict[str, Any]) -> None:
         self.W_proj = p["W_proj"]
         self.b_proj = p["b_proj"]
-        for head, hp in zip(self.heads, p["heads"]):
+        for head, hp in zip(self.heads, p["heads"], strict=False):
             head.set_params(hp)
 
 
@@ -581,7 +581,7 @@ class MolecularGAT:
 
         # Task heads: (W: hidden_dim×1, b: scalar)
         self._task_heads: list[tuple[NDArray, NDArray]] = []
-        for t in range(n_tasks):
+        for _t in range(n_tasks):
             lim_t = np.sqrt(6.0 / (hidden_dim + 1))
             W_t = rng.uniform(-lim_t, lim_t, (hidden_dim, 1)).astype(np.float32)
             b_t = np.zeros(1, dtype=np.float32)
@@ -725,7 +725,7 @@ class MolecularGAT:
 
     def _batch_loss(self, graphs: list[MolecularGraph], Y_std: NDArray) -> float:
         total = 0.0
-        for g, y in zip(graphs, Y_std):
+        for g, y in zip(graphs, Y_std, strict=False):
             diff = self.forward(g) - y
             total += float(np.dot(diff, diff)) / self.n_tasks
         return total / max(len(graphs), 1)
