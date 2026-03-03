@@ -6,6 +6,15 @@ from omega_pbpk.clinical.allometry import (
     scale_multi_species,
     scale_single_species,
 )
+from omega_pbpk.clinical.be_study_design import (
+    BEPowerResult,
+    BEStudyDesign,
+    SensitivityResult,
+    calculate_sample_size,
+    compute_power,
+    run_be_design,
+    sensitivity_analysis,
+)
 from omega_pbpk.clinical.ddi_report import (
     DDIInhibitor,
     DDIRiskReport,
@@ -118,4 +127,11 @@ __all__ = [
     "PopulationPrior",
     "TDMResult",
     "run_tdm",
+    "BEStudyDesign",
+    "BEPowerResult",
+    "SensitivityResult",
+    "calculate_sample_size",
+    "compute_power",
+    "run_be_design",
+    "sensitivity_analysis",
 ]
