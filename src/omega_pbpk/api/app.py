@@ -1572,9 +1572,7 @@ def dose_optimize(req: DoseOptimizeRequest) -> DoseOptimizeResponse:
             auc_ss=result.auc_ss,
             feasible=result.feasible,
             warnings=list(result.warnings),
-            all_regimens=[
-                RegimenCandidateResponse(**r) for r in result.all_regimens
-            ],
+            all_regimens=[RegimenCandidateResponse(**r) for r in result.all_regimens],
         )
     except HTTPException:
         raise
