@@ -261,6 +261,57 @@ class DDISimulateResponse(BaseModel):
     warnings: list[str]
 
 
+class PolypharmacyPerpetratorRequest(BaseModel):
+    name: str
+    ki_uM: float
+    target_enzyme: str = "CYP3A4"
+    mechanism: str = "competitive"
+    kinact_per_h: float = 0.0
+    kdeg_per_h: float = 0.02
+    fold_induction: float = 1.0
+    cmax_uM: float | None = None
+
+
+class PolypharmacyDDIRequest(BaseModel):
+    victim_drug: DrugRequest
+    perpetrators: list[PolypharmacyPerpetratorRequest]
+    dose_mg: float = 100.0
+    route: str = "oral"
+    body_weight: float = 70.0
+    duration_h: float = 24.0
+
+
+class PairwiseDDIResponse(BaseModel):
+    perpetrator_name: str
+    auc_ratio: float
+    cmax_ratio: float
+    classification: str
+    perpetrator_cmax_uM: float
+    static_r1: float
+    warnings: list[str]
+
+
+class PolypharmacyDDIResponse(BaseModel):
+    victim_name: str
+    perpetrators: list[str]
+    n_perpetrators: int
+    auc_alone_mg_h_L: float
+    cmax_alone_mg_L: float
+    t_half_alone_h: float
+    auc_combined_mg_h_L: float
+    cmax_combined_mg_L: float
+    t_half_combined_h: float
+    auc_ratio_combined: float
+    cmax_ratio_combined: float
+    classification_combined: str
+    pairwise: list[PairwiseDDIResponse]
+    synergy_flag: bool
+    time_h: list[float]
+    cp_alone_mg_L: list[float]
+    cp_combined_mg_L: list[float]
+    warnings: list[str]
+
+
 class ConformalUQRequest(BaseModel):
     drug_name: str
     dose_mg: float
@@ -733,6 +784,86 @@ def ddi_simulate(req: DDISimulateRequest) -> DDISimulateResponse:
         raise
     except Exception as exc:
         logger.exception("DDI simulate error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/ddi/polypharmacy", response_model=PolypharmacyDDIResponse)
+def ddi_polypharmacy(req: PolypharmacyDDIRequest) -> PolypharmacyDDIResponse:
+    """Multi-perpetrator polypharmacy DDI simulation (1–10 perpetrators)."""
+    if req.route not in ("oral", "iv", "sc"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid route '{req.route}'. Must be 'oral', 'iv', or 'sc'.",
+        )
+    if not (1 <= len(req.perpetrators) <= 10):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Expected 1–10 perpetrators, got {len(req.perpetrators)}.",
+        )
+    try:
+        from omega_pbpk.clinical.ddi_simulation import (
+            PerpetratorSpec,
+            simulate_polypharmacy_ddi,
+        )
+
+        victim = _drug_request_to_drug(req.victim_drug)
+        perp_specs = [
+            PerpetratorSpec(
+                name=p.name,
+                ki_uM=p.ki_uM,
+                target_enzyme=p.target_enzyme,
+                mechanism=p.mechanism,
+                kinact_per_h=p.kinact_per_h,
+                kdeg_per_h=p.kdeg_per_h,
+                fold_induction=p.fold_induction,
+                cmax_uM=p.cmax_uM,
+            )
+            for p in req.perpetrators
+        ]
+        result = simulate_polypharmacy_ddi(
+            victim_drug=victim,
+            perpetrators=perp_specs,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            body_weight=req.body_weight,
+            t_end_h=req.duration_h,
+        )
+        pairwise_resp = [
+            PairwiseDDIResponse(
+                perpetrator_name=pw.perpetrator_name,
+                auc_ratio=pw.auc_ratio,
+                cmax_ratio=pw.cmax_ratio,
+                classification=pw.classification,
+                perpetrator_cmax_uM=pw.perpetrator_cmax_uM,
+                static_r1=pw.static_r1,
+                warnings=list(pw.warnings),
+            )
+            for pw in result.pairwise
+        ]
+        return PolypharmacyDDIResponse(
+            victim_name=result.victim_name,
+            perpetrators=list(result.perpetrators),
+            n_perpetrators=result.n_perpetrators,
+            auc_alone_mg_h_L=result.auc_alone_mg_h_L,
+            cmax_alone_mg_L=result.cmax_alone_mg_L,
+            t_half_alone_h=result.t_half_alone_h,
+            auc_combined_mg_h_L=result.auc_combined_mg_h_L,
+            cmax_combined_mg_L=result.cmax_combined_mg_L,
+            t_half_combined_h=result.t_half_combined_h,
+            auc_ratio_combined=result.auc_ratio_combined,
+            cmax_ratio_combined=result.cmax_ratio_combined,
+            classification_combined=result.classification_combined,
+            pairwise=pairwise_resp,
+            synergy_flag=result.synergy_flag,
+            time_h=list(result.time_h),
+            cp_alone_mg_L=list(result.cp_alone_mg_L),
+            cp_combined_mg_L=list(result.cp_combined_mg_L),
+            warnings=list(result.warnings),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("DDI polypharmacy error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

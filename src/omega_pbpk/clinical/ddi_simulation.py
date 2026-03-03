@@ -203,3 +203,160 @@ def simulate_ddi(
         cp_ddi_mg_L=cp_ddi_arr,
         warnings=tuple(warnings),
     )
+
+
+@dataclass(frozen=True)
+class PolypharmacyDDIResult:
+    """Multi-perpetrator (polypharmacy) DDI simulation result."""
+
+    victim_name: str
+    perpetrators: tuple[str, ...]
+    n_perpetrators: int
+    auc_alone_mg_h_L: float
+    cmax_alone_mg_L: float
+    t_half_alone_h: float
+    auc_combined_mg_h_L: float
+    cmax_combined_mg_L: float
+    t_half_combined_h: float
+    auc_ratio_combined: float
+    cmax_ratio_combined: float
+    classification_combined: str
+    pairwise: tuple[DDISimulationResult, ...]
+    synergy_flag: bool
+    time_h: tuple[float, ...]
+    cp_alone_mg_L: tuple[float, ...]
+    cp_combined_mg_L: tuple[float, ...]
+    warnings: tuple[str, ...] = field(default_factory=tuple)
+
+
+def simulate_polypharmacy_ddi(
+    victim_drug: Drug,
+    perpetrators: list[PerpetratorSpec],
+    dose_mg: float = 100.0,
+    route: str = "oral",
+    body_weight: float = 70.0,
+    t_end_h: float = 24.0,
+) -> PolypharmacyDDIResult:
+    """Multi-perpetrator DDI simulation.
+
+    Simulates victim PK alone, N pairwise (victim + each perpetrator individually),
+    and one combined run (victim + all perpetrators simultaneously).
+
+    Synergy is flagged when the combined AUCR exceeds the maximum pairwise AUCR by >10%.
+
+    Args:
+        victim_drug: Drug object for the victim compound.
+        perpetrators: List of 1–10 PerpetratorSpec objects.
+        dose_mg: Victim drug dose (mg).
+        route: Administration route ('oral', 'iv', 'sc').
+        body_weight: Subject body weight (kg).
+        t_end_h: Simulation duration (h).
+
+    Returns:
+        PolypharmacyDDIResult with pairwise results and combined interaction metrics.
+    """
+    if not (1 <= len(perpetrators) <= 10):
+        raise ValueError(f"Expected 1–10 perpetrators, got {len(perpetrators)}")
+
+    warnings: list[str] = []
+
+    # --- Baseline simulation (victim alone) ---
+    model_alone = WholeBodyPBPK(victim_drug, body_weight=body_weight)
+    if route == "oral":
+        model_alone.setup_oral(dose_mg)
+    elif route == "iv":
+        model_alone.setup_iv(dose_mg)
+    else:
+        model_alone.setup_sc(dose_mg)
+    result_alone = model_alone.simulate(t_end_h=t_end_h)
+    pk_alone = result_alone.pk_summary()
+
+    auc_alone = pk_alone.get("AUC_mg_h_L", 0.001)
+    cmax_alone = pk_alone.get("Cmax_mg_L", 0.001)
+    t_half_alone = pk_alone.get("half_life_h", 0.0)
+    if math.isinf(t_half_alone) or t_half_alone > 1e6:
+        t_half_alone = 0.0
+
+    # --- Pairwise simulations (one per perpetrator) ---
+    pairwise_results: list[DDISimulationResult] = []
+    for perp in perpetrators:
+        pair = simulate_ddi(
+            victim_drug=victim_drug,
+            perpetrator=perp,
+            dose_mg=dose_mg,
+            route=route,
+            body_weight=body_weight,
+            t_end_h=t_end_h,
+        )
+        pairwise_results.append(pair)
+
+    # --- Combined simulation (all perpetrators simultaneously) ---
+    model_combined = WholeBodyPBPK(victim_drug, body_weight=body_weight)
+    if route == "oral":
+        model_combined.setup_oral(dose_mg)
+    elif route == "iv":
+        model_combined.setup_iv(dose_mg)
+    else:
+        model_combined.setup_sc(dose_mg)
+
+    for perp in perpetrators:
+        cmax_uM = perp.cmax_uM
+        if cmax_uM is None:
+            warnings.append(f"No Cmax provided for '{perp.name}'; using default 1.0 µM")
+            cmax_uM = 1.0
+        inhibitor = DDIInhibitor(
+            name=perp.name,
+            ki_uM=perp.ki_uM,
+            concentration_uM=cmax_uM,
+            target_enzyme=perp.target_enzyme,
+            mechanism=perp.mechanism,
+            kinact_per_h=perp.kinact_per_h,
+            kdeg_per_h=perp.kdeg_per_h,
+            fold_induction=perp.fold_induction,
+        )
+        model_combined.add_inhibitor(inhibitor)
+
+    result_combined = model_combined.simulate(t_end_h=t_end_h)
+    pk_combined = result_combined.pk_summary()
+
+    auc_combined = pk_combined.get("AUC_mg_h_L", 0.001)
+    cmax_combined = pk_combined.get("Cmax_mg_L", 0.001)
+    t_half_combined = pk_combined.get("half_life_h", 0.0)
+    if math.isinf(t_half_combined) or t_half_combined > 1e6:
+        t_half_combined = 0.0
+
+    # --- Ratios ---
+    auc_ratio_combined = auc_combined / max(auc_alone, 1e-12)
+    cmax_ratio_combined = cmax_combined / max(cmax_alone, 1e-12)
+
+    # --- Synergy: combined AUCR > 110% of max pairwise AUCR ---
+    max_pairwise_aucr = max(r.auc_ratio for r in pairwise_results)
+    synergy_flag = auc_ratio_combined > max_pairwise_aucr * 1.1
+
+    classification_combined = classify_ddi(auc_ratio_combined)
+
+    # --- Concentration-time profiles ---
+    time_h = tuple(float(t) for t in result_alone.time_h)
+    cp_alone_arr = tuple(float(c) for c in result_alone.plasma_concentration())
+    cp_combined_arr = tuple(float(c) for c in result_combined.plasma_concentration())
+
+    return PolypharmacyDDIResult(
+        victim_name=victim_drug.name,
+        perpetrators=tuple(p.name for p in perpetrators),
+        n_perpetrators=len(perpetrators),
+        auc_alone_mg_h_L=float(auc_alone),
+        cmax_alone_mg_L=float(cmax_alone),
+        t_half_alone_h=float(t_half_alone),
+        auc_combined_mg_h_L=float(auc_combined),
+        cmax_combined_mg_L=float(cmax_combined),
+        t_half_combined_h=float(t_half_combined),
+        auc_ratio_combined=float(auc_ratio_combined),
+        cmax_ratio_combined=float(cmax_ratio_combined),
+        classification_combined=classification_combined,
+        pairwise=tuple(pairwise_results),
+        synergy_flag=synergy_flag,
+        time_h=time_h,
+        cp_alone_mg_L=cp_alone_arr,
+        cp_combined_mg_L=cp_combined_arr,
+        warnings=tuple(warnings),
+    )
