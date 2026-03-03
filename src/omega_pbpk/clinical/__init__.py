@@ -15,8 +15,10 @@ from omega_pbpk.clinical.ddi_report import (
 from omega_pbpk.clinical.ddi_simulation import (
     DDISimulationResult,
     PerpetratorSpec,
+    PolypharmacyDDIResult,
     classify_ddi,
     simulate_ddi,
+    simulate_polypharmacy_ddi,
 )
 from omega_pbpk.clinical.dose_optimization import (
     DoseOptimizer,
@@ -94,6 +96,8 @@ __all__ = [
     "pgx_report_html",
     "PerpetratorSpec",
     "DDISimulationResult",
+    "PolypharmacyDDIResult",
     "classify_ddi",
     "simulate_ddi",
+    "simulate_polypharmacy_ddi",
 ]
