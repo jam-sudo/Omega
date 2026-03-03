@@ -13,6 +13,7 @@ Endpoints:
   POST /population             — PopulationSimulator for N virtual subjects
   POST /report                 — generate HTML report (returns base64 or HTML)
   POST /pgx                    — PGx-PBPK stratified simulation
+  POST /dose/optimize          — dosing regimen optimization
 """
 
 from __future__ import annotations
@@ -491,6 +492,42 @@ class IVIVEResponse(BaseModel):
     drug_params: dict[str, float | str]
     confidence: str
     warnings: list[str]
+
+
+class DoseOptimizeRequest(BaseModel):
+    drug: DrugRequest
+    cmin_mg_L: float | None = None
+    cmax_mg_L: float | None = None
+    auc_min: float | None = None
+    auc_max: float | None = None
+    dose_range_mg: list[float] = Field(default=[10.0, 1000.0])
+    intervals_h: list[float] = Field(default=[6, 8, 12, 24])
+    route: str = "oral"
+    n_doses: int = 20
+    body_weight: float = 70.0
+
+
+class RegimenCandidateResponse(BaseModel):
+    dose_mg: float
+    interval_h: float
+    css_max: float
+    css_min: float
+    css_avg: float
+    auc_ss: float
+    feasible: bool
+    penalty: float
+
+
+class DoseOptimizeResponse(BaseModel):
+    optimal_dose_mg: float
+    optimal_interval_h: float
+    css_max: float
+    css_min: float
+    css_avg: float
+    auc_ss: float
+    feasible: bool
+    warnings: list[str]
+    all_regimens: list[RegimenCandidateResponse]
 
 
 # ---------------------------------------------------------------------------
@@ -1473,4 +1510,74 @@ def predict_batch(req: BatchPredictRequest) -> BatchPredictResponse:
         raise
     except Exception as exc:
         logger.exception("Batch prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/dose/optimize", response_model=DoseOptimizeResponse)
+def dose_optimize(req: DoseOptimizeRequest) -> DoseOptimizeResponse:
+    """Optimize dosing regimen to meet therapeutic Cmin/Cmax/AUC targets."""
+    if req.route not in ("oral", "iv"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid route '{req.route}'. Must be 'oral' or 'iv'.",
+        )
+    if len(req.dose_range_mg) != 2 or req.dose_range_mg[0] >= req.dose_range_mg[1]:
+        raise HTTPException(
+            status_code=422,
+            detail="dose_range_mg must be [min, max] with min < max.",
+        )
+    try:
+        from omega_pbpk.clinical.regimen_optimizer import (
+            TherapeuticTarget,
+            optimize_regimen,
+        )
+        from omega_pbpk.contracts.drug_spec import DrugSpec
+
+        drug_obj = _drug_request_to_drug(req.drug)
+        spec = DrugSpec(
+            name=drug_obj.name,
+            mw=drug_obj.mw,
+            logP=drug_obj.logP,
+            pka=drug_obj.pka,
+            fup=drug_obj.fup,
+            rbp=drug_obj.rbp,
+            clint_hepatic_L_per_h=drug_obj.clint_hepatic_L_per_h,
+            clr_L_per_h=drug_obj.clr_L_per_h,
+            peff=drug_obj.peff,
+        )
+
+        target = TherapeuticTarget(
+            cmin_mg_L=req.cmin_mg_L,
+            cmax_mg_L=req.cmax_mg_L,
+            auc_min=req.auc_min,
+            auc_max=req.auc_max,
+        )
+
+        result = optimize_regimen(
+            spec=spec,
+            target=target,
+            dose_range_mg=tuple(req.dose_range_mg),
+            intervals_h=req.intervals_h,
+            route=req.route,
+            n_doses=req.n_doses,
+            body_weight=req.body_weight,
+        )
+
+        return DoseOptimizeResponse(
+            optimal_dose_mg=result.optimal_dose_mg,
+            optimal_interval_h=result.optimal_interval_h,
+            css_max=result.css_max,
+            css_min=result.css_min,
+            css_avg=result.css_avg,
+            auc_ss=result.auc_ss,
+            feasible=result.feasible,
+            warnings=list(result.warnings),
+            all_regimens=[
+                RegimenCandidateResponse(**r) for r in result.all_regimens
+            ],
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Dose optimization error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

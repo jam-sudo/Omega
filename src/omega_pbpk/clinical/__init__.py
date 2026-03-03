@@ -56,6 +56,11 @@ from omega_pbpk.clinical.pgx_pbpk import (
     plot_pgx_forest,
     run_pgx_pbpk,
 )
+from omega_pbpk.clinical.regimen_optimizer import (
+    RegimenResult,
+    TherapeuticTarget,
+    optimize_regimen,
+)
 from omega_pbpk.clinical.report import ReportInput, generate_report, quick_report
 
 __all__ = [
@@ -100,4 +105,7 @@ __all__ = [
     "classify_ddi",
     "simulate_ddi",
     "simulate_polypharmacy_ddi",
+    "TherapeuticTarget",
+    "RegimenResult",
+    "optimize_regimen",
 ]
