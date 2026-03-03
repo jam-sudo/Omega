@@ -15,6 +15,7 @@ Endpoints:
   POST /pgx                    — PGx-PBPK stratified simulation
   POST /dose/optimize          — dosing regimen optimization
   POST /tdm                    — TDM MAP-Bayesian dose individualization
+  POST /be/design              — bioequivalence study design & sample size
 """
 
 from __future__ import annotations
@@ -1706,4 +1707,79 @@ def tdm(req: TDMRequest) -> TDMResponse:
         raise
     except Exception as exc:
         logger.exception("TDM error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+class BEDesignRequest(BaseModel):
+    cv_auc: float = Field(default=0.25, gt=0, le=1.0, description="Within-subject CV for AUC")
+    cv_cmax: float = Field(default=0.30, gt=0, le=1.0, description="Within-subject CV for Cmax")
+    gmr: float = Field(default=0.95, gt=0.5, le=1.5, description="Assumed geometric mean ratio")
+    target_power: float = Field(default=0.80, gt=0, lt=1.0, description="Target statistical power")
+    alpha: float = Field(default=0.05, gt=0, lt=0.5, description="Significance level (one-sided)")
+    design: str = Field(default="2x2", description="Study design: 2x2, 3x3_williams, 4x2_replicate")
+    dropout_rate: float = Field(default=0.10, ge=0, lt=1.0, description="Expected dropout rate")
+    is_nti: bool = Field(default=False, description="Narrow therapeutic index drug")
+
+    @field_validator("design")
+    @classmethod
+    def design_valid(cls, v: str) -> str:
+        allowed = ("2x2", "3x3_williams", "4x2_replicate")
+        if v not in allowed:
+            raise ValueError(f"design must be one of {allowed}")
+        return v
+
+
+class BEDesignResponse(BaseModel):
+    design: str
+    n_subjects: int
+    n_per_sequence: int
+    power_achieved: float
+    alpha: float
+    be_limits: list[float]
+    gmr_assumed: float
+    cv_within: float
+    cv_between: float
+    endpoint: str
+    dropout_adjusted_n: int
+    dropout_rate: float
+    power_curve: list[dict[str, float]]
+    warnings: list[str]
+
+
+@app.post("/be/design", response_model=BEDesignResponse)
+def be_design(req: BEDesignRequest) -> BEDesignResponse:
+    """Bioequivalence study design: sample size and power calculation."""
+    try:
+        from omega_pbpk.clinical.be_study_design import run_be_design
+
+        result = run_be_design(
+            cv_auc=req.cv_auc,
+            cv_cmax=req.cv_cmax,
+            gmr=req.gmr,
+            target_power=req.target_power,
+            alpha=req.alpha,
+            design=req.design,
+            dropout_rate=req.dropout_rate,
+            is_nti=req.is_nti,
+        )
+        return BEDesignResponse(
+            design=result.design,
+            n_subjects=result.n_subjects,
+            n_per_sequence=result.n_per_sequence,
+            power_achieved=result.power_achieved,
+            alpha=result.alpha,
+            be_limits=list(result.be_limits),
+            gmr_assumed=result.gmr_assumed,
+            cv_within=result.cv_within,
+            cv_between=result.cv_between,
+            endpoint=result.endpoint,
+            dropout_adjusted_n=result.dropout_adjusted_n,
+            dropout_rate=result.dropout_rate,
+            power_curve=result.power_curve,
+            warnings=list(result.warnings),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("BE design error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
