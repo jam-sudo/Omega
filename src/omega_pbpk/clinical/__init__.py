@@ -15,6 +15,13 @@ from omega_pbpk.clinical.be_study_design import (
     run_be_design,
     sensitivity_analysis,
 )
+from omega_pbpk.clinical.crossover_trial import (
+    CrossoverArm,
+    CrossoverDesign,
+    CrossoverTrialResult,
+    SubjectPeriodResult,
+    run_crossover_trial,
+)
 from omega_pbpk.clinical.ddi_report import (
     DDIInhibitor,
     DDIRiskReport,
@@ -134,4 +141,9 @@ __all__ = [
     "compute_power",
     "run_be_design",
     "sensitivity_analysis",
+    "CrossoverArm",
+    "CrossoverDesign",
+    "CrossoverTrialResult",
+    "SubjectPeriodResult",
+    "run_crossover_trial",
 ]
