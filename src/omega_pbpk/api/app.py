@@ -23,6 +23,7 @@ Endpoints:
   POST /trial/crossover        — virtual 2×2 crossover BE trial simulation
   POST /compare                — multi-candidate drug comparison & ranking
   POST /mist                   — MIST metabolite safety assessment (FDA guidance)
+  POST /bcs                    — BCS classification and bioavailability prediction
 """
 
 from __future__ import annotations
@@ -2730,4 +2731,101 @@ def mist_assessment(req: MISTRequest) -> MISTResponse:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("MIST assessment error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /bcs — BCS classification and bioavailability prediction
+# ---------------------------------------------------------------------------
+
+
+class BCSRequest(BaseModel):
+    drug_name: str = Field(default="Unknown", description="Drug name")
+    dose_mg: float = Field(default=100.0, gt=0, description="Administered dose (mg)")
+    solubility_mg_per_mL: float = Field(gt=0, description="Aqueous solubility (mg/mL)")
+    permeability_cm_per_s: float = Field(
+        ge=0, description="Effective intestinal permeability (cm/s)"
+    )
+    particle_radius_um: float = Field(default=25.0, gt=0, description="Particle radius (µm)")
+    density_g_per_cm3: float = Field(default=1.2, gt=0, description="Particle density (g/cm³)")
+    diffusion_coeff_cm2_per_s: float = Field(
+        default=5e-6, gt=0, description="Drug diffusion coefficient (cm²/s)"
+    )
+    gi_volume_mL: float = Field(
+        default=250.0, gt=0, description="GI volume for dose number calculation (mL)"
+    )
+    gi_transit_h: float = Field(default=3.5, gt=0, description="Small intestinal transit time (h)")
+
+
+class BCSAbsorptionResponse(BaseModel):
+    fraction_absorbed: float
+    fa_dissolution_limited: float
+    fa_permeability_limited: float
+    rate_limiting_step: str
+
+
+class BCSDissolutionResponse(BaseModel):
+    t50_h: float
+    t85_h: float
+    time_h: list[float]
+    fraction_dissolved: list[float]
+
+
+class BCSResponse(BaseModel):
+    drug_name: str
+    bcs_class: str
+    dose_number: float
+    dissolution: BCSDissolutionResponse
+    absorption: BCSAbsorptionResponse
+    regulatory_note: str
+    warnings: list[str]
+
+
+@app.post("/bcs", response_model=BCSResponse)
+def bcs_classification(req: BCSRequest) -> BCSResponse:
+    """BCS classification and bioavailability prediction."""
+    try:
+        from omega_pbpk.biopharmaceutics.bcs_classification import (
+            BCSInput,
+            run_bcs_assessment,
+        )
+
+        inp = BCSInput(
+            drug_name=req.drug_name,
+            dose_mg=req.dose_mg,
+            solubility_mg_per_mL=req.solubility_mg_per_mL,
+            permeability_cm_per_s=req.permeability_cm_per_s,
+            particle_radius_um=req.particle_radius_um,
+            density_g_per_cm3=req.density_g_per_cm3,
+            diffusion_coeff_cm2_per_s=req.diffusion_coeff_cm2_per_s,
+            gi_volume_mL=req.gi_volume_mL,
+            gi_transit_h=req.gi_transit_h,
+        )
+        report = run_bcs_assessment(inp)
+
+        return BCSResponse(
+            drug_name=report.input.drug_name,
+            bcs_class=report.bcs_class,
+            dose_number=report.dose_number,
+            dissolution=BCSDissolutionResponse(
+                t50_h=report.dissolution.t50_h,
+                t85_h=report.dissolution.t85_h,
+                time_h=report.dissolution.time_h,
+                fraction_dissolved=report.dissolution.fraction_dissolved,
+            ),
+            absorption=BCSAbsorptionResponse(
+                fraction_absorbed=report.absorption.fraction_absorbed,
+                fa_dissolution_limited=report.absorption.fa_dissolution_limited,
+                fa_permeability_limited=report.absorption.fa_permeability_limited,
+                rate_limiting_step=report.absorption.rate_limiting_step,
+            ),
+            regulatory_note=report.regulatory_note,
+            warnings=report.warnings,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("BCS classification error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
