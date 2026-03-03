@@ -14,6 +14,7 @@ Endpoints:
   POST /report                 — generate HTML report (returns base64 or HTML)
   POST /pgx                    — PGx-PBPK stratified simulation
   POST /dose/optimize          — dosing regimen optimization
+  POST /tdm                    — TDM MAP-Bayesian dose individualization
 """
 
 from __future__ import annotations
@@ -1359,6 +1360,64 @@ def validate(req: ValidateRequest) -> ValidateResponse:
         raise HTTPException(status_code=422, detail=f"Unknown mode: {req.mode}")
 
 
+class TDMObservation(BaseModel):
+    time_h: float = Field(gt=0, description="Time after dose in hours")
+    conc_mg_L: float = Field(gt=0, description="Observed concentration in mg/L")
+    dose_number: int = Field(default=1, ge=1, description="Which dose this observation follows")
+    assay_cv: float = Field(default=0.10, gt=0, le=1.0, description="Assay CV")
+
+
+class TDMRequest(BaseModel):
+    observations: list[TDMObservation]
+    dose_mg: float = Field(default=100.0, gt=0)
+    interval_h: float = Field(default=12.0, gt=0)
+    route: str = "oral"
+    target_trough: float = Field(default=1.0, gt=0)
+    target_peak: float | None = None
+    dose_range_mg: list[float] = Field(default=[10.0, 2000.0])
+    forward_hours: float = Field(default=72.0, gt=0, le=720.0)
+    cl_mean: float = Field(default=5.0, gt=0, description="Population CL mean (L/h)")
+    cl_cv: float = Field(default=0.40, gt=0, le=2.0)
+    vd_mean: float = Field(default=42.0, gt=0, description="Population Vd mean (L)")
+    vd_cv: float = Field(default=0.30, gt=0, le=2.0)
+    ka_mean: float = Field(default=1.0, gt=0, description="Population ka mean (1/h)")
+    ka_cv: float = Field(default=0.50, gt=0, le=2.0)
+
+    @field_validator("observations")
+    @classmethod
+    def observations_not_empty(cls, v):
+        if len(v) > 100:
+            raise ValueError("Maximum 100 observations")
+        return v
+
+    @field_validator("dose_range_mg")
+    @classmethod
+    def dose_range_valid(cls, v):
+        if len(v) != 2 or v[0] >= v[1]:
+            raise ValueError("dose_range_mg must be [min, max] with min < max")
+        return v
+
+
+class TDMResponse(BaseModel):
+    individual_cl: float
+    individual_vd: float
+    individual_ka: float
+    cl_ratio: float
+    vd_ratio: float
+    ka_ratio: float
+    predicted: list[float]
+    observed: list[float]
+    residuals: list[float]
+    objective_function_value: float
+    recommended_dose_mg: float
+    predicted_trough: float
+    predicted_peak: float
+    forward_time_h: list[float]
+    forward_conc_mg_L: list[float]
+    converged: bool
+    warnings: list[str]
+
+
 class BatchPredictRequest(BaseModel):
     smiles_list: list[str]
     dose_mg: float = 100.0
@@ -1578,4 +1637,73 @@ def dose_optimize(req: DoseOptimizeRequest) -> DoseOptimizeResponse:
         raise
     except Exception as exc:
         logger.exception("Dose optimization error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/tdm", response_model=TDMResponse)
+def tdm(req: TDMRequest) -> TDMResponse:
+    """Therapeutic Drug Monitoring: MAP-Bayesian dose individualization."""
+    if req.route not in ("oral", "iv"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid route '{req.route}'. Must be 'oral' or 'iv'.",
+        )
+    try:
+        from omega_pbpk.clinical.tdm import (
+            ObservedConcentration,
+            PopulationPrior,
+            run_tdm,
+        )
+
+        observations = [
+            ObservedConcentration(
+                time_h=o.time_h,
+                conc_mg_L=o.conc_mg_L,
+                dose_number=o.dose_number,
+                assay_cv=o.assay_cv,
+            )
+            for o in req.observations
+        ]
+        prior = PopulationPrior(
+            cl_mean=req.cl_mean,
+            cl_cv=req.cl_cv,
+            vd_mean=req.vd_mean,
+            vd_cv=req.vd_cv,
+            ka_mean=req.ka_mean,
+            ka_cv=req.ka_cv,
+        )
+        result = run_tdm(
+            observations=observations,
+            prior=prior,
+            dose_mg=req.dose_mg,
+            interval_h=req.interval_h,
+            route=req.route,
+            target_trough=req.target_trough,
+            target_peak=req.target_peak,
+            dose_range_mg=tuple(req.dose_range_mg),
+            forward_hours=req.forward_hours,
+        )
+        return TDMResponse(
+            individual_cl=result.individual_cl,
+            individual_vd=result.individual_vd,
+            individual_ka=result.individual_ka,
+            cl_ratio=result.cl_ratio,
+            vd_ratio=result.vd_ratio,
+            ka_ratio=result.ka_ratio,
+            predicted=list(result.predicted),
+            observed=list(result.observed),
+            residuals=list(result.residuals),
+            objective_function_value=result.objective_function_value,
+            recommended_dose_mg=result.recommended_dose_mg,
+            predicted_trough=result.predicted_trough,
+            predicted_peak=result.predicted_peak,
+            forward_time_h=list(result.forward_time_h),
+            forward_conc_mg_L=list(result.forward_conc_mg_L),
+            converged=result.converged,
+            warnings=list(result.warnings),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("TDM error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
