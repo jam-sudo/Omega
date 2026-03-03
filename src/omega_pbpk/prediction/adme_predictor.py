@@ -76,6 +76,7 @@ class ADMEPredictor:
 
     _ref_data: list[dict] | None = None
     _featurizer: Any | None = None
+    _gat_model: Any | None = None  # MolecularGAT, lazy-loaded
 
     # Polynomial model coefficients (set by _fit_qspr_models)
     _coeff_fup: np.ndarray | None = None
@@ -580,6 +581,57 @@ class ADMEPredictor:
         n_halogen = smiles.count("F") + smiles.count("Cl") + smiles.count("Br")
         heavy = sum(1 for c in smiles if c.isalpha() and c not in "()[]")
         return 0.1 * heavy + 0.3 * n_halogen - 0.4 * n_polar + 0.05 * n_aromatic
+
+    # ------------------------------------------------------------------
+    # GAT-based prediction
+    # ------------------------------------------------------------------
+
+    def predict_gat(self, smiles: str) -> dict[str, Any]:
+        """Predict ADME properties using the Graph Attention Network.
+
+        Lazy-loads and trains the MolecularGAT on first call using the
+        ADME reference dataset. Subsequent calls reuse the trained model.
+
+        NOTE: First call trains with a small number of epochs (n_epochs=2)
+        for practicality; numerical-gradient training is slow for large
+        models.
+
+        Args:
+            smiles: SMILES string.
+
+        Returns:
+            Dict with fup, clint_3a4, peff, logS, confidence, and
+            model_info.
+        """
+        if self._gat_model is None:
+            from omega_pbpk.ml_models.graph_attention import (
+                MolecularGAT,
+                load_training_data,
+            )
+
+            model = MolecularGAT()
+            smiles_list, targets = load_training_data()
+            if smiles_list:
+                logger.debug("Training GAT on %d compounds (2 epochs)…", len(smiles_list))
+                model.fit(
+                    smiles_list,
+                    targets,
+                    n_epochs=2,
+                    lr=0.005,
+                    batch_size=8,
+                )
+            else:
+                logger.warning("GAT training data unavailable; using random-init weights.")
+            self._gat_model = model
+
+        result: dict[str, Any] = self._gat_model.predict_single(smiles)
+        result["model_info"] = {
+            "type": "MolecularGAT",
+            "trained": self._gat_model._trained,
+            "hidden_dim": self._gat_model.hidden_dim,
+            "n_rounds": self._gat_model.n_rounds,
+        }
+        return result
 
     def predict_from_dict(self, props: dict[str, float]) -> ADMEProperties | None:
         """Create ADMEProperties from a dictionary (e.g., from YAML)."""
