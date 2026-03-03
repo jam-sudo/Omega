@@ -19,6 +19,7 @@ Endpoints:
   POST /toxicity               — organ-specific toxicity risk scoring
   POST /phenotyping            — metabolic reaction phenotyping (CYP contribution)
   POST /sensitivity/sobol      — Sobol global sensitivity analysis
+  POST /simulate/formulation   — ER/MR formulation release + PK simulation
 """
 
 from __future__ import annotations
@@ -26,6 +27,8 @@ from __future__ import annotations
 import dataclasses
 import logging
 from typing import Any
+
+import numpy as np
 
 try:
     from fastapi import FastAPI, HTTPException
@@ -2174,4 +2177,132 @@ def sensitivity_sobol(req: SobolRequest) -> SobolResponse:
         raise
     except Exception as exc:
         logger.exception("Sobol sensitivity error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/formulation — ER/MR formulation release + PK simulation
+# ---------------------------------------------------------------------------
+
+
+class ReleasePhaseRequest(BaseModel):
+    fraction: float = Field(default=1.0, gt=0, le=1.0, description="Fraction of dose in this phase")
+    model: str = Field(
+        default="immediate",
+        description="Release model: immediate, zero_order, first_order, weibull, higuchi",
+    )
+    params: dict[str, float] = Field(default_factory=dict, description="Model-specific parameters")
+    lag_h: float = Field(default=0.0, ge=0, description="Lag time before phase activates (h)")
+    site: str = Field(default="stomach", description="GI release site")
+
+    @field_validator("model")
+    @classmethod
+    def model_valid(cls, v: str) -> str:
+        allowed = ("immediate", "zero_order", "first_order", "weibull", "higuchi")
+        if v not in allowed:
+            raise ValueError(f"model must be one of {allowed}")
+        return v
+
+
+class FormulationSimulateRequest(BaseModel):
+    name: str = Field(default="ER tablet", description="Formulation name")
+    release_phases: list[ReleasePhaseRequest] = Field(..., min_length=1)
+    total_dose_mg: float = Field(default=100.0, gt=0)
+    t_end_h: float = Field(default=24.0, gt=0, le=720)
+    dt_h: float = Field(default=0.01, gt=0, le=1.0)
+    ke: float = Field(default=0.1, gt=0, description="Elimination rate constant (1/h)")
+    vd_L: float = Field(default=42.0, gt=0, description="Volume of distribution (L)")
+    ka: float = Field(
+        default=0.0, ge=0, description="Absorption rate constant (1/h); 0 = direct input"
+    )
+    bioavailability: float = Field(default=1.0, gt=0, le=1.0)
+
+
+class FormulationSimulateResponse(BaseModel):
+    formulation_name: str
+    pk_summary: dict[str, float]
+    release_profile: dict[str, list[float]]
+    plasma_profile: dict[str, list[float]]
+    warnings: list[str]
+
+
+@app.post("/simulate/formulation", response_model=FormulationSimulateResponse)
+def simulate_formulation(req: FormulationSimulateRequest) -> FormulationSimulateResponse:
+    """ER/MR formulation release modelling with 1-compartment PK simulation."""
+    try:
+        from omega_pbpk.core.formulation import (
+            FormulationSpec,
+            ReleasePhase,
+            release_profile,
+            simulate_pk_1cpt,
+            validate_formulation,
+        )
+
+        phases = [
+            ReleasePhase(
+                fraction=p.fraction,
+                model=p.model,
+                params=dict(p.params),
+                lag_h=p.lag_h,
+                site=p.site,
+            )
+            for p in req.release_phases
+        ]
+
+        spec = FormulationSpec(
+            name=req.name,
+            release_phases=phases,
+            total_dose_mg=req.total_dose_mg,
+        )
+
+        warnings = validate_formulation(spec)
+
+        rp = release_profile(spec, t_end_h=req.t_end_h, dt_h=req.dt_h)
+
+        t_pk, conc = simulate_pk_1cpt(
+            spec,
+            ke=req.ke,
+            vd=req.vd_L,
+            t_end_h=req.t_end_h,
+            dt_h=req.dt_h,
+            ka=req.ka,
+            bioavailability=req.bioavailability,
+        )
+
+        # PK summary
+        cmax = float(np.max(conc))
+        tmax = float(t_pk[int(np.argmax(conc))])
+        from omega_pbpk._compat import np_trapz
+
+        auc = float(np_trapz(conc, t_pk))
+        t_half = 0.693 / req.ke if req.ke > 0 else float("inf")
+
+        # Downsample for response (max ~500 points)
+        step = max(1, len(t_pk) // 500)
+        t_ds = t_pk[::step]
+        conc_ds = conc[::step]
+        cum_ds = rp.cumulative_fraction_released[::step]
+
+        return FormulationSimulateResponse(
+            formulation_name=spec.name,
+            pk_summary={
+                "cmax_mg_L": round(cmax, 6),
+                "tmax_h": round(tmax, 4),
+                "auc_mg_h_L": round(auc, 4),
+                "t_half_h": round(t_half, 4),
+            },
+            release_profile={
+                "time_h": [round(float(x), 4) for x in t_ds],
+                "cumulative_fraction": [round(float(x), 6) for x in cum_ds],
+            },
+            plasma_profile={
+                "time_h": [round(float(x), 4) for x in t_ds],
+                "conc_mg_L": [round(float(x), 6) for x in conc_ds],
+            },
+            warnings=warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Formulation simulation error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
