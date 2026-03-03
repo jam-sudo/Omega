@@ -24,6 +24,7 @@ Endpoints:
   POST /compare                — multi-candidate drug comparison & ranking
   POST /mist                   — MIST metabolite safety assessment (FDA guidance)
   POST /bcs                    — BCS classification and bioavailability prediction
+  POST /induction              — enzyme induction time course (PXR/CAR pathway)
 """
 
 from __future__ import annotations
@@ -2828,4 +2829,228 @@ def bcs_classification(req: BCSRequest) -> BCSResponse:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("BCS classification error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /induction — enzyme induction time course (PXR/CAR pathway)
+# ---------------------------------------------------------------------------
+
+
+class InductionRequest(BaseModel):
+    inducer_name: str = Field(default="compound", description="Name of the inducer")
+    target_enzyme: str = Field(default="CYP3A4", description="Target CYP enzyme")
+    emax: float = Field(..., ge=0, description="Maximum fold induction above baseline")
+    ec50_uM: float = Field(..., gt=0, description="EC50 for induction (µM)")
+    inducer_conc_uM: float = Field(..., ge=0, description="Steady-state inducer conc (µM)")
+    kdeg_h: float = Field(default=0.03, gt=0, description="Enzyme kdeg (/h); default CYP3A4")
+    baseline_activity: float = Field(default=1.0, gt=0, description="Baseline enzyme activity")
+    t_end_h: float = Field(default=336.0, gt=0, description="Simulation end time (h)")
+    n_points: int = Field(default=200, ge=2, description="Number of time points")
+    auto_induction: bool = Field(
+        default=False, description="Enable auto-induction (coupled PK–enzyme ODEs)"
+    )
+    initial_conc_uM: float | None = Field(
+        default=None, ge=0, description="Initial drug conc for auto-induction (µM)"
+    )
+    cl_baseline_L_per_h: float | None = Field(
+        default=None, gt=0, description="Baseline CL for auto-induction (L/h)"
+    )
+    vd_L: float | None = Field(
+        default=None, gt=0, description="Volume of distribution for auto-induction (L)"
+    )
+    inhibition_r1: float | None = Field(
+        default=None, ge=1.0, description="R1 inhibition factor; triggers net DDI calc"
+    )
+    fm_enzyme: float = Field(default=1.0, ge=0, le=1, description="Victim fm for net DDI (0–1)")
+
+
+class InductionTimePointResponse(BaseModel):
+    time_h: float
+    enzyme_activity: float
+    induction_factor: float
+    fractional_turnover: float
+
+
+class InductionTimeCourseResponse(BaseModel):
+    inducer_name: str
+    target_enzyme: str
+    emax: float
+    ec50_uM: float
+    inducer_conc_uM: float
+    kdeg_h: float
+    ksyn_h: float
+    steady_state_fold: float
+    time_to_90pct_ss_h: float
+    time_points: list[InductionTimePointResponse]
+    time_h: list[float]
+    enzyme_activity: list[float]
+    warnings: list[str]
+
+
+class AutoInductionResponse(BaseModel):
+    drug_name: str
+    target_enzyme: str
+    emax: float
+    ec50_uM: float
+    initial_conc_uM: float
+    kdeg_h: float
+    cl_baseline_L_per_h: float
+    cl_induced_L_per_h: float
+    half_life_baseline_h: float
+    half_life_induced_h: float
+    fold_cl_change: float
+    time_h: list[float]
+    concentration_uM: list[float]
+    enzyme_activity: list[float]
+    warnings: list[str]
+
+
+class NetDDIEffectResponse(BaseModel):
+    target_enzyme: str
+    inhibition_factor: float
+    induction_factor: float
+    net_effect: float
+    dominant_mechanism: str
+    clinical_relevance: str
+    warnings: list[str]
+
+
+class InductionResponse(BaseModel):
+    mode: str
+    summary: str
+    time_course: InductionTimeCourseResponse | None = None
+    auto_induction: AutoInductionResponse | None = None
+    net_ddi: NetDDIEffectResponse | None = None
+
+
+@app.post("/induction", response_model=InductionResponse)
+def enzyme_induction(req: InductionRequest) -> InductionResponse:
+    """Enzyme induction time course via PXR/CAR pathway (CYP induction)."""
+    try:
+        from omega_pbpk.clinical.enzyme_induction import (
+            InductionParameters,
+            compute_net_ddi_effect,
+            format_induction_summary,
+            simulate_auto_induction,
+            simulate_induction_time_course,
+        )
+
+        params = InductionParameters(
+            inducer_name=req.inducer_name,
+            target_enzyme=req.target_enzyme,
+            emax=req.emax,
+            ec50_uM=req.ec50_uM,
+            inducer_conc_uM=req.inducer_conc_uM,
+            kdeg_h=req.kdeg_h,
+            baseline_activity=req.baseline_activity,
+        )
+
+        time_course_resp: InductionTimeCourseResponse | None = None
+        auto_resp: AutoInductionResponse | None = None
+        net_ddi_resp: NetDDIEffectResponse | None = None
+        mode: str
+
+        if req.auto_induction:
+            if req.initial_conc_uM is None or req.cl_baseline_L_per_h is None or req.vd_L is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "auto_induction=true requires initial_conc_uM, "
+                        "cl_baseline_L_per_h, and vd_L"
+                    ),
+                )
+            mode = "auto_induction"
+            ar = simulate_auto_induction(
+                params=params,
+                initial_conc_uM=req.initial_conc_uM,
+                cl_baseline_L_per_h=req.cl_baseline_L_per_h,
+                vd_L=req.vd_L,
+                t_end_h=req.t_end_h,
+                n_points=req.n_points,
+            )
+            auto_resp = AutoInductionResponse(
+                drug_name=ar.drug_name,
+                target_enzyme=ar.target_enzyme,
+                emax=ar.emax,
+                ec50_uM=ar.ec50_uM,
+                initial_conc_uM=ar.initial_conc_uM,
+                kdeg_h=ar.kdeg_h,
+                cl_baseline_L_per_h=ar.cl_baseline_L_per_h,
+                cl_induced_L_per_h=ar.cl_induced_L_per_h,
+                half_life_baseline_h=ar.half_life_baseline_h,
+                half_life_induced_h=ar.half_life_induced_h,
+                fold_cl_change=ar.fold_cl_change,
+                time_h=list(ar.time_h),
+                concentration_uM=list(ar.concentration_uM),
+                enzyme_activity=list(ar.enzyme_activity),
+                warnings=list(ar.warnings),
+            )
+            summary = format_induction_summary(ar)
+        else:
+            mode = "standard"
+            tc = simulate_induction_time_course(
+                params=params,
+                t_end_h=req.t_end_h,
+                n_points=req.n_points,
+            )
+            time_course_resp = InductionTimeCourseResponse(
+                inducer_name=tc.inducer_name,
+                target_enzyme=tc.target_enzyme,
+                emax=tc.emax,
+                ec50_uM=tc.ec50_uM,
+                inducer_conc_uM=tc.inducer_conc_uM,
+                kdeg_h=tc.kdeg_h,
+                ksyn_h=tc.ksyn_h,
+                steady_state_fold=tc.steady_state_fold,
+                time_to_90pct_ss_h=tc.time_to_90pct_ss_h,
+                time_points=[
+                    InductionTimePointResponse(
+                        time_h=p.time_h,
+                        enzyme_activity=p.enzyme_activity,
+                        induction_factor=p.induction_factor,
+                        fractional_turnover=p.fractional_turnover,
+                    )
+                    for p in tc.time_points
+                ],
+                time_h=list(tc.time_h),
+                enzyme_activity=list(tc.enzyme_activity),
+                warnings=list(tc.warnings),
+            )
+            summary = format_induction_summary(tc)
+
+        # Optional net DDI calculation
+        if req.inhibition_r1 is not None:
+            ss_fold = (
+                auto_resp.fold_cl_change
+                if auto_resp is not None
+                else (time_course_resp.steady_state_fold if time_course_resp else 1.0)
+            )
+            net = compute_net_ddi_effect(
+                inhibition_r1=req.inhibition_r1,
+                induction_fold=ss_fold,
+                fm_enzyme=req.fm_enzyme,
+                target_enzyme=req.target_enzyme,
+            )
+            net_ddi_resp = NetDDIEffectResponse(
+                target_enzyme=net.target_enzyme,
+                inhibition_factor=net.inhibition_factor,
+                induction_factor=net.induction_factor,
+                net_effect=net.net_effect,
+                dominant_mechanism=net.dominant_mechanism,
+                clinical_relevance=net.clinical_relevance,
+                warnings=list(net.warnings),
+            )
+
+        return InductionResponse(
+            mode=mode,
+            summary=summary,
+            time_course=time_course_resp,
+            auto_induction=auto_resp,
+            net_ddi=net_ddi_resp,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Enzyme induction error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
