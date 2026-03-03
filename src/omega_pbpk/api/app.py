@@ -20,6 +20,7 @@ Endpoints:
   POST /phenotyping            — metabolic reaction phenotyping (CYP contribution)
   POST /sensitivity/sobol      — Sobol global sensitivity analysis
   POST /simulate/formulation   — ER/MR formulation release + PK simulation
+  POST /trial/crossover        — virtual 2×2 crossover BE trial simulation
 """
 
 from __future__ import annotations
@@ -2305,4 +2306,164 @@ def simulate_formulation(req: FormulationSimulateRequest) -> FormulationSimulate
         raise
     except Exception as exc:
         logger.exception("Formulation simulation error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /trial/crossover — virtual 2×2 crossover BE trial simulation
+# ---------------------------------------------------------------------------
+
+
+class CrossoverDrugRequest(BaseModel):
+    name: str = "Test Drug"
+    mw: float = Field(default=300.0, gt=0)
+    logP: float = 2.0
+    fup: float = Field(default=0.5, gt=0, le=1.0)
+    rbp: float = Field(default=1.0, gt=0)
+    drug_type: str = "neutral"
+    clint_hepatic_L_per_h: float = Field(default=5.0, ge=0)
+    clr_L_per_h: float = Field(default=0.0, ge=0)
+    peff: float = Field(default=1.0, ge=0)
+    pka: list[float] | None = None
+    clint: dict[str, float] | None = None
+    fm: dict[str, float] | None = None
+
+
+class CrossoverArmRequest(BaseModel):
+    name: str
+    drug: CrossoverDrugRequest
+    dose_mg: float = Field(default=100.0, gt=0)
+    route: str = Field(default="oral")
+
+    @field_validator("route")
+    @classmethod
+    def route_valid(cls, v: str) -> str:
+        allowed = ("oral", "iv")
+        if v not in allowed:
+            raise ValueError(f"route must be one of {allowed}")
+        return v
+
+
+class CrossoverTrialRequest(BaseModel):
+    arms: list[CrossoverArmRequest] = Field(..., min_length=2, max_length=2)
+    design: str = Field(default="2x2")
+    n_subjects: int = Field(default=24, ge=4, le=200)
+    washout_sufficient: bool = True
+    wsv_cv_cl: float = Field(default=0.15, ge=0, le=1.0)
+    wsv_cv_vd: float = Field(default=0.10, ge=0, le=1.0)
+    wsv_cv_ka: float = Field(default=0.20, ge=0, le=1.0)
+    period_effect: float = Field(default=0.0, ge=-0.5, le=0.5)
+    seed: int = 42
+    t_end_h: float = Field(default=48.0, gt=0, le=720)
+
+    @field_validator("design")
+    @classmethod
+    def design_valid(cls, v: str) -> str:
+        if v != "2x2":
+            raise ValueError("Only '2x2' design is currently supported")
+        return v
+
+
+class CrossoverTrialResponse(BaseModel):
+    design: str
+    n_subjects: int
+    n_completed: int
+    gmr_auc: float
+    gmr_cmax: float
+    ci90_auc: list[float]
+    ci90_cmax: list[float]
+    tost_p_auc: float
+    tost_p_cmax: float
+    be_conclusion_auc: str
+    be_conclusion_cmax: str
+    be_conclusion_overall: str
+    be_limits: list[float]
+    power_auc: float
+    power_cmax: float
+    cv_within_auc: float
+    cv_within_cmax: float
+    anova_summary: dict[str, float]
+    warnings: list[str]
+
+
+@app.post("/trial/crossover", response_model=CrossoverTrialResponse)
+def trial_crossover(req: CrossoverTrialRequest) -> CrossoverTrialResponse:
+    """Virtual 2×2 crossover bioequivalence trial simulation."""
+    try:
+        from omega_pbpk.clinical.crossover_trial import (
+            CrossoverArm,
+            CrossoverDesign,
+            run_crossover_trial,
+        )
+        from omega_pbpk.drugs.drug import Drug
+
+        # Build Drug objects and arms
+        trial_arms: list[CrossoverArm] = []
+        for arm_req in req.arms:
+            drug_kwargs: dict[str, Any] = {
+                "name": arm_req.drug.name,
+                "mw": arm_req.drug.mw,
+                "logP": arm_req.drug.logP,
+                "fup": arm_req.drug.fup,
+                "rbp": arm_req.drug.rbp,
+                "drug_type": arm_req.drug.drug_type,
+                "clint_hepatic_L_per_h": arm_req.drug.clint_hepatic_L_per_h,
+                "clr_L_per_h": arm_req.drug.clr_L_per_h,
+                "peff": arm_req.drug.peff,
+            }
+            if arm_req.drug.pka is not None:
+                drug_kwargs["pka"] = arm_req.drug.pka
+            if arm_req.drug.clint is not None:
+                drug_kwargs["clint"] = arm_req.drug.clint
+            if arm_req.drug.fm is not None:
+                drug_kwargs["fm"] = arm_req.drug.fm
+            drug = Drug(**drug_kwargs)
+            trial_arms.append(
+                CrossoverArm(
+                    name=arm_req.name,
+                    drug=drug,
+                    dose_mg=arm_req.dose_mg,
+                    route=arm_req.route,
+                )
+            )
+
+        trial_design = CrossoverDesign(
+            arms=tuple(trial_arms),
+            design=req.design,
+            n_subjects=req.n_subjects,
+            washout_sufficient=req.washout_sufficient,
+            wsv_cv_cl=req.wsv_cv_cl,
+            wsv_cv_vd=req.wsv_cv_vd,
+            wsv_cv_ka=req.wsv_cv_ka,
+            period_effect=req.period_effect,
+            seed=req.seed,
+        )
+
+        result = run_crossover_trial(trial_design, t_end_h=req.t_end_h)
+
+        return CrossoverTrialResponse(
+            design=result.design,
+            n_subjects=result.n_subjects,
+            n_completed=result.n_completed,
+            gmr_auc=result.gmr_auc,
+            gmr_cmax=result.gmr_cmax,
+            ci90_auc=list(result.ci90_auc),
+            ci90_cmax=list(result.ci90_cmax),
+            tost_p_auc=result.tost_p_auc,
+            tost_p_cmax=result.tost_p_cmax,
+            be_conclusion_auc=result.be_conclusion_auc,
+            be_conclusion_cmax=result.be_conclusion_cmax,
+            be_conclusion_overall=result.be_conclusion_overall,
+            be_limits=list(result.be_limits),
+            power_auc=result.power_auc,
+            power_cmax=result.power_cmax,
+            cv_within_auc=result.cv_within_auc,
+            cv_within_cmax=result.cv_within_cmax,
+            anova_summary=result.anova_summary,
+            warnings=result.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Crossover trial error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
