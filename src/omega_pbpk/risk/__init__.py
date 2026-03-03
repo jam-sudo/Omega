@@ -92,6 +92,16 @@ def compute_risk_flags(
     )
 
 
+from omega_pbpk.risk.mist_assessment import (  # noqa: E402
+    MIST_THRESHOLD,
+    MetaboliteMISTResult,
+    MetaboliteSpec,
+    MISTReport,
+    classify_metabolite,
+    estimate_metabolite_auc,
+    format_mist_table,
+    run_mist_assessment,
+)
 from omega_pbpk.risk.organ_toxicity import (  # noqa: E402
     OrganExposure,
     OrganToxicityReport,
@@ -106,4 +116,12 @@ __all__ = [
     "OrganToxicityScore",
     "OrganToxicityReport",
     "run_organ_toxicity_assessment",
+    "MIST_THRESHOLD",
+    "MetaboliteSpec",
+    "MetaboliteMISTResult",
+    "MISTReport",
+    "estimate_metabolite_auc",
+    "classify_metabolite",
+    "run_mist_assessment",
+    "format_mist_table",
 ]
