@@ -1191,6 +1191,63 @@ def validate(req: ValidateRequest) -> ValidateResponse:
         raise HTTPException(status_code=422, detail=f"Unknown mode: {req.mode}")
 
 
+class BatchPredictRequest(BaseModel):
+    smiles_list: list[str]
+    dose_mg: float = 100.0
+    route: str = "oral"
+    duration_h: float = 24.0
+    n_uq_samples: int = 50
+    ranking: str = "score"
+
+    @field_validator("smiles_list")
+    @classmethod
+    def smiles_list_not_empty(cls, v):
+        if not v:
+            raise ValueError("smiles_list must not be empty")
+        if len(v) > 50:
+            raise ValueError("Maximum 50 compounds per batch")
+        for smi in v:
+            if len(smi) > 500:
+                raise ValueError(f"SMILES too long (max 500 chars): {smi[:40]}...")
+        return v
+
+    @field_validator("ranking")
+    @classmethod
+    def ranking_valid(cls, v):
+        if v not in ("score", "risk", "auc", "cmax"):
+            raise ValueError("ranking must be one of: score, risk, auc, cmax")
+        return v
+
+
+class CompoundSummaryResponse(BaseModel):
+    rank: int
+    smiles: str
+    drug_name: str
+    cmax_mg_L: float
+    tmax_h: float
+    auc0t_mg_h_L: float
+    t_half_h: float
+    cmax_p50: float
+    auc_p50: float
+    risk_count: int
+    overall_risk_level: str
+    confidence: str
+    adme_confidence: str
+    transporter_ddi_flags: list[str]
+    composite_score: float
+    warnings: list[str]
+
+
+class BatchPredictResponse(BaseModel):
+    compounds: list[CompoundSummaryResponse]
+    n_total: int
+    n_succeeded: int
+    n_failed: int
+    ranking_criterion: str
+    best_compound: str
+    warnings: list[str]
+
+
 @app.post("/predict/full", response_model=FullPredictResponse)
 def predict_full(req: FullPredictRequest) -> FullPredictResponse:
     """Full end-to-end PK assessment: SMILES → ADME + transporters + PBPK + UQ + risk."""
@@ -1235,4 +1292,54 @@ def predict_full(req: FullPredictRequest) -> FullPredictResponse:
         raise
     except Exception as exc:
         logger.exception("Full prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/predict/batch", response_model=BatchPredictResponse)
+def predict_batch(req: BatchPredictRequest) -> BatchPredictResponse:
+    """Batch full-pipeline prediction: rank multiple SMILES by developability."""
+    try:
+        from omega_pbpk.prediction.batch_pipeline import run_batch_prediction
+
+        batch = run_batch_prediction(
+            smiles_list=req.smiles_list,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            duration_h=req.duration_h,
+            n_uq_samples=req.n_uq_samples,
+            ranking=req.ranking,
+        )
+        return BatchPredictResponse(
+            compounds=[
+                CompoundSummaryResponse(
+                    rank=c.rank,
+                    smiles=c.smiles,
+                    drug_name=c.drug_name,
+                    cmax_mg_L=c.cmax_mg_L,
+                    tmax_h=c.tmax_h,
+                    auc0t_mg_h_L=c.auc0t_mg_h_L,
+                    t_half_h=c.t_half_h,
+                    cmax_p50=c.cmax_p50,
+                    auc_p50=c.auc_p50,
+                    risk_count=c.risk_count,
+                    overall_risk_level=c.overall_risk_level,
+                    confidence=c.confidence,
+                    adme_confidence=c.adme_confidence,
+                    transporter_ddi_flags=list(c.transporter_ddi_flags),
+                    composite_score=c.composite_score,
+                    warnings=list(c.warnings),
+                )
+                for c in batch.compounds
+            ],
+            n_total=batch.n_total,
+            n_succeeded=batch.n_succeeded,
+            n_failed=batch.n_failed,
+            ranking_criterion=batch.ranking_criterion,
+            best_compound=batch.best_compound,
+            warnings=list(batch.warnings),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Batch prediction error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
