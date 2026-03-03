@@ -16,6 +16,7 @@ Endpoints:
   POST /dose/optimize          — dosing regimen optimization
   POST /tdm                    — TDM MAP-Bayesian dose individualization
   POST /be/design              — bioequivalence study design & sample size
+  POST /toxicity               — organ-specific toxicity risk scoring
 """
 
 from __future__ import annotations
@@ -1782,4 +1783,148 @@ def be_design(req: BEDesignRequest) -> BEDesignResponse:
         raise
     except Exception as exc:
         logger.exception("BE design error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /toxicity — organ-specific toxicity risk scoring
+# ---------------------------------------------------------------------------
+
+
+class ToxicityRequest(BaseModel):
+    smiles: str | None = Field(default=None, description="SMILES string for compound")
+    drug: DrugRequest | None = Field(
+        default=None, description="Drug parameters (used if smiles not provided)"
+    )
+    dose_mg: float = Field(default=100.0, gt=0, description="Dose in mg")
+    route: str = Field(default="oral", description="Administration route: oral, iv, sc")
+    duration_h: float = Field(default=24.0, gt=0, description="Simulation duration (h)")
+    herg_ic50_uM: float | None = Field(default=None, description="hERG IC50 in µM (optional)")
+
+    @field_validator("route")
+    @classmethod
+    def route_valid(cls, v: str) -> str:
+        allowed = ("oral", "iv", "sc")
+        if v not in allowed:
+            raise ValueError(f"route must be one of {allowed}")
+        return v
+
+
+class OrganExposureResponse(BaseModel):
+    organ: str
+    cmax_mg_L: float
+    auc_mg_h_L: float
+    tmax_h: float
+    cmax_unbound_uM: float
+    cave_mg_L: float
+
+
+class ToxicityScoreResponse(BaseModel):
+    organ: str
+    endpoint: str
+    exposure_metric: float
+    threshold: float
+    margin: float
+    risk_level: str
+    reference: str
+    warning: str
+
+
+class ToxicityResponse(BaseModel):
+    drug_name: str
+    organ_exposures: list[OrganExposureResponse]
+    toxicity_scores: list[ToxicityScoreResponse]
+    overall_risk: str
+    risk_count: int
+    max_concern_organ: str
+    summary: dict[str, Any]
+    warnings: list[str]
+
+
+@app.post("/toxicity", response_model=ToxicityResponse)
+def toxicity_assessment(req: ToxicityRequest) -> ToxicityResponse:
+    """Organ-specific toxicity risk scoring from PBPK simulation."""
+    try:
+        from omega_pbpk.core.body import WholeBodyPBPK
+        from omega_pbpk.drugs.drug import Drug
+        from omega_pbpk.risk.organ_toxicity import run_organ_toxicity_assessment
+
+        # Build Drug object
+        if req.drug is not None:
+            drug_kwargs: dict[str, Any] = {
+                "name": req.drug.name,
+                "mw": req.drug.mw,
+                "logP": req.drug.logP,
+                "fup": req.drug.fup,
+                "rbp": req.drug.rbp,
+                "drug_type": req.drug.drug_type,
+                "clint_hepatic_L_per_h": req.drug.clint_hepatic_L_per_h,
+                "clr_L_per_h": req.drug.clr_L_per_h,
+                "peff": req.drug.peff,
+            }
+            if req.drug.pka is not None:
+                drug_kwargs["pka"] = req.drug.pka
+            if req.drug.clint is not None:
+                drug_kwargs["clint"] = req.drug.clint
+            if req.drug.fm is not None:
+                drug_kwargs["fm"] = req.drug.fm
+            drug = Drug(**drug_kwargs)
+        else:
+            drug = Drug(name=req.smiles or "Unknown")
+
+        # Run PBPK simulation
+        model = WholeBodyPBPK(drug)
+        if req.route == "iv":
+            model.setup_iv(req.dose_mg)
+        elif req.route == "sc":
+            model.setup_sc(req.dose_mg)
+        else:
+            model.setup_oral(req.dose_mg)
+
+        sim_result = model.simulate(t_end_h=req.duration_h)
+
+        # Run toxicity assessment
+        report = run_organ_toxicity_assessment(
+            result=sim_result,
+            drug=sim_result.drug,
+            dose_mg=req.dose_mg,
+            herg_ic50_uM=req.herg_ic50_uM,
+        )
+
+        return ToxicityResponse(
+            drug_name=report.drug_name,
+            organ_exposures=[
+                OrganExposureResponse(
+                    organ=e.organ,
+                    cmax_mg_L=e.cmax_mg_L,
+                    auc_mg_h_L=e.auc_mg_h_L,
+                    tmax_h=e.tmax_h,
+                    cmax_unbound_uM=e.cmax_unbound_uM,
+                    cave_mg_L=e.cave_mg_L,
+                )
+                for e in report.organ_exposures
+            ],
+            toxicity_scores=[
+                ToxicityScoreResponse(
+                    organ=s.organ,
+                    endpoint=s.endpoint,
+                    exposure_metric=s.exposure_metric,
+                    threshold=s.threshold,
+                    margin=s.margin if s.margin < 1e6 else 1e6,
+                    risk_level=s.risk_level,
+                    reference=s.reference,
+                    warning=s.warning,
+                )
+                for s in report.toxicity_scores
+            ],
+            overall_risk=report.overall_risk,
+            risk_count=report.risk_count,
+            max_concern_organ=report.max_concern_organ,
+            summary=report.summary,
+            warnings=report.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Toxicity assessment error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
