@@ -18,6 +18,7 @@ Endpoints:
   POST /be/design              — bioequivalence study design & sample size
   POST /toxicity               — organ-specific toxicity risk scoring
   POST /phenotyping            — metabolic reaction phenotyping (CYP contribution)
+  POST /sensitivity/sobol      — Sobol global sensitivity analysis
 """
 
 from __future__ import annotations
@@ -2060,4 +2061,117 @@ def phenotyping(req: PhenotypingRequest) -> PhenotypingResponse:
         raise
     except Exception as exc:
         logger.exception("Phenotyping error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /sensitivity/sobol — Sobol global sensitivity analysis
+# ---------------------------------------------------------------------------
+
+
+class SobolParameterRange(BaseModel):
+    name: str
+    lower: float = Field(..., ge=0)
+    upper: float = Field(..., gt=0)
+
+
+class SobolRequest(BaseModel):
+    drug: DrugRequest
+    dose_mg: float = Field(default=100.0, gt=0)
+    route: str = "oral"
+    body_weight: float = Field(default=70.0, gt=0)
+    t_end_h: float = Field(default=24.0, gt=0)
+    parameter_ranges: list[SobolParameterRange] | None = None
+    n_samples: int = Field(default=128, ge=16)
+    metric: str = Field(default="AUC", description="PK metric: AUC or Cmax")
+    seed: int = 42
+    n_bootstrap: int = Field(default=100, ge=10)
+
+    @field_validator("metric")
+    @classmethod
+    def metric_valid(cls, v: str) -> str:
+        allowed = ("AUC", "Cmax")
+        if v not in allowed:
+            raise ValueError(f"metric must be one of {allowed}")
+        return v
+
+
+class SobolResponse(BaseModel):
+    parameters: list[str]
+    S1: list[float]
+    ST: list[float]
+    S1_conf: list[float]
+    ST_conf: list[float]
+    metric: str
+    n_samples: int
+    n_total_evaluations: int
+    convergence_flag: bool
+    interaction_index: list[float]
+
+
+@app.post("/sensitivity/sobol", response_model=SobolResponse)
+def sensitivity_sobol(req: SobolRequest) -> SobolResponse:
+    """Sobol global sensitivity analysis for PK parameters."""
+    try:
+        from omega_pbpk.drugs.drug import Drug
+        from omega_pbpk.sensitivity.sobol_gsa import (
+            ParameterRange,
+            sobol_sensitivity,
+        )
+
+        drug_kwargs: dict[str, Any] = {
+            "name": req.drug.name,
+            "mw": req.drug.mw,
+            "logP": req.drug.logP,
+            "fup": req.drug.fup,
+            "rbp": req.drug.rbp,
+            "drug_type": req.drug.drug_type,
+            "clint_hepatic_L_per_h": req.drug.clint_hepatic_L_per_h,
+            "clr_L_per_h": req.drug.clr_L_per_h,
+            "peff": req.drug.peff,
+        }
+        if req.drug.pka is not None:
+            drug_kwargs["pka"] = req.drug.pka
+        if req.drug.clint is not None:
+            drug_kwargs["clint"] = req.drug.clint
+        if req.drug.fm is not None:
+            drug_kwargs["fm"] = req.drug.fm
+        drug = Drug(**drug_kwargs)
+
+        ranges = None
+        if req.parameter_ranges is not None:
+            ranges = [
+                ParameterRange(name=r.name, lower=r.lower, upper=r.upper)
+                for r in req.parameter_ranges
+            ]
+
+        result = sobol_sensitivity(
+            drug=drug,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            body_weight=req.body_weight,
+            t_end_h=req.t_end_h,
+            parameter_ranges=ranges,
+            n_samples=req.n_samples,
+            metric=req.metric,
+            seed=req.seed,
+            n_bootstrap=req.n_bootstrap,
+        )
+
+        return SobolResponse(
+            parameters=result.parameters,
+            S1=result.S1,
+            ST=result.ST,
+            S1_conf=result.S1_conf,
+            ST_conf=result.ST_conf,
+            metric=result.metric,
+            n_samples=result.n_samples,
+            n_total_evaluations=result.n_total_evaluations,
+            convergence_flag=result.convergence_flag,
+            interaction_index=result.interaction_index,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Sobol sensitivity error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

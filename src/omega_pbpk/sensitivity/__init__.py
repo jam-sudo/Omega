@@ -19,6 +19,12 @@ import pandas as pd
 
 from omega_pbpk.core.body import WholeBodyPBPK
 from omega_pbpk.drugs.drug import Drug
+from omega_pbpk.sensitivity.sobol_gsa import (
+    DEFAULT_GSA_RANGES,
+    ParameterRange,
+    SobolResult,
+    sobol_sensitivity,
+)
 
 
 @dataclass(frozen=True)
@@ -188,4 +194,12 @@ def local_sensitivity(
     return SensitivityResult(metrics=df)
 
 
-__all__ = ["SensitivityResult", "local_sensitivity", "PERTURBABLE_PARAMS"]
+__all__ = [
+    "SensitivityResult",
+    "local_sensitivity",
+    "PERTURBABLE_PARAMS",
+    "DEFAULT_GSA_RANGES",
+    "ParameterRange",
+    "SobolResult",
+    "sobol_sensitivity",
+]
