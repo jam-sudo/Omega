@@ -21,7 +21,10 @@ import csv
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from omega_pbpk.data.pubchem_client import PubChemCompound
 
 import numpy as np
 
@@ -632,6 +635,34 @@ class ADMEPredictor:
             "n_rounds": self._gat_model.n_rounds,
         }
         return result
+
+    def pubchem_enrich(self, smiles_or_name: str) -> PubChemCompound | None:
+        """Attempt to retrieve compound properties from PubChem.
+
+        Tries lookup by name first; if the input looks like a SMILES string
+        (contains ring/bond characters) it also tries lookup by SMILES.
+
+        Args:
+            smiles_or_name: Compound name or SMILES string.
+
+        Returns:
+            PubChemCompound if found, None otherwise (network errors are
+            suppressed).
+        """
+        try:
+            from omega_pbpk.data.pubchem_client import lookup_by_name, lookup_by_smiles
+        except ImportError:
+            return None
+
+        _SMILES_CHARS = set("()[]=#@\\/.+-%")
+        is_smiles = any(c in _SMILES_CHARS for c in smiles_or_name)
+
+        if is_smiles:
+            result = lookup_by_smiles(smiles_or_name)
+            if result is not None:
+                return result
+        # Try name lookup (works for named drugs and may resolve SMILES too)
+        return lookup_by_name(smiles_or_name)
 
     def predict_from_dict(self, props: dict[str, float]) -> ADMEProperties | None:
         """Create ADMEProperties from a dictionary (e.g., from YAML)."""

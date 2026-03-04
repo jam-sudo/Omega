@@ -26,6 +26,7 @@ Endpoints:
   POST /bcs                    — BCS classification and bioavailability prediction
   POST /induction              — enzyme induction time course (PXR/CAR pathway)
   POST /predict/gat            — Graph Attention Network ADME prediction
+  POST /pubchem/lookup         — PubChem PUG REST live compound lookup
 """
 
 from __future__ import annotations
@@ -3127,4 +3128,102 @@ async def predict_gat(req: GATRequest) -> GATResponse:
         raise
     except Exception as exc:
         logger.exception("GAT prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /pubchem/lookup
+# ---------------------------------------------------------------------------
+
+
+class PubChemRequest(BaseModel):
+    """Request model for PubChem compound lookup."""
+
+    query: str = Field(..., description="Compound name, SMILES, or numeric CID")
+    query_type: Literal["name", "smiles", "cid"] = Field(
+        default="name",
+        description="Type of identifier: 'name', 'smiles', or 'cid'",
+    )
+
+
+class PubChemResponse(BaseModel):
+    """Response model for PubChem compound lookup."""
+
+    found: bool
+    cid: int = 0
+    name: str = ""
+    smiles: str = ""
+    molecular_weight: float = 0.0
+    xlogp: float = 0.0
+    tpsa: float = 0.0
+    hbd: int = 0
+    hba: int = 0
+    rotatable_bonds: int = 0
+    complexity: float = 0.0
+    charge: int = 0
+    exact_mass: float = 0.0
+    source: str = "pubchem"
+    warnings: list[str] = Field(default_factory=list)
+
+
+@app.post("/pubchem/lookup", response_model=PubChemResponse, tags=["data"])
+async def pubchem_lookup(req: PubChemRequest) -> PubChemResponse:
+    """Look up a compound in PubChem by name, SMILES, or CID.
+
+    Returns molecular properties from PubChem PUG REST API.
+    Results are cached locally to avoid repeated network calls.
+    Returns found=False (not an error) when compound is not found.
+    """
+    try:
+        from omega_pbpk.data.pubchem_client import (
+            lookup_by_cid,
+            lookup_by_name,
+            lookup_by_smiles,
+        )
+
+        compound = None
+        warn: list[str] = []
+
+        if req.query_type == "name":
+            compound = lookup_by_name(req.query)
+        elif req.query_type == "smiles":
+            compound = lookup_by_smiles(req.query)
+        elif req.query_type == "cid":
+            try:
+                compound = lookup_by_cid(int(req.query))
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail="query must be a numeric CID when query_type='cid'",
+                ) from exc
+
+        if compound is None:
+            warn.append(
+                f"Compound '{req.query}' not found in PubChem "
+                f"(query_type={req.query_type}). "
+                "Network may be offline or compound unknown."
+            )
+            return PubChemResponse(found=False, warnings=warn)
+
+        return PubChemResponse(
+            found=True,
+            cid=compound.cid,
+            name=compound.name,
+            smiles=compound.smiles,
+            molecular_weight=compound.molecular_weight,
+            xlogp=compound.xlogp,
+            tpsa=compound.tpsa,
+            hbd=compound.hbd,
+            hba=compound.hba,
+            rotatable_bonds=compound.rotatable_bonds,
+            complexity=compound.complexity,
+            charge=compound.charge,
+            exact_mass=compound.exact_mass,
+            source=compound.source,
+            warnings=warn,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("PubChem lookup error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

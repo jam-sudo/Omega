@@ -45,6 +45,7 @@ class FullPredictionResult:
     overall_risk_level: str  # "low", "moderate", "high"
     # Meta
     confidence: str
+    pubchem_enriched: bool = False
     warnings: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -101,6 +102,26 @@ def run_full_prediction(
         }
     except Exception as e:  # noqa: BLE001
         warnings.append(f"ADME prediction failed: {e}")
+
+    # ------------------------------------------------------------------
+    # 1b. PubChem enrichment — override featurizer values when available
+    # ------------------------------------------------------------------
+    pubchem_enriched = False
+    try:
+        from omega_pbpk.data.pubchem_client import lookup_by_smiles
+
+        pc = lookup_by_smiles(smiles)
+        if pc is not None and adme_props is not None:
+            # Override mw and logP in adme_dict with authoritative PubChem values
+            if pc.molecular_weight > 0:
+                adme_dict["mw"] = pc.molecular_weight
+            if pc.xlogp != 0.0:
+                adme_dict["logP"] = pc.xlogp
+            if pc.tpsa > 0:
+                adme_dict["tpsa"] = pc.tpsa
+            pubchem_enriched = True
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"PubChem enrichment failed: {e}")
 
     # ------------------------------------------------------------------
     # 2. Transporter classification
@@ -250,6 +271,7 @@ def run_full_prediction(
         risk_count=risk_count,
         overall_risk_level=overall_risk,
         confidence=confidence,
+        pubchem_enriched=pubchem_enriched,
         warnings=tuple(warnings),
     )
 
