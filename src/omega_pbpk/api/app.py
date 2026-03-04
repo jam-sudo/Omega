@@ -3227,3 +3227,90 @@ async def pubchem_lookup(req: PubChemRequest) -> PubChemResponse:
     except Exception as exc:
         logger.exception("PubChem lookup error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/pk_surrogate
+# ---------------------------------------------------------------------------
+
+
+class PKSurrogateRequest(BaseModel):
+    """Request for neural PK surrogate prediction."""
+
+    dose_mg: float = Field(default=100.0, gt=0, description="Dose (mg)")
+    cl_L_per_h: float = Field(default=5.0, gt=0, description="Clearance (L/h)")
+    vd_L: float = Field(default=70.0, gt=0, description="Volume of distribution (L)")
+    ka_per_h: float = Field(default=1.0, gt=0, description="Absorption rate constant (1/h)")
+    f_bioavail: float = Field(
+        default=0.8,
+        gt=0,
+        le=1.0,
+        description="Oral bioavailability (0–1)",
+    )
+    route: str = Field(default="oral", description="Administration route ('oral' or 'iv')")
+
+
+class PKSurrogateResponse(BaseModel):
+    """Response from neural PK surrogate endpoint."""
+
+    auc_mg_h_per_L: float = Field(description="AUC₀₋∞ (mg·h/L)")
+    cmax_mg_per_L: float = Field(description="Peak plasma concentration (mg/L)")
+    tmax_h: float = Field(description="Time to peak concentration (h)")
+    t_half_h: float = Field(description="Elimination half-life (h)")
+    confidence: str = Field(
+        description="Prediction confidence: 'high', 'medium', 'low', or 'analytical'"
+    )
+    auc_std: float = Field(default=0.0, description="Ensemble std for AUC")
+    cmax_std: float = Field(default=0.0, description="Ensemble std for Cmax")
+    tmax_std: float = Field(default=0.0, description="Ensemble std for tmax")
+    t_half_std: float = Field(default=0.0, description="Ensemble std for t_half")
+
+
+@app.post(
+    "/predict/pk_surrogate",
+    response_model=PKSurrogateResponse,
+    tags=["predict"],
+)
+def predict_pk_surrogate_endpoint(
+    req: PKSurrogateRequest,
+) -> PKSurrogateResponse:
+    """Fast 1-compartment PK prediction via neural surrogate ensemble.
+
+    Uses a 5-model NumPy MLP ensemble trained on Latin Hypercube sampled
+    analytical PK data.  Falls back to exact analytical computation when
+    surrogate confidence is low.
+
+    The ensemble is auto-trained on first call (lazy initialisation).
+    Subsequent calls reuse the singleton ensemble for speed.
+    """
+    try:
+        from omega_pbpk.ml_models.pk_surrogate import (
+            PKSurrogateInput,
+            predict_pk_surrogate,
+        )
+
+        inp = PKSurrogateInput(
+            dose_mg=req.dose_mg,
+            cl_L_per_h=req.cl_L_per_h,
+            vd_L=req.vd_L,
+            ka_per_h=req.ka_per_h,
+            f_bioavail=req.f_bioavail,
+            route=req.route,
+        )
+        result = predict_pk_surrogate(inp)
+        return PKSurrogateResponse(
+            auc_mg_h_per_L=result.auc_mg_h_per_L,
+            cmax_mg_per_L=result.cmax_mg_per_L,
+            tmax_h=result.tmax_h,
+            t_half_h=result.t_half_h,
+            confidence=result.confidence,
+            auc_std=result.auc_std,
+            cmax_std=result.cmax_std,
+            tmax_std=result.tmax_std,
+            t_half_std=result.t_half_std,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("PK surrogate prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
