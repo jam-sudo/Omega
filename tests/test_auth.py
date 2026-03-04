@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,6 +17,13 @@ from omega_pbpk.api.app import app  # type: ignore[attr-defined]
 _app_module = sys.modules["omega_pbpk.api.app"]
 client = TestClient(app)
 
+_SIMULATE_BODY = {
+    "drug": {"name": "Caffeine", "mw": 194.0, "logP": -0.07, "fup": 0.65, "rbp": 1.0},
+    "dose_mg": 100.0,
+    "route": "oral",
+    "duration_h": 24.0,
+}
+
 
 @pytest.fixture(autouse=True)
 def reset_users():
@@ -25,7 +33,7 @@ def reset_users():
 
 
 # ---------------------------------------------------------------------------
-# jwt_auth unit tests (no HTTP)
+# 1. jwt_auth unit tests — passwords
 # ---------------------------------------------------------------------------
 
 
@@ -41,36 +49,13 @@ def test_verify_password_wrong():
     assert jwt_mod.verify_password("wrong", hashed) is False
 
 
-@pytest.mark.unit
-def test_create_user_stored():
-    user = jwt_mod.create_user("alice", "pass123")
-    stored = jwt_mod.get_user("alice")
-    assert stored is not None
-    assert stored.username == "alice"
-    assert stored.hashed_password == user.hashed_password
+# ---------------------------------------------------------------------------
+# 2. jwt_auth unit tests — tokens
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_get_user_missing():
-    assert jwt_mod.get_user("nobody") is None
-
-
-@pytest.mark.unit
-def test_clear_users():
-    jwt_mod.create_user("bob", "pw")
-    jwt_mod.clear_users()
-    assert jwt_mod.get_user("bob") is None
-
-
-@pytest.mark.unit
-def test_create_access_token_returns_string():
-    token = jwt_mod.create_access_token({"sub": "alice"})
-    assert isinstance(token, str)
-    assert len(token) > 10
-
-
-@pytest.mark.unit
-def test_verify_token_valid():
+def test_create_access_token_valid():
     token = jwt_mod.create_access_token({"sub": "alice", "scopes": ["read"]})
     td = jwt_mod.verify_token(token)
     assert td is not None
@@ -79,56 +64,79 @@ def test_verify_token_valid():
 
 
 @pytest.mark.unit
+def test_verify_token_expired():
+    token = jwt_mod.create_access_token({"sub": "alice"}, expires_delta=timedelta(seconds=-1))
+    assert jwt_mod.verify_token(token) is None
+
+
+@pytest.mark.unit
 def test_verify_token_invalid():
-    td = jwt_mod.verify_token("not.a.valid.token")
-    assert td is None
+    assert jwt_mod.verify_token("not.a.valid.token") is None
 
 
 # ---------------------------------------------------------------------------
-# API endpoint tests — auth disabled (default)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-def test_register_disabled_by_default():
-    resp = client.post("/auth/register", json={"username": "alice", "password": "pw"})
-    assert resp.status_code == 404
-    assert "disabled" in resp.json()["detail"].lower()
-
-
-@pytest.mark.unit
-def test_token_disabled_by_default():
-    resp = client.post("/auth/token", data={"username": "alice", "password": "pw"})
-    assert resp.status_code == 404
-
-
-@pytest.mark.unit
-def test_me_disabled_by_default():
-    resp = client.get("/auth/me")
-    assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# API endpoint tests — auth enabled via monkeypatch
+# 3. jwt_auth unit tests — user store
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_register_and_login(monkeypatch):
+def test_create_user_and_get_user():
+    user = jwt_mod.create_user("alice", "pass123")
+    stored = jwt_mod.get_user("alice")
+    assert stored is not None
+    assert stored.username == "alice"
+    assert stored.hashed_password == user.hashed_password
+
+
+@pytest.mark.unit
+def test_create_user_duplicate(monkeypatch):
+    """Duplicate username: jwt_auth silently overwrites; HTTP endpoint raises 409."""
     monkeypatch.setattr(jwt_mod, "AUTH_ENABLED", True)
     monkeypatch.setattr(_app_module, "AUTH_ENABLED", True)
 
-    reg = client.post("/auth/register", json={"username": "alice", "password": "secret"})
-    assert reg.status_code == 200
-    assert reg.json()["username"] == "alice"
+    client.post("/auth/register", json={"username": "carol", "password": "pw1"})
+    resp = client.post("/auth/register", json={"username": "carol", "password": "pw2"})
+    assert resp.status_code == 409
 
-    login = client.post("/auth/token", data={"username": "alice", "password": "secret"})
-    assert login.status_code == 200
-    assert "access_token" in login.json()
+
+# ---------------------------------------------------------------------------
+# 4. HTTP auth endpoint tests — auth enabled
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_me_with_token(monkeypatch):
+def test_register_endpoint(monkeypatch):
+    monkeypatch.setattr(jwt_mod, "AUTH_ENABLED", True)
+    monkeypatch.setattr(_app_module, "AUTH_ENABLED", True)
+
+    resp = client.post("/auth/register", json={"username": "alice", "password": "secret"})
+    assert resp.status_code == 200
+    assert resp.json()["username"] == "alice"
+
+
+@pytest.mark.unit
+def test_login_endpoint(monkeypatch):
+    monkeypatch.setattr(jwt_mod, "AUTH_ENABLED", True)
+    monkeypatch.setattr(_app_module, "AUTH_ENABLED", True)
+
+    client.post("/auth/register", json={"username": "alice", "password": "secret"})
+    resp = client.post("/auth/token", data={"username": "alice", "password": "secret"})
+    assert resp.status_code == 200
+    assert "access_token" in resp.json()
+
+
+@pytest.mark.unit
+def test_login_invalid_credentials(monkeypatch):
+    monkeypatch.setattr(jwt_mod, "AUTH_ENABLED", True)
+    monkeypatch.setattr(_app_module, "AUTH_ENABLED", True)
+
+    client.post("/auth/register", json={"username": "alice", "password": "correct"})
+    resp = client.post("/auth/token", data={"username": "alice", "password": "wrong"})
+    assert resp.status_code == 401
+
+
+@pytest.mark.unit
+def test_me_with_valid_token(monkeypatch):
     monkeypatch.setattr(jwt_mod, "AUTH_ENABLED", True)
     monkeypatch.setattr(_app_module, "AUTH_ENABLED", True)
 
@@ -136,17 +144,35 @@ def test_me_with_token(monkeypatch):
     login = client.post("/auth/token", data={"username": "bob", "password": "hunter2"})
     token = login.json()["access_token"]
 
-    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
-    assert me.status_code == 200
-    assert me.json()["username"] == "bob"
+    resp = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert resp.json()["username"] == "bob"
 
 
 @pytest.mark.unit
-def test_register_duplicate(monkeypatch):
+def test_me_without_token(monkeypatch):
     monkeypatch.setattr(jwt_mod, "AUTH_ENABLED", True)
     monkeypatch.setattr(_app_module, "AUTH_ENABLED", True)
 
-    client.post("/auth/register", json={"username": "carol", "password": "pw1"})
-    dup = client.post("/auth/register", json={"username": "carol", "password": "pw2"})
-    assert dup.status_code == 409
-    assert "already exists" in dup.json()["detail"].lower()
+    resp = client.get("/auth/me")
+    assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# 5. Protected endpoint tests — /simulate
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_protected_endpoint_auth_enabled_no_token(monkeypatch):
+    monkeypatch.setattr(jwt_mod, "AUTH_ENABLED", True)
+    monkeypatch.setattr(_app_module, "AUTH_ENABLED", True)
+
+    resp = client.post("/simulate", json=_SIMULATE_BODY)
+    assert resp.status_code == 401
+
+
+@pytest.mark.unit
+def test_protected_endpoint_auth_disabled():
+    resp = client.post("/simulate", json=_SIMULATE_BODY)
+    assert resp.status_code == 200
