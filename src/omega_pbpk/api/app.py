@@ -3380,9 +3380,7 @@ def interpret_endpoint(req: InterpretRequest) -> InterpretResponse:
             max_tokens=req.gpt_max_tokens,
             temperature=req.gpt_temperature,
         )
-        result_dict = req.model_dump(
-            exclude={"gpt_model", "gpt_max_tokens", "gpt_temperature"}
-        )
+        result_dict = req.model_dump(exclude={"gpt_model", "gpt_max_tokens", "gpt_temperature"})
         interp = interpret_pk_result(result_dict, config=config)
         return InterpretResponse(
             summary=interp.summary,
