@@ -32,6 +32,7 @@ VALID_PARAMS = dict(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestValidParams:
     def test_valid_params_no_violations(self):
         violations = check_drug_params(**VALID_PARAMS, raise_on_violation=False)
@@ -59,6 +60,7 @@ class TestValidParams:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestFupBounds:
     def test_fup_zero_raises(self):
         with pytest.raises(ValueError, match="fup"):
@@ -84,6 +86,7 @@ class TestFupBounds:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestClintBounds:
     def test_negative_clint_hepatic_raises(self):
         with pytest.raises(ValueError, match="clint_hepatic_L_per_h"):
@@ -105,6 +108,7 @@ class TestClintBounds:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestKpBounds:
     def test_negative_kp_raises(self):
         with pytest.raises(ValueError, match="kp\\[liver\\]"):
@@ -130,6 +134,7 @@ class TestKpBounds:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestMultipleViolations:
     def test_multiple_violations_all_reported(self):
         violations = check_drug_params(
@@ -161,6 +166,7 @@ class TestMultipleViolations:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestOtherBounds:
     def test_low_mw_raises(self):
         with pytest.raises(ValueError, match="mw"):

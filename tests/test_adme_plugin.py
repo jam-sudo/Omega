@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from omega_pbpk.contracts.drug_spec import DrugSpec
 from omega_pbpk.plugins.adme_plugin import ADMEPredictorPlugin
 from omega_pbpk.plugins.heuristic_kp import HeuristicKpPlugin
@@ -33,6 +35,7 @@ SPEC_NO_SMILES = DrugSpec(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_import_plugins():
     """플러그인이 torch 없이도 import 성공해야 한다."""
     from omega_pbpk.plugins import ADMEPredictorPlugin, HeuristicKpPlugin  # noqa: F401
@@ -46,6 +49,7 @@ def test_import_plugins():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestADMEPredictorPlugin:
     def setup_method(self):
         self.plugin = ADMEPredictorPlugin()
@@ -98,6 +102,7 @@ class TestADMEPredictorPlugin:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestHeuristicKpPlugin:
     def setup_method(self):
         self.plugin = HeuristicKpPlugin()

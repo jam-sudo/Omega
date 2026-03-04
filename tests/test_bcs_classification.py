@@ -9,6 +9,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -37,6 +38,7 @@ _LOW_SOL = 0.01  # mg/mL — Do>>1 for dose=100 mg, vol=250 mL
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestBCSClassification:
     def test_class_i(self):
         """High solubility + high permeability → BCS Class I."""
@@ -89,6 +91,7 @@ class TestBCSClassification:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestDissolution:
     def test_high_solubility_fast_dissolution(self):
         """High solubility (10 mg/mL) produces t85 < 0.5 h."""
@@ -138,6 +141,7 @@ class TestDissolution:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestAbsorptionPrediction:
     def test_high_perm_high_dissolution(self):
         """BCS Class I drug: high permeability + complete dissolution → Fa > 0.8."""
@@ -216,6 +220,7 @@ class TestAbsorptionPrediction:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestBCSAPI:
     def test_bcs_endpoint_valid(self):
         """POST /bcs with valid payload returns 200 and includes bcs_class."""

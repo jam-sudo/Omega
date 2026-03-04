@@ -55,6 +55,7 @@ _SMALL_RANGES = [
 # ===================================================================
 
 
+@pytest.mark.unit
 class TestSobolSampling:
     """Test Saltelli sampling shapes and bounds."""
 
@@ -98,6 +99,7 @@ class TestSobolSampling:
 # ===================================================================
 
 
+@pytest.mark.unit
 class TestJansenEstimators:
     """Test Jansen estimators on analytical models with known indices."""
 
@@ -176,6 +178,7 @@ class TestJansenEstimators:
 # ===================================================================
 
 
+@pytest.mark.integration
 class TestSobolSensitivity:
     """End-to-end tests for sobol_sensitivity."""
 
@@ -278,6 +281,7 @@ class TestSobolSensitivity:
 # ===================================================================
 
 
+@pytest.mark.unit
 class TestDefaultRanges:
     """Validate DEFAULT_GSA_RANGES."""
 
@@ -295,6 +299,7 @@ class TestDefaultRanges:
 # ===================================================================
 
 
+@pytest.mark.unit
 class TestSobolAPI:
     """Test /sensitivity/sobol API endpoint."""
 
@@ -368,6 +373,7 @@ class TestSobolAPI:
 # ===================================================================
 
 
+@pytest.mark.integration
 class TestIntegration:
     """Integration test for SobolResult structure completeness."""
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -57,6 +58,7 @@ _AUTO_PARAMS = InductionParameters(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestInductionUnit:
     def test_compute_ksyn(self):
         """ksyn = kdeg * baseline_activity = 0.03 * 1.0 = 0.03."""
@@ -108,6 +110,7 @@ class TestInductionUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestInductionIntegration:
     def test_auto_induction_increases_clearance(self):
         """Auto-induction simulation must show CL_induced > CL_baseline."""
@@ -203,6 +206,7 @@ _BASE_INDUCTION_PAYLOAD = {
 }
 
 
+@pytest.mark.unit
 class TestInductionAPI:
     def test_induction_endpoint_basic(self):
         """POST /induction → 200, mode=standard, steady_state_fold > 1."""

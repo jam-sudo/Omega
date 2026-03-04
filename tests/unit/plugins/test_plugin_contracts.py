@@ -12,6 +12,7 @@ def caffeine_spec():
     return load_drug_spec_by_name("caffeine")
 
 
+@pytest.mark.unit
 class TestADMEPredictorPlugin:
     def test_provides_set(self):
         p = ADMEPredictorPlugin()
@@ -44,6 +45,7 @@ class TestADMEPredictorPlugin:
         assert 0.0 <= c <= 1.0
 
 
+@pytest.mark.unit
 class TestHeuristicKpPlugin:
     def test_kp_all_positive(self, caffeine_spec):
         p = HeuristicKpPlugin()
@@ -59,6 +61,7 @@ class TestHeuristicKpPlugin:
         assert len(result["kp"]) > 0
 
 
+@pytest.mark.unit
 class TestPluginBaseContract:
     def test_provides_mismatch_raises(self, caffeine_spec):
         """predict()가 provides와 다른 키 반환 시 TypeError."""

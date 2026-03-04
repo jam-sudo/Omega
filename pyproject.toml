@@ -71,10 +71,11 @@ disable_error_code = ["import-untyped"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 markers = [
+    "unit: fast unit tests (< 5ms each, mock externals)",
+    "integration: real logic + short simulations (< 2s each)",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "benchmark: marks tests as benchmark (run only in benchmark CI)",
     "regression: marks tests as regression tests",
-    "integration: cross-module integration tests",
 ]
 
 [[tool.mypy.overrides]]

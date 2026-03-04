@@ -6,6 +6,7 @@ Run with: python3 -m pytest tests/test_api.py -v --tb=short
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -47,6 +48,7 @@ CAFFEINE_SMILES = "Cn1c(=O)c2c(ncn2C)n(C)c1=O"
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_health_ok():
     """GET /health should return 200 with status='ok' and version='0.9.0'."""
     r = client.get("/health")
@@ -61,6 +63,7 @@ def test_health_ok():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_root_redirects_to_docs():
     """GET / should redirect to /docs."""
     r = client.get("/", follow_redirects=False)
@@ -73,6 +76,7 @@ def test_root_redirects_to_docs():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_docs_available():
     """GET /docs should return 200 (Swagger UI)."""
     r = client.get("/docs")
@@ -84,6 +88,7 @@ def test_docs_available():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_simulate_oral_caffeine():
     """POST /simulate with caffeine oral dose should return positive Cmax."""
     r = client.post("/simulate", json=CAFFEINE_SIMULATE_PAYLOAD)
@@ -102,6 +107,7 @@ def test_simulate_oral_caffeine():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_simulate_iv():
     """POST /simulate with IV route should return positive Cmax."""
     payload = {**CAFFEINE_SIMULATE_PAYLOAD, "route": "iv"}
@@ -117,6 +123,7 @@ def test_simulate_iv():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_simulate_invalid_route_returns_422():
     """POST /simulate with bad route should return 422 Unprocessable Entity."""
     payload = {**CAFFEINE_SIMULATE_PAYLOAD, "route": "suppository"}
@@ -129,6 +136,7 @@ def test_simulate_invalid_route_returns_422():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_predict_smiles():
     """POST /predict with caffeine SMILES should return a valid PK response."""
     r = client.post(
@@ -155,6 +163,7 @@ def test_predict_smiles():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_nca_endpoint():
     """POST /nca with a simple biexponential profile should return NCA params."""
     import numpy as np
@@ -184,6 +193,7 @@ def test_nca_endpoint():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_nca_returns_cmax_and_auc():
     """POST /nca should include all expected NCA output keys."""
     import numpy as np
@@ -222,6 +232,7 @@ def test_nca_returns_cmax_and_auc():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_ddi_endpoint():
     """POST /ddi with an inhibitor should return DDI risk report."""
     r = client.post(
@@ -258,6 +269,7 @@ def test_ddi_endpoint():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_pipeline_health():
     """GET /pipeline/health should confirm the caffeine PBPK simulation succeeds."""
     r = client.get("/pipeline/health")
@@ -273,6 +285,7 @@ def test_pipeline_health():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_population_endpoint():
     """POST /population should simulate N subjects and return summary stats."""
     r = client.post(

@@ -43,29 +43,34 @@ def pm_patient() -> PatientSpec:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_sample_patient_spec_count():
     specs = sample_patient_spec(n=5, seed=0)
     assert len(specs) == 5
 
 
+@pytest.mark.unit
 def test_sample_patient_spec_types():
     specs = sample_patient_spec(n=5, seed=1)
     for s in specs:
         assert isinstance(s, PatientSpec)
 
 
+@pytest.mark.unit
 def test_sample_patient_spec_validate():
     specs = sample_patient_spec(n=10, seed=42)
     for s in specs:
         s.validate()  # must not raise
 
 
+@pytest.mark.unit
 def test_sample_patient_spec_sex_values():
     specs = sample_patient_spec(n=20, seed=7)
     for s in specs:
         assert s.sex in ("male", "female")
 
 
+@pytest.mark.unit
 def test_sample_patient_spec_positive_bw():
     specs = sample_patient_spec(n=10, seed=5)
     for s in specs:
@@ -77,6 +82,7 @@ def test_sample_patient_spec_positive_bw():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_sex_mapping_male():
     from omega_pbpk.population.physiology import SubjectCovariates
 
@@ -95,6 +101,7 @@ def test_sex_mapping_male():
     assert spec.sex == "male"
 
 
+@pytest.mark.unit
 def test_sex_mapping_female():
     from omega_pbpk.population.physiology import SubjectCovariates
 
@@ -113,6 +120,7 @@ def test_sex_mapping_female():
     assert spec.sex == "female"
 
 
+@pytest.mark.unit
 def test_hepatic_cl_factor_child_pugh_b():
     from omega_pbpk.population.physiology import SubjectCovariates
 
@@ -131,6 +139,7 @@ def test_hepatic_cl_factor_child_pugh_b():
     assert spec.hepatic_cl_factor == pytest.approx(0.50)
 
 
+@pytest.mark.unit
 def test_renal_cl_factor_normal_gfr():
     from omega_pbpk.population.physiology import SubjectCovariates
 
@@ -154,6 +163,7 @@ def test_renal_cl_factor_normal_gfr():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_parameter_net_plugin_provides_keys(em_patient, base_drug):
     plugin = ParameterNetPlugin(patient=em_patient)
     result = plugin.predict(base_drug)
@@ -161,6 +171,7 @@ def test_parameter_net_plugin_provides_keys(em_patient, base_drug):
     assert "clr_L_per_h" in result
 
 
+@pytest.mark.unit
 def test_parameter_net_em_vs_pm_clint(em_patient, pm_patient, base_drug):
     em_plugin = ParameterNetPlugin(patient=em_patient)
     pm_plugin = ParameterNetPlugin(patient=pm_patient)
@@ -174,11 +185,13 @@ def test_parameter_net_em_vs_pm_clint(em_patient, pm_patient, base_drug):
     assert ratio == pytest.approx(10.0, rel=0.01)
 
 
+@pytest.mark.unit
 def test_parameter_net_confidence(em_patient, base_drug):
     plugin = ParameterNetPlugin(patient=em_patient)
     assert plugin.confidence(base_drug) == pytest.approx(0.7)
 
 
+@pytest.mark.unit
 def test_parameter_net_apply_updates_drug(em_patient, base_drug):
     plugin = ParameterNetPlugin(patient=em_patient)
     updated = plugin.apply(base_drug)
@@ -192,6 +205,7 @@ def test_parameter_net_apply_updates_drug(em_patient, base_drug):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_apply_pgx_pm_em_um_differ(base_drug):
     plugin = ParameterNetPlugin()
 
@@ -204,12 +218,14 @@ def test_apply_pgx_pm_em_um_differ(base_drug):
     assert em_spec.clint_hepatic_L_per_h < um_spec.clint_hepatic_L_per_h
 
 
+@pytest.mark.unit
 def test_apply_pgx_pm_zero_clint(base_drug):
     plugin = ParameterNetPlugin()
     pm_spec = plugin.apply_pgx(base_drug, diplotype="*4/*4", enzyme="CYP2D6")
     assert pm_spec.clint_hepatic_L_per_h == pytest.approx(0.0)
 
 
+@pytest.mark.unit
 def test_apply_pgx_em_full_clint(base_drug):
     plugin = ParameterNetPlugin()
     em_spec = plugin.apply_pgx(base_drug, diplotype="*1/*1", enzyme="CYP2D6")
@@ -222,6 +238,7 @@ def test_apply_pgx_em_full_clint(base_drug):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_parameter_net_plugin_importable():
     from omega_pbpk.plugins import ParameterNetPlugin as PNP  # noqa: F401
 

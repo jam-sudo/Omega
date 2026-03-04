@@ -5,11 +5,13 @@ from omega_pbpk.surrogate import PKSurrogate
 from omega_pbpk.surrogate.data_generator import generate_training_data
 
 
+@pytest.mark.unit
 def test_expected_features_constant():
     assert PKSurrogate.EXPECTED_FEATURES == ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
     assert len(PKSurrogate.FULL_FEATURES) == 18
 
 
+@pytest.mark.unit
 def test_full_features_composition():
     assert PKSurrogate.FULL_FEATURES[:6] == PKSurrogate.EXPECTED_FEATURES
     assert PKSurrogate.FULL_FEATURES[6:15] == PKSurrogate.PATIENT_FEATURES
@@ -18,6 +20,7 @@ def test_full_features_composition():
     assert len(PKSurrogate.REGIMEN_FEATURES) == 3
 
 
+@pytest.mark.integration
 def test_6d_backward_compat():
     """기존 6D 모드 하위호환 확인."""
     data = generate_training_data(n_samples=50, n_workers=1)
@@ -29,6 +32,7 @@ def test_6d_backward_compat():
     assert np.all(pred > 0)
 
 
+@pytest.mark.integration
 def test_conformal_calibration_coverage():
     """Conformal prediction이 90% coverage를 근사하는지 확인."""
     data = generate_training_data(n_samples=200, n_workers=1)
@@ -51,6 +55,7 @@ def test_conformal_calibration_coverage():
     assert coverage >= 0.80, f"Coverage {coverage:.2%} < 80%"
 
 
+@pytest.mark.unit
 def test_conformal_not_calibrated_raises():
     """calibrate() 없이 predict_conformal() 호출 시 RuntimeError."""
     model = PKSurrogate(n_input=6)
@@ -59,6 +64,7 @@ def test_conformal_not_calibrated_raises():
         model.predict_conformal(x)
 
 
+@pytest.mark.unit
 def test_feature_mismatch_raises():
     """FULL_FEATURES 불일치 시 ValueError."""
     model = PKSurrogate(n_input=18)
@@ -70,6 +76,7 @@ def test_feature_mismatch_raises():
         )
 
 
+@pytest.mark.unit
 def test_predict_with_patient_wrong_n_input():
     """n_input=6 모델에서 predict_with_patient() 호출 시 ValueError."""
     model = PKSurrogate(n_input=6)
@@ -81,6 +88,7 @@ def test_predict_with_patient_wrong_n_input():
         )
 
 
+@pytest.mark.integration
 def test_predict_with_patient_18d():
     """18D 모델에서 predict_with_patient()가 올바른 shape를 반환하는지 확인."""
     model = PKSurrogate(n_input=18)

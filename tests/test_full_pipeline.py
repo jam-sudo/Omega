@@ -33,6 +33,7 @@ def caffeine_result() -> FullPredictionResult:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestFullPipelineUnit:
     """~10 unit tests against run_full_prediction() with caffeine SMILES."""
 
@@ -83,6 +84,7 @@ class TestFullPipelineUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestFullPipelineEdge:
     """Edge-case tests."""
 
@@ -109,6 +111,7 @@ class TestFullPipelineEdge:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestFullPipelineAPI:
     """API tests for POST /predict/full."""
 

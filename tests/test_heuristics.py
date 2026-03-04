@@ -29,6 +29,7 @@ RR_TISSUES = list(TISSUE_COMPOSITION.keys())
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestHeuristicKpBasic:
     def test_returns_float(self):
         assert isinstance(heuristic_kp(2.0), float)
@@ -65,6 +66,7 @@ class TestHeuristicKpBasic:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestHeuristicKpAllTissues:
     @pytest.mark.parametrize("tissue", ALL_TISSUES)
     def test_neutral_logP2(self, tissue):
@@ -93,6 +95,7 @@ class TestHeuristicKpAllTissues:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestHeuristicKpIonisation:
     def test_base_increases_kp(self):
         kp_neutral = heuristic_kp(2.0, pka=None, drug_type="neutral", tissue_name="muscle")
@@ -119,6 +122,7 @@ class TestHeuristicKpIonisation:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRodgersRowlandBasic:
     def test_returns_float(self):
         assert isinstance(rodgers_rowland_kp(2.0), float)
@@ -149,6 +153,7 @@ class TestRodgersRowlandBasic:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRodgersRowlandAllTissues:
     @pytest.mark.parametrize("tissue", RR_TISSUES)
     def test_neutral_logP2(self, tissue):
@@ -179,6 +184,7 @@ class TestRodgersRowlandAllTissues:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRodgersRowlandIonisation:
     def test_acid_path_eq4(self):
         # Acid uses Eq. 4 (neutral/acid path)
@@ -203,6 +209,7 @@ class TestRodgersRowlandIonisation:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEstimateAllKp:
     def test_returns_all_tissues(self):
         kp_dict = estimate_all_kp(2.0)
@@ -224,6 +231,7 @@ class TestEstimateAllKp:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestGetPartitionMethod:
     def test_heuristic_returns_callable(self):
         fn = get_partition_method("heuristic")

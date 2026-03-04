@@ -50,6 +50,7 @@ def trained_surrogate() -> PKSurrogate:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestExpectedFeaturesContract:
     def test_expected_features_is_class_attribute(self):
         assert hasattr(PKSurrogate, "EXPECTED_FEATURES")
@@ -81,6 +82,7 @@ class TestExpectedFeaturesContract:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestValidateFeatureContract:
     def test_valid_params_pass(self, untrained_surrogate):
         valid = {"logP": 2.0, "fup": 0.5, "clint_L_h": 10.0, "mw": 300.0, "rbp": 1.0, "peff": 2.0}
@@ -131,6 +133,7 @@ class TestValidateFeatureContract:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestNonNegativity:
     def test_predict_returns_nonnegative_single(self, trained_surrogate):
         x = np.array([2.0, 0.5, 10.0, 300.0, 1.0, 2.0])
@@ -166,6 +169,7 @@ class TestNonNegativity:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestReproducibility:
     def test_same_input_same_output_trained(self, trained_surrogate):
         x = np.array([2.0, 0.5, 10.0, 300.0, 1.0, 2.0])
@@ -208,6 +212,7 @@ class TestReproducibility:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestOutputShape:
     def test_predict_single_returns_1d_array(self, trained_surrogate):
         x = np.array([2.0, 0.5, 10.0, 300.0, 1.0, 2.0])

@@ -58,6 +58,7 @@ def _assess(
 # ------------------------------------------------------------------ safety target structure
 
 
+@pytest.mark.unit
 class TestSafetyReportStructure:
     def test_all_11_targets_present(self) -> None:
         """Safety report must contain exactly all 11 FDA safety targets."""
@@ -113,6 +114,7 @@ class TestSafetyReportStructure:
 # ------------------------------------------------------------------ hERG risk classification
 
 
+@pytest.mark.unit
 class TestHERGClassification:
     """hERG threshold: margin < 30 → risk, 30–90 → caution, >90 → safe."""
 
@@ -169,6 +171,7 @@ class TestHERGClassification:
 # ------------------------------------------------------------------ lipophilicity effect
 
 
+@pytest.mark.unit
 class TestLipophilicityEffect:
     def test_higher_logP_lowers_herg_ic50(self) -> None:
         """hERG IC50 decreases as logP increases (negative coefficient)."""
@@ -217,6 +220,7 @@ class TestLipophilicityEffect:
 # ------------------------------------------------------------------ CYP inhibition panel
 
 
+@pytest.mark.unit
 class TestCYPInhibitionPrediction:
     def test_cyp_results_return_expected_keys(self) -> None:
         """CYP results should have enzyme, predicted_ic50_uM, ddi_risk for all 5 enzymes."""
@@ -251,6 +255,7 @@ class TestCYPInhibitionPrediction:
 # ------------------------------------------------------------------ overall risk aggregation
 
 
+@pytest.mark.unit
 class TestOverallRisk:
     def test_overall_risk_low_for_safe_compound(self) -> None:
         """A very low Cmax compound with no flags should yield low overall risk."""

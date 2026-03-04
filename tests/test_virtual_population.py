@@ -59,6 +59,7 @@ def _get_attr(subject, attr: str, fallback_attr: str | None = None):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestVirtualPopulationSampleCount:
     def test_virtual_population_sample_count(self):
         """Sampling 50 subjects returns exactly 50 subjects."""
@@ -66,6 +67,7 @@ class TestVirtualPopulationSampleCount:
         assert len(subjects) == 50
 
 
+@pytest.mark.unit
 class TestVirtualPopulationWeightsPositive:
     def test_virtual_population_weights_positive(self):
         """All sampled body weights must be strictly positive."""
@@ -76,6 +78,7 @@ class TestVirtualPopulationWeightsPositive:
             assert bw > 0, f"Subject {i} has non-positive body_weight_kg: {bw}"
 
 
+@pytest.mark.unit
 class TestVirtualPopulationAgesInRange:
     def test_virtual_population_ages_in_range(self):
         """All sampled ages are between 18 and 75 years (skip if field absent)."""
@@ -88,6 +91,7 @@ class TestVirtualPopulationAgesInRange:
             assert 18 <= age <= 75, f"Subject {i} age out of range: {age}"
 
 
+@pytest.mark.unit
 class TestVirtualPopulationSexValues:
     def test_virtual_population_sex_values(self):
         """All sex values are in {'M', 'F'} (skip if field absent)."""
@@ -99,6 +103,7 @@ class TestVirtualPopulationSexValues:
             assert s.sex in {"M", "F"}, f"Subject {i} invalid sex: {s.sex}"
 
 
+@pytest.mark.unit
 class TestVirtualPopulationGfrPositive:
     def test_virtual_population_gfr_positive(self):
         """All sampled GFR values are strictly positive."""
@@ -111,6 +116,7 @@ class TestVirtualPopulationGfrPositive:
             assert gfr > 0, f"Subject {i} non-positive GFR: {gfr}"
 
 
+@pytest.mark.unit
 class TestVirtualPopulationReproducibility:
     def test_virtual_population_reproducible_with_seed(self):
         """Two populations sampled with the same seed produce identical body weights."""
@@ -131,6 +137,7 @@ class TestVirtualPopulationReproducibility:
         )
 
 
+@pytest.mark.unit
 class TestScalePhysiology:
     def test_scale_physiology_returns_dict(self):
         """scale_physiology returns a dict of positive physiological values."""

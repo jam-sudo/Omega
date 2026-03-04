@@ -5,6 +5,9 @@ on:
     branches: [main, "feature/**"]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
 
 jobs:
   quality:
@@ -35,6 +38,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install pandas && pip install -e ".[dev,api,viz]"
+      - name: Check test count
+        run: |
+          pytest tests/ --collect-only -q 2>&1 | tail -3
       - name: Run tests with coverage
         run: |
           pytest tests/ -m "not slow and not benchmark" \
@@ -63,3 +69,16 @@ jobs:
         run: omega --help
       - name: Import smoke
         run: python -c "import omega_pbpk; print('OK')"
+
+  slow-tests:
+    name: Slow Tests (nightly)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pandas && pip install -e ".[all]"
+      - name: Run slow tests
+        run: PYTHONPATH=src python3 -m pytest tests/ -m "slow" --timeout=600 -v

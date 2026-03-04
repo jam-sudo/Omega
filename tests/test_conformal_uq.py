@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from omega_pbpk.uncertainty.conformal_uq import (
     ConformalUQResult,
     ParameterBounds,
@@ -21,6 +23,7 @@ BOUNDS = ParameterBounds(
 )
 
 
+@pytest.mark.integration
 class TestParameterBounds:
     def test_construction(self):
         b = ParameterBounds(0.05, 0.20, 0.5, 5.0, 1e-5, 5e-4, 0.6, 1.2)
@@ -34,6 +37,7 @@ class TestParameterBounds:
         assert BOUNDS.rbp_lo <= BOUNDS.rbp_hi
 
 
+@pytest.mark.integration
 class TestBuildBoundsFromADME:
     def test_build_from_adme_props(self):
         from omega_pbpk.prediction.adme_predictor import ADMEPredictor
@@ -55,6 +59,7 @@ class TestBuildBoundsFromADME:
         assert bounds.fup_hi > 0
 
 
+@pytest.mark.integration
 class TestPropagateOral:
     def setup_method(self):
         self.result = propagate_conformal_intervals(
@@ -98,6 +103,7 @@ class TestPropagateOral:
         assert self.result.cmax_p95 / self.result.cmax_p5 > 1.0
 
 
+@pytest.mark.integration
 class TestPropagateIV:
     def setup_method(self):
         self.result = propagate_conformal_intervals(
@@ -115,6 +121,7 @@ class TestPropagateIV:
         assert self.result.cmax_p50 > 0
 
 
+@pytest.mark.integration
 class TestEdgeCases:
     def test_small_n_samples(self):
         result = propagate_conformal_intervals(
@@ -147,6 +154,7 @@ class TestEdgeCases:
         assert isinstance(result.warnings, tuple)
 
 
+@pytest.mark.integration
 class TestAPIUncertaintyEndpoint:
     def setup_method(self):
         from fastapi.testclient import TestClient

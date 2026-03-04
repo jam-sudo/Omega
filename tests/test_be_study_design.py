@@ -7,6 +7,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -46,6 +47,7 @@ def _run(**kwargs) -> BEStudyDesign:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestBEDesignUnit:
     def test_run_be_design_returns_result(self):
         result = _run()
@@ -139,6 +141,7 @@ class TestBEDesignUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestBEDesignAPI:
     def test_be_design_endpoint_200(self):
         payload = {

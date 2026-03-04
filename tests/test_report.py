@@ -3,8 +3,10 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 
+@pytest.mark.unit
 class TestGenerateReport:
     def test_generates_html_file(self, tmp_path):
         from omega_pbpk.clinical.report import ReportInput, generate_report
@@ -58,6 +60,7 @@ class TestGenerateReport:
         assert "</html>" in content
 
 
+@pytest.mark.unit
 class TestVPC:
     def _make_pop_data(self, n=10, n_t=50):
         t = np.linspace(0, 24, n_t)

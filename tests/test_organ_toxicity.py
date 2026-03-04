@@ -10,6 +10,7 @@ Covers:
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -85,6 +86,7 @@ def _make_sim_result(drug: Drug, peak_cp: float = 5.0) -> SimulationResult:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestOrganExposure:
     def test_extract_organ_exposures_returns_list(self):
         sim = _make_sim_result(_SAFE_DRUG)
@@ -132,6 +134,7 @@ class TestOrganExposure:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestOrganToxicityScoring:
     def test_hepatotoxicity_low_risk(self):
         """Low dose + high fup + low logP → low DILI risk."""
@@ -225,6 +228,7 @@ class TestOrganToxicityScoring:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestOrganToxicityReport:
     def test_run_full_assessment(self):
         """End-to-end assessment produces report with all expected fields."""
@@ -251,6 +255,7 @@ class TestOrganToxicityReport:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestToxicityAPI:
     def test_toxicity_endpoint_200(self):
         payload = {

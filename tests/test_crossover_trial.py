@@ -8,6 +8,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -83,6 +84,7 @@ def _run(**kwargs) -> CrossoverTrialResult:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestCrossoverUnit:
     def test_run_crossover_returns_result(self):
         result = _run()
@@ -162,6 +164,7 @@ class TestCrossoverUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestCrossoverStatistics:
     def test_within_subject_cv_estimation(self):
         result = _run(wsv_cv_cl=0.15, n_subjects=12)
@@ -200,6 +203,7 @@ _VALID_PAYLOAD = {
 }
 
 
+@pytest.mark.unit
 class TestCrossoverAPI:
     def test_crossover_endpoint_200(self):
         r = client.post("/trial/crossover", json=_VALID_PAYLOAD)

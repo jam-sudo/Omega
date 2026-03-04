@@ -7,7 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 
+
+@pytest.mark.integration
 def test_simulate_deterministic_reproducible(tmp_path: Path) -> None:
     out1 = tmp_path / "det_1"
     out2 = tmp_path / "det_2"

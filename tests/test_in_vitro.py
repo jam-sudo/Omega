@@ -40,6 +40,7 @@ from omega_pbpk.prediction.phase2_predictor import Phase2Predictor
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestMicrosomesAssay:
     """HLM substrate-depletion assay simulator."""
 
@@ -125,6 +126,7 @@ class TestMicrosomesAssay:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestHepatocyteAssay:
     """Suspended hepatocyte metabolic stability simulator."""
 
@@ -177,6 +179,7 @@ class TestHepatocyteAssay:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEquilibriumOccupancy:
     """Langmuir equilibrium receptor occupancy."""
 
@@ -246,6 +249,7 @@ class TestEquilibriumOccupancy:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestKineticOccupancy:
     def test_initial_occupancy_is_zero(self):
         model = KineticOccupancy(kon_per_h_per_mg_L=1.0, koff_per_h=1.0)
@@ -294,6 +298,7 @@ class TestKineticOccupancy:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestOperationalModel:
     def test_zero_occupancy_returns_e0(self):
         model = OperationalModel(e0=5.0, emax=100.0, tau=1.0)
@@ -340,6 +345,7 @@ class TestOperationalModel:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEC50Extractor:
     def test_ec50_in_plausible_range(self):
         """EC50 should be near Kd for tau=1 (full agonist, no amplification)."""
@@ -379,6 +385,7 @@ class TestEC50Extractor:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestCaco2Assay:
     def test_efflux_ratio_from_explicit_papp(self):
         """ER = Papp(BA) / Papp(AB) — verify with exact ratio."""
@@ -443,6 +450,7 @@ class TestCaco2Assay:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestPhase2Predictor:
     """Tests use the SMILES-heuristic fallback path so no RDKit is required.
 
@@ -508,6 +516,7 @@ class TestPhase2Predictor:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestInVitroPipeline:
     """Integration tests for the full 7-stage SMILES → Drug pipeline."""
 

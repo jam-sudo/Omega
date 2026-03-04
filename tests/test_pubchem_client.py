@@ -9,6 +9,8 @@ import csv
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from omega_pbpk.data.pubchem_client import (
     PubChemCompound,
     batch_lookup,
@@ -80,6 +82,7 @@ def _make_mock_response(props: dict) -> MagicMock:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestPubChemClient:
     def test_lookup_by_name_caffeine(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HOME", str(tmp_path))
@@ -159,6 +162,7 @@ class TestPubChemClient:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestCaching:
     def test_cache_miss_makes_request(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HOME", str(tmp_path))
@@ -203,6 +207,7 @@ class TestCaching:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEnrichment:
     def _write_csv(self, path: str, names: list[str]) -> None:
         with open(path, "w", newline="") as f:
@@ -272,6 +277,7 @@ class TestEnrichment:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestAPI:
     def test_pubchem_endpoint_name_lookup(self, tmp_path, monkeypatch):
         """POST /pubchem/lookup with mocked response returns 200 with cid field."""

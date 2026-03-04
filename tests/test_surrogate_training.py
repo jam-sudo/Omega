@@ -1,8 +1,10 @@
 """Tests for real-PBPK surrogate training pipeline."""
 
 import numpy as np
+import pytest
 
 
+@pytest.mark.integration
 class TestBuildTrainingDataset:
     def test_returns_arrays(self):
         from omega_pbpk.surrogate.train import build_training_dataset
@@ -33,6 +35,7 @@ class TestBuildTrainingDataset:
         np.testing.assert_array_equal(X1, X2)
 
 
+@pytest.mark.integration
 class TestTrainSurrogate:
     def test_smoke(self):
         from omega_pbpk.surrogate.train import train_surrogate

@@ -13,6 +13,7 @@ def _gaussian_log_prob(x: np.ndarray) -> float:
     return float(-0.5 * x[0] ** 2)
 
 
+@pytest.mark.slow
 class TestAdaptiveMCMC:
     """Tests for the ``calibrate()`` function with Robbins-Monro adaptation."""
 

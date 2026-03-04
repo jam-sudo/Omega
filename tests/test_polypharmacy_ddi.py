@@ -8,6 +8,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -89,6 +90,7 @@ def _inducer(name: str, fold: float = 3.0) -> PerpetratorSpec:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestPolypharmacyUnit:
     def test_single_perpetrator_matches(self):
         """1 perpetrator: polypharmacy AUCR should closely match simulate_ddi() AUCR."""
@@ -180,6 +182,7 @@ class TestPolypharmacyUnit:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestPolypharmacyEdge:
     def test_induction_plus_inhibition(self):
         """One inducer + one inhibitor: result is a valid PolypharmacyDDIResult."""
@@ -219,6 +222,7 @@ def _poly_payload(**overrides) -> dict:
     return payload
 
 
+@pytest.mark.integration
 class TestPolypharmacyAPI:
     def test_endpoint_200(self):
         """POST /ddi/polypharmacy returns 200."""

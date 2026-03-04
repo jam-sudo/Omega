@@ -75,6 +75,7 @@ def _two() -> list[ComparisonCandidate]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestComparisonUnit:
     def test_compare_two_drugs_returns_result(self):
         result = compare_drugs(_two())
@@ -144,6 +145,7 @@ class TestComparisonUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestComparisonRanking:
     def test_high_risk_drug_ranked_lower(self):
         safe = _cand(_DRUG_A)
@@ -234,6 +236,7 @@ _VALID_COMPARE_PAYLOAD = {
 }
 
 
+@pytest.mark.unit
 class TestComparisonAPI:
     def test_api_compare_200(self):
         r = client.post("/compare", json=_VALID_COMPARE_PAYLOAD)

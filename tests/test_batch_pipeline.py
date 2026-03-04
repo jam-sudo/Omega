@@ -55,6 +55,7 @@ def auc_ranked_result() -> BatchPredictionResult:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestBatchPipelineUnit:
     """Unit tests against run_batch_prediction()."""
 
@@ -96,6 +97,7 @@ class TestBatchPipelineUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestBatchPipelineEdge:
     """Edge-case tests for run_batch_prediction()."""
 
@@ -120,6 +122,7 @@ class TestBatchPipelineEdge:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestBatchPipelineAPI:
     """API tests for POST /predict/batch."""
 

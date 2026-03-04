@@ -5,6 +5,7 @@ for newly added compounds with wide tolerance ranges.
 """
 
 import numpy as np
+import pytest
 
 from omega_pbpk._compat import np_trapz
 from omega_pbpk.config import load_compound
@@ -25,6 +26,7 @@ def _simulate_oral(drug, dose_mg, t_end_h, dt_h=0.05):
     return {"Cmax": cmax, "AUC": auc, "conc": conc, "time": time}
 
 
+@pytest.mark.integration
 class TestIbuprofen:
     """Ibuprofen 200 mg oral, 12 h simulation."""
 
@@ -54,6 +56,7 @@ class TestIbuprofen:
         assert drug.drug_type == "monoprotic_acid"
 
 
+@pytest.mark.integration
 class TestAtenolol:
     """Atenolol 100 mg oral, 24 h simulation."""
 

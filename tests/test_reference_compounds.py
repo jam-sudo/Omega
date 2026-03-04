@@ -43,6 +43,7 @@ def _try_import_drug(module_path: str, class_name: str):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestWarfarin:
     SMILES_OR_CLASS = ("omega_pbpk.drugs.warfarin", "WARFARIN")
 
@@ -67,6 +68,7 @@ class TestWarfarin:
         assert clint_total >= 0, f"clint must be non-negative, got {clint_total}"
 
 
+@pytest.mark.unit
 class TestWarfarinYaml:
     def _load_yaml(self, filename: str) -> dict:
         """Load a YAML file from the compounds or benchmarks directory."""
@@ -132,6 +134,7 @@ class TestWarfarinYaml:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestPropranolol:
     SMILES_OR_CLASS = ("omega_pbpk.drugs.propranolol", "PROPRANOLOL")
 
@@ -163,6 +166,7 @@ class TestPropranolol:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestMetformin:
     SMILES_OR_CLASS = ("omega_pbpk.drugs.metformin", "METFORMIN")
 
@@ -194,6 +198,7 @@ class TestMetformin:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestCaffeine:
     SMILES_OR_CLASS = ("omega_pbpk.drugs.caffeine", "CAFFEINE")
 
