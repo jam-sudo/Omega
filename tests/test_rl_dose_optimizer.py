@@ -1,17 +1,19 @@
 """Tests for Phase 44 RL Dose Optimizer."""
 
 from __future__ import annotations
+
 import pytest
 from fastapi.testclient import TestClient
+
 from omega_pbpk.api.app import app
 from omega_pbpk.clinical.rl_dose_optimizer import (
-    TherapeuticWindow,
-    PKParams,
-    RLState,
-    RLDosingPolicy,
-    RLTrainingResult,
     PKEnvironment,
+    PKParams,
     QLearningOptimizer,
+    RLDosingPolicy,
+    RLState,
+    RLTrainingResult,
+    TherapeuticWindow,
     optimize_dose_rl,
 )
 
@@ -107,7 +109,7 @@ class TestQLearningOptimizer:
     def test_q_table_shape(self):
         env = self._small_env()
         opt = QLearningOptimizer(env, n_episodes=10, seed=0)
-        from omega_pbpk.clinical.rl_dose_optimizer import _N_TROUGH_BINS, _N_PEAK_BINS
+        from omega_pbpk.clinical.rl_dose_optimizer import _N_PEAK_BINS, _N_TROUGH_BINS
 
         expected_states = _N_TROUGH_BINS * _N_PEAK_BINS * (3 + 1)
         assert opt.q_table.shape == (expected_states, len(DOSE_GRID))
