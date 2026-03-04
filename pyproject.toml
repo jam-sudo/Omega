@@ -25,7 +25,7 @@ Repository = "https://github.com/jam-sudo/Omega"
 [project.optional-dependencies]
 ml   = ["torch~=2.0", "rdkit>=2023.0"]
 api  = ["fastapi~=0.100", "uvicorn~=0.20", "httpx~=0.24", "python-multipart>=0.0.7"]
-auth = ["python-jose[cryptography]>=3.3", "passlib[bcrypt]>=1.7", "python-multipart>=0.0.7"]
+auth = ["python-jose[cryptography]>=3.3", "passlib[bcrypt]>=1.7", "bcrypt>=3.0,<4.0", "python-multipart>=0.0.7"]
 llm  = ["openai>=1.0"]
 viz  = ["matplotlib~=3.7"]
 dev = [
