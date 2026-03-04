@@ -28,6 +28,7 @@ def analyzer() -> PGxAnalyzer:
 # ------------------------------------------------------------------ CLint scaling factor tests
 
 
+@pytest.mark.unit
 class TestCLintScalingFactor:
     def test_poor_metabolizer_cyp2d6(self, analyzer: PGxAnalyzer) -> None:
         """CYP2D6 *4/*4 (two no-function alleles) → PM → CLint scaling factor = 0.0."""
@@ -110,6 +111,7 @@ class TestCLintScalingFactor:
 # ------------------------------------------------------------------ allele frequency sum
 
 
+@pytest.mark.unit
 class TestAlleleFrequencySums:
     """Population allele frequencies should sum to approximately 1.0 for each gene.
 
@@ -163,6 +165,7 @@ class TestAlleleFrequencySums:
 # ------------------------------------------------------------------ invalid gene raises ValueError
 
 
+@pytest.mark.unit
 class TestInvalidGene:
     def test_invalid_gene_raises_value_error(self, analyzer: PGxAnalyzer) -> None:
         """Passing an unknown gene to analyze_gene should raise ValueError."""
@@ -183,6 +186,7 @@ class TestInvalidGene:
 # ------------------------------------------------------------------ analyze_gene result structure
 
 
+@pytest.mark.unit
 class TestAnalyzeGeneResults:
     def test_analyze_gene_returns_list(self, analyzer: PGxAnalyzer) -> None:
         """analyze_gene returns a non-empty list of PGxResult objects."""

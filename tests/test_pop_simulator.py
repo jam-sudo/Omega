@@ -1,6 +1,7 @@
 """Tests for PopulationSimulator."""
 
 import numpy as np
+import pytest
 
 
 def _make_drug():
@@ -9,6 +10,7 @@ def _make_drug():
     return MIDAZOLAM
 
 
+@pytest.mark.unit
 class TestPopulationSimulator:
     def test_smoke_run(self):
         from omega_pbpk.population.pop_simulator import PopulationSimulator

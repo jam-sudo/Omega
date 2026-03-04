@@ -9,6 +9,7 @@ from omega_pbpk.contracts import DrugSpec, PatientSpec, Regimen
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestDrugSpecValidate:
     def test_valid_default(self):
         DrugSpec(name="test").validate()
@@ -73,6 +74,7 @@ class TestDrugSpecValidate:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestPatientSpecValidate:
     def test_valid_default(self):
         PatientSpec().validate()
@@ -109,6 +111,7 @@ class TestPatientSpecValidate:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRegimenValidate:
     def test_valid(self):
         Regimen(dose_mg=100).validate()

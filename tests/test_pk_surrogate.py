@@ -44,6 +44,7 @@ _X_SMALL, _Y_SMALL = generate_analytical_pk_data(n_samples=100, seed=7)
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestDataClasses:
     def test_pk_surrogate_input_creation(self):
         """PKSurrogateInput stores all fields correctly."""
@@ -87,6 +88,7 @@ class TestDataClasses:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestNumpyMLP:
     def test_numpy_mlp_forward_shape(self):
         """NumpyMLP (10, 6) input → (10, 4) output."""
@@ -122,6 +124,7 @@ class TestNumpyMLP:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTrainingData:
     def test_generate_analytical_pk_data_shapes(self):
         """generate_analytical_pk_data(500) → X(500,6), y(500,4)."""
@@ -146,6 +149,7 @@ class TestTrainingData:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestAnalyticalPK:
     def test_analytical_pk_1cpt_oral(self):
         """Oral 1-cpt: AUC = F*dose/CL and t_half = ln2*Vd/CL within 1%."""
@@ -194,6 +198,7 @@ class TestAnalyticalPK:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestEnsemble:
     def _trained_ensemble(self) -> PKSurrogateEnsemble:
         """Return a small trained ensemble (n_samples=100, epochs=10)."""
@@ -267,6 +272,7 @@ class TestEnsemble:
 
 
 class TestIntegration:
+    @pytest.mark.integration
     def test_predict_pk_surrogate_convenience(self):
         """predict_pk_surrogate returns a PKSurrogateOutput (mocked singleton)."""
         from unittest.mock import patch
@@ -300,6 +306,7 @@ class TestIntegration:
         assert result.auc_mg_h_per_L == pytest.approx(15.0)
         assert result.confidence == "high"
 
+    @pytest.mark.unit
     def test_pk_surrogate_endpoint(self):
         """POST /predict/pk_surrogate returns 200 with auc field."""
         from unittest.mock import patch

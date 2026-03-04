@@ -34,6 +34,7 @@ def _get_adme_predictor():
     return ADMEPredictor()
 
 
+@pytest.mark.integration
 class TestADMEPredictorReturnsValidProperties:
     def test_adme_predictor_returns_valid_properties(self):
         """All predicted ADME fields are finite positive floats; key ranges checked."""
@@ -81,6 +82,7 @@ class TestADMEPredictorReturnsValidProperties:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestRDKitFeaturizer:
     def test_rdkit_featurizer_shape(self):
         """Featurized descriptor vector has at least 10 elements."""
@@ -129,6 +131,7 @@ def _get_species_physiology(species: str):
     return get_species_physiology(species)
 
 
+@pytest.mark.integration
 class TestSpeciesPhysiology:
     def test_species_physiology_human(self):
         """Human physiology returns a dict with all positive numeric values."""
@@ -171,6 +174,7 @@ def _get_pediatric_scaling():
     return get_pediatric_scaling
 
 
+@pytest.mark.integration
 class TestPediatricOntogeny:
     def test_pediatric_ontogeny_neonate_lower_than_adult(self):
         """Neonate CYP3A4 activity should be lower than adult."""

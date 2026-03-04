@@ -20,6 +20,7 @@ COMPOUNDS_DIR = REPO_ROOT / "compounds"
 REFERENCE_DRUGS = ["caffeine", "warfarin", "midazolam", "propranolol", "metformin"]
 
 
+@pytest.mark.unit
 class TestLoadDrugSpecByName:
     @pytest.mark.parametrize("name", REFERENCE_DRUGS)
     def test_loads_without_error(self, name: str) -> None:
@@ -50,6 +51,7 @@ class TestLoadDrugSpecByName:
             load_drug_spec_by_name("nonexistent_compound_xyz")
 
 
+@pytest.mark.unit
 class TestDrugToSpec:
     def test_round_trip_preserves_name(self) -> None:
         spec = load_drug_spec_by_name("caffeine")
@@ -85,6 +87,7 @@ class TestDrugToSpec:
         assert spec2.mw == pytest.approx(spec.mw, abs=0.01)
 
 
+@pytest.mark.unit
 class TestLoadDrugSpecPath:
     def test_load_by_path(self) -> None:
         path = COMPOUNDS_DIR / "caffeine.yaml"

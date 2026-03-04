@@ -16,6 +16,7 @@ import pytest
 # ============================================================
 
 
+@pytest.mark.unit
 class TestDrug:
     def test_drug_creation(self) -> None:
         from omega_pbpk.drugs.drug import Drug
@@ -60,6 +61,7 @@ class TestDrug:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestMidazolam:
     def test_midazolam_loaded(self) -> None:
         from omega_pbpk.drugs.midazolam import MIDAZOLAM
@@ -84,6 +86,7 @@ class TestMidazolam:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestOrgan:
     def test_organ_perfusion_limited(self) -> None:
         from omega_pbpk.core.organ import Organ
@@ -120,6 +123,7 @@ class TestOrgan:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestWholeBodyPBPK:
     def test_model_creation(self) -> None:
         from omega_pbpk.core.body import N_STATES, WholeBodyPBPK
@@ -213,6 +217,7 @@ class TestWholeBodyPBPK:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestDDI:
     def test_competitive_inhibition(self) -> None:
         from omega_pbpk.core.body import DDIInhibitor, WholeBodyPBPK
@@ -295,6 +300,7 @@ class TestDDI:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestPopulation:
     def test_reference_man(self) -> None:
         from omega_pbpk.population.physiology import ReferenceMan
@@ -328,6 +334,7 @@ class TestPopulation:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestConfig:
     def test_load_midazolam_yaml(self) -> None:
         from omega_pbpk.config import load_compound
@@ -356,6 +363,7 @@ class TestConfig:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestADMEPredictor:
     def test_predict_from_smiles(self) -> None:
         from omega_pbpk.prediction.adme_predictor import ADMEPredictor
@@ -392,6 +400,7 @@ class TestADMEPredictor:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestPDModels:
     def test_emax_model(self) -> None:
         from omega_pbpk.qsp.pd_models import EmaxModel
@@ -455,6 +464,7 @@ class TestPDModels:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestSafety:
     def test_safety_assessment(self) -> None:
         from omega_pbpk.docking.off_target import SafetyPanel
@@ -488,6 +498,7 @@ class TestSafety:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestPGx:
     def test_analyze_cyp2d6(self) -> None:
         from omega_pbpk.pharmacogenomics.cyp_polymorphism import PGxAnalyzer
@@ -526,6 +537,7 @@ class TestPGx:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestClinical:
     def test_fih_dose(self) -> None:
         from omega_pbpk.clinical.dose_optimization import DoseOptimizer
@@ -560,6 +572,7 @@ class TestClinical:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestGNN:
     def test_model_summary(self) -> None:
         from omega_pbpk.ml_models.gnn_adme import model_summary
@@ -575,6 +588,7 @@ class TestGNN:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestVisualization:
     def test_pk_plot(self) -> None:
         from omega_pbpk.visualization.plots import PKPlotter
@@ -594,6 +608,7 @@ class TestVisualization:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestIntegration:
     def test_full_pipeline_iv(self) -> None:
         """Full IV pipeline: YAML → Drug → PBPK → PK summary."""
@@ -649,6 +664,7 @@ class TestIntegration:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestMidazolamOralCalibration:
     """Validate midazolam oral AAFE < 2.0 against literature PK."""
 
@@ -734,6 +750,7 @@ class TestMidazolamOralCalibration:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestHeuristicKp:
     def test_neutral_compound(self) -> None:
         from omega_pbpk.core.heuristics import heuristic_kp
@@ -783,6 +800,7 @@ class TestHeuristicKp:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestValidation:
     def test_mass_balance_pass(self) -> None:
         """IV simulation should pass mass balance check."""
@@ -845,6 +863,7 @@ class TestValidation:
 # ============================================================
 
 
+@pytest.mark.unit
 class TestRiskFlags:
     def test_no_risk(self) -> None:
         from omega_pbpk.risk import compute_risk_flags
@@ -895,6 +914,7 @@ class TestRiskFlags:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestSensitivity:
     def test_sensitivity_runs(self) -> None:
         from omega_pbpk.drugs.midazolam import MIDAZOLAM
@@ -930,6 +950,7 @@ class TestSensitivity:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestCalibration:
     def test_calibration_runs(self) -> None:
         """Calibration should run and return valid results."""
@@ -1021,6 +1042,7 @@ class TestCalibration:
 # ============================================================
 
 
+@pytest.mark.slow
 class TestBenchmarkSuite:
     def test_benchmark_caffeine_runs(self) -> None:
         """Caffeine benchmark should run and produce metrics."""
@@ -1062,6 +1084,7 @@ class TestBenchmarkSuite:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestSurrogate:
     def test_data_generation(self) -> None:
         """Training data generator should produce valid samples."""
@@ -1152,6 +1175,7 @@ class TestSurrogate:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestUncertainty:
     def test_mc_propagation_runs(self) -> None:
         from omega_pbpk.uncertainty import DistributionSpec, monte_carlo_propagation
@@ -1248,6 +1272,7 @@ class TestUncertainty:
 # ============================================================
 
 
+@pytest.mark.integration
 class TestCandidateEvaluation:
     def test_evaluate_midazolam(self) -> None:
         """Midazolam evaluation should produce a valid report."""

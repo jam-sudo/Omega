@@ -43,6 +43,7 @@ def _import_get_species_physiology():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestAllometricScale:
     def test_allometric_scale_human_to_rat(self):
         """Rat clearance (allometrically scaled from human) is less than human value.
@@ -102,6 +103,7 @@ class TestAllometricScale:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestSpeciesAllFourAvailable:
     def test_species_all_four_available(self):
         """get_species_physiology works for human, rat, mouse, and dog."""
@@ -112,6 +114,7 @@ class TestSpeciesAllFourAvailable:
             assert len(phys) > 0, f"Empty physiology dict for {species}"
 
 
+@pytest.mark.unit
 class TestMouseCardiacOutputLessThanRat:
     def test_mouse_cardiac_output_less_than_rat(self):
         """Mouse (0.02 kg) absolute cardiac output < rat (0.25 kg)."""
@@ -134,6 +137,7 @@ class TestMouseCardiacOutputLessThanRat:
         assert mouse_co < rat_co, f"Mouse CO ({mouse_co}) should be less than rat CO ({rat_co})"
 
 
+@pytest.mark.unit
 class TestSpeciesPhysiologyKeysConsistent:
     def test_species_physiology_keys_consistent(self):
         """All 4 species return the same set of physiological parameter keys."""

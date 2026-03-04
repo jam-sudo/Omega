@@ -21,16 +21,19 @@ else:
     client = None  # type: ignore[assignment]
 
 
+@pytest.mark.unit
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
 
 
+@pytest.mark.unit
 def test_version_header():
     r = client.get("/health")
     assert "X-Omega-Version" in r.headers
 
 
+@pytest.mark.unit
 def test_simulate_invalid_dose():
     r = client.post(
         "/simulate",
@@ -39,12 +42,14 @@ def test_simulate_invalid_dose():
     assert r.status_code == 422
 
 
+@pytest.mark.unit
 def test_train_surrogate_endpoint():
     r = client.post("/train/surrogate", json={"n_samples": 20, "epochs": 5})
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "success"
 
 
+@pytest.mark.unit
 def test_validate_endpoint():
     r = client.post("/validate", json={"mode": "sanity"})
     assert r.status_code == 200, r.text

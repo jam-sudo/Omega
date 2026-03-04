@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from omega_pbpk.calibration import CalibrationResult, _simulate_concentration, run_mh_calibration
 from omega_pbpk.drugs.drug import Drug
@@ -93,6 +94,7 @@ def _synthetic_observed(
 # ------------------------------------------------------------------ smoke test
 
 
+@pytest.mark.slow
 class TestMCMCSmoke:
     def test_mcmc_runs_without_error(self) -> None:
         """MCMC calibration should complete without raising any exception."""
@@ -192,6 +194,7 @@ class TestMCMCSmoke:
 # ------------------------------------------------------------------ acceptance rate
 
 
+@pytest.mark.slow
 class TestAcceptanceRate:
     """Metropolis-Hastings acceptance rate should sit in a reasonable range."""
 
@@ -256,6 +259,7 @@ class TestAcceptanceRate:
 # ------------------------------------------------------------------ convergence toward truth
 
 
+@pytest.mark.slow
 class TestMCMCConvergence:
     """Posterior mean should be in the neighbourhood of the true CLint value.
 

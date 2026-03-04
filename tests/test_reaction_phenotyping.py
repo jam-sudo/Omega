@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -37,6 +38,7 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestChemicalInhibition:
     def test_single_enzyme_dominant(self):
         """CYP3A4 accounts for ~80% of metabolism → fm ≈ 0.8."""
@@ -179,6 +181,7 @@ class TestChemicalInhibition:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRecombinantCorrelation:
     def test_isef_method(self):
         """ISEF method: CLint = velocity × abundance × ISEF → normalized fm."""
@@ -263,6 +266,7 @@ class TestRecombinantCorrelation:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestCombinedPhenotyping:
     def test_combined_inhibition_priority(self):
         """Inhibition data is weighted higher (default 70%) in combined method."""
@@ -344,6 +348,7 @@ class TestCombinedPhenotyping:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestVulnerabilityAssessment:
     def test_ddi_and_pgx_classification(self):
         """High DDI risk (fm_3A4 = 0.85) and low PGx sensitivity."""
@@ -363,6 +368,7 @@ class TestVulnerabilityAssessment:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestPhenotypingAPI:
     def test_endpoint_200(self):
         """POST /phenotyping returns 200 with valid inhibition data."""

@@ -84,6 +84,7 @@ def _train_surrogate_on_drugs(drug_params: list[list[float]], n_aug: int = 15) -
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestFeatureOrderContract:
     def test_surrogate_feature_order_matches_train_order(self):
         """EXPECTED_FEATURES must match the column order in train._params_to_array."""
@@ -126,6 +127,7 @@ class TestFeatureOrderContract:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestODEBaseline:
     def test_ode_caffeine_positive_cmax_auc(self):
         cmax, auc = _run_ode(TEST_DRUGS["caffeine"])

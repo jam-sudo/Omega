@@ -13,6 +13,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -62,6 +63,7 @@ def _er_zero_order_spec(dose_mg: float = 100.0, T_h: float = 8.0) -> Formulation
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestReleaseModels:
     def test_immediate_release_all_at_t0(self):
         """100% released instantly for IR formulation."""
@@ -181,6 +183,7 @@ class TestReleaseModels:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestCompositeRelease:
     def test_ir_er_composite(self):
         """30% IR + 70% ER: biphasic release profile."""
@@ -269,6 +272,7 @@ class TestCompositeRelease:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestFormulationPK:
     def test_er_vs_ir_cmax_lower(self):
         """ER formulation has lower Cmax than IR."""
@@ -322,6 +326,7 @@ class TestFormulationPK:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestFormulationValidation:
     def test_validate_catches_errors(self):
         """Negative params, missing keys flagged."""
@@ -355,6 +360,7 @@ class TestFormulationValidation:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestFormulationAPI:
     def test_post_simulate_formulation_200(self):
         """POST returns 200 with valid response."""

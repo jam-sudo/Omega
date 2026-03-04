@@ -66,6 +66,7 @@ class _BadPlugin(PluginBase):
         return {}  # missing 'fup'
 
 
+@pytest.mark.unit
 def test_plugin_apply_success():
     spec = _caffeine_spec()
     plugin = _GoodPlugin()
@@ -74,6 +75,7 @@ def test_plugin_apply_success():
     assert updated.name == spec.name
 
 
+@pytest.mark.unit
 def test_plugin_apply_missing_key_raises_type_error():
     spec = _caffeine_spec()
     plugin = _BadPlugin()
@@ -81,11 +83,13 @@ def test_plugin_apply_missing_key_raises_type_error():
         plugin.apply(spec)
 
 
+@pytest.mark.unit
 def test_plugin_confidence_default():
     plugin = _GoodPlugin()
     assert plugin.confidence(_caffeine_spec()) == pytest.approx(0.5)
 
 
+@pytest.mark.unit
 def test_surrogate_model_plugin_is_protocol():
     """SurrogateModelPlugin is a runtime-checkable Protocol."""
     assert isinstance(SurrogateModelPlugin, type)
@@ -96,11 +100,13 @@ def test_surrogate_model_plugin_is_protocol():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_simulation_engine_cannot_be_instantiated():
     with pytest.raises(TypeError):
         SimulationEngine()  # type: ignore[abstract]
 
 
+@pytest.mark.integration
 def test_whole_body_pbpk_engine_is_instance_of_simulation_engine():
     engine = WholeBodyPBPKEngine()
     assert isinstance(engine, SimulationEngine)
@@ -111,10 +117,12 @@ def test_whole_body_pbpk_engine_is_instance_of_simulation_engine():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 def test_import_plugins():
     from omega_pbpk.plugins import PluginBase, SurrogateModelPlugin  # noqa: F401
 
 
+@pytest.mark.unit
 def test_import_engine():
     from omega_pbpk.engine import (  # noqa: F401
         SimulationEngine,
@@ -128,6 +136,7 @@ def test_import_engine():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 def test_engine_run_caffeine_oral():
     engine = WholeBodyPBPKEngine()
     drug = _caffeine_spec()
@@ -147,6 +156,7 @@ def test_engine_run_caffeine_oral():
     assert 0 <= result.Tmax <= 24.0
 
 
+@pytest.mark.integration
 def test_engine_run_caffeine_iv():
     engine = WholeBodyPBPKEngine()
     drug = _caffeine_spec()
@@ -159,6 +169,7 @@ def test_engine_run_caffeine_iv():
     assert result.Cmax > 0
 
 
+@pytest.mark.integration
 def test_engine_unsupported_route_raises():
     engine = WholeBodyPBPKEngine()
     drug = _caffeine_spec()
@@ -170,6 +181,7 @@ def test_engine_unsupported_route_raises():
     assert result.success is True
 
 
+@pytest.mark.integration
 def test_engine_pk_summary():
     engine = WholeBodyPBPKEngine()
     drug = _caffeine_spec()

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
 
 if TYPE_CHECKING:
     from omega_pbpk.drugs.drug import Drug
@@ -58,6 +59,7 @@ def _make_caffeine_drug() -> Drug:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestOmegaPipelineE2E:
     """Full SMILES -> OmegaPipeline -> SimulationResult tests."""
 
@@ -134,6 +136,7 @@ class TestOmegaPipelineE2E:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestNCAIntegration:
     """NCA on pipeline output."""
 
@@ -194,6 +197,7 @@ class TestNCAIntegration:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestDDIIntegration:
     """DDI risk assessment integration tests."""
 
@@ -237,6 +241,7 @@ class TestDDIIntegration:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestPopPKIntegration:
     """PopulationSimulator integration tests."""
 
@@ -289,6 +294,7 @@ class TestPopPKIntegration:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestClinicalModulesIntegration:
     """Integration tests for allometry, IVIVE, and the HTML report generator."""
 

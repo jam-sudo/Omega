@@ -3,6 +3,7 @@
 import pytest
 
 
+@pytest.mark.unit
 class TestAllometry:
     def test_single_species_cl_scales_correctly(self):
         from omega_pbpk.clinical.allometry import scale_single_species
@@ -58,6 +59,7 @@ class TestAllometry:
         assert pred.cl_human_L_per_h > 0
 
 
+@pytest.mark.unit
 class TestIVIVE:
     def test_microsomal_clint_scales_to_positive_clh(self):
         from omega_pbpk.clinical.ivive import scale_microsomal_clint

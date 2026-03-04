@@ -71,6 +71,7 @@ def _clint_eff(drug: Drug, inhibitors: list[DDIInhibitor]) -> float:
 # ------------------------------------------------------------------ tests
 
 
+@pytest.mark.unit
 class TestCompetitiveInhibition:
     def test_competitive_reduces_clint(self) -> None:
         """Competitive inhibitor with [I]=Ki should reduce CLint to ~50% fm contribution."""
@@ -162,6 +163,7 @@ class TestCompetitiveInhibition:
         assert result == pytest.approx(base, rel=1e-3)
 
 
+@pytest.mark.unit
 class TestMBIInhibition:
     def test_mbi_reduces_clint(self) -> None:
         """MBI mechanism reduces CLint when kinact/kdeg ratio produces partial inactivation."""
@@ -228,6 +230,7 @@ class TestMBIInhibition:
         assert result == pytest.approx(base, rel=1e-9)
 
 
+@pytest.mark.unit
 class TestInduction:
     def test_induction_increases_clint(self) -> None:
         """Induction with fold_induction>1 should increase CLint."""
@@ -285,6 +288,7 @@ class TestInduction:
         assert result == pytest.approx(expected, rel=1e-6)
 
 
+@pytest.mark.unit
 class TestNoDDI:
     def test_no_inhibitors_returns_base_clint(self) -> None:
         """Without any inhibitors, _clint_effective returns the base CLint."""

@@ -18,6 +18,7 @@ from omega_pbpk.clinical.ddi_report import (
 )
 
 
+@pytest.mark.unit
 class TestMBICombined:
     """Erythromycin-like inhibitor with both reversible and MBI parameters."""
 
@@ -76,6 +77,7 @@ class TestMBICombined:
         assert len(limitation_flags) == 1
 
 
+@pytest.mark.unit
 class TestMBIOnly:
     """MBI inhibitor without reversible Ki (pure MBI mechanism)."""
 
@@ -92,6 +94,7 @@ class TestMBIOnly:
         assert report.mechanism == "MBI"
 
 
+@pytest.mark.unit
 class TestBackwardCompat:
     """kinact=None (default) → skip MBI, mechanism stays 'competitive'."""
 
@@ -137,6 +140,7 @@ class TestBackwardCompat:
         assert report.R1_3a4 == pytest.approx(expected_r1, rel=1e-9)
 
 
+@pytest.mark.unit
 class TestEdgeCases:
     """Edge cases: very high kinact, R2 approaches 0."""
 

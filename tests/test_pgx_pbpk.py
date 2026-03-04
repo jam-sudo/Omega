@@ -64,6 +64,7 @@ def pgx_result(cyp2d6_drug: Drug):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestRunPgxPbpkReturnsResult:
     def test_pgx_pbpk_returns_result(self, pgx_result) -> None:
         """run_pgx_pbpk must return a PGxPBPKResult instance."""
@@ -77,6 +78,7 @@ class TestRunPgxPbpkReturnsResult:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestFourPhenotypesPresent:
     def test_four_phenotypes_present(self, pgx_result) -> None:
         """PM, IM, NM, UM must all appear in phenotype_results."""
@@ -93,6 +95,7 @@ class TestFourPhenotypesPresent:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestNmRatioIsOne:
     def test_nm_ratio_is_one(self, pgx_result) -> None:
         """NM AUC ratio vs NM must equal 1.0 by definition."""
@@ -105,6 +108,7 @@ class TestNmRatioIsOne:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestPmAucHigherThanNm:
     def test_pm_auc_higher_than_nm(self, pgx_result) -> None:
         """For a CYP2D6 substrate, PM phenotype should produce a higher AUC than NM."""
@@ -125,6 +129,7 @@ class TestPmAucHigherThanNm:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestUmAucLowerThanNm:
     def test_um_auc_lower_than_nm(self, pgx_result) -> None:
         """For a CYP2D6 substrate, UM phenotype should produce a lower AUC than NM."""
@@ -145,6 +150,7 @@ class TestUmAucLowerThanNm:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestGeneSensitivityIndex:
     def test_gene_sensitivity_index_positive(self, pgx_result) -> None:
         """Gene sensitivity index must be strictly positive."""
@@ -161,6 +167,7 @@ class TestGeneSensitivityIndex:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestPlotPgxForest:
     def test_plot_returns_base64_string_when_no_out_path(self, pgx_result) -> None:
         """plot_pgx_forest without out_path returns a non-empty base-64 string."""
@@ -199,6 +206,7 @@ class TestPlotPgxForest:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestImportFromClinical:
     def test_import_run_pgx_pbpk(self) -> None:
         """run_pgx_pbpk must be importable from omega_pbpk.clinical."""
@@ -224,6 +232,7 @@ class TestImportFromClinical:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestPgxReportHtml:
     def test_html_report_is_non_empty_string(self, pgx_result) -> None:
         """pgx_report_html must return a non-empty string."""
@@ -261,6 +270,7 @@ class TestPgxReportHtml:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestResultFieldsSanity:
     def test_nm_auc_is_positive(self, pgx_result) -> None:
         """nm_auc must be strictly positive for a drug with hepatic clearance."""

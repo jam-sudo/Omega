@@ -27,6 +27,7 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestScaleCaco2Papp:
     def test_high_perm_peff_propranolol(self):
         """papp=25e-6 (propranolol-like) → Peff ≈ 4.07 ×10⁻⁴ cm/s."""
@@ -115,6 +116,7 @@ class TestScaleCaco2Papp:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestScalePPB:
     def test_fu_mic_from_logP_3(self):
         """logP=3 → fu_mic ≈ 0.122, source='estimated_logP'."""
@@ -172,6 +174,7 @@ class TestScalePPB:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRunIVIVEBundle:
     def test_midazolam_like_clh(self):
         """Midazolam-like: clint=50, fup=0.04, fu_mic=0.5 → CLh ≈ 12.53 L/h."""
@@ -255,6 +258,7 @@ _BASE = {"clint_uL_min": 10.0, "fup": 0.2}
 _MIDAZOLAM = {"clint_uL_min": 50.0, "fup": 0.04, "fu_mic": 0.5}
 
 
+@pytest.mark.unit
 class TestIVIVEEndpoint:
     def test_minimal_request_returns_200(self):
         """Minimal valid request → HTTP 200."""

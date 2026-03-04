@@ -4,7 +4,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 
+
+@pytest.mark.unit
 def test_academic_report_contains_required_sections(tmp_path: Path) -> None:
     out = tmp_path / "run"
     subprocess.run(

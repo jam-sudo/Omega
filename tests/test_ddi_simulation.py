@@ -8,6 +8,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -68,36 +69,43 @@ TEST_DRUG_PAYLOAD = {
 # ===========================================================================
 
 
+@pytest.mark.integration
 def test_classify_ddi_no_interaction():
     """AUCR = 1.1 → no_interaction."""
     assert classify_ddi(1.1) == "no_interaction"
 
 
+@pytest.mark.integration
 def test_classify_ddi_weak():
     """AUCR = 1.5 → weak."""
     assert classify_ddi(1.5) == "weak"
 
 
+@pytest.mark.integration
 def test_classify_ddi_moderate():
     """AUCR = 3.0 → moderate."""
     assert classify_ddi(3.0) == "moderate"
 
 
+@pytest.mark.integration
 def test_classify_ddi_strong():
     """AUCR = 6.0 → strong."""
     assert classify_ddi(6.0) == "strong"
 
 
+@pytest.mark.integration
 def test_classify_ddi_weak_induction():
     """AUCR = 0.7 → weak_induction."""
     assert classify_ddi(0.7) == "weak_induction"
 
 
+@pytest.mark.integration
 def test_classify_ddi_boundary_1_25():
     """AUCR = 1.25 (lower boundary of weak) → weak."""
     assert classify_ddi(1.25) == "weak"
 
 
+@pytest.mark.integration
 def test_classify_ddi_boundary_5():
     """AUCR = 5.0 (lower boundary of strong) → strong."""
     assert classify_ddi(5.0) == "strong"
@@ -108,6 +116,7 @@ def test_classify_ddi_boundary_5():
 # ===========================================================================
 
 
+@pytest.mark.integration
 def test_no_inhibition_aucr_near_one():
     """Perpetrator with huge Ki (1e6 µM) should produce AUCR ≈ 1.0 (no meaningful inhibition)."""
     perp = PerpetratorSpec(name="non_inhibitor", ki_uM=1_000_000.0, cmax_uM=1.0)
@@ -116,6 +125,7 @@ def test_no_inhibition_aucr_near_one():
     assert abs(result.auc_ratio - 1.0) < 0.1, f"AUCR={result.auc_ratio:.4f} expected ≈ 1.0"
 
 
+@pytest.mark.integration
 def test_competitive_inhibition_increases_auc():
     """Potent inhibitor (Ki=0.01 µM, Cmax=1 µM) should yield AUCR > 1.5."""
     perp = PerpetratorSpec(name="potent_inhibitor", ki_uM=0.01, cmax_uM=1.0)
@@ -123,6 +133,7 @@ def test_competitive_inhibition_increases_auc():
     assert result.auc_ratio > 1.5, f"AUCR={result.auc_ratio:.4f} expected > 1.5"
 
 
+@pytest.mark.integration
 def test_result_has_profiles():
     """time_h, cp_alone_mg_L, cp_ddi_mg_L must be non-empty tuples of equal length."""
     perp = PerpetratorSpec(name="test_perp", ki_uM=1.0, cmax_uM=1.0)
@@ -132,6 +143,7 @@ def test_result_has_profiles():
     assert len(result.cp_ddi_mg_L) == len(result.time_h)
 
 
+@pytest.mark.integration
 def test_static_r1_positive():
     """Static R1 = 1 + Cmax/Ki must be > 1 for any positive Cmax and Ki."""
     perp = PerpetratorSpec(name="r1_test", ki_uM=1.0, cmax_uM=2.0)
@@ -158,6 +170,7 @@ def _ddi_simulate_payload(**overrides) -> dict:
     return payload
 
 
+@pytest.mark.integration
 def test_api_ddi_simulate_endpoint_200():
     """POST /ddi/simulate returns 200 and has expected top-level keys."""
     r = client.post("/ddi/simulate", json=_ddi_simulate_payload())
@@ -177,6 +190,7 @@ def test_api_ddi_simulate_endpoint_200():
     assert expected_keys.issubset(body.keys()), f"Missing keys: {expected_keys - body.keys()}"
 
 
+@pytest.mark.integration
 def test_api_ddi_simulate_returns_profiles():
     """Response time_h, cp_alone_mg_L, cp_ddi_mg_L must be non-empty lists of equal length."""
     r = client.post("/ddi/simulate", json=_ddi_simulate_payload())

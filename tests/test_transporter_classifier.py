@@ -31,6 +31,7 @@ RITONAVIR_PROPS = {"mw": 720.9, "logp": 4.14, "charge_class": "base"}
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestImports:
     def test_transporter_classifier_importable(self):
         from omega_pbpk.prediction.transporter_classifier import TransporterClassifier
@@ -66,6 +67,7 @@ class TestImports:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTransporterInteraction:
     def test_interaction_fields(self):
         ti = TransporterInteraction(
@@ -129,6 +131,7 @@ class TestTransporterInteraction:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTransporterProfileMethods:
     def _make_profile(self, sub_p: float = 0.8, inh_p: float = 0.2) -> TransporterProfile:
         interactions = {
@@ -197,6 +200,7 @@ class TestTransporterProfileMethods:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestKnownSubstrates:
     def test_digoxin_pgp_substrate(self):
         """Digoxin: canonical narrow-TI P-gp substrate."""
@@ -252,6 +256,7 @@ class TestKnownSubstrates:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestKnownInhibitors:
     def test_cyclosporine_pgp_inhibitor(self):
         """Cyclosporine: potent P-gp inhibitor."""
@@ -295,6 +300,7 @@ class TestKnownInhibitors:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestKnownNonSubstrates:
     def test_caffeine_not_pgp_substrate(self):
         tc = TransporterClassifier()
@@ -324,6 +330,7 @@ class TestKnownNonSubstrates:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestPredictFromSMILES:
     def test_predict_metformin_smiles(self):
         tc = TransporterClassifier()
@@ -360,6 +367,7 @@ class TestPredictFromSMILES:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestKmAndIC50:
     def test_km_non_negative_for_all_transporters(self):
         tc = TransporterClassifier()
@@ -410,6 +418,7 @@ class TestKmAndIC50:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestDDIRiskFlags:
     def test_flags_is_tuple(self):
         tc = TransporterClassifier()
@@ -448,6 +457,7 @@ class TestDDIRiskFlags:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEdgeCases:
     def test_very_small_molecule(self):
         tc = TransporterClassifier()
@@ -501,6 +511,7 @@ class TestEdgeCases:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTransporterPlugin:
     def test_plugin_name(self):
         from omega_pbpk.plugins.transporter_plugin import TransporterPlugin
@@ -575,6 +586,7 @@ class TestTransporterPlugin:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestDrugSpecTransporterField:
     def test_drug_spec_has_transporter_profile_field(self):
         from omega_pbpk.contracts.drug_spec import DrugSpec

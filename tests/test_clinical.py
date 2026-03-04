@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 
+@pytest.mark.unit
 class TestDDIReport:
     def test_no_inhibition_r1_is_one(self):
         from omega_pbpk.clinical.ddi_report import DDIInhibitor, assess_ddi_risk
@@ -53,6 +54,7 @@ class TestDDIReport:
         assert "DDI Risk" in s
 
 
+@pytest.mark.unit
 class TestNCA:
     def _make_iv_pk(self, dose=100.0, cl=10.0, vd=50.0, n=50):
         """Generate synthetic IV PK profile."""

@@ -53,6 +53,7 @@ def benchmark_summary():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
 class TestBenchmarkSuite:
     """Integration tests for the full benchmark validation suite."""
 

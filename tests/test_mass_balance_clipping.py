@@ -24,6 +24,7 @@ from omega_pbpk.drugs.warfarin import WARFARIN
 # ---------------------------------------------------------------------------
 # Test 1: Normal caffeine simulation has no significantly negative states
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 class TestNoNegativeStatesNormal:
     def test_caffeine_iv_no_negative_states(self) -> None:
         """A normal caffeine IV simulation should have all states >= -1e-6."""
@@ -53,6 +54,7 @@ class TestNoNegativeStatesNormal:
 # ---------------------------------------------------------------------------
 # Test 2: Post-solve warning fires when solver returns negative states
 # ---------------------------------------------------------------------------
+@pytest.mark.integration
 class TestNegativeStateWarning:
     def test_warning_on_negative_state(self, caplog: pytest.LogCaptureFixture) -> None:
         """When a state goes below -1e-6, logger.warning should fire."""
@@ -109,6 +111,7 @@ REFERENCE_COMPOUNDS = [
 ]
 
 
+@pytest.mark.integration
 class TestMassBalanceAllCompounds:
     @pytest.mark.parametrize("name,drug,dose_mg", REFERENCE_COMPOUNDS)
     def test_iv_mass_balance(self, name: str, drug: object, dose_mg: float) -> None:

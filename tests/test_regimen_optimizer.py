@@ -7,6 +7,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -57,6 +58,7 @@ def _run_optimize(**kwargs):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRegimenUnit:
     def test_optimize_returns_result(self):
         result = _run_optimize()
@@ -134,6 +136,7 @@ class TestRegimenUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestRegimenAPI:
     def test_api_endpoint(self):
         payload = {

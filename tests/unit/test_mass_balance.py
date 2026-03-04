@@ -41,6 +41,7 @@ def _depleting_amounts(n_time: int, n_states: int, dose_mg: float) -> np.ndarray
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestMassBalanceCheckIV:
     def test_perfect_conservation_no_warnings(self):
         amounts = _perfect_amounts(100, 35, 100.0)
@@ -128,6 +129,7 @@ class TestMassBalanceCheckIV:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestOralMassBalanceCheck:
     def test_perfect_conservation_no_warnings(self):
         n_time, n_states, dose = 200, 35, 100.0
@@ -204,6 +206,7 @@ class TestOralMassBalanceCheck:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestMassBalanceWithRealSimulation:
     def test_iv_simulation_conserves_mass(self):
         """Real 35-state ODE IV simulation must pass mass balance (±0.5%)."""

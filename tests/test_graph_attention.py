@@ -10,6 +10,7 @@ Covers:
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -49,6 +50,7 @@ def _make_random_graph(n_atoms: int, seed: int = 0):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestGraphConstruction:
     def test_smiles_to_graph_caffeine(self):
         """Caffeine graph: 14 heavy atoms and symmetric adjacency."""
@@ -82,6 +84,7 @@ class TestGraphConstruction:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestAttentionLayers:
     def test_layer_output_shape(self):
         """GraphAttentionLayer (5, 13) → (5, 32) output."""
@@ -140,6 +143,7 @@ class TestAttentionLayers:
 
 
 class TestModelPrediction:
+    @pytest.mark.unit
     def test_predict_single_returns_all_properties(self):
         """predict_single returns fup, clint_3a4, peff, logS, confidence."""
         model = MolecularGAT(seed=0)
@@ -150,6 +154,7 @@ class TestModelPrediction:
         assert result["clint_3a4"] >= 0.0
         assert 0.0 <= result["confidence"] <= 1.0
 
+    @pytest.mark.unit
     def test_predict_single_deterministic(self):
         """Same seed → identical predictions."""
         model_a = MolecularGAT(seed=42)
@@ -158,6 +163,7 @@ class TestModelPrediction:
         r_b = model_b.predict_single(_CAFFEINE)
         assert r_a == r_b
 
+    @pytest.mark.integration
     def test_fit_reduces_loss(self):
         """A short training run should reduce loss (at least from first epoch)."""
         model = MolecularGAT(hidden_dim=8, n_heads=2, n_rounds=1, seed=0)
@@ -176,6 +182,7 @@ class TestModelPrediction:
         # At least one of the losses should be non-negative
         assert all(v >= 0.0 for v in loss_history)
 
+    @pytest.mark.unit
     def test_predict_batch_length(self):
         """predict_batch for 3 SMILES returns exactly 3 results."""
         model = MolecularGAT(seed=1)
@@ -192,6 +199,7 @@ class TestModelPrediction:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestIntegration:
     def test_get_attention_maps(self):
         """get_attention_maps returns correct structure for caffeine."""

@@ -8,6 +8,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -74,6 +75,7 @@ _MET_NEAR_ZERO_CL = MetaboliteSpec(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestMISTUnit:
     def test_estimate_metabolite_auc_basic(self):
         """AUC_met = fm * AUC_parent * (CL_parent / CL_met) * (MW_met / MW_parent)."""
@@ -137,6 +139,7 @@ class TestMISTUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.integration
 class TestMISTIntegration:
     def test_single_low_metabolite_overall_low(self):
         """One covered metabolite → overall low risk, 0 flagged."""
@@ -251,6 +254,7 @@ _VALID_MIST_PAYLOAD = {
 }
 
 
+@pytest.mark.unit
 class TestMISTAPI:
     def test_api_mist_200(self):
         r = client.post("/mist", json=_VALID_MIST_PAYLOAD)

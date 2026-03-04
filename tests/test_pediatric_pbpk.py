@@ -9,6 +9,7 @@ Tests are organized into four classes:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -73,6 +74,7 @@ def _run_iv(drug: Drug, bw: float, age: float | None) -> dict:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestOntogenyWiring:
     """Verify that age_years parameter correctly modifies pediatric PK."""
 
@@ -131,6 +133,7 @@ class TestOntogenyWiring:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestEnzymeMaturation:
     """Verify fm-weighted enzyme maturation scaling in _clint_effective."""
 
@@ -215,6 +218,7 @@ class TestEnzymeMaturation:
 # ===========================================================================
 
 
+@pytest.mark.integration
 class TestGFROntogeny:
     """Verify GFR-based renal clearance ontogeny scaling."""
 
@@ -252,6 +256,7 @@ def _ped_payload(**overrides) -> dict:
     return payload
 
 
+@pytest.mark.integration
 class TestPediatricAPI:
     """Verify POST /simulate/pediatric endpoint contract."""
 

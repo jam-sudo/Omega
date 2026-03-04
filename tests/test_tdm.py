@@ -7,6 +7,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -56,6 +57,7 @@ def _run(**kwargs):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTDMUnit:
     def test_run_tdm_returns_result(self):
         result = _run()
@@ -143,6 +145,7 @@ class TestTDMUnit:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTDMAPI:
     def test_tdm_endpoint_200(self):
         payload = {

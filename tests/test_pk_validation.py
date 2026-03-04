@@ -91,6 +91,7 @@ def _well_stirred_clh(q: float, fup: float, clint: float) -> float:
 # ------------------------------------------------------------------ tests
 
 
+@pytest.mark.integration
 class TestPKValidation:
     def test_clh_flow_limited_ceiling(self) -> None:
         """For CLint=500 L/h (high extraction), fu=1.0, Q_liver≈99.5:

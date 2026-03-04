@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from omega_pbpk.experimental.physio_sim.qsp.registry import get_qsp_model
 
 
+@pytest.mark.unit
 def test_turnover_rhs_negative_when_drug_and_no_input() -> None:
     model = get_qsp_model("turnover")
     config = {"kin": 0.0, "kout": 0.1, "emax": 1.0, "ec50_mg_per_L": 1.0, "hill": 1.0}
@@ -12,6 +14,7 @@ def test_turnover_rhs_negative_when_drug_and_no_input() -> None:
     assert rhs[0] < 0.0
 
 
+@pytest.mark.unit
 def test_turnover_nonnegative_guard_at_zero() -> None:
     model = get_qsp_model("turnover")
     config = {"kin": 0.0, "kout": 0.1, "emax": 1.0, "ec50_mg_per_L": 1.0, "hill": 1.0}

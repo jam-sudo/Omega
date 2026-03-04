@@ -24,6 +24,7 @@ def oral_100mg():
     return Regimen(dose_mg=100.0, route="oral")
 
 
+@pytest.mark.integration
 class TestPluginPipelineE2E:
     def test_kp_plugin_then_simulate(self, engine, default_patient, oral_100mg):
         spec = load_drug_spec_by_name("caffeine")

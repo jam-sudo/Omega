@@ -26,6 +26,7 @@ from omega_pbpk.qsp.pd_models import (
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEmaxModel:
     def test_zero_concentration_returns_e0(self):
         m = EmaxModel(e0=5.0, emax=100.0, ec50=1.0, gamma=1.0)
@@ -72,6 +73,7 @@ class TestEmaxModel:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestEffectCompartment:
     def test_ce_starts_at_zero(self):
         ec = EffectCompartment(ke0=1.0)
@@ -138,6 +140,7 @@ class _IDRFixture:
         return t, cp
 
 
+@pytest.mark.unit
 class TestIDRBaseline:
     """At Cp=0, all IDR types should hold near the baseline R0 = kin/kout."""
 
@@ -152,6 +155,7 @@ class TestIDRBaseline:
         assert r[-1] == pytest.approx(r0, rel=1e-3), f"Type {idr_type} failed baseline check"
 
 
+@pytest.mark.unit
 class TestIDRType1:
     """Type 1: Inhibition of kin → R decreases with drug."""
 
@@ -172,6 +176,7 @@ class TestIDRType1:
         assert r[-1] < 1.0  # Should be well below baseline of 10.0
 
 
+@pytest.mark.unit
 class TestIDRType2:
     """Type 2: Inhibition of kout → R increases with drug."""
 
@@ -184,6 +189,7 @@ class TestIDRType2:
         assert r_drug[-1] > r_no_drug[-1]
 
 
+@pytest.mark.unit
 class TestIDRType3:
     """Type 3: Stimulation of kin → R increases with drug."""
 
@@ -196,6 +202,7 @@ class TestIDRType3:
         assert r_drug[-1] > r_no_drug[-1]
 
 
+@pytest.mark.unit
 class TestIDRType4:
     """Type 4: Stimulation of kout → R decreases with drug."""
 
@@ -208,6 +215,7 @@ class TestIDRType4:
         assert r_drug[-1] < r_no_drug[-1]
 
 
+@pytest.mark.unit
 class TestIDRInvalidType:
     def test_invalid_type_raises(self):
         m = IndirectResponseModel(idr_type=99)
@@ -222,6 +230,7 @@ class TestIDRInvalidType:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestTumorGrowthModel:
     def test_tumor_grows_without_drug(self):
         m = TumorGrowthModel(lambda0=0.003, lambda1=0.5, k1=0.01, k2=0.1, v0=100.0)
@@ -259,6 +268,7 @@ class TestTumorGrowthModel:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.unit
 class TestBiomarkerTurnover:
     def test_baseline_without_drug(self):
         m = BiomarkerTurnover(ksyn=10.0, kdeg=0.1, emax=2.0, ec50=1.0)
