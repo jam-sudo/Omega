@@ -27,6 +27,7 @@ Endpoints:
   POST /induction              — enzyme induction time course (PXR/CAR pathway)
   POST /predict/gat            — Graph Attention Network ADME prediction
   POST /pubchem/lookup         — PubChem PUG REST live compound lookup
+  POST /interpret              — GPT/rule-based natural-language PK interpretation
 """
 
 from __future__ import annotations
@@ -3313,4 +3314,86 @@ def predict_pk_surrogate_endpoint(
         raise
     except Exception as exc:
         logger.exception("PK surrogate prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# /interpret — GPT / rule-based PK interpretation
+# ---------------------------------------------------------------------------
+
+
+class InterpretRequest(BaseModel):
+    """PK assessment data to interpret; mirrors FullPredictionResult fields."""
+
+    drug_name: str = "compound"
+    cmax_mg_L: float = 0.0
+    tmax_h: float = 0.0
+    auc0t_mg_h_L: float = 0.0
+    t_half_h: float = 0.0
+    cmax_p5: float = 0.0
+    cmax_p50: float = 0.0
+    cmax_p95: float = 0.0
+    auc_p5: float = 0.0
+    auc_p50: float = 0.0
+    auc_p95: float = 0.0
+    overall_risk_level: str = "low"
+    risk_flags: dict[str, Any] = Field(default_factory=dict)
+    risk_count: int = 0
+    transporter_ddi_flags: list[str] = Field(default_factory=list)
+    adme: dict[str, Any] = Field(default_factory=dict)
+    confidence: str = "low"
+    warnings: list[str] = Field(default_factory=list)
+    # GPT config overrides
+    gpt_model: str = "gpt-4o-mini"
+    gpt_max_tokens: int = 500
+    gpt_temperature: float = 0.3
+
+
+class InterpretResponse(BaseModel):
+    """Natural-language interpretation of a PK assessment."""
+
+    summary: str
+    key_findings: list[str]
+    safety_flags: list[str]
+    recommendations: list[str]
+    confidence: str
+    model_used: str
+
+
+@app.post("/interpret", response_model=InterpretResponse, tags=["interpret"])
+def interpret_endpoint(req: InterpretRequest) -> InterpretResponse:
+    """GPT or rule-based natural-language interpretation of PK results.
+
+    Accepts a structured PK assessment and returns a clinical summary,
+    key findings, safety flags, and dosing recommendations.
+    Uses OpenAI GPT when OPENAI_OAUTH_TOKEN is set; falls back to
+    a deterministic rule-based engine otherwise.
+    """
+    try:
+        from omega_pbpk.interpretation.gpt_interpreter import (
+            GPTInterpreterConfig,
+            interpret_pk_result,
+        )
+
+        config = GPTInterpreterConfig(
+            model=req.gpt_model,
+            max_tokens=req.gpt_max_tokens,
+            temperature=req.gpt_temperature,
+        )
+        result_dict = req.model_dump(
+            exclude={"gpt_model", "gpt_max_tokens", "gpt_temperature"}
+        )
+        interp = interpret_pk_result(result_dict, config=config)
+        return InterpretResponse(
+            summary=interp.summary,
+            key_findings=list(interp.key_findings),
+            safety_flags=list(interp.safety_flags),
+            recommendations=list(interp.recommendations),
+            confidence=interp.confidence,
+            model_used=interp.model_used,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Interpretation error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
