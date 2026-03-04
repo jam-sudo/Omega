@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install pandas && pip install -e ".[dev,api,viz]"
+      - run: pip install pandas && pip install -e ".[dev,api,auth,viz]"
       - name: Check test count
         run: |
           pytest tests/ --collect-only -q 2>&1 | tail -3
