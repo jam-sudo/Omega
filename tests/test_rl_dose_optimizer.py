@@ -1,17 +1,26 @@
 """Tests for Phase 44 RL Dose Optimizer."""
+
 from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 from omega_pbpk.api.app import app
 from omega_pbpk.clinical.rl_dose_optimizer import (
-    TherapeuticWindow, PKParams, RLState, RLDosingPolicy, RLTrainingResult,
-    PKEnvironment, QLearningOptimizer, optimize_dose_rl,
+    TherapeuticWindow,
+    PKParams,
+    RLState,
+    RLDosingPolicy,
+    RLTrainingResult,
+    PKEnvironment,
+    QLearningOptimizer,
+    optimize_dose_rl,
 )
 
 client = TestClient(app)
 
 WINDOW = TherapeuticWindow(cmin_mg_L=1.0, cmax_mg_L=10.0)
-PK = PKParams(cl_L_per_h=5.0, vd_L=50.0, ka_per_h=1.2, f_bioavail=0.8, route="oral", interval_h=12.0)
+PK = PKParams(
+    cl_L_per_h=5.0, vd_L=50.0, ka_per_h=1.2, f_bioavail=0.8, route="oral", interval_h=12.0
+)
 DOSE_GRID = [25.0, 50.0, 100.0, 200.0, 400.0]
 
 
@@ -31,8 +40,15 @@ class TestRLDataclasses:
         assert PK.interval_h == 12.0
 
     def test_rl_state_creation(self):
-        s = RLState(step=0, conc_trough_mg_L=0.0, conc_peak_mg_L=0.0,
-                    time_in_window=False, below_cmin=True, above_cmax=False, doses_given=0)
+        s = RLState(
+            step=0,
+            conc_trough_mg_L=0.0,
+            conc_peak_mg_L=0.0,
+            time_in_window=False,
+            below_cmin=True,
+            above_cmax=False,
+            doses_given=0,
+        )
         assert s.step == 0
         assert s.conc_trough_mg_L == 0.0
         assert isinstance(s.time_in_window, bool)
@@ -92,6 +108,7 @@ class TestQLearningOptimizer:
         env = self._small_env()
         opt = QLearningOptimizer(env, n_episodes=10, seed=0)
         from omega_pbpk.clinical.rl_dose_optimizer import _N_TROUGH_BINS, _N_PEAK_BINS
+
         expected_states = _N_TROUGH_BINS * _N_PEAK_BINS * (3 + 1)
         assert opt.q_table.shape == (expected_states, len(DOSE_GRID))
 
@@ -117,14 +134,16 @@ class TestQLearningOptimizer:
 @pytest.mark.integration
 class TestOptimizeDoseRL:
     def test_optimize_returns_result(self):
-        result = optimize_dose_rl(PK, WINDOW, n_steps=5, dose_grid_mg=DOSE_GRID,
-                                   n_episodes=100, seed=0)
+        result = optimize_dose_rl(
+            PK, WINDOW, n_steps=5, dose_grid_mg=DOSE_GRID, n_episodes=100, seed=0
+        )
         assert isinstance(result, RLTrainingResult)
         assert isinstance(result.policy, RLDosingPolicy)
 
     def test_window_fraction_improves(self):
-        result = optimize_dose_rl(PK, WINDOW, n_steps=5, dose_grid_mg=DOSE_GRID,
-                                   n_episodes=100, seed=0)
+        result = optimize_dose_rl(
+            PK, WINDOW, n_steps=5, dose_grid_mg=DOSE_GRID, n_episodes=100, seed=0
+        )
         assert result.policy.time_in_window_fraction >= 0.0
         assert 0.0 <= result.policy.time_in_window_fraction <= 1.0
 
@@ -132,13 +151,22 @@ class TestOptimizeDoseRL:
 @pytest.mark.unit
 class TestRLAPI:
     def test_api_rl_dose_optimize_endpoint(self):
-        response = client.post("/dose/rl_optimize", json={
-            "cl_L_per_h": 5.0, "vd_L": 50.0, "ka_per_h": 1.2,
-            "f_bioavail": 0.8, "route": "oral", "interval_h": 12.0,
-            "cmin_mg_L": 1.0, "cmax_mg_L": 10.0,
-            "n_steps": 3, "n_episodes": 50,
-            "dose_grid_mg": [25.0, 50.0, 100.0, 200.0, 400.0],
-        })
+        response = client.post(
+            "/dose/rl_optimize",
+            json={
+                "cl_L_per_h": 5.0,
+                "vd_L": 50.0,
+                "ka_per_h": 1.2,
+                "f_bioavail": 0.8,
+                "route": "oral",
+                "interval_h": 12.0,
+                "cmin_mg_L": 1.0,
+                "cmax_mg_L": 10.0,
+                "n_steps": 3,
+                "n_episodes": 50,
+                "dose_grid_mg": [25.0, 50.0, 100.0, 200.0, 400.0],
+            },
+        )
         assert response.status_code == 200
         data = response.json()
         assert "optimal_dose_sequence" in data
