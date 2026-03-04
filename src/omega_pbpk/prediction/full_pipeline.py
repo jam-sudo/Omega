@@ -124,6 +124,35 @@ def run_full_prediction(
         warnings.append(f"PubChem enrichment failed: {e}")
 
     # ------------------------------------------------------------------
+    # 1c. Surrogate fallback — if PBPK sim returned zero Cmax, try
+    #     the neural PK surrogate to fill in PK estimates early so
+    #     UQ and risk steps can use them.  Full PBPK results (step 3)
+    #     will override these when available.
+    # ------------------------------------------------------------------
+    surrogate_cmax: float = 0.0
+    surrogate_auc: float = 0.0
+    try:
+        if adme_props is not None:
+            from omega_pbpk.ml_models.pk_surrogate import (
+                PKSurrogateInput,
+                predict_pk_surrogate,
+            )
+
+            _surr_inp = PKSurrogateInput(
+                dose_mg=dose_mg,
+                cl_L_per_h=float(adme_dict.get("clint_3a4", 5.0)),
+                vd_L=float(adme_dict.get("vd", 70.0)),
+                ka_per_h=float(adme_dict.get("ka", 1.0)),
+                f_bioavail=float(adme_dict.get("fup", 0.5)),
+                route=route,
+            )
+            _surr_out = predict_pk_surrogate(_surr_inp)
+            surrogate_cmax = _surr_out.cmax_mg_per_L
+            surrogate_auc = _surr_out.auc_mg_h_per_L
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"Surrogate fallback failed: {e}")
+
+    # ------------------------------------------------------------------
     # 2. Transporter classification
     # ------------------------------------------------------------------
     substrates: tuple[str, ...] = ()
@@ -174,8 +203,19 @@ def run_full_prediction(
         cp_mg_L_tup = tuple(float(x) for x in sim_result.cp_mg_L)
         sim_confidence = sim_result.confidence
         warnings.extend(sim_result.warnings)
+
+        # Step 1b surrogate fallback: override zero-Cmax from PBPK
+        if cmax_mg_L == 0.0 and surrogate_cmax > 0.0:
+            cmax_mg_L = surrogate_cmax
+            auc0t_mg_h_L = surrogate_auc
+            warnings.append("PBPK Cmax=0; surrogate fallback applied.")
     except Exception as e:  # noqa: BLE001
         warnings.append(f"PBPK simulation failed: {e}")
+        # Use surrogate as primary source when PBPK fails entirely
+        if surrogate_cmax > 0.0:
+            cmax_mg_L = surrogate_cmax
+            auc0t_mg_h_L = surrogate_auc
+            warnings.append("Surrogate used as PBPK fallback.")
 
     # ------------------------------------------------------------------
     # 4. Conformal UQ propagation
