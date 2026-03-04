@@ -3395,3 +3395,118 @@ def interpret_endpoint(req: InterpretRequest) -> InterpretResponse:
     except Exception as exc:
         logger.exception("Interpretation error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/kp — tissue partition coefficient prediction
+# ---------------------------------------------------------------------------
+
+
+class KpRequest(BaseModel):
+    """Request body for /predict/kp."""
+
+    logP: float = Field(default=2.0, description="Octanol-water logP")
+    pKa: float = Field(default=7.0, description="Primary pKa")
+    fup: float = Field(default=0.1, gt=0, le=1, description="Fraction unbound")
+    mw: float = Field(default=300.0, gt=0, description="Molecular weight (g/mol)")
+    compound_type: str = Field(
+        default="neutral",
+        description="'neutral' | 'acid' | 'base' | 'ampholyte'",
+    )
+    method: str = Field(
+        default="ml",
+        description="'ml' | 'rodgers_rowland' | 'poulin_theil'",
+    )
+
+
+class KpResponse(BaseModel):
+    """Response body for /predict/kp."""
+
+    tissue_kp: dict[str, float]
+    confidence: str
+    method_used: str
+    warnings: list[str]
+
+
+@app.post("/predict/kp", response_model=KpResponse, tags=["predict"])
+def predict_kp_endpoint(req: KpRequest) -> KpResponse:
+    """Predict tissue partition coefficients (Kp) for all 13 PBPK tissues.
+
+    Supports three methods:
+      - **ml**: ML ensemble (KpEnsemble, 3 NumpyMLP models, 8→32→32→13).
+        Validated against simplified Rodgers-Rowland; divergent tissues
+        are replaced automatically.
+      - **rodgers_rowland**: Mechanistic Rodgers & Rowland (2006) method.
+      - **poulin_theil**: Simplified Poulin & Theil (2002) heuristic.
+    """
+    try:
+        method = req.method.strip().lower()
+        if method == "ml":
+            from omega_pbpk.ml_models.kp_predictor import (
+                KpInput,
+                predict_kp_ml,
+            )
+
+            inp = KpInput(
+                logP=req.logP,
+                pKa=req.pKa,
+                fup=req.fup,
+                mw=req.mw,
+                compound_type=req.compound_type,
+            )
+            out = predict_kp_ml(inp)
+            return KpResponse(
+                tissue_kp=out.tissue_kp,
+                confidence=out.confidence,
+                method_used="ml",
+                warnings=list(out.warnings),
+            )
+
+        elif method in ("rodgers_rowland", "poulin_theil"):
+            from omega_pbpk.core.heuristics import (
+                heuristic_kp,
+                rodgers_rowland_kp,
+            )
+            from omega_pbpk.ml_models.kp_predictor import TISSUES
+
+            kp_fn = rodgers_rowland_kp if method == "rodgers_rowland" else heuristic_kp
+            tissue_kp: dict[str, float] = {}
+            for tissue in TISSUES:
+                if method == "rodgers_rowland":
+                    val = kp_fn(
+                        logP=req.logP,
+                        pka=req.pKa,
+                        compound_type=req.compound_type,
+                        tissue_name=tissue,
+                        fup=req.fup,
+                    )
+                else:
+                    val = kp_fn(
+                        logP=req.logP,
+                        pka=req.pKa,
+                        compound_type=req.compound_type,
+                        tissue_name=tissue,
+                        fup=req.fup,
+                    )
+                tissue_kp[tissue] = val
+            return KpResponse(
+                tissue_kp=tissue_kp,
+                confidence="high",
+                method_used=method,
+                warnings=[],
+            )
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unknown method '{req.method}'. "
+                    "Use 'ml', 'rodgers_rowland', or 'poulin_theil'."
+                ),
+            )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Kp prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

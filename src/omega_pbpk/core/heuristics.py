@@ -278,16 +278,90 @@ def rodgers_rowland_kp(
 # Dispatcher
 # ---------------------------------------------------------------------------
 
+
+def ml_kp(
+    logP: float,
+    pka: float | None = None,
+    compound_type: str = "neutral",
+    tissue_name: str = "rest",
+    fup: float = 0.5,
+    mw: float = 300.0,
+    *,
+    drug_type: str | None = None,
+) -> float:
+    """Estimate Kp for a single tissue using the ML ensemble predictor.
+
+    Delegates to the KpEnsemble singleton (auto-trains on first call).
+    Falls back to heuristic_kp for tissues outside the 13-tissue PBPK list.
+
+    Args:
+        logP: Octanol-water log partition coefficient.
+        pka: Primary pKa value (defaults to 7.0 when None).
+        compound_type: Ionization class ('neutral', 'acid', 'base', 'ampholyte').
+        tissue_name: Target tissue name.
+        fup: Fraction unbound in plasma (0-1).
+        mw: Molecular weight (g/mol).
+        drug_type: Legacy ionisation class (overrides compound_type if given).
+
+    Returns:
+        Estimated Kp (clamped to [0.1, 100] for ML tissues).
+    """
+    from omega_pbpk.ml_models.kp_predictor import KpInput, predict_kp_ml
+
+    ct = compound_type
+    if drug_type is not None and compound_type == "neutral":
+        ct = _DRUG_TYPE_MAP.get(drug_type, compound_type)
+    inp = KpInput(
+        logP=logP,
+        pKa=pka if pka is not None else 7.0,
+        fup=fup,
+        mw=mw,
+        compound_type=ct,
+    )
+    out = predict_kp_ml(inp)
+    if tissue_name not in out.tissue_kp:
+        return heuristic_kp(logP, pka, compound_type=ct, tissue_name=tissue_name, fup=fup)
+    return out.tissue_kp[tissue_name]
+
+
+def ml_kp_from_drug(drug: object) -> dict[str, float]:
+    """Compute ML Kp for all 13 PBPK tissues from a Drug object.
+
+    Args:
+        drug: Drug instance with logP, pka, fup, mw, drug_type attributes.
+
+    Returns:
+        Dict mapping tissue name → Kp value.
+    """
+    from omega_pbpk.ml_models.kp_predictor import KpInput, predict_kp_ml
+
+    pka_val: float = 7.0
+    pka_list = getattr(drug, "pka", None)
+    if pka_list:
+        pka_val = float(pka_list[0])
+    ct = _DRUG_TYPE_MAP.get(getattr(drug, "drug_type", "neutral"), "neutral")
+    inp = KpInput(
+        logP=float(getattr(drug, "logP", 2.0)),
+        pKa=pka_val,
+        fup=float(getattr(drug, "fup", 0.5)),
+        mw=float(getattr(drug, "mw", 300.0)),
+        compound_type=ct,
+    )
+    out = predict_kp_ml(inp)
+    return dict(out.tissue_kp)
+
+
 _KP_METHODS: dict[str, Callable[..., float]] = {
     "heuristic": heuristic_kp,
     "rodgers_rowland": rodgers_rowland_kp,
+    "ml": ml_kp,
 }
 
 
 def get_partition_method(name: str) -> Callable[..., float]:
     """Return the Kp estimation function for the given method name.
 
-    Available methods: 'heuristic' (default), 'rodgers_rowland'.
+    Available methods: 'heuristic' (default), 'rodgers_rowland', 'ml'.
     """
     fn = _KP_METHODS.get(name)
     if fn is None:
