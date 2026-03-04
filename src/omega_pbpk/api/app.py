@@ -28,6 +28,11 @@ Endpoints:
   POST /predict/gat            — Graph Attention Network ADME prediction
   POST /pubchem/lookup         — PubChem PUG REST live compound lookup
   POST /interpret              — GPT/rule-based natural-language PK interpretation
+
+Auth endpoints (only active when OMEGA_AUTH_ENABLED=true):
+  POST /auth/token             — obtain JWT bearer token
+  POST /auth/register          — register a new user
+  GET  /auth/me                — return current authenticated user info
 """
 
 from __future__ import annotations
@@ -39,8 +44,9 @@ from typing import Any
 import numpy as np
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import Depends, FastAPI, HTTPException, status
     from fastapi.responses import RedirectResponse
+    from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
     HAS_FASTAPI = True
 except ImportError:
@@ -48,9 +54,20 @@ except ImportError:
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+from omega_pbpk.auth.jwt_auth import (
+    AUTH_ENABLED,
+    TokenData,
+    User,
+    create_access_token,
+    create_user,
+    get_user,
+    verify_password,
+    verify_token,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +93,113 @@ async def add_version_header(request, call_next):
     response = await call_next(request)
     response.headers["X-Omega-Version"] = _OMEGA_VERSION
     return response
+
+
+# ---------------------------------------------------------------------------
+# Auth helpers (disabled by default)
+# ---------------------------------------------------------------------------
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
+
+
+async def get_current_user(
+    token: Annotated[str | None, Depends(oauth2_scheme)] = None,
+) -> TokenData | None:
+    """Decode bearer token and return TokenData, or None when auth is off."""
+    if not AUTH_ENABLED:
+        return None
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    td = verify_token(token)
+    if td is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return td
+
+
+async def require_auth(
+    current_user: Annotated[TokenData | None, Depends(get_current_user)] = None,
+) -> TokenData | None:
+    """Dependency that enforces authentication when AUTH_ENABLED is True."""
+    return current_user
+
+
+# ---------------------------------------------------------------------------
+# Auth Pydantic models
+# ---------------------------------------------------------------------------
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserInfo(BaseModel):
+    username: str
+    scopes: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Auth endpoints
+# ---------------------------------------------------------------------------
+@app.post("/auth/token", response_model=TokenResponse, tags=["auth"])
+async def auth_token(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+) -> TokenResponse:
+    """Obtain a JWT bearer token via username + password."""
+    if not AUTH_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Authentication is disabled",
+        )
+    user: User | None = get_user(form_data.username)
+    if user is None or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = create_access_token({"sub": user.username, "scopes": list(user.scopes)})
+    return TokenResponse(access_token=token)
+
+
+@app.post("/auth/register", response_model=UserInfo, tags=["auth"])
+async def auth_register(req: RegisterRequest) -> UserInfo:
+    """Register a new user (only when auth is enabled)."""
+    if not AUTH_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Authentication is disabled",
+        )
+    if get_user(req.username) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists",
+        )
+    user = create_user(req.username, req.password)
+    return UserInfo(username=user.username, scopes=list(user.scopes))
+
+
+@app.get("/auth/me", response_model=UserInfo, tags=["auth"])
+async def auth_me(
+    current_user: Annotated[TokenData | None, Depends(get_current_user)],
+) -> UserInfo:
+    """Return the currently authenticated user's info."""
+    if not AUTH_ENABLED or current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Authentication is disabled",
+        )
+    return UserInfo(username=current_user.username, scopes=list(current_user.scopes))
 
 
 # ---------------------------------------------------------------------------
@@ -593,7 +717,10 @@ def health() -> HealthResponse:
 
 
 @app.post("/simulate", response_model=PKSummaryResponse)
-def simulate(req: SimulateRequest) -> PKSummaryResponse:
+def simulate(
+    req: SimulateRequest,
+    _auth: Annotated[TokenData | None, Depends(require_auth)] = None,
+) -> PKSummaryResponse:
     """Run PBPK simulation from inline Drug parameters and dose/route."""
     try:
         from omega_pbpk.core.body import WholeBodyPBPK
@@ -1491,7 +1618,10 @@ class BatchPredictResponse(BaseModel):
 
 
 @app.post("/predict/full", response_model=FullPredictResponse)
-def predict_full(req: FullPredictRequest) -> FullPredictResponse:
+def predict_full(
+    req: FullPredictRequest,
+    _auth: Annotated[TokenData | None, Depends(require_auth)] = None,
+) -> FullPredictResponse:
     """Full end-to-end PK assessment: SMILES → ADME + transporters + PBPK + UQ + risk."""
     try:
         from omega_pbpk.prediction.full_pipeline import run_full_prediction
@@ -1538,7 +1668,10 @@ def predict_full(req: FullPredictRequest) -> FullPredictResponse:
 
 
 @app.post("/predict/batch", response_model=BatchPredictResponse)
-def predict_batch(req: BatchPredictRequest) -> BatchPredictResponse:
+def predict_batch(
+    req: BatchPredictRequest,
+    _auth: Annotated[TokenData | None, Depends(require_auth)] = None,
+) -> BatchPredictResponse:
     """Batch full-pipeline prediction: rank multiple SMILES by developability."""
     try:
         from omega_pbpk.prediction.batch_pipeline import run_batch_prediction
