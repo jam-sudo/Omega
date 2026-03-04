@@ -1788,6 +1788,101 @@ def dose_optimize(req: DoseOptimizeRequest) -> DoseOptimizeResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+class RLDoseOptimizeRequest(BaseModel):
+    cl_L_per_h: float
+    vd_L: float
+    ka_per_h: float = 1.0
+    f_bioavail: float = 0.8
+    route: str = "oral"
+    interval_h: float = 24.0
+    cmin_mg_L: float
+    cmax_mg_L: float
+    target_trough_mg_L: float | None = None
+    n_steps: int = 10
+    dose_grid_mg: list[float] | None = None
+    n_episodes: int = 2000
+    alpha: float = 0.1
+    gamma: float = 0.95
+    seed: int = 42
+
+
+class RLDoseOptimizeResponse(BaseModel):
+    optimal_dose_sequence: list[float]
+    dose_grid_mg: list[float]
+    n_steps: int
+    interval_h: float
+    final_trough_mg_L: float
+    final_peak_mg_L: float
+    time_in_window_fraction: float
+    mean_reward_last_100: float
+    converged: bool
+    episode_rewards: list[float]
+    episode_window_fractions: list[float]
+    q_table_shape: list[int]
+    warnings: list[str]
+
+
+@app.post("/dose/rl_optimize", response_model=RLDoseOptimizeResponse)
+def dose_rl_optimize(req: RLDoseOptimizeRequest) -> RLDoseOptimizeResponse:
+    if req.route not in ("oral", "iv"):
+        raise HTTPException(status_code=422, detail="route must be 'oral' or 'iv'")
+    if req.cmin_mg_L >= req.cmax_mg_L:
+        raise HTTPException(status_code=422, detail="cmin_mg_L must be less than cmax_mg_L")
+    if req.dose_grid_mg is not None and len(req.dose_grid_mg) < 2:
+        raise HTTPException(status_code=422, detail="dose_grid_mg must have at least 2 values")
+    from omega_pbpk.clinical.rl_dose_optimizer import (
+        PKParams,
+        TherapeuticWindow,
+        optimize_dose_rl,
+    )
+
+    pk = PKParams(
+        cl_L_per_h=req.cl_L_per_h,
+        vd_L=req.vd_L,
+        ka_per_h=req.ka_per_h,
+        f_bioavail=req.f_bioavail,
+        route=req.route,
+        interval_h=req.interval_h,
+    )
+    win = TherapeuticWindow(
+        cmin_mg_L=req.cmin_mg_L,
+        cmax_mg_L=req.cmax_mg_L,
+        target_trough_mg_L=req.target_trough_mg_L,
+    )
+    result = optimize_dose_rl(
+        pk,
+        win,
+        n_steps=req.n_steps,
+        dose_grid_mg=req.dose_grid_mg,
+        n_episodes=req.n_episodes,
+        alpha=req.alpha,
+        gamma=req.gamma,
+        seed=req.seed,
+    )
+    p = result.policy
+    n = result.n_episodes
+    mean_r = (
+        float(np.mean(result.episode_rewards[-100:]))
+        if n >= 100
+        else float(np.mean(result.episode_rewards))
+    )
+    return RLDoseOptimizeResponse(
+        optimal_dose_sequence=p.optimal_dose_sequence,
+        dose_grid_mg=p.dose_grid_mg,
+        n_steps=p.n_steps,
+        interval_h=p.interval_h,
+        final_trough_mg_L=p.final_trough_mg_L,
+        final_peak_mg_L=p.final_peak_mg_L,
+        time_in_window_fraction=p.time_in_window_fraction,
+        mean_reward_last_100=mean_r,
+        converged=result.policy.converged,
+        episode_rewards=result.episode_rewards,
+        episode_window_fractions=result.episode_window_fractions,
+        q_table_shape=list(result.q_table_shape),
+        warnings=p.warnings,
+    )
+
+
 @app.post("/tdm", response_model=TDMResponse)
 def tdm(req: TDMRequest) -> TDMResponse:
     """Therapeutic Drug Monitoring: MAP-Bayesian dose individualization."""
