@@ -4854,3 +4854,458 @@ def displacement_endpoint(req: DisplacementRequest) -> DisplacementResponse:
     except Exception as exc:
         logger.exception("Displacement DDI error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 59 — Lymphatic Absorption
+# ─────────────────────────────────────────────────────────────────────────────
+class LymphaticRequest(BaseModel):
+    drug_name: str = "drug"
+    logP: float
+    dose_mg: float
+    cl_L_per_h: float
+    vd_L: float
+    ka_per_h: float = 1.0
+    fup: float = 1.0
+    solubility_mg_mL: float = 1.0
+    lymph_flow_L_per_h: float = 0.12
+    t_end_h: float = 24.0
+    dt_h: float = 0.05
+
+
+class LymphaticResponse(BaseModel):
+    drug_name: str
+    f_lymph: float
+    f_portal: float
+    bioavailability_total: float
+    bioavailability_portal: float
+    bioavailability_lymph: float
+    auc_total_mg_h_L: float
+    cmax_mg_L: float
+    tmax_h: float
+
+
+@app.post("/simulate/lymphatic", tags=["simulation"])
+def simulate_lymphatic(req: LymphaticRequest) -> LymphaticResponse:
+    try:
+        from omega_pbpk.core.lymphatic import simulate_lymphatic_absorption
+        r = simulate_lymphatic_absorption(
+            drug_name=req.drug_name,
+            logP=req.logP,
+            dose_mg=req.dose_mg,
+            cl_L_per_h=req.cl_L_per_h,
+            vd_L=req.vd_L,
+            ka_per_h=req.ka_per_h,
+            fup=req.fup,
+            solubility_mg_mL=req.solubility_mg_mL,
+            lymph_flow_L_per_h=req.lymph_flow_L_per_h,
+            t_end_h=req.t_end_h,
+            dt_h=req.dt_h,
+        )
+        return LymphaticResponse(
+            drug_name=r.drug_name,
+            f_lymph=r.f_lymph,
+            f_portal=r.f_portal,
+            bioavailability_total=r.bioavailability_total,
+            bioavailability_portal=r.bioavailability_portal,
+            bioavailability_lymph=r.bioavailability_lymph,
+            auc_total_mg_h_L=r.auc_total_mg_h_L,
+            cmax_mg_L=r.cmax_mg_L,
+            tmax_h=r.tmax_h,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Lymphatic simulation error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 60 — PK/PD Target Attainment
+# ─────────────────────────────────────────────────────────────────────────────
+class TargetAttainmentRequest(BaseModel):
+    dose_mg: float
+    cl_L_per_h: float
+    vd_L: float
+    mic_mg_L: float
+    dosing_interval_h: float = 24.0
+    ka_per_h: float = 1.0
+    route: str = "oral"
+    pk_pd_index: str = "fT_MIC"
+    target_value: float | None = None
+    fup: float = 1.0
+
+
+class TargetAttainmentResponse(BaseModel):
+    pk_pd_index: str
+    index_value: float
+    target_value: float
+    pta: float
+    attainment_achieved: bool
+    mic_mg_L: float
+
+
+@app.post("/pkpd/target_attainment", tags=["clinical"])
+def pkpd_target_attainment(req: TargetAttainmentRequest) -> TargetAttainmentResponse:
+    try:
+        from omega_pbpk.clinical.target_attainment import compute_target_attainment
+        r = compute_target_attainment(
+            dose_mg=req.dose_mg,
+            cl_L_per_h=req.cl_L_per_h,
+            vd_L=req.vd_L,
+            mic_mg_L=req.mic_mg_L,
+            dosing_interval_h=req.dosing_interval_h,
+            ka_per_h=req.ka_per_h,
+            route=req.route,
+            pk_pd_index=req.pk_pd_index,
+            target_value=req.target_value,
+            fup=req.fup,
+        )
+        return TargetAttainmentResponse(
+            pk_pd_index=r.pk_pd_index,
+            index_value=r.index_value,
+            target_value=r.target_value,
+            pta=r.pta,
+            attainment_achieved=r.attainment_achieved,
+            mic_mg_L=r.mic_mg_L,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Target attainment error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 61 — Two-Compartment PK
+# ─────────────────────────────────────────────────────────────────────────────
+class TwoCompRequest(BaseModel):
+    dose_mg: float
+    cl_L_per_h: float
+    vd_central_L: float
+    vd_peripheral_L: float
+    q_L_per_h: float
+    ka_per_h: float = 0.0
+    route: str = "iv"
+    t_end_h: float = 24.0
+    dt_h: float = 0.05
+    f: float = 1.0
+
+
+class TwoCompResponse(BaseModel):
+    auc_0_inf: float
+    auc_0_t: float
+    cmax: float
+    tmax_h: float
+    thalf_alpha_h: float
+    thalf_beta_h: float
+    vd_ss_L: float
+    cl_L_per_h: float
+
+
+@app.post("/simulate/two_compartment", tags=["simulation"])
+def simulate_two_comp(req: TwoCompRequest) -> TwoCompResponse:
+    try:
+        from omega_pbpk.core.two_compartment import simulate_two_compartment
+        r = simulate_two_compartment(
+            dose_mg=req.dose_mg,
+            cl_L_per_h=req.cl_L_per_h,
+            vd_central_L=req.vd_central_L,
+            vd_peripheral_L=req.vd_peripheral_L,
+            q_L_per_h=req.q_L_per_h,
+            ka_per_h=req.ka_per_h,
+            route=req.route,
+            t_end_h=req.t_end_h,
+            dt_h=req.dt_h,
+            f=req.f,
+        )
+        return TwoCompResponse(
+            auc_0_inf=r.auc_0_inf,
+            auc_0_t=r.auc_0_t,
+            cmax=r.cmax,
+            tmax_h=r.tmax_h,
+            thalf_alpha_h=r.thalf_alpha_h,
+            thalf_beta_h=r.thalf_beta_h,
+            vd_ss_L=r.vd_ss_L,
+            cl_L_per_h=r.cl_L_per_h,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Two-compartment simulation error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 62 — Dose Individualization
+# ─────────────────────────────────────────────────────────────────────────────
+class DoseIndivRequest(BaseModel):
+    patient_id: str = "patient"
+    body_weight_kg: float = 70.0
+    age_years: float = 40.0
+    sex: str = "male"
+    serum_creatinine_mg_dL: float = 1.0
+    child_pugh_score: int = 5
+    standard_dose_mg: float = 100.0
+    fraction_renal: float = 0.5
+    fraction_hepatic: float = 0.5
+
+
+class DoseIndivResponse(BaseModel):
+    patient_id: str
+    adjusted_dose_mg: float
+    dose_adjustment_factor: float
+    renal_impairment_grade: str
+    hepatic_impairment_grade: str
+    egfr_mL_min: float
+    crcl_mL_min: float
+    predicted_auc_ratio: float
+    warnings: list[str]
+
+
+@app.post("/dose/individualize", tags=["clinical"])
+def dose_individualize(req: DoseIndivRequest) -> DoseIndivResponse:
+    try:
+        from omega_pbpk.clinical.dose_individualization import (
+            PatientCovariates, individualize_dose,
+        )
+        patient = PatientCovariates(
+            body_weight_kg=req.body_weight_kg,
+            age_years=req.age_years,
+            sex=req.sex,
+            serum_creatinine_mg_dL=req.serum_creatinine_mg_dL,
+            child_pugh_score=req.child_pugh_score,
+        )
+        r = individualize_dose(
+            patient_id=req.patient_id,
+            patient=patient,
+            standard_dose_mg=req.standard_dose_mg,
+            fraction_renal=req.fraction_renal,
+            fraction_hepatic=req.fraction_hepatic,
+        )
+        return DoseIndivResponse(
+            patient_id=r.patient_id,
+            adjusted_dose_mg=r.adjusted_dose_mg,
+            dose_adjustment_factor=r.dose_adjustment_factor,
+            renal_impairment_grade=r.renal_impairment_grade,
+            hepatic_impairment_grade=r.hepatic_impairment_grade,
+            egfr_mL_min=r.egfr_mL_min,
+            crcl_mL_min=r.crcl_mL_min,
+            predicted_auc_ratio=r.predicted_auc_ratio,
+            warnings=r.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Dose individualization error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 63 — CNS PBPK / Blood-Brain Barrier
+# ─────────────────────────────────────────────────────────────────────────────
+class CNSRequest(BaseModel):
+    drug_name: str = "drug"
+    logP: float
+    MW: float
+    psa: float
+    fup: float = 1.0
+    is_pgp_substrate: bool = False
+    efflux_ratio: float = 3.0
+
+
+class CNSResponse(BaseModel):
+    drug_name: str
+    kp_uu_brain: float
+    cns_classification: str
+    efflux_ratio: float
+    risk_factors: list[str]
+
+
+@app.post("/simulate/cns", tags=["simulation"])
+def simulate_cns(req: CNSRequest) -> CNSResponse:
+    try:
+        from omega_pbpk.core.cns_pbpk import predict_bbb_penetration
+        r = predict_bbb_penetration(
+            drug_name=req.drug_name,
+            logP=req.logP,
+            MW=req.MW,
+            psa=req.psa,
+            is_pgp_substrate=req.is_pgp_substrate,
+            efflux_ratio=req.efflux_ratio,
+        )
+        return CNSResponse(
+            drug_name=r.drug_name,
+            kp_uu_brain=r.kp_uu_brain,
+            cns_classification=r.cns_classification,
+            efflux_ratio=r.efflux_ratio,
+            risk_factors=r.risk_factors,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("CNS PBPK error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 64 — hERG / QT Risk
+# ─────────────────────────────────────────────────────────────────────────────
+class HERGRequest(BaseModel):
+    drug_name: str = "drug"
+    logP: float
+    pka_basic: float = 0.0
+    MW: float
+    cmax_free_mg_L: float | None = None
+
+
+class HERGResponse(BaseModel):
+    drug_name: str
+    risk_score: float
+    herg_inhibition_pct: float
+    delta_qtc_ms: float
+    risk_category: str
+    risk_factors: list[str]
+
+
+@app.post("/risk/herg", tags=["risk"])
+def herg_risk(req: HERGRequest) -> HERGResponse:
+    try:
+        from omega_pbpk.risk.herg_qt import predict_herg_risk
+        r = predict_herg_risk(
+            drug_name=req.drug_name,
+            logP=req.logP,
+            pka_basic=req.pka_basic,
+            MW=req.MW,
+            cmax_free_mg_L=req.cmax_free_mg_L,
+        )
+        return HERGResponse(
+            drug_name=r.drug_name,
+            risk_score=r.risk_score,
+            herg_inhibition_pct=r.herg_inhibition_pct,
+            delta_qtc_ms=r.delta_qtc_ms,
+            risk_category=r.risk_category,
+            risk_factors=r.risk_factors,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("hERG risk error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 65 — Absorption Window
+# ─────────────────────────────────────────────────────────────────────────────
+class AbsorptionWindowRequest(BaseModel):
+    drug_name: str = "drug"
+    dose_mg: float
+    logP: float
+    pka: float = 7.0
+    drug_type: str = "neutral"
+    sol_ph7_mg_mL: float = 1.0
+    dose_volume_mL: float = 240.0
+    particle_size_um: float = 50.0
+
+
+class AbsorptionWindowResponse(BaseModel):
+    drug_name: str
+    fa: float
+    total_absorbed_mg: float
+    optimal_window_h: float
+    segment_absorption: dict
+    warnings: list[str]
+
+
+@app.post("/simulate/absorption_window", tags=["simulation"])
+def simulate_absorption_window_endpoint(req: AbsorptionWindowRequest) -> AbsorptionWindowResponse:
+    try:
+        from omega_pbpk.core.absorption_window import simulate_absorption_window
+        r = simulate_absorption_window(
+            drug_name=req.drug_name,
+            dose_mg=req.dose_mg,
+            logP=req.logP,
+            pka=req.pka,
+            drug_type=req.drug_type,
+            sol_ph7_mg_mL=req.sol_ph7_mg_mL,
+            dose_volume_mL=req.dose_volume_mL,
+            particle_size_um=req.particle_size_um,
+        )
+        return AbsorptionWindowResponse(
+            drug_name=r.drug_name,
+            fa=r.fa,
+            total_absorbed_mg=r.total_absorbed_mg,
+            optimal_window_h=r.optimal_window_h,
+            segment_absorption=r.segment_absorption,
+            warnings=r.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Absorption window error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 66 — Drug Combination Synergy
+# ─────────────────────────────────────────────────────────────────────────────
+class SynergyRequest(BaseModel):
+    drug_A: str
+    drug_B: str
+    dose_A: float
+    dose_B: float
+    ic50_A: float
+    ic50_B: float
+    hill_n_A: float = 1.0
+    hill_n_B: float = 1.0
+    observed_effect: float | None = None
+
+
+class SynergyResponse(BaseModel):
+    drug_A: str
+    drug_B: str
+    effect_A_alone: float
+    effect_B_alone: float
+    bliss_expected_effect: float
+    combination_effect: float
+    bliss_delta: float
+    loewe_ci: float | None
+    ci_classification: str
+    bliss_classification: str
+    warnings: list[str]
+
+
+@app.post("/pkpd/synergy", tags=["clinical"])
+def pkpd_synergy(req: SynergyRequest) -> SynergyResponse:
+    try:
+        import math
+        from omega_pbpk.clinical.synergy import assess_combination_synergy
+        r = assess_combination_synergy(
+            drug_A=req.drug_A,
+            drug_B=req.drug_B,
+            dose_A=req.dose_A,
+            dose_B=req.dose_B,
+            ic50_A=req.ic50_A,
+            ic50_B=req.ic50_B,
+            hill_n_A=req.hill_n_A,
+            hill_n_B=req.hill_n_B,
+            observed_effect=req.observed_effect,
+        )
+        return SynergyResponse(
+            drug_A=r.drug_A,
+            drug_B=r.drug_B,
+            effect_A_alone=r.effect_A_alone,
+            effect_B_alone=r.effect_B_alone,
+            bliss_expected_effect=r.bliss_expected_effect,
+            combination_effect=r.combination_effect,
+            bliss_delta=r.bliss_delta,
+            loewe_ci=None if math.isnan(r.loewe_ci) else r.loewe_ci,
+            ci_classification=r.ci_classification,
+            bliss_classification=r.bliss_classification,
+            warnings=r.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Synergy analysis error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
