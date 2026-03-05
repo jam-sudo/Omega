@@ -35,6 +35,7 @@ Endpoints:
   POST /kidney/pk          — Mechanistic renal PK: filtration + secretion + reabsorption
   POST /scale/interspecies — Allometric interspecies scaling (animal → human PK)
   POST /simulate/chronopk  — Circadian PK simulation with time-varying physiology
+  POST /ddi/displacement   — Protein binding displacement DDI (fup shift, CL/AUC impact)
 
 Auth endpoints (only active when OMEGA_AUTH_ENABLED=true):
   POST /auth/token             — obtain JWT bearer token
@@ -4773,4 +4774,83 @@ def chronopk_endpoint(req: ChronoPKRequest) -> ChronoPKResponse:
         raise
     except Exception as exc:
         logger.exception("ChronoPK error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /ddi/displacement
+# ---------------------------------------------------------------------------
+
+
+class BindingDrugInput(BaseModel):
+    name: str
+    fup: float = Field(..., gt=0, le=1)
+    fu_tissue: float = Field(..., gt=0, le=1)
+    vd_L: float = Field(..., gt=0)
+    cl_L_per_h: float = Field(..., gt=0)
+
+
+class DisplacementRequest(BaseModel):
+    victim: BindingDrugInput
+    perpetrator_fup_effect: float = Field(..., gt=0, le=1)
+    perpetrator_name: str = "perpetrator"
+    cl_int_L_per_h: float | None = None
+    q_liver_L_per_h: float = Field(default=90.0, gt=0)
+
+
+class DisplacementResponse(BaseModel):
+    victim_name: str
+    perpetrator_name: str
+    fup_baseline: float
+    fup_displaced: float
+    fup_ratio: float
+    vd_displaced_L: float
+    cl_displaced_L_per_h: float
+    auc_ratio: float
+    cmax_ratio: float
+    extraction_ratio: float
+    is_high_extraction: bool
+    clinical_significance: str
+    warnings: list[str]
+
+
+@app.post("/ddi/displacement", response_model=DisplacementResponse)
+def displacement_endpoint(req: DisplacementRequest) -> DisplacementResponse:
+    """Protein binding displacement DDI — predict PK changes from albumin/AGP displacement."""
+    try:
+        from omega_pbpk.clinical.protein_binding_ddi import BindingDrug, predict_displacement
+
+        victim = BindingDrug(
+            name=req.victim.name,
+            fup=req.victim.fup,
+            fu_tissue=req.victim.fu_tissue,
+            vd_L=req.victim.vd_L,
+            cl_L_per_h=req.victim.cl_L_per_h,
+        )
+        result = predict_displacement(
+            victim=victim,
+            perpetrator_fup_effect=req.perpetrator_fup_effect,
+            cl_int_L_per_h=req.cl_int_L_per_h,
+            q_liver_L_per_h=req.q_liver_L_per_h,
+            perpetrator_name=req.perpetrator_name,
+        )
+        return DisplacementResponse(
+            victim_name=result.victim_name,
+            perpetrator_name=result.perpetrator_name,
+            fup_baseline=result.fup_baseline,
+            fup_displaced=result.fup_displaced,
+            fup_ratio=result.fup_ratio,
+            vd_displaced_L=result.vd_displaced_L,
+            cl_displaced_L_per_h=result.cl_displaced_L_per_h,
+            auc_ratio=result.auc_ratio,
+            cmax_ratio=result.cmax_ratio,
+            extraction_ratio=result.extraction_ratio,
+            is_high_extraction=result.is_high_extraction,
+            clinical_significance=result.clinical_significance,
+            warnings=result.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Displacement DDI error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
