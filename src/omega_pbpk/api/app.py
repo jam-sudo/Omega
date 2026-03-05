@@ -5309,3 +5309,239 @@ def pkpd_synergy(req: SynergyRequest) -> SynergyResponse:
     except Exception as exc:
         logger.exception("Synergy analysis error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 67 — Pediatric Dosing
+# ─────────────────────────────────────────────────────────────────────────────
+class PediatricDoseRequest(BaseModel):
+    adult_dose_mg: float
+    adult_weight_kg: float = 70.0
+    child_age_years: float = 5.0
+    child_weight_kg: float | None = None
+    fraction_cyp3a4: float = 0.0
+    fraction_renal: float = 0.0
+    min_dose_mg: float = 1.0
+
+
+class PediatricDoseResponse(BaseModel):
+    allometric_dose_mg: float
+    cyp3a4_adjusted_dose_mg: float
+    renal_adjusted_dose_mg: float
+    combined_adjusted_dose_mg: float
+    cyp3a4_fraction_adult: float
+    gfr_estimated: float
+    dose_per_kg: float
+    warnings: list[str]
+
+
+@app.post("/dose/pediatric", tags=["clinical"])
+def dose_pediatric(req: PediatricDoseRequest) -> PediatricDoseResponse:
+    try:
+        from omega_pbpk.clinical.pediatric_dosing import pediatric_dose
+        r = pediatric_dose(
+            adult_dose_mg=req.adult_dose_mg,
+            adult_weight_kg=req.adult_weight_kg,
+            child_age_years=req.child_age_years,
+            child_weight_kg=req.child_weight_kg,
+            fraction_cyp3a4=req.fraction_cyp3a4,
+            fraction_renal=req.fraction_renal,
+            min_dose_mg=req.min_dose_mg,
+        )
+        return PediatricDoseResponse(
+            allometric_dose_mg=r.allometric_dose_mg,
+            cyp3a4_adjusted_dose_mg=r.cyp3a4_adjusted_dose_mg,
+            renal_adjusted_dose_mg=r.renal_adjusted_dose_mg,
+            combined_adjusted_dose_mg=r.combined_adjusted_dose_mg,
+            cyp3a4_fraction_adult=r.cyp3a4_fraction_adult,
+            gfr_estimated=r.gfr_estimated,
+            dose_per_kg=r.dose_per_kg,
+            warnings=r.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Pediatric dosing error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 68 — Solubility Prediction
+# ─────────────────────────────────────────────────────────────────────────────
+class SolubilityRequest(BaseModel):
+    drug_name: str = "drug"
+    logP: float
+    pka: float = 7.0
+    drug_type: str = "neutral"
+    mp_celsius: float = 150.0
+    dose_mg: float = 100.0
+    amorphous_factor: float = 1.5
+
+
+class SolubilityResponse(BaseModel):
+    drug_name: str
+    sol_intrinsic_mg_mL: float
+    sol_ph_stomach_mg_mL: float
+    sol_ph_intestine_mg_mL: float
+    bcs_solubility_class: str
+    dose_number: float
+    supersaturation_potential: float
+    warnings: list[str]
+
+
+@app.post("/predict/solubility", tags=["prediction"])
+def predict_solubility_endpoint(req: SolubilityRequest) -> SolubilityResponse:
+    try:
+        from omega_pbpk.prediction.solubility import predict_solubility
+        r = predict_solubility(
+            drug_name=req.drug_name,
+            logP=req.logP,
+            pka=req.pka,
+            drug_type=req.drug_type,
+            mp_celsius=req.mp_celsius,
+            dose_mg=req.dose_mg,
+            amorphous_factor=req.amorphous_factor,
+        )
+        return SolubilityResponse(
+            drug_name=r.drug_name,
+            sol_intrinsic_mg_mL=r.sol_intrinsic_mg_mL,
+            sol_ph_stomach_mg_mL=r.sol_ph_stomach_mg_mL,
+            sol_ph_intestine_mg_mL=r.sol_ph_intestine_mg_mL,
+            bcs_solubility_class=r.bcs_solubility_class,
+            dose_number=r.dose_number,
+            supersaturation_potential=r.supersaturation_potential,
+            warnings=r.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Solubility prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 69 — Enterohepatic Recirculation
+# ─────────────────────────────────────────────────────────────────────────────
+class EHCRequest(BaseModel):
+    drug_name: str = "drug"
+    dose_mg: float
+    cl_hepatic_L_per_h: float
+    vd_L: float
+    ka_per_h: float = 1.0
+    f_biliary: float = 0.3
+    f_reabsorb: float = 0.5
+    bile_release_interval_h: float = 4.0
+    n_bile_releases: int = 5
+    route: str = "oral"
+    t_end_h: float = 48.0
+
+
+class EHCResponse(BaseModel):
+    auc_total_mg_h_L: float
+    auc_no_ehc_mg_h_L: float
+    cmax_mg_L: float
+    tmax_h: float
+    ehc_fraction: float
+    excreted_feces_mg: float
+    reabsorbed_total_mg: float
+    n_secondary_peaks: int
+
+
+@app.post("/simulate/ehc", tags=["simulation"])
+def simulate_ehc_endpoint(req: EHCRequest) -> EHCResponse:
+    try:
+        from omega_pbpk.core.enterohepatic import simulate_ehc
+        r = simulate_ehc(
+            drug_name=req.drug_name,
+            dose_mg=req.dose_mg,
+            cl_hepatic_L_per_h=req.cl_hepatic_L_per_h,
+            vd_L=req.vd_L,
+            ka_per_h=req.ka_per_h,
+            f_biliary=req.f_biliary,
+            f_reabsorb=req.f_reabsorb,
+            bile_release_interval_h=req.bile_release_interval_h,
+            n_bile_releases=req.n_bile_releases,
+            route=req.route,
+            t_end_h=req.t_end_h,
+        )
+        return EHCResponse(
+            auc_total_mg_h_L=r.auc_total_mg_h_L,
+            auc_no_ehc_mg_h_L=r.auc_no_ehc_mg_h_L,
+            cmax_mg_L=r.cmax_mg_L,
+            tmax_h=r.tmax_h,
+            ehc_fraction=r.ehc_fraction,
+            excreted_feces_mg=r.excreted_feces_mg,
+            reabsorbed_total_mg=r.reabsorbed_total_mg,
+            n_secondary_peaks=len(r.secondary_peak_times),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("EHC simulation error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 70 — ADR Risk Scoring
+# ─────────────────────────────────────────────────────────────────────────────
+class ADRRequest(BaseModel):
+    drug_name: str = "drug"
+    logP: float
+    MW: float
+    fup: float
+    cmax_mg_L: float
+    dose_mg: float
+    fraction_renal: float = 0.5
+    kp_uu_brain: float = 0.1
+    delta_qtc_ms: float = 0.0
+    sol_mg_mL: float = 1.0
+    reactive_metabolite: bool = False
+    is_pgp_inhibitor: bool = False
+    cns_active: bool = False
+    gfr_mL_min: float = 120.0
+
+
+class ADRResponse(BaseModel):
+    drug_name: str
+    composite_risk_score: float
+    risk_tier: str
+    category_scores: dict
+    risk_flags: list[str]
+    safety_margin: float
+    bsa_mg_per_m2: float
+
+
+@app.post("/risk/adr", tags=["risk"])
+def adr_risk(req: ADRRequest) -> ADRResponse:
+    try:
+        from omega_pbpk.risk.adr_risk import score_adr_risk
+        r = score_adr_risk(
+            drug_name=req.drug_name,
+            logP=req.logP,
+            MW=req.MW,
+            fup=req.fup,
+            cmax_mg_L=req.cmax_mg_L,
+            dose_mg=req.dose_mg,
+            fraction_renal=req.fraction_renal,
+            kp_uu_brain=req.kp_uu_brain,
+            delta_qtc_ms=req.delta_qtc_ms,
+            sol_mg_mL=req.sol_mg_mL,
+            reactive_metabolite=req.reactive_metabolite,
+            is_pgp_inhibitor=req.is_pgp_inhibitor,
+            cns_active=req.cns_active,
+            gfr_mL_min=req.gfr_mL_min,
+        )
+        return ADRResponse(
+            drug_name=r.drug_name,
+            composite_risk_score=r.composite_risk_score,
+            risk_tier=r.risk_tier,
+            category_scores=r.category_scores,
+            risk_flags=r.risk_flags,
+            safety_margin=r.safety_margin,
+            bsa_mg_per_m2=r.bsa_mg_per_m2,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("ADR risk error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
