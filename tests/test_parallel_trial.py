@@ -20,9 +20,7 @@ from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
 from omega_pbpk.clinical.parallel_trial import (
-    ArmSummary,
     DoseGroup,
-    DoseResponseFit,
     ParallelTrialDesign,
     ParallelTrialResult,
     _conditional_power,
@@ -30,7 +28,6 @@ from omega_pbpk.clinical.parallel_trial import (
     _fit_dose_response,
     _lognormal_bsv,
     _one_way_anova,
-    _pairwise_tests,
     run_parallel_trial,
 )
 

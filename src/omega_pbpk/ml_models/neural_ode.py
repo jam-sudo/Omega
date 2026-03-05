@@ -50,14 +50,14 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_N_INPUT: int = 8       # [C_norm, t_norm, logP, log_fup, log_clint, log_mw, log_rbp, log_peff]
+_N_INPUT: int = 8  # [C_norm, t_norm, logP, log_fup, log_clint, log_mw, log_rbp, log_peff]
 _N_HIDDEN: int = 32
 _T_END_H: float = 24.0
 _REF_DOSE_MG: float = 100.0
-_REF_VD_L: float = 42.0        # approx Vd for 70 kg subject
-_DT_TRAIN: float = 0.5          # Euler step during training (h)
-_DT_INFER: float = 0.1          # RK4 step during inference (h)
-_N_OBS: int = 25                # observation timepoints per trajectory
+_REF_VD_L: float = 42.0  # approx Vd for 70 kg subject
+_DT_TRAIN: float = 0.5  # Euler step during training (h)
+_DT_INFER: float = 0.1  # RK4 step during inference (h)
+_N_OBS: int = 25  # observation timepoints per trajectory
 _DRUG_FEATURES = ["logP", "log_fup", "log_clint", "log_mw", "log_rbp", "log_peff"]
 
 # Singleton
@@ -151,9 +151,7 @@ class NeuralODEFunc:
     # Forward pass — returns output + intermediates for backprop
     # ------------------------------------------------------------------
 
-    def forward(
-        self, x: NDArray[np.float64]
-    ) -> tuple[float, NDArray, NDArray, NDArray, NDArray]:
+    def forward(self, x: NDArray[np.float64]) -> tuple[float, NDArray, NDArray, NDArray, NDArray]:
         """Forward pass.
 
         Args:
@@ -164,10 +162,10 @@ class NeuralODEFunc:
             z1/a1 are pre/post-activation for layer 1,
             z2/a2 are pre/post-activation for layer 2.
         """
-        z1 = self.W1 @ x + self.b1          # (H,)
-        a1 = np.tanh(z1)                     # (H,)
-        z2 = self.W2 @ a1 + self.b2          # (H,)
-        a2 = np.tanh(z2)                     # (H,)
+        z1 = self.W1 @ x + self.b1  # (H,)
+        a1 = np.tanh(z1)  # (H,)
+        z2 = self.W2 @ a1 + self.b2  # (H,)
+        a2 = np.tanh(z2)  # (H,)
         out = float(self.w3 @ a2 + self.b3)  # scalar
         return out, z1, a1, z2, a2
 
@@ -183,11 +181,16 @@ class NeuralODEFunc:
     def set_flat_params(self, p: NDArray[np.float64]) -> None:
         H, D = self._n_hidden, _N_INPUT
         idx = 0
-        self.W1 = p[idx : idx + H * D].reshape(H, D); idx += H * D
-        self.b1 = p[idx : idx + H].copy(); idx += H
-        self.W2 = p[idx : idx + H * H].reshape(H, H); idx += H * H
-        self.b2 = p[idx : idx + H].copy(); idx += H
-        self.w3 = p[idx : idx + H].copy(); idx += H
+        self.W1 = p[idx : idx + H * D].reshape(H, D)
+        idx += H * D
+        self.b1 = p[idx : idx + H].copy()
+        idx += H
+        self.W2 = p[idx : idx + H * H].reshape(H, H)
+        idx += H * H
+        self.b2 = p[idx : idx + H].copy()
+        idx += H
+        self.w3 = p[idx : idx + H].copy()
+        idx += H
         self.b3 = float(p[idx])
 
     @property
@@ -215,9 +218,9 @@ class NeuralODE:
     def __init__(self, n_hidden: int = _N_HIDDEN, seed: int = 42) -> None:
         self._func = NeuralODEFunc(n_hidden=n_hidden, seed=seed)
         self._trained: bool = False
-        self._C_scale: float = 5.0          # mg/L, updated from training data
-        self._feat_mean: NDArray | None = None   # shape (6,)
-        self._feat_std: NDArray | None = None    # shape (6,)
+        self._C_scale: float = 5.0  # mg/L, updated from training data
+        self._feat_mean: NDArray | None = None  # shape (6,)
+        self._feat_std: NDArray | None = None  # shape (6,)
         self._train_r2: float = 0.0
         self._n_train: int = 0
         # Adam state — one slot per parameter array
@@ -240,14 +243,17 @@ class NeuralODE:
         logP: float, fup: float, clint: float, mw: float, rbp: float, peff: float
     ) -> NDArray[np.float64]:
         """Convert physical drug params to the 6 raw log-space features."""
-        return np.array([
-            logP,
-            np.log(max(fup, 1e-6)),
-            np.log(max(clint, 1e-3)),
-            np.log(max(mw, 1.0) / 300.0),
-            np.log(max(rbp, 1e-3)),
-            np.log(max(peff, 1e-4)),
-        ], dtype=np.float64)
+        return np.array(
+            [
+                logP,
+                np.log(max(fup, 1e-6)),
+                np.log(max(clint, 1e-3)),
+                np.log(max(mw, 1.0) / 300.0),
+                np.log(max(rbp, 1e-3)),
+                np.log(max(peff, 1e-4)),
+            ],
+            dtype=np.float64,
+        )
 
     def _make_input(
         self, C_norm: float, t_norm: float, p_norm: NDArray[np.float64]
@@ -306,7 +312,6 @@ class NeuralODE:
             Dict of gradients: dW1, db1, dW2, db2, dw3, db3.
         """
         n_steps = len(C) - 1
-        H = self._func._n_hidden
         func = self._func
 
         dW1 = np.zeros_like(func.W1)
@@ -325,23 +330,23 @@ class NeuralODE:
             x, z1, a1, z2, a2 = cache[n]
 
             # ---- gradient of loss wrt dC_norm/dt_norm at step n ----
-            g_out = dt_norm * g_C[n + 1]   # scalar
+            g_out = dt_norm * g_C[n + 1]  # scalar
 
             # ---- backprop through output layer (w3, b3) ----
             dw3 += g_out * a2
             db3 += g_out
-            g_a2 = func.w3 * g_out         # (H,)
+            g_a2 = func.w3 * g_out  # (H,)
 
             # ---- backprop through tanh (layer 2) ----
-            g_z2 = g_a2 * (1.0 - a2 ** 2)  # (H,)
+            g_z2 = g_a2 * (1.0 - a2**2)  # (H,)
 
             # ---- backprop through W2, b2 ----
             dW2 += np.outer(g_z2, a1)
             db2 += g_z2
-            g_a1 = func.W2.T @ g_z2        # (H,)
+            g_a1 = func.W2.T @ g_z2  # (H,)
 
             # ---- backprop through tanh (layer 1) ----
-            g_z1 = g_a1 * (1.0 - a1 ** 2)  # (H,)
+            g_z1 = g_a1 * (1.0 - a1**2)  # (H,)
 
             # ---- backprop through W1, b1 ----
             dW1 += np.outer(g_z1, x)
@@ -351,9 +356,9 @@ class NeuralODE:
             # C[n+1] = C[n] + dt * out, and out = f(x) where x[0] = C[n]
             # dC[n+1]/dC[n] = 1 + dt * d(out)/d(C[n])
             # d(out)/d(x[0]) = w3 @ diag(1-a2^2) @ W2 @ diag(1-a1^2) @ W1[:, 0]
-            g_x0_via_net = func.W1[:, 0]          # (H,) — gradient in W1 direction
+            g_x0_via_net = func.W1[:, 0]  # (H,) — gradient in W1 direction
             d_out_d_x0 = float(
-                func.w3 @ ((1.0 - a2 ** 2) * (func.W2 @ ((1.0 - a1 ** 2) * g_x0_via_net)))
+                func.w3 @ ((1.0 - a2**2) * (func.W2 @ ((1.0 - a1**2) * g_x0_via_net)))
             )
             # x[0] = C_norm, so d(out)/d(C[n]) = d(out)/d(x[0]) (no extra scaling
             # since we're already working in normalised space)
@@ -366,17 +371,26 @@ class NeuralODE:
     # ------------------------------------------------------------------
 
     def _adam_step(
-        self, grads: dict[str, NDArray], lr: float = 1e-3,
-        beta1: float = 0.9, beta2: float = 0.999, eps: float = 1e-8,
+        self,
+        grads: dict[str, NDArray],
+        lr: float = 1e-3,
+        beta1: float = 0.9,
+        beta2: float = 0.999,
+        eps: float = 1e-8,
     ) -> None:
         """Apply one Adam update to NeuralODEFunc parameters."""
         func = self._func
-        flat_grad = np.concatenate([
-            grads["dW1"].ravel(), grads["db1"],
-            grads["dW2"].ravel(), grads["db2"],
-            grads["dw3"], [grads["db3"]],
-        ])
-        flat_grad = np.clip(flat_grad, -5.0, 5.0)   # gradient clipping
+        flat_grad = np.concatenate(
+            [
+                grads["dW1"].ravel(),
+                grads["db1"],
+                grads["dW2"].ravel(),
+                grads["db2"],
+                grads["dw3"],
+                [grads["db3"]],
+            ]
+        )
+        flat_grad = np.clip(flat_grad, -5.0, 5.0)  # gradient clipping
 
         if self._adam_m is None:
             self._adam_m = np.zeros_like(flat_grad)
@@ -385,9 +399,9 @@ class NeuralODE:
         self._adam_t += 1
         t = self._adam_t
         self._adam_m = beta1 * self._adam_m + (1 - beta1) * flat_grad
-        self._adam_v = beta2 * self._adam_v + (1 - beta2) * flat_grad ** 2
-        m_hat = self._adam_m / (1 - beta1 ** t)
-        v_hat = self._adam_v / (1 - beta2 ** t)
+        self._adam_v = beta2 * self._adam_v + (1 - beta2) * flat_grad**2
+        m_hat = self._adam_m / (1 - beta1**t)
+        v_hat = self._adam_v / (1 - beta2**t)
         update = lr * m_hat / (np.sqrt(v_hat) + eps)
 
         func.set_flat_params(func.get_flat_params() - update)
@@ -427,7 +441,7 @@ class NeuralODE:
             out, *_ = self._func.forward(x)
             return out
 
-        for n in range(n_steps):
+        for _n in range(n_steps):
             # Record if any t_eval falls in this step
             while eval_idx < len(t_eval) and t_eval[eval_idx] <= t + 1e-9:
                 results.append(C)
@@ -438,7 +452,7 @@ class NeuralODE:
             k3 = f(C + 0.5 * dt * k2, t + 0.5 * dt)
             k4 = f(C + dt * k3, t + dt)
             C = C + dt / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
-            C = max(C, 0.0)   # non-negativity
+            C = max(C, 0.0)  # non-negativity
             t += dt
 
         while eval_idx < len(t_eval):
@@ -459,7 +473,7 @@ class NeuralODE:
         epochs: int = 60,
         lr: float = 1e-3,
         route: str = "oral",
-    ) -> "NeuralODE":
+    ) -> NeuralODE:
         """Train the Neural ODE on PBPK-generated C(t) trajectories.
 
         Args:
@@ -485,8 +499,8 @@ class NeuralODE:
         p_norm_array = (p_raw_array - self._feat_mean) / (self._feat_std + 1e-8)
 
         # Normalise trajectories and time
-        C_norm_traj = C_traj / self._C_scale            # (N, T)
-        t_norm_eval = t_eval / _T_END_H                 # (T,)
+        C_norm_traj = C_traj / self._C_scale  # (N, T)
+        t_norm_eval = t_eval / _T_END_H  # (T,)
 
         dt_norm = _DT_TRAIN / _T_END_H
         n_steps = int(_T_END_H / _DT_TRAIN)
@@ -502,9 +516,12 @@ class NeuralODE:
             acc_grads: dict[str, Any] = {
                 k: np.zeros_like(v)
                 for k, v in [
-                    ("dW1", self._func.W1), ("db1", self._func.b1),
-                    ("dW2", self._func.W2), ("db2", self._func.b2),
-                    ("dw3", self._func.w3), ("db3", np.zeros(1)),
+                    ("dW1", self._func.W1),
+                    ("db1", self._func.b1),
+                    ("dW2", self._func.W2),
+                    ("db2", self._func.b2),
+                    ("dw3", self._func.w3),
+                    ("db3", np.zeros(1)),
                 ]
             }
             acc_grads["db3"] = 0.0
@@ -775,14 +792,17 @@ def build_node_dataset(
                 continue
 
             # Build raw log-space feature vector
-            p_raw = np.array([
-                logP,
-                np.log(max(fup, 1e-6)),
-                np.log(max(clint, 1e-3)),
-                np.log(max(mw, 1.0) / 300.0),
-                np.log(max(rbp, 1e-3)),
-                np.log(max(peff, 1e-4)),
-            ], dtype=np.float64)
+            p_raw = np.array(
+                [
+                    logP,
+                    np.log(max(fup, 1e-6)),
+                    np.log(max(clint, 1e-3)),
+                    np.log(max(mw, 1.0) / 300.0),
+                    np.log(max(rbp, 1e-3)),
+                    np.log(max(peff, 1e-4)),
+                ],
+                dtype=np.float64,
+            )
             p_raw_list.append(p_raw)
             C_traj_list.append(C_obs)
 
@@ -791,7 +811,9 @@ def build_node_dataset(
             continue
 
         if (i + 1) % 25 == 0:
-            logger.info("NODE dataset: %d/%d simulations (%d valid)", i + 1, n_samples, len(p_raw_list))
+            logger.info(
+                "NODE dataset: %d/%d simulations (%d valid)", i + 1, n_samples, len(p_raw_list)
+            )
 
     if len(p_raw_list) < 10:
         raise RuntimeError(

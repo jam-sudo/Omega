@@ -22,7 +22,6 @@ from fastapi.testclient import TestClient
 from omega_pbpk.api.app import app
 from omega_pbpk.clinical.compound_library import (
     CompoundEntry,
-    CompoundScreenResult,
     LibraryScreenResult,
     ScreeningCriteria,
     _composite_score,
@@ -41,16 +40,28 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 
 _ENTRY_A = CompoundEntry(
-    name="CompA", dose_mg=100, cl_L_per_h=5, vd_L=70,
-    ka_per_h=1.2, f_bioavail=0.8,
+    name="CompA",
+    dose_mg=100,
+    cl_L_per_h=5,
+    vd_L=70,
+    ka_per_h=1.2,
+    f_bioavail=0.8,
 )
 _ENTRY_B = CompoundEntry(
-    name="CompB", dose_mg=100, cl_L_per_h=10, vd_L=50,
-    ka_per_h=0.8, f_bioavail=0.6,
+    name="CompB",
+    dose_mg=100,
+    cl_L_per_h=10,
+    vd_L=50,
+    ka_per_h=0.8,
+    f_bioavail=0.6,
 )
 _ENTRY_C = CompoundEntry(
-    name="CompC", dose_mg=200, cl_L_per_h=3, vd_L=80,
-    ka_per_h=2.0, f_bioavail=0.9,
+    name="CompC",
+    dose_mg=200,
+    cl_L_per_h=3,
+    vd_L=80,
+    ka_per_h=2.0,
+    f_bioavail=0.9,
 )
 
 
@@ -91,23 +102,31 @@ class TestSimulatePK:
     """Analytical 1-compartment PK via _simulate_compound_pk."""
 
     def test_iv_cmax(self):
-        entry = CompoundEntry(name="IV", route="iv", dose_mg=100, vd_L=50,
-                              cl_L_per_h=5, ka_per_h=1.0, f_bioavail=1.0)
+        entry = CompoundEntry(
+            name="IV", route="iv", dose_mg=100, vd_L=50, cl_L_per_h=5, ka_per_h=1.0, f_bioavail=1.0
+        )
         cmax, _auc, _tmax, _thalf = _simulate_compound_pk(entry)
         expected = 100.0 / 50.0  # dose / vd
         assert abs(cmax - expected) / expected < 0.01
 
     def test_oral_auc(self):
-        entry = CompoundEntry(name="Oral", route="oral", dose_mg=200,
-                              cl_L_per_h=4, vd_L=60, ka_per_h=1.5,
-                              f_bioavail=0.7)
+        entry = CompoundEntry(
+            name="Oral",
+            route="oral",
+            dose_mg=200,
+            cl_L_per_h=4,
+            vd_L=60,
+            ka_per_h=1.5,
+            f_bioavail=0.7,
+        )
         _cmax, auc, _tmax, _thalf = _simulate_compound_pk(entry)
         expected = 0.7 * 200.0 / 4.0  # f * dose / cl
         assert abs(auc - expected) / expected < 0.01
 
     def test_t_half(self):
-        entry = CompoundEntry(name="THalf", dose_mg=100, cl_L_per_h=5,
-                              vd_L=70, ka_per_h=1.2, f_bioavail=0.8)
+        entry = CompoundEntry(
+            name="THalf", dose_mg=100, cl_L_per_h=5, vd_L=70, ka_per_h=1.2, f_bioavail=0.8
+        )
         _cmax, _auc, _tmax, t_half = _simulate_compound_pk(entry)
         expected = math.log(2) * 70.0 / 5.0
         assert abs(t_half - expected) / expected < 0.01
@@ -206,7 +225,10 @@ class TestCompositeScore:
         )
         # Compound that meets criteria
         score = _composite_score(
-            cmax=3.0, auc=10.0, effect=0.5, t_half=10.0,
+            cmax=3.0,
+            auc=10.0,
+            effect=0.5,
+            t_half=10.0,
             criteria=criteria,
         )
         assert score > 50
@@ -222,7 +244,10 @@ class TestCompositeScore:
         )
         # Compound far outside criteria
         score = _composite_score(
-            cmax=50.0, auc=0.01, effect=0.001, t_half=100.0,
+            cmax=50.0,
+            auc=0.01,
+            effect=0.001,
+            t_half=100.0,
             criteria=criteria,
         )
         assert score < 30
@@ -291,12 +316,30 @@ class TestAPIEndpoint:
     def test_valid_request(self):
         payload = {
             "entries": [
-                {"name": "CompA", "dose_mg": 100, "cl_L_per_h": 5, "vd_L": 70,
-                 "ka_per_h": 1.2, "f_bioavail": 0.8},
-                {"name": "CompB", "dose_mg": 100, "cl_L_per_h": 10, "vd_L": 50,
-                 "ka_per_h": 0.8, "f_bioavail": 0.6},
-                {"name": "CompC", "dose_mg": 200, "cl_L_per_h": 3, "vd_L": 80,
-                 "ka_per_h": 2.0, "f_bioavail": 0.9},
+                {
+                    "name": "CompA",
+                    "dose_mg": 100,
+                    "cl_L_per_h": 5,
+                    "vd_L": 70,
+                    "ka_per_h": 1.2,
+                    "f_bioavail": 0.8,
+                },
+                {
+                    "name": "CompB",
+                    "dose_mg": 100,
+                    "cl_L_per_h": 10,
+                    "vd_L": 50,
+                    "ka_per_h": 0.8,
+                    "f_bioavail": 0.6,
+                },
+                {
+                    "name": "CompC",
+                    "dose_mg": 200,
+                    "cl_L_per_h": 3,
+                    "vd_L": 80,
+                    "ka_per_h": 2.0,
+                    "f_bioavail": 0.9,
+                },
             ],
             "criteria": {"ec50_mg_L": 1.0, "emax": 1.0},
             "n_clusters": 2,

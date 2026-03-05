@@ -34,6 +34,7 @@ Endpoints:
   POST /population/pk_fit  — Standard two-stage population PK fitting (CL, Vd, BSV, AIC/BIC)
   POST /kidney/pk          — Mechanistic renal PK: filtration + secretion + reabsorption
   POST /scale/interspecies — Allometric interspecies scaling (animal → human PK)
+  POST /simulate/chronopk  — Circadian PK simulation with time-varying physiology
 
 Auth endpoints (only active when OMEGA_AUTH_ENABLED=true):
   POST /auth/token             — obtain JWT bearer token
@@ -3862,7 +3863,9 @@ class ParallelTrialRequest(BaseModel):
     pd_input: str = Field(default="cmax", description="PD driver: 'cmax' or 'auc'")
     t_end_h: float = Field(default=24.0, gt=0, description="PK horizon (h)")
     alpha: float = Field(default=0.05, gt=0, le=0.5, description="Significance level")
-    interim_fraction: float = Field(default=0.5, ge=0, le=1, description="Interim enrolment fraction (0=none)")
+    interim_fraction: float = Field(
+        default=0.5, ge=0, le=1, description="Interim enrolment fraction (0=none)"
+    )
     seed: int = Field(default=42, description="Random seed")
 
 
@@ -4593,7 +4596,7 @@ class KidneyPKResponse(BaseModel):
     cl_filtration_L_per_h: float
     cl_secretion_mean_L_per_h: float
     reabsorption_fraction: float
-    fe_urine: float | None          # None when dose_mg=0 (NaN serialized as null)
+    fe_urine: float | None  # None when dose_mg=0 (NaN serialized as null)
     urine_rate_mg_h: list[float]
     urine_cumulative_mg: float
     urine_conc_mg_L: list[float]
@@ -4607,6 +4610,7 @@ def kidney_pk_endpoint(req: KidneyPKRequest) -> KidneyPKResponse:
     """Mechanistic renal PK: filtration + active secretion + passive reabsorption."""
     try:
         import math
+
         from omega_pbpk.core.kidney_pk import predict_renal_pk
 
         result = predict_renal_pk(
@@ -4699,4 +4703,74 @@ def interspecies_scaling_endpoint(req: InterspeciesScalingRequest) -> Interspeci
         raise
     except Exception as exc:
         logger.exception("Interspecies scaling error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/chronopk
+# ---------------------------------------------------------------------------
+
+
+class ChronoPKRequest(BaseModel):
+    dose_mg: float = Field(..., gt=0)
+    cl_base_L_per_h: float = Field(..., gt=0)
+    vd_L: float = Field(..., gt=0)
+    ka_per_h: float = Field(default=1.0, ge=0)
+    fup: float = Field(default=1.0, gt=0, le=1)
+    dosing_time_h: float = Field(default=8.0, ge=0, lt=24)
+    route: Literal["oral", "iv"] = "oral"
+    t_end_h: float = Field(default=24.0, gt=0)
+    fraction_renal: float = Field(default=0.3, ge=0, le=1)
+    fraction_hepatic: float = Field(default=0.7, ge=0, le=1)
+
+
+class ChronoPKResponse(BaseModel):
+    times_h: list[float]
+    plasma_conc: list[float]
+    auc_0_24: float
+    cmax: float
+    tmax_h: float
+    cmin: float
+    dosing_time_h: float
+    cl_effective_L_per_h: float
+    gfr_profile: list[float]
+    hepatic_flow_profile: list[float]
+    cyp3a4_profile: list[float]
+
+
+@app.post("/simulate/chronopk", response_model=ChronoPKResponse)
+def chronopk_endpoint(req: ChronoPKRequest) -> ChronoPKResponse:
+    """Circadian PK simulation with time-varying physiology."""
+    try:
+        from omega_pbpk.core.chronopk import simulate_chronopk
+
+        result = simulate_chronopk(
+            dose_mg=req.dose_mg,
+            cl_base_L_per_h=req.cl_base_L_per_h,
+            vd_L=req.vd_L,
+            ka_per_h=req.ka_per_h,
+            fup=req.fup,
+            dosing_time_h=req.dosing_time_h,
+            route=req.route,
+            t_end_h=req.t_end_h,
+            fraction_renal=req.fraction_renal,
+            fraction_hepatic=req.fraction_hepatic,
+        )
+        return ChronoPKResponse(
+            times_h=result.times_h,
+            plasma_conc=result.plasma_conc,
+            auc_0_24=result.auc_0_24,
+            cmax=result.cmax,
+            tmax_h=result.tmax_h,
+            cmin=result.cmin,
+            dosing_time_h=result.dosing_time_h,
+            cl_effective_L_per_h=result.cl_effective_L_per_h,
+            gfr_profile=result.gfr_profile,
+            hepatic_flow_profile=result.hepatic_flow_profile,
+            cyp3a4_profile=result.cyp3a4_profile,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("ChronoPK error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

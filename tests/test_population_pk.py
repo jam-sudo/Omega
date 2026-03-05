@@ -1,13 +1,14 @@
 """Tests for population PK fitting (Phase 54)."""
 
 import math
+
 import numpy as np
 import pytest
 
 from omega_pbpk.clinical.population_pk import (
-    SubjectData,
     IndividualEstimate,
     PopulationPKResult,
+    SubjectData,
     fit_population_pk,
 )
 
@@ -39,7 +40,7 @@ for i, cl in enumerate(CL_TRUE):
     cp_obs = np.maximum(cp * (1 + noise), 0.0)
     ORAL_SUBJECTS.append(
         SubjectData(
-            subject_id=f"S{i+1}",
+            subject_id=f"S{i + 1}",
             times=list(TIMES),
             conc=list(cp_obs),
             dose_mg=DOSE,
@@ -56,7 +57,7 @@ for i, cl in enumerate(CL_TRUE):
     cp_obs = np.maximum(cp * (1 + noise), 0.0)
     IV_SUBJECTS.append(
         SubjectData(
-            subject_id=f"IV{i+1}",
+            subject_id=f"IV{i + 1}",
             times=list(TIMES),
             conc=list(cp_obs),
             dose_mg=DOSE,
@@ -69,6 +70,7 @@ for i, cl in enumerate(CL_TRUE):
 # ===================================================================
 # Dataclass tests
 # ===================================================================
+
 
 class TestSubjectData:
     def test_dataclass_fields(self):
@@ -110,6 +112,7 @@ class TestIndividualEstimate:
 # ===================================================================
 # Integration tests — oral fitting
 # ===================================================================
+
 
 @pytest.fixture(scope="module")
 def oral_result():
@@ -167,6 +170,7 @@ class TestFitOral:
 # Integration tests — IV fitting
 # ===================================================================
 
+
 @pytest.fixture(scope="module")
 def iv_result():
     return fit_population_pk(IV_SUBJECTS, model="1cpt_iv")
@@ -188,6 +192,7 @@ class TestFitIV:
 # Covariate test
 # ===================================================================
 
+
 @pytest.fixture(scope="module")
 def cov_result():
     return fit_population_pk(ORAL_SUBJECTS, fit_covariates=True)
@@ -206,11 +211,10 @@ class TestCovariate:
 # Edge cases
 # ===================================================================
 
+
 class TestEdgeCases:
     def test_sparse_subject_not_converged(self):
         sparse = SubjectData("sparse", [1.0, 2.0], [2.0, 1.5], 100.0, "oral")
         result = fit_population_pk(ORAL_SUBJECTS[:3] + [sparse])
-        est = next(
-            e for e in result.individual_estimates if e.subject_id == "sparse"
-        )
+        est = next(e for e in result.individual_estimates if e.subject_id == "sparse")
         assert not est.converged

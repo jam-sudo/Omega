@@ -161,9 +161,7 @@ class TestComputeIVIVC:
 
     def test_perfect_ivivc_passes_a(self):
         t_p = np.linspace(0, 12, 25)
-        cp_p = (DOSE * KA / (VD * (KA - KE))) * (
-            np.exp(-KE * t_p) - np.exp(-KA * t_p)
-        )
+        cp_p = (DOSE * KA / (VD * (KA - KE))) * (np.exp(-KE * t_p) - np.exp(-KA * t_p))
         cp_p = np.maximum(cp_p, 0.0)
         _, fa_perfect = wagner_nelson(t_p, cp_p, KE, VD, DOSE)
         perf_times = list(t_p)

@@ -1,4 +1,5 @@
 """Population PK fitting — Standard Two-Stage method."""
+
 from __future__ import annotations
 
 import math
@@ -172,13 +173,25 @@ def fit_population_pk(
     cl_pop = math.exp(float(np.mean(log_cl)))
     vd_pop = math.exp(float(np.mean(log_vd)))
 
-    omega_cl_pct = math.sqrt(max(0.0, math.exp(float(np.var(log_cl, ddof=1))) - 1.0)) * 100.0 if len(converged) > 1 else 0.0
-    omega_vd_pct = math.sqrt(max(0.0, math.exp(float(np.var(log_vd, ddof=1))) - 1.0)) * 100.0 if len(converged) > 1 else 0.0
+    omega_cl_pct = (
+        math.sqrt(max(0.0, math.exp(float(np.var(log_cl, ddof=1))) - 1.0)) * 100.0
+        if len(converged) > 1
+        else 0.0
+    )
+    omega_vd_pct = (
+        math.sqrt(max(0.0, math.exp(float(np.var(log_vd, ddof=1))) - 1.0)) * 100.0
+        if len(converged) > 1
+        else 0.0
+    )
 
     if is_oral:
         log_ka = np.array([math.log(e.ka_per_h) for e in converged])
         ka_pop = math.exp(float(np.mean(log_ka)))
-        omega_ka_pct = math.sqrt(max(0.0, math.exp(float(np.var(log_ka, ddof=1))) - 1.0)) * 100.0 if len(converged) > 1 else 0.0
+        omega_ka_pct = (
+            math.sqrt(max(0.0, math.exp(float(np.var(log_ka, ddof=1))) - 1.0)) * 100.0
+            if len(converged) > 1
+            else 0.0
+        )
     else:
         ka_pop = math.nan
         omega_ka_pct = math.nan
@@ -187,7 +200,7 @@ def fit_population_pk(
     n_obs = 0
     rss = 0.0
     all_obs: list[float] = []
-    for subj, est in zip(subjects, estimates):
+    for subj, est in zip(subjects, estimates, strict=False):
         if not est.converged:
             continue
         times = np.asarray(subj.times, dtype=float)

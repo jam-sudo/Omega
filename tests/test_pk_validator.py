@@ -11,14 +11,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from omega_pbpk.drugs.caffeine import CAFFEINE
+from omega_pbpk.drugs.metformin import METFORMIN
 from omega_pbpk.validation.pk_validator import (
-    ValidationResult,
     compute_validation_metrics,
     validate_drug,
 )
-from omega_pbpk.drugs.caffeine import CAFFEINE
-from omega_pbpk.drugs.metformin import METFORMIN
-
 
 # ---------------------------------------------------------------------------
 # Unit tests: compute_validation_metrics()
@@ -162,10 +160,20 @@ class TestValidateDrug:
         """summary() dict contains all expected keys."""
         vr = validate_drug(CAFFEINE, self._obs_t, self._obs_c, dose_mg=100.0)
         s = vr.summary()
-        for key in ["aafe", "afe", "within_2fold_pct", "rmse_mg_per_L",
-                    "auc_obs_mg_h_L", "auc_sim_mg_h_L", "auc_relative_error",
-                    "cmax_obs_mg_L", "cmax_sim_mg_L", "cmax_relative_error",
-                    "n_obs", "overall_pass"]:
+        for key in [
+            "aafe",
+            "afe",
+            "within_2fold_pct",
+            "rmse_mg_per_L",
+            "auc_obs_mg_h_L",
+            "auc_sim_mg_h_L",
+            "auc_relative_error",
+            "cmax_obs_mg_L",
+            "cmax_sim_mg_L",
+            "cmax_relative_error",
+            "n_obs",
+            "overall_pass",
+        ]:
             assert key in s, f"Missing key: {key}"
 
 
@@ -181,6 +189,7 @@ class TestParameterCalibrator:
     def _make_observed(self, drug, dose_mg=100.0, route="oral", clint_override=None):
         """Generate synthetic observed data from a simulation."""
         import copy
+
         from omega_pbpk.core.body import WholeBodyPBPK
 
         d = copy.copy(drug)
@@ -231,14 +240,20 @@ class TestParameterCalibrator:
         obs_t, obs_c = self._make_observed(CAFFEINE)
         result = calibrate_drug(CAFFEINE, obs_t, obs_c, dose_mg=100.0, max_iter=10)
         s = result.summary()
-        for key in ["original_clint_L_per_h", "calibrated_clint_L_per_h",
-                    "pre_aafe", "post_aafe", "aafe_improvement", "converged"]:
+        for key in [
+            "original_clint_L_per_h",
+            "calibrated_clint_L_per_h",
+            "pre_aafe",
+            "post_aafe",
+            "aafe_improvement",
+            "converged",
+        ]:
             assert key in s, f"Missing key: {key}"
 
     def test_calibration_returns_drug(self) -> None:
         """calibrated_drug is a Drug instance with updated CLint."""
-        from omega_pbpk.validation.parameter_calibrator import calibrate_drug
         from omega_pbpk.drugs.drug import Drug
+        from omega_pbpk.validation.parameter_calibrator import calibrate_drug
 
         obs_t, obs_c = self._make_observed(METFORMIN, dose_mg=500.0, route="iv")
         result = calibrate_drug(METFORMIN, obs_t, obs_c, dose_mg=500.0, route="iv", max_iter=20)
@@ -255,6 +270,7 @@ class TestAPIEndpoints:
     def setup_method(self) -> None:
         try:
             from fastapi.testclient import TestClient
+
             from omega_pbpk.api.app import app
             from omega_pbpk.core.body import WholeBodyPBPK
 
@@ -289,13 +305,16 @@ class TestAPIEndpoints:
         """POST /validate/pk returns 200 with AAFE key."""
         if not self._has_fastapi:
             pytest.skip("fastapi not installed")
-        resp = self._client.post("/validate/pk", json={
-            "drug": self._drug_payload(),
-            "dose_mg": 100.0,
-            "route": "oral",
-            "observed_times": self._obs_t,
-            "observed_conc": self._obs_c,
-        })
+        resp = self._client.post(
+            "/validate/pk",
+            json={
+                "drug": self._drug_payload(),
+                "dose_mg": 100.0,
+                "route": "oral",
+                "observed_times": self._obs_t,
+                "observed_conc": self._obs_c,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "aafe" in data
@@ -306,15 +325,18 @@ class TestAPIEndpoints:
         """POST /calibrate/clint returns 200 with calibrated_clint key."""
         if not self._has_fastapi:
             pytest.skip("fastapi not installed")
-        resp = self._client.post("/calibrate/clint", json={
-            "drug": self._drug_payload(),
-            "dose_mg": 100.0,
-            "route": "oral",
-            "observed_times": self._obs_t,
-            "observed_conc": self._obs_c,
-            "params_to_fit": ["clint"],
-            "max_iter": 20,
-        })
+        resp = self._client.post(
+            "/calibrate/clint",
+            json={
+                "drug": self._drug_payload(),
+                "dose_mg": 100.0,
+                "route": "oral",
+                "observed_times": self._obs_t,
+                "observed_conc": self._obs_c,
+                "params_to_fit": ["clint"],
+                "max_iter": 20,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "calibrated_clint_L_per_h" in data

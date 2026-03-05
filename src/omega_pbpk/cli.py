@@ -552,7 +552,7 @@ def smiles_report(
         blocks = " ▁▂▃▄▅▆▇█"
         if not values or max(values) == 0:
             return " " * width
-        mn, mx = 0.0, max(values)
+        _, mx = 0.0, max(values)
         step = mx / (len(blocks) - 1)
         sampled = [values[int(i * (len(values) - 1) / (width - 1))] for i in range(width)]
         return "".join(blocks[min(int(v / step), len(blocks) - 1)] for v in sampled)
@@ -583,7 +583,7 @@ def smiles_report(
         )
     except Exception as exc:
         typer.echo(f"  ERROR: Full pipeline failed: {exc}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
     # ------------------------------------------------------------------
     # 2. BCS classification from ADME output
@@ -599,7 +599,7 @@ def smiles_report(
         logs = float(adme.get("logS", -3.0))
         peff_pred = float(adme.get("peff", 1.0))
         # Convert logS (log mol/L) → mg/mL: S_mg_mL = 10^logS × MW / 1000
-        sol_mg_mL = (10.0 ** logs) * mw / 1000.0
+        sol_mg_mL = (10.0**logs) * mw / 1000.0
         # peff from ADME is in 10^-4 cm/s units; convert to cm/s
         peff_cm_s = peff_pred * 1e-4
         bcs_class = classify_bcs(
@@ -631,14 +631,16 @@ def smiles_report(
         spark = _sparkline(list(fp.cp_mg_L))
         typer.echo(f"\n  C(t) profile (0 → {duration:.0f} h):")
         typer.echo(f"  |{spark}|")
-        typer.echo(f"  0{' ' * 18}{duration/2:.0f} h{' ' * 16}{duration:.0f} h")
+        typer.echo(f"  0{' ' * 18}{duration / 2:.0f} h{' ' * 16}{duration:.0f} h")
 
     # --- Uncertainty Quantification ---
     if not no_uq and fp.cmax_p5 > 0:
         typer.echo(f"\n{SECTION}")
         typer.echo("  UNCERTAINTY QUANTIFICATION (p5 / p50 / p95)")
         typer.echo(SECTION)
-        typer.echo(f"  Cmax [mg/L]   : {_fmt(fp.cmax_p5)} / {_fmt(fp.cmax_p50)} / {_fmt(fp.cmax_p95)}")
+        typer.echo(
+            f"  Cmax [mg/L]   : {_fmt(fp.cmax_p5)} / {_fmt(fp.cmax_p50)} / {_fmt(fp.cmax_p95)}"
+        )
         typer.echo(f"  AUC  [mg·h/L] : {_fmt(fp.auc_p5)} / {_fmt(fp.auc_p50)} / {_fmt(fp.auc_p95)}")
 
     # --- ADME Properties ---
@@ -667,8 +669,12 @@ def smiles_report(
     typer.echo(f"\n{SECTION}")
     typer.echo("  BCS CLASSIFICATION")
     typer.echo(SECTION)
-    bcs_names = {"I": "Class I  (High sol / High perm)", "II": "Class II (Low sol / High perm)",
-                 "III": "Class III (High sol / Low perm)", "IV": "Class IV (Low sol / Low perm)"}
+    bcs_names = {
+        "I": "Class I  (High sol / High perm)",
+        "II": "Class II (Low sol / High perm)",
+        "III": "Class III (High sol / Low perm)",
+        "IV": "Class IV (Low sol / Low perm)",
+    }
     typer.echo(f"  BCS Class    : {bcs_names.get(bcs_class, bcs_class)}")
     typer.echo(f"  Biowaiver    : {'Potentially eligible' if bcs_biowaiver else 'Not eligible'}")
 
@@ -711,15 +717,15 @@ def smiles_report(
             typer.echo(f"  ! {w}")
 
     typer.echo(f"\n{DIVIDER}")
-    typer.echo(f"  PubChem enriched: {fp.pubchem_enriched}  |  Pipeline confidence: {fp.confidence}")
+    typer.echo(
+        f"  PubChem enriched: {fp.pubchem_enriched}  |  Pipeline confidence: {fp.confidence}"
+    )
     typer.echo(DIVIDER)
 
     # ------------------------------------------------------------------
     # 4. Optional JSON export
     # ------------------------------------------------------------------
     if output:
-        import dataclasses
-
         report_dict: dict[str, object] = {
             "name": name,
             "smiles": smiles,

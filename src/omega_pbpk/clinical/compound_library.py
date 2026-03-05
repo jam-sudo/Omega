@@ -132,8 +132,7 @@ def _simulate_compound_pk(
         else:
             tmax = math.log(ka / ke) / (ka - ke)
             cmax = (
-                f_bio * dose * ka / (vd * (ka - ke))
-                * (math.exp(-ke * tmax) - math.exp(-ka * tmax))
+                f_bio * dose * ka / (vd * (ka - ke)) * (math.exp(-ke * tmax) - math.exp(-ka * tmax))
             )
         auc = f_bio * dose / cl
 
@@ -147,7 +146,7 @@ def _emax_hill(c: float, emax: float, ec50: float, hill: float) -> float:
     """Emax Hill: emax * c^hill / (ec50^hill + c^hill). Returns 0 if c<=0."""
     if c <= 0.0:
         return 0.0
-    c_n = c ** hill
+    c_n = c**hill
     ec50_n = max(ec50, 1e-12) ** hill
     return emax * c_n / (ec50_n + c_n)
 
@@ -194,9 +193,7 @@ def _pareto_rank(data: list[tuple[float, float, float, float]]) -> list[int]:
     return ranks
 
 
-def _kmeans_cluster(
-    features: NDArray, n_clusters: int, seed: int = 42
-) -> list[int]:
+def _kmeans_cluster(features: NDArray, n_clusters: int, seed: int = 42) -> list[int]:
     """Pure numpy k-means on normalised features.
 
     Features per compound: [log(auc+1e-9), log(cmax+1e-9), t_half, effect]
@@ -244,9 +241,7 @@ def _kmeans_cluster(
     labels = np.zeros(n, dtype=np.int64)
     for _ in range(50):
         # Assign
-        dists = np.sum(
-            (feat[:, None, :] - centers[None, :, :]) ** 2, axis=2
-        )
+        dists = np.sum((feat[:, None, :] - centers[None, :, :]) ** 2, axis=2)
         labels = np.argmin(dists, axis=1)
 
         # Update centers
@@ -293,7 +288,7 @@ def _composite_score(
     if width < 1e-12:
         width = 1.0
     deviation = (cmax - mid) / width
-    score += 20.0 * math.exp(-0.5 * deviation ** 2)
+    score += 20.0 * math.exp(-0.5 * deviation**2)
 
     return max(0.0, min(100.0, score))
 
@@ -334,10 +329,9 @@ def screen_library(
     ranks = _pareto_rank(pareto_data)
 
     # Clustering features: [auc, cmax, t_half, effect]
-    feat_matrix = np.array([
-        [auc, cmax, t_half, effects[i]]
-        for i, (cmax, auc, _tmax, t_half) in enumerate(pk_results)
-    ])
+    feat_matrix = np.array(
+        [[auc, cmax, t_half, effects[i]] for i, (cmax, auc, _tmax, t_half) in enumerate(pk_results)]
+    )
     cluster_labels = _kmeans_cluster(feat_matrix, n_clusters, seed=seed)
 
     # Build results
@@ -356,18 +350,20 @@ def screen_library(
 
         comp_score = _composite_score(cmax, auc, eff, t_half, criteria)
 
-        screen_results.append(CompoundScreenResult(
-            name=entry.name,
-            auc_mg_h_L=round(auc, 4),
-            cmax_mg_L=round(cmax, 4),
-            tmax_h=round(tmax, 4),
-            t_half_h=round(t_half, 4),
-            effect=round(eff, 4),
-            passes_criteria=passes,
-            pareto_rank=ranks[i],
-            cluster_id=cluster_labels[i],
-            composite_score=round(comp_score, 2),
-        ))
+        screen_results.append(
+            CompoundScreenResult(
+                name=entry.name,
+                auc_mg_h_L=round(auc, 4),
+                cmax_mg_L=round(cmax, 4),
+                tmax_h=round(tmax, 4),
+                t_half_h=round(t_half, 4),
+                effect=round(eff, 4),
+                passes_criteria=passes,
+                pareto_rank=ranks[i],
+                cluster_id=cluster_labels[i],
+                composite_score=round(comp_score, 2),
+            )
+        )
 
     # Sort by (pareto_rank ASC, composite_score DESC)
     screen_results.sort(key=lambda r: (r.pareto_rank, -r.composite_score))
