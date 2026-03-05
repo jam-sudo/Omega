@@ -1,8 +1,12 @@
 """Phase 45 — Dashboard frontend tests."""
+
 from __future__ import annotations
+
 import pathlib
+
 import pytest
 from fastapi.testclient import TestClient
+
 from omega_pbpk.api.app import app
 
 client = TestClient(app)
@@ -44,11 +48,21 @@ def test_static_style_css_served():
 def test_simulate_endpoint_dashboard_payload():
     payload = {
         "drug": {
-            "name": "test", "mw": 300.0, "logP": 2.0, "fup": 0.1,
-            "rbp": 1.0, "clint_hepatic_L_per_h": 5.0, "clr_L_per_h": 0.0,
-            "peff": 1.0, "vdss_L_per_kg": 0.6, "drug_type": "neutral",
+            "name": "test",
+            "mw": 300.0,
+            "logP": 2.0,
+            "fup": 0.1,
+            "rbp": 1.0,
+            "clint_hepatic_L_per_h": 5.0,
+            "clr_L_per_h": 0.0,
+            "peff": 1.0,
+            "vdss_L_per_kg": 0.6,
+            "drug_type": "neutral",
         },
-        "dose_mg": 100.0, "route": "oral", "duration_h": 24.0, "body_weight": 70.0,
+        "dose_mg": 100.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        "body_weight": 70.0,
     }
     r = client.post("/simulate", json=payload)
     assert r.status_code == 200
@@ -61,9 +75,16 @@ def test_simulate_endpoint_dashboard_payload():
 def test_ddi_simulate_endpoint_dashboard_payload():
     payload = {
         "victim_drug": {
-            "name": "victim", "mw": 300.0, "logP": 2.0, "fup": 0.1,
-            "rbp": 1.0, "clint_hepatic_L_per_h": 5.0, "clr_L_per_h": 0.0,
-            "peff": 1.0, "vdss_L_per_kg": 0.6, "drug_type": "neutral",
+            "name": "victim",
+            "mw": 300.0,
+            "logP": 2.0,
+            "fup": 0.1,
+            "rbp": 1.0,
+            "clint_hepatic_L_per_h": 5.0,
+            "clr_L_per_h": 0.0,
+            "peff": 1.0,
+            "vdss_L_per_kg": 0.6,
+            "drug_type": "neutral",
         },
         "perpetrator_name": "ketoconazole",
         "perpetrator_ki_uM": 0.1,
@@ -73,7 +94,10 @@ def test_ddi_simulate_endpoint_dashboard_payload():
         "perpetrator_kinact_per_h": 0.0,
         "perpetrator_kdeg_per_h": 0.02,
         "perpetrator_fold_induction": 1.0,
-        "dose_mg": 100.0, "route": "oral", "body_weight": 70.0, "duration_h": 24.0,
+        "dose_mg": 100.0,
+        "route": "oral",
+        "body_weight": 70.0,
+        "duration_h": 24.0,
     }
     r = client.post("/ddi/simulate", json=payload)
     assert r.status_code == 200
