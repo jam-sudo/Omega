@@ -5545,3 +5545,126 @@ def adr_risk(req: ADRRequest) -> ADRResponse:
     except Exception as exc:
         logger.exception("ADR risk error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 71 — Protein Binding / Corona
+# ---------------------------------------------------------------------------
+from omega_pbpk.prediction.protein_corona import predict_protein_binding, binding_sensitivity_analysis
+
+class _ProteinBindingReq(BaseModel):
+    drug_name: str
+    logP: float
+    pka_acid: float = 0.0
+    pka_basic: float = 0.0
+    MW: float = 300.0
+    drug_conc_uM: float = 0.1
+
+@app.post("/predict/protein_binding")
+def api_protein_binding(req: _ProteinBindingReq):
+    try:
+        r = predict_protein_binding(
+            drug_name=req.drug_name, logP=req.logP,
+            pka_acid=req.pka_acid, pka_basic=req.pka_basic,
+            MW=req.MW, drug_conc_uM=req.drug_conc_uM,
+        )
+        return r.__dict__
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 72 — Metabolic Stability
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.metabolic_stability import predict_metabolic_stability
+
+class _MetabStabReq(BaseModel):
+    drug_name: str
+    t_half_min: float
+    assay_type: str = "microsome"
+    species: str = "human_liver"
+    fup: float = 1.0
+    protein_mg_mL: float = 0.5
+
+@app.post("/predict/metabolic_stability")
+def api_metabolic_stability(req: _MetabStabReq):
+    try:
+        r = predict_metabolic_stability(
+            req.drug_name, t_half_min=req.t_half_min,
+            assay_type=req.assay_type, species=req.species,
+            fup=req.fup, protein_mg_mL=req.protein_mg_mL,
+        )
+        return r.__dict__
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 73 — Population PK
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.pop_pk import simulate_pop_pk
+
+class _PopPKReq(BaseModel):
+    n_subjects: int = 100
+    dose_mg: float = 100.0
+    cl_typical_L_per_h: float = 5.0
+    vd_typical_L: float = 50.0
+    omega_cl: float = 0.3
+    omega_vd: float = 0.2
+    route: str = "oral"
+    t_end_h: float = 24.0
+    seed: int = 42
+    therapeutic_low_mg_L: float | None = None
+    therapeutic_high_mg_L: float | None = None
+
+@app.post("/simulate/pop_pk")
+def api_pop_pk(req: _PopPKReq):
+    try:
+        r = simulate_pop_pk(
+            n_subjects=req.n_subjects, dose_mg=req.dose_mg,
+            cl_typical_L_per_h=req.cl_typical_L_per_h,
+            vd_typical_L=req.vd_typical_L,
+            omega_cl=req.omega_cl, omega_vd=req.omega_vd,
+            route=req.route, t_end_h=req.t_end_h, seed=req.seed,
+            therapeutic_low_mg_L=req.therapeutic_low_mg_L,
+            therapeutic_high_mg_L=req.therapeutic_high_mg_L,
+        )
+        import dataclasses
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 74 — Drug Accumulation
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.accumulation import simulate_accumulation, dosing_regimen_comparison
+
+class _AccumulationReq(BaseModel):
+    drug_name: str
+    dose_mg: float = 100.0
+    cl_L_per_h: float = 5.0
+    vd_L: float = 50.0
+    dosing_interval_h: float = 12.0
+    n_doses: int = 10
+
+@app.post("/simulate/accumulation")
+def api_accumulation(req: _AccumulationReq):
+    try:
+        r = simulate_accumulation(
+            drug_name=req.drug_name, dose_mg=req.dose_mg,
+            cl_L_per_h=req.cl_L_per_h, vd_L=req.vd_L,
+            dosing_interval_h=req.dosing_interval_h, n_doses=req.n_doses,
+        )
+        import dataclasses
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
