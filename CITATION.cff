@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use Omega in your research, please cite it as below."
+title: "Omega: A Python-native whole-body PBPK simulation platform"
+authors:
+  - family-names: Yoon
+    given-names: Jae Min
+repository-code: https://github.com/jam-sudo/Omega
+license: MIT
+version: "0.9.0"

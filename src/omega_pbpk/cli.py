@@ -1,8 +1,9 @@
-"""Omega PBPK CLI — 20 commands for pharmacokinetic simulation and analysis.
+"""Omega PBPK CLI — 21 commands for pharmacokinetic simulation and analysis.
 
 Commands:
   simulate         — Run PBPK simulation (IV or oral)
   predict          — SMILES → full PK simulation (ADME + PBPK)
+  smiles-report    — SMILES → complete formatted PK assessment report (all subsystems)
   multidose        — Multi-dose steady-state simulation
   optimize         — Therapeutic window dose optimization
   safety           — Off-target safety panel
@@ -517,6 +518,251 @@ def predict(
         typer.echo("\nWarnings:")
         for w in result.warnings:
             typer.echo(f"  ! {w}")
+
+
+@app.command("smiles-report")
+def smiles_report(
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug"),
+    name: str = typer.Option("Unknown", "--name", "-n", help="Drug name (optional label)"),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
+    route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv"),
+    duration: float = typer.Option(24.0, "--duration", help="Simulation duration (h)"),
+    output: str = typer.Option("", "--output", "-o", help="Save JSON report to this path"),
+    no_uq: bool = typer.Option(False, "--no-uq", help="Skip uncertainty quantification"),
+) -> None:
+    """Generate a complete SMILES→PK assessment report (all subsystems).
+
+    Runs the full pipeline: ADME prediction → PBPK simulation → uncertainty
+    quantification → transporter profiling → BCS classification → risk flags.
+    Outputs a structured text report; optionally saves JSON with --output.
+    """
+    import math
+    from datetime import datetime, timezone
+
+    _audit("smiles-report", smiles=smiles, name=name, dose_mg=dose, route=route)
+
+    DIVIDER = "=" * 60
+    SECTION = "-" * 60
+
+    def _fmt(v: float, decimals: int = 4) -> str:
+        return "nan" if (isinstance(v, float) and math.isnan(v)) else f"{v:.{decimals}f}"
+
+    def _sparkline(values: list[float], width: int = 40) -> str:
+        """ASCII sparkline using block chars."""
+        blocks = " ▁▂▃▄▅▆▇█"
+        if not values or max(values) == 0:
+            return " " * width
+        mn, mx = 0.0, max(values)
+        step = mx / (len(blocks) - 1)
+        sampled = [values[int(i * (len(values) - 1) / (width - 1))] for i in range(width)]
+        return "".join(blocks[min(int(v / step), len(blocks) - 1)] for v in sampled)
+
+    typer.echo(DIVIDER)
+    typer.echo("  Omega PBPK — Drug Assessment Report")
+    typer.echo(DIVIDER)
+    typer.echo(f"  Date:   {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+    typer.echo(f"  Name:   {name}")
+    typer.echo(f"  SMILES: {smiles[:55]}{'...' if len(smiles) > 55 else ''}")
+    typer.echo(f"  Dose:   {dose} mg  |  Route: {route}  |  Duration: {duration} h")
+    typer.echo(SECTION)
+
+    # ------------------------------------------------------------------
+    # 1. Full pipeline
+    # ------------------------------------------------------------------
+    typer.echo("  [1/4] Running ADME prediction + PBPK simulation...")
+    from omega_pbpk.prediction.full_pipeline import run_full_prediction
+
+    n_uq = 0 if no_uq else 50
+    try:
+        fp = run_full_prediction(
+            smiles=smiles,
+            dose_mg=dose,
+            route=route,
+            duration_h=duration,
+            n_uq_samples=n_uq,
+        )
+    except Exception as exc:
+        typer.echo(f"  ERROR: Full pipeline failed: {exc}", err=True)
+        raise typer.Exit(1)
+
+    # ------------------------------------------------------------------
+    # 2. BCS classification from ADME output
+    # ------------------------------------------------------------------
+    typer.echo("  [2/4] BCS classification...")
+    bcs_class = "N/A"
+    bcs_biowaiver = False
+    try:
+        from omega_pbpk.biopharmaceutics.bcs_classification import classify_bcs
+
+        adme = fp.adme
+        mw = float(adme.get("mw", 300.0))
+        logs = float(adme.get("logS", -3.0))
+        peff_pred = float(adme.get("peff", 1.0))
+        # Convert logS (log mol/L) → mg/mL: S_mg_mL = 10^logS × MW / 1000
+        sol_mg_mL = (10.0 ** logs) * mw / 1000.0
+        # peff from ADME is in 10^-4 cm/s units; convert to cm/s
+        peff_cm_s = peff_pred * 1e-4
+        bcs_class = classify_bcs(
+            solubility_mg_per_mL=max(sol_mg_mL, 1e-6),
+            dose_mg=dose,
+            permeability_cm_per_s=peff_cm_s,
+        )
+        bcs_biowaiver = bcs_class in ("I", "III")
+    except Exception as exc:
+        typer.echo(f"  Warning: BCS classification failed: {exc}")
+
+    # ------------------------------------------------------------------
+    # 3. Report assembly
+    # ------------------------------------------------------------------
+    typer.echo("  [3/4] Assembling report...")
+    typer.echo("  [4/4] Done.\n")
+
+    # --- PK Summary ---
+    typer.echo(DIVIDER)
+    typer.echo("  PK SUMMARY")
+    typer.echo(SECTION)
+    typer.echo(f"  Cmax      : {_fmt(fp.cmax_mg_L)} mg/L")
+    typer.echo(f"  Tmax      : {_fmt(fp.tmax_h, 2)} h")
+    typer.echo(f"  AUC(0-t)  : {_fmt(fp.auc0t_mg_h_L)} mg·h/L")
+    typer.echo(f"  t½        : {_fmt(fp.t_half_h, 2)} h")
+
+    # Concentration-time sparkline
+    if fp.cp_mg_L:
+        spark = _sparkline(list(fp.cp_mg_L))
+        typer.echo(f"\n  C(t) profile (0 → {duration:.0f} h):")
+        typer.echo(f"  |{spark}|")
+        typer.echo(f"  0{' ' * 18}{duration/2:.0f} h{' ' * 16}{duration:.0f} h")
+
+    # --- Uncertainty Quantification ---
+    if not no_uq and fp.cmax_p5 > 0:
+        typer.echo(f"\n{SECTION}")
+        typer.echo("  UNCERTAINTY QUANTIFICATION (p5 / p50 / p95)")
+        typer.echo(SECTION)
+        typer.echo(f"  Cmax [mg/L]   : {_fmt(fp.cmax_p5)} / {_fmt(fp.cmax_p50)} / {_fmt(fp.cmax_p95)}")
+        typer.echo(f"  AUC  [mg·h/L] : {_fmt(fp.auc_p5)} / {_fmt(fp.auc_p50)} / {_fmt(fp.auc_p95)}")
+
+    # --- ADME Properties ---
+    typer.echo(f"\n{SECTION}")
+    typer.echo("  PREDICTED ADME PROPERTIES")
+    typer.echo(SECTION)
+    adme_labels = {
+        "mw": ("MW", "Da"),
+        "logP": ("logP", ""),
+        "logS": ("logS", "log mol/L"),
+        "peff": ("Peff", "×10⁻⁴ cm/s"),
+        "fup": ("fup", ""),
+        "rbp": ("RBP", ""),
+        "clint_3a4": ("CLint CYP3A4", "µL/min/pmol"),
+        "clint_2d6": ("CLint CYP2D6", "µL/min/pmol"),
+        "herg_ic50_uM": ("hERG IC50", "µM"),
+    }
+    for key, (label, unit) in adme_labels.items():
+        v = fp.adme.get(key)
+        if v is not None:
+            suffix = f" {unit}" if unit else ""
+            typer.echo(f"  {label:<20}: {v:.3g}{suffix}")
+    typer.echo(f"  {'ADME confidence':<20}: {fp.adme_confidence}")
+
+    # --- BCS ---
+    typer.echo(f"\n{SECTION}")
+    typer.echo("  BCS CLASSIFICATION")
+    typer.echo(SECTION)
+    bcs_names = {"I": "Class I  (High sol / High perm)", "II": "Class II (Low sol / High perm)",
+                 "III": "Class III (High sol / Low perm)", "IV": "Class IV (Low sol / Low perm)"}
+    typer.echo(f"  BCS Class    : {bcs_names.get(bcs_class, bcs_class)}")
+    typer.echo(f"  Biowaiver    : {'Potentially eligible' if bcs_biowaiver else 'Not eligible'}")
+
+    # --- Transporters ---
+    typer.echo(f"\n{SECTION}")
+    typer.echo("  TRANSPORTER PROFILE")
+    typer.echo(SECTION)
+    typer.echo(f"  Substrates   : {', '.join(fp.transporter_substrates) or 'None predicted'}")
+    typer.echo(f"  Inhibitors   : {', '.join(fp.transporter_inhibitors) or 'None predicted'}")
+    if fp.transporter_ddi_flags:
+        typer.echo(f"  DDI flags    : {', '.join(fp.transporter_ddi_flags)}")
+    typer.echo(f"  Confidence   : {fp.transporter_confidence}")
+
+    # --- Risk Assessment ---
+    typer.echo(f"\n{SECTION}")
+    typer.echo("  RISK ASSESSMENT")
+    typer.echo(SECTION)
+    if fp.risk_flags:
+        for flag, active in fp.risk_flags.items():
+            marker = "[!]" if active else "[ ]"
+            typer.echo(f"  {marker} {flag.replace('_', ' ').title()}")
+    else:
+        typer.echo("  No risk flags generated.")
+    risk_color = {"low": "GREEN", "moderate": "YELLOW", "high": "RED"}.get(
+        fp.overall_risk_level, ""
+    )
+    typer.echo(f"\n  Overall risk : {fp.overall_risk_level.upper()} [{risk_color}]")
+    typer.echo(f"  Active flags : {fp.risk_count}")
+
+    # --- Warnings ---
+    # Filter UQ warnings when user explicitly skipped UQ
+    visible_warnings = list(fp.warnings)
+    if no_uq:
+        visible_warnings = [w for w in visible_warnings if "UQ" not in w and "uq" not in w.lower()]
+    if visible_warnings:
+        typer.echo(f"\n{SECTION}")
+        typer.echo("  WARNINGS")
+        typer.echo(SECTION)
+        for w in visible_warnings:
+            typer.echo(f"  ! {w}")
+
+    typer.echo(f"\n{DIVIDER}")
+    typer.echo(f"  PubChem enriched: {fp.pubchem_enriched}  |  Pipeline confidence: {fp.confidence}")
+    typer.echo(DIVIDER)
+
+    # ------------------------------------------------------------------
+    # 4. Optional JSON export
+    # ------------------------------------------------------------------
+    if output:
+        import dataclasses
+
+        report_dict: dict[str, object] = {
+            "name": name,
+            "smiles": smiles,
+            "dose_mg": dose,
+            "route": route,
+            "duration_h": duration,
+            "pk_summary": {
+                "cmax_mg_L": fp.cmax_mg_L,
+                "tmax_h": fp.tmax_h,
+                "auc0t_mg_h_L": fp.auc0t_mg_h_L,
+                "t_half_h": fp.t_half_h,
+            },
+            "uq": {
+                "cmax_p5": fp.cmax_p5,
+                "cmax_p50": fp.cmax_p50,
+                "cmax_p95": fp.cmax_p95,
+                "auc_p5": fp.auc_p5,
+                "auc_p50": fp.auc_p50,
+                "auc_p95": fp.auc_p95,
+            },
+            "adme": fp.adme,
+            "adme_confidence": fp.adme_confidence,
+            "bcs_class": bcs_class,
+            "bcs_biowaiver_eligible": bcs_biowaiver,
+            "transporters": {
+                "substrates": list(fp.transporter_substrates),
+                "inhibitors": list(fp.transporter_inhibitors),
+                "ddi_flags": list(fp.transporter_ddi_flags),
+                "confidence": fp.transporter_confidence,
+            },
+            "risk": {
+                "flags": fp.risk_flags,
+                "risk_count": fp.risk_count,
+                "overall_risk_level": fp.overall_risk_level,
+            },
+            "pubchem_enriched": fp.pubchem_enriched,
+            "confidence": fp.confidence,
+            "warnings": list(fp.warnings),
+        }
+        out_path = Path(output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(report_dict, indent=2, default=str), encoding="utf-8")
+        typer.echo(f"\n  Report saved: {out_path}")
 
 
 @app.command()

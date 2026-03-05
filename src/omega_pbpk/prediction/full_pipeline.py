@@ -133,22 +133,17 @@ def run_full_prediction(
     surrogate_auc: float = 0.0
     try:
         if adme_props is not None:
-            from omega_pbpk.ml_models.pk_surrogate import (
-                PKSurrogateInput,
-                predict_pk_surrogate,
-            )
+            # Phase 51: Use PBPK property surrogate (trained on 35-state ODE data)
+            # Falls back gracefully to 1-cpt analytical if no cached model available.
+            from omega_pbpk.surrogate.pbpk_surrogate import predict_from_adme_dict
 
-            _surr_inp = PKSurrogateInput(
+            _surr_out = predict_from_adme_dict(
+                adme=adme_dict,
                 dose_mg=dose_mg,
-                cl_L_per_h=float(adme_dict.get("clint_3a4", 5.0)),
-                vd_L=float(adme_dict.get("vd", 70.0)),
-                ka_per_h=float(adme_dict.get("ka", 1.0)),
-                f_bioavail=float(adme_dict.get("fup", 0.5)),
                 route=route,
             )
-            _surr_out = predict_pk_surrogate(_surr_inp)
-            surrogate_cmax = _surr_out.cmax_mg_per_L
-            surrogate_auc = _surr_out.auc_mg_h_per_L
+            surrogate_cmax = _surr_out.cmax_mg_L
+            surrogate_auc = _surr_out.auc_mg_h_L
     except Exception as e:  # noqa: BLE001
         warnings.append(f"Surrogate fallback failed: {e}")
 
