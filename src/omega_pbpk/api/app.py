@@ -28,6 +28,11 @@ Endpoints:
   POST /predict/gat            — Graph Attention Network ADME prediction
   POST /pubchem/lookup         — PubChem PUG REST live compound lookup
   POST /interpret              — GPT/rule-based natural-language PK interpretation
+  POST /predict/bioavailability — F = fa × fg × fh oral bioavailability prediction
+  POST /predict/steady_state  — multi-dose superposition steady-state PK metrics
+  POST /ivivc               — In Vitro–In Vivo Correlation (Level A/B/C, Wagner-Nelson)
+  POST /population/pk_fit  — Standard two-stage population PK fitting (CL, Vd, BSV, AIC/BIC)
+  POST /kidney/pk          — Mechanistic renal PK: filtration + secretion + reabsorption
 
 Auth endpoints (only active when OMEGA_AUTH_ENABLED=true):
   POST /auth/token             — obtain JWT bearer token
@@ -3746,4 +3751,890 @@ def predict_kp_endpoint(req: KpRequest) -> KpResponse:
         raise
     except Exception as exc:
         logger.exception("Kp prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/neural_ode  — Phase 46 Neural ODE surrogate
+# ---------------------------------------------------------------------------
+
+
+class NeuralODERequest(BaseModel):
+    """Request for Neural ODE C(t) trajectory prediction."""
+
+    logP: float = Field(default=2.0, description="Log octanol-water partition coefficient")
+    fup: float = Field(default=0.5, gt=0, le=1.0, description="Plasma unbound fraction")
+    clint_L_per_h: float = Field(default=10.0, gt=0, description="Hepatic CLint (L/h)")
+    mw: float = Field(default=300.0, gt=0, description="Molecular weight (g/mol)")
+    rbp: float = Field(default=1.0, gt=0, description="Red blood cell-to-plasma ratio")
+    peff: float = Field(default=1.0, gt=0, description="Intestinal permeability (×10⁻⁴ cm/s)")
+    dose_mg: float = Field(default=100.0, gt=0, description="Dose (mg)")
+    route: str = Field(default="oral", description="'oral' or 'iv'")
+    t_end_h: float = Field(default=24.0, gt=0, description="Simulation horizon (h)")
+
+
+class NeuralODEResponse(BaseModel):
+    """Response from Neural ODE surrogate."""
+
+    t_h: list[float] = Field(description="Time points (h)")
+    C_mg_L: list[float] = Field(description="Predicted plasma concentration (mg/L)")
+    cmax_mg_L: float = Field(description="Peak plasma concentration (mg/L)")
+    auc_mg_h_L: float = Field(description="AUC₀₋ₜ (mg·h/L)")
+    tmax_h: float = Field(description="Time to peak (h)")
+    t_half_h: float = Field(description="Terminal elimination half-life (h)")
+    train_r2: float = Field(description="Training R² of Neural ODE dynamics model")
+    n_train: int = Field(description="Number of PBPK trajectories used for training")
+    solve_time_ms: float = Field(description="Inference wall-clock time (ms)")
+
+
+@app.post("/predict/neural_ode", response_model=NeuralODEResponse, tags=["predict"])
+def predict_neural_ode_endpoint(req: NeuralODERequest) -> NeuralODEResponse:
+    """Predict full plasma C(t) trajectory via Neural ODE surrogate (Phase 46).
+
+    A 2-layer MLP parameterises the ODE dynamics dC/dt = f(C, t, drug_params).
+    Trained on 100 PBPK simulations via Euler BPTT with Adam optimiser.
+    Inference uses RK4 integration for accuracy (~1 ms vs ~500 ms for full PBPK).
+
+    The singleton model is auto-trained on first call (~15 s).
+    """
+    try:
+        from omega_pbpk.ml_models.neural_ode import NeuralODEInput, predict_neural_ode
+
+        inp = NeuralODEInput(
+            logP=req.logP,
+            fup=req.fup,
+            clint_L_per_h=req.clint_L_per_h,
+            mw=req.mw,
+            rbp=req.rbp,
+            peff=req.peff,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            t_end_h=req.t_end_h,
+        )
+        out = predict_neural_ode(inp)
+        return NeuralODEResponse(
+            t_h=out.t_h,
+            C_mg_L=out.C_mg_L,
+            cmax_mg_L=out.cmax_mg_L,
+            auc_mg_h_L=out.auc_mg_h_L,
+            tmax_h=out.tmax_h,
+            t_half_h=out.t_half_h,
+            train_r2=out.train_r2,
+            n_train=out.n_train,
+            solve_time_ms=out.solve_time_ms,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Neural ODE prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /trial/parallel  — Phase 47 Parallel-Group Clinical Trial Simulator
+# ---------------------------------------------------------------------------
+
+
+class _DoseGroupModel(BaseModel):
+    name: str = Field(description="Arm label (e.g. 'Placebo', '10 mg')")
+    dose_mg: float = Field(default=0.0, ge=0, description="Dose (mg); 0 = placebo")
+    route: str = Field(default="oral", description="'oral' or 'iv'")
+    n_subjects: int = Field(default=30, ge=2, le=500, description="Subjects in arm")
+
+
+class ParallelTrialRequest(BaseModel):
+    """Request body for a parallel-group clinical trial simulation."""
+
+    dose_groups: list[_DoseGroupModel] = Field(
+        description="2–5 dose groups including optional placebo"
+    )
+    cl_L_per_h: float = Field(default=5.0, gt=0, description="Population CL (L/h)")
+    vd_L: float = Field(default=70.0, gt=0, description="Population Vd (L)")
+    ka_per_h: float = Field(default=1.2, gt=0, description="Absorption rate (1/h)")
+    f_bioavail: float = Field(default=0.8, gt=0, le=1.0, description="Bioavailability")
+    bsv_cv_cl: float = Field(default=0.30, ge=0, description="BSV CV for CL")
+    bsv_cv_vd: float = Field(default=0.20, ge=0, description="BSV CV for Vd")
+    bsv_cv_ka: float = Field(default=0.40, ge=0, description="BSV CV for ka")
+    emax: float = Field(default=1.0, gt=0, description="Maximum PD effect")
+    ec50_mg_L: float = Field(default=1.0, gt=0, description="EC50 for PD (mg/L)")
+    hill: float = Field(default=1.0, gt=0, description="Hill coefficient")
+    pd_input: str = Field(default="cmax", description="PD driver: 'cmax' or 'auc'")
+    t_end_h: float = Field(default=24.0, gt=0, description="PK horizon (h)")
+    alpha: float = Field(default=0.05, gt=0, le=0.5, description="Significance level")
+    interim_fraction: float = Field(default=0.5, ge=0, le=1, description="Interim enrolment fraction (0=none)")
+    seed: int = Field(default=42, description="Random seed")
+
+
+class _ArmSummaryModel(BaseModel):
+    name: str
+    dose_mg: float
+    n: int
+    cmax_mean: float
+    cmax_gsd: float
+    auc_mean: float
+    auc_gsd: float
+    effect_mean: float
+    effect_sd: float
+    responder_pct: float
+
+
+class _PairwiseModel(BaseModel):
+    arm_name: str
+    dose_mg: float
+    endpoint: str
+    t_stat: float
+    p_value: float
+    p_adjusted: float
+    significant: bool
+    mean_difference: float
+    ci_lower: float
+    ci_upper: float
+
+
+class _DoseResponseModel(BaseModel):
+    emax_fit: float
+    ec50_dose_mg: float
+    hill_fit: float
+    r_squared: float
+    ed80_mg: float
+    ed90_mg: float
+    fit_success: bool
+
+
+class _InterimModel(BaseModel):
+    conducted: bool
+    fraction_enrolled: float
+    conditional_power: float
+    futility_stop: bool
+    n_interim: int
+
+
+class ParallelTrialResponse(BaseModel):
+    """Response from the parallel-group trial simulation."""
+
+    arms: list[_ArmSummaryModel]
+    anova_p_auc: float
+    anova_p_cmax: float
+    anova_p_effect: float
+    pairwise: list[_PairwiseModel]
+    dose_response: _DoseResponseModel
+    interim: _InterimModel
+    trial_success: bool
+    optimal_dose_mg: float
+    total_subjects: int
+
+
+@app.post("/trial/parallel", response_model=ParallelTrialResponse, tags=["trial"])
+def run_parallel_trial_endpoint(req: ParallelTrialRequest) -> ParallelTrialResponse:
+    """Simulate a parallel-group phase 2/3 clinical trial (Phase 47).
+
+    Runs a multi-arm virtual trial with:
+    - 1-compartment PK + log-normal between-subject variability
+    - Emax/Hill PD model (driver: Cmax or AUC)
+    - One-way ANOVA + Bonferroni pairwise t-tests
+    - Hill dose-response curve fitting
+    - Interim futility analysis (conditional power)
+    """
+    try:
+        from omega_pbpk.clinical.parallel_trial import (
+            DoseGroup,
+            ParallelTrialDesign,
+            run_parallel_trial,
+        )
+
+        if not (2 <= len(req.dose_groups) <= 5):
+            raise HTTPException(
+                status_code=422,
+                detail="Between 2 and 5 dose groups are required.",
+            )
+
+        groups = tuple(
+            DoseGroup(
+                name=g.name,
+                dose_mg=g.dose_mg,
+                route=g.route,
+                n_subjects=g.n_subjects,
+            )
+            for g in req.dose_groups
+        )
+
+        design = ParallelTrialDesign(
+            dose_groups=groups,
+            cl_L_per_h=req.cl_L_per_h,
+            vd_L=req.vd_L,
+            ka_per_h=req.ka_per_h,
+            f_bioavail=req.f_bioavail,
+            bsv_cv_cl=req.bsv_cv_cl,
+            bsv_cv_vd=req.bsv_cv_vd,
+            bsv_cv_ka=req.bsv_cv_ka,
+            emax=req.emax,
+            ec50_mg_L=req.ec50_mg_L,
+            hill=req.hill,
+            pd_input=req.pd_input,
+            t_end_h=req.t_end_h,
+            alpha=req.alpha,
+            interim_fraction=req.interim_fraction,
+            seed=req.seed,
+        )
+
+        res = run_parallel_trial(design)
+
+        return ParallelTrialResponse(
+            arms=[_ArmSummaryModel(**a.__dict__) for a in res.arms],
+            anova_p_auc=res.anova_p_auc,
+            anova_p_cmax=res.anova_p_cmax,
+            anova_p_effect=res.anova_p_effect,
+            pairwise=[_PairwiseModel(**p.__dict__) for p in res.pairwise],
+            dose_response=_DoseResponseModel(**res.dose_response.__dict__),
+            interim=_InterimModel(**res.interim.__dict__),
+            trial_success=res.trial_success,
+            optimal_dose_mg=res.optimal_dose_mg,
+            total_subjects=res.total_subjects,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Parallel trial simulation error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /library/screen  — Phase 48 Compound Library Screening
+# ---------------------------------------------------------------------------
+
+
+class _CompoundEntryModel(BaseModel):
+    name: str = Field(description="Compound name/identifier")
+    logP: float = Field(default=2.0, description="Log octanol-water partition coefficient")
+    fup: float = Field(default=0.5, gt=0, le=1.0, description="Plasma unbound fraction")
+    clint_L_per_h: float = Field(default=10.0, gt=0, description="Hepatic CLint (L/h)")
+    mw: float = Field(default=300.0, gt=0, description="Molecular weight (g/mol)")
+    rbp: float = Field(default=1.0, gt=0, description="Red blood cell-to-plasma ratio")
+    peff: float = Field(default=1.0, gt=0, description="Intestinal permeability")
+    dose_mg: float = Field(default=100.0, gt=0, description="Dose (mg)")
+    route: str = Field(default="oral", description="'oral' or 'iv'")
+    cl_L_per_h: float = Field(default=5.0, gt=0, description="Clearance (L/h)")
+    vd_L: float = Field(default=70.0, gt=0, description="Volume of distribution (L)")
+    ka_per_h: float = Field(default=1.2, gt=0, description="Absorption rate (1/h)")
+    f_bioavail: float = Field(default=0.8, gt=0, le=1.0, description="Bioavailability")
+
+
+class _ScreeningCriteriaModel(BaseModel):
+    min_auc_mg_h_L: float = Field(default=0.0, ge=0)
+    max_cmax_mg_L: float = Field(default=1e9, gt=0)
+    min_f_bioavail: float = Field(default=0.0, ge=0, le=1.0)
+    max_t_half_h: float = Field(default=999.0, gt=0)
+    min_effect: float = Field(default=0.0, ge=0)
+    ec50_mg_L: float = Field(default=1.0, gt=0)
+    emax: float = Field(default=1.0, gt=0)
+    hill: float = Field(default=1.0, gt=0)
+    target_cmax_lower: float = Field(default=0.0, ge=0)
+    target_cmax_upper: float = Field(default=1e9, gt=0)
+
+
+class LibraryScreenRequest(BaseModel):
+    """Request body for compound library screening."""
+
+    entries: list[_CompoundEntryModel] = Field(description="Library compounds (1–500)")
+    criteria: _ScreeningCriteriaModel = Field(default_factory=_ScreeningCriteriaModel)
+    n_clusters: int = Field(default=3, ge=1, le=20, description="K-means clusters")
+    seed: int = Field(default=42, description="Random seed for clustering")
+
+
+class _CompoundResultModel(BaseModel):
+    name: str
+    auc_mg_h_L: float
+    cmax_mg_L: float
+    tmax_h: float
+    t_half_h: float
+    effect: float
+    passes_criteria: bool
+    pareto_rank: int
+    cluster_id: int
+    composite_score: float
+
+
+class LibraryScreenResponse(BaseModel):
+    """Response from compound library screening."""
+
+    results: list[_CompoundResultModel]
+    n_passed: int
+    n_pareto_front: int
+    clusters: dict[str, list[str]]
+    lead_compounds: list[str]
+    screening_time_s: float
+
+
+@app.post("/library/screen", response_model=LibraryScreenResponse, tags=["predict"])
+def screen_library_endpoint(req: LibraryScreenRequest) -> LibraryScreenResponse:
+    """Screen a compound library with multi-objective Pareto ranking (Phase 48).
+
+    For each compound:
+    1. Simulate 1-compartment PK (deterministic, no BSV).
+    2. Apply Emax/Hill PD model.
+    3. Multi-objective Pareto ranking (AUC, effect, Cmax window, t_half).
+    4. K-means diversity clustering on PK profile space.
+    5. Composite scoring (0–100) and lead selection.
+    """
+    try:
+        from omega_pbpk.clinical.compound_library import (
+            CompoundEntry,
+            ScreeningCriteria,
+            screen_library,
+        )
+
+        if not req.entries:
+            raise HTTPException(status_code=422, detail="At least one compound entry required.")
+
+        entries = [
+            CompoundEntry(
+                name=e.name,
+                logP=e.logP,
+                fup=e.fup,
+                clint_L_per_h=e.clint_L_per_h,
+                mw=e.mw,
+                rbp=e.rbp,
+                peff=e.peff,
+                dose_mg=e.dose_mg,
+                route=e.route,
+                cl_L_per_h=e.cl_L_per_h,
+                vd_L=e.vd_L,
+                ka_per_h=e.ka_per_h,
+                f_bioavail=e.f_bioavail,
+            )
+            for e in req.entries
+        ]
+
+        c = req.criteria
+        criteria = ScreeningCriteria(
+            min_auc_mg_h_L=c.min_auc_mg_h_L,
+            max_cmax_mg_L=c.max_cmax_mg_L,
+            min_f_bioavail=c.min_f_bioavail,
+            max_t_half_h=c.max_t_half_h,
+            min_effect=c.min_effect,
+            ec50_mg_L=c.ec50_mg_L,
+            emax=c.emax,
+            hill=c.hill,
+            target_cmax_lower=c.target_cmax_lower,
+            target_cmax_upper=c.target_cmax_upper,
+        )
+
+        res = screen_library(entries, criteria, n_clusters=req.n_clusters, seed=req.seed)
+
+        return LibraryScreenResponse(
+            results=[_CompoundResultModel(**r.__dict__) for r in res.results],
+            n_passed=res.n_passed,
+            n_pareto_front=res.n_pareto_front,
+            clusters={str(k): v for k, v in res.clusters.items()},
+            lead_compounds=res.lead_compounds,
+            screening_time_s=res.screening_time_s,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Library screening error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 49: PK Validation & Parameter Calibration endpoints
+# ---------------------------------------------------------------------------
+
+
+class PKValidateRequest(BaseModel):
+    """Validate simulated PK against observed clinical concentration-time data."""
+
+    drug: DrugRequest
+    dose_mg: float = Field(default=100.0, gt=0)
+    route: str = Field(default="oral", pattern="^(oral|iv)$")
+    observed_times: list[float] = Field(..., min_length=3)
+    observed_conc: list[float] = Field(..., min_length=3)
+    body_weight: float = Field(default=70.0, gt=0)
+    t_end_h: float | None = Field(default=None, gt=0)
+
+
+class PKValidateResponse(BaseModel):
+    aafe: float
+    afe: float
+    within_2fold_pct: float
+    rmse_mg_per_L: float
+    auc_obs_mg_h_L: float
+    auc_sim_mg_h_L: float
+    auc_relative_error: float
+    cmax_obs_mg_L: float
+    cmax_sim_mg_L: float
+    cmax_relative_error: float
+    n_obs: int
+    fold_errors: list[float]
+    aafe_pass: bool
+    within_2fold_pass: bool
+    auc_pass: bool
+    cmax_pass: bool
+    overall_pass: bool
+
+
+@app.post("/validate/pk", response_model=PKValidateResponse)
+def validate_pk(req: PKValidateRequest) -> PKValidateResponse:
+    """Compute AAFE, AFE, within-2-fold %, RMSE and NCA metrics vs observed data."""
+    try:
+        from omega_pbpk.validation.pk_validator import validate_drug
+
+        drug = _drug_request_to_drug(req.drug)
+        result = validate_drug(
+            drug=drug,
+            observed_times=req.observed_times,
+            observed_conc=req.observed_conc,
+            dose_mg=req.dose_mg,
+            route=req.route,  # type: ignore[arg-type]
+            body_weight=req.body_weight,
+            t_end_h=req.t_end_h,
+        )
+        s = result.summary()
+        return PKValidateResponse(**s)  # type: ignore[arg-type]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("PK validation error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+class CalibrateClintRequest(BaseModel):
+    """Calibrate CLint (and optionally fup / Kp scale) to match observed PK data."""
+
+    drug: DrugRequest
+    dose_mg: float = Field(default=100.0, gt=0)
+    route: str = Field(default="oral", pattern="^(oral|iv)$")
+    observed_times: list[float] = Field(..., min_length=3)
+    observed_conc: list[float] = Field(..., min_length=3)
+    body_weight: float = Field(default=70.0, gt=0)
+    params_to_fit: list[str] = Field(default=["clint"])
+    max_iter: int = Field(default=200, ge=10, le=2000)
+
+
+class CalibrateClintResponse(BaseModel):
+    original_clint_L_per_h: float
+    calibrated_clint_L_per_h: float
+    original_fup: float
+    calibrated_fup: float
+    original_kp_scale: float
+    calibrated_kp_scale: float
+    pre_aafe: float
+    post_aafe: float
+    aafe_improvement: float
+    pre_within_2fold_pct: float
+    post_within_2fold_pct: float
+    pre_rmse: float
+    post_rmse: float
+    n_iterations: int
+    converged: bool
+    optimizer_message: str
+
+
+@app.post("/calibrate/clint", response_model=CalibrateClintResponse)
+def calibrate_clint(req: CalibrateClintRequest) -> CalibrateClintResponse:
+    """Fit CLint (and optionally fup/Kp) to observed plasma concentration data."""
+    try:
+        from omega_pbpk.validation.parameter_calibrator import calibrate_drug
+
+        drug = _drug_request_to_drug(req.drug)
+        result = calibrate_drug(
+            drug=drug,
+            observed_times=req.observed_times,
+            observed_conc=req.observed_conc,
+            dose_mg=req.dose_mg,
+            route=req.route,
+            body_weight=req.body_weight,
+            params_to_fit=req.params_to_fit,
+            max_iter=req.max_iter,
+        )
+        s = result.summary()
+        return CalibrateClintResponse(**s)  # type: ignore[arg-type]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Parameter calibration error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/bioavailability
+# ---------------------------------------------------------------------------
+
+
+class BioavailabilityRequest(BaseModel):
+    drug: DrugRequest
+    dose_mg: float = Field(default=100.0, gt=0)
+    route: str = Field(default="oral", pattern="^oral$")
+    q_liver_L_per_h: float = Field(default=90.0, gt=0)
+    gut_volume_mL: float = Field(default=250.0, gt=0)
+
+
+class BioavailabilityResponse(BaseModel):
+    fa: float
+    fg: float
+    fh: float
+    F_total: float
+    dose_number: float
+    peff_cm_s: float
+    clh_L_per_h: float
+    extraction_ratio: float
+    limiting_factor: str
+    confidence: str
+
+
+@app.post("/predict/bioavailability", response_model=BioavailabilityResponse)
+def predict_bioavailability_endpoint(req: BioavailabilityRequest) -> BioavailabilityResponse:
+    """Predict oral bioavailability F = fa × fg × fh via well-stirred model."""
+    try:
+        from omega_pbpk.prediction.bioavailability_prediction import predict_bioavailability
+
+        drug = _drug_request_to_drug(req.drug)
+        result = predict_bioavailability(
+            drug_or_dict=drug,
+            dose_mg=req.dose_mg,
+            q_liver_L_per_h=req.q_liver_L_per_h,
+            gut_volume_mL=req.gut_volume_mL,
+        )
+        return BioavailabilityResponse(
+            fa=result.fa,
+            fg=result.fg,
+            fh=result.fh,
+            F_total=result.F_total,
+            dose_number=result.dose_number,
+            peff_cm_s=result.peff_cm_s,
+            clh_L_per_h=result.clh_L_per_h,
+            extraction_ratio=result.extraction_ratio,
+            limiting_factor=result.limiting_factor,
+            confidence=result.confidence,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Bioavailability prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/steady_state
+# ---------------------------------------------------------------------------
+
+
+class SteadyStateRequest(BaseModel):
+    drug: DrugRequest
+    dose_mg: float = Field(default=100.0, gt=0)
+    interval_h: float = Field(default=12.0, gt=0)
+    route: str = Field(default="oral", pattern="^(oral|iv)$")
+    n_doses: int = Field(default=10, ge=3, le=50)
+    body_weight: float = Field(default=70.0, gt=0)
+
+
+class SteadyStateResponse(BaseModel):
+    css_max_mg_L: float
+    css_min_mg_L: float
+    css_avg_mg_L: float
+    auc_tau_mg_h_L: float
+    accumulation_ratio: float
+    fluctuation_pct: float
+    time_to_ss_h: float
+    n_doses_to_ss: int
+    dose_mg: float
+    interval_h: float
+    route: str
+
+
+@app.post("/predict/steady_state", response_model=SteadyStateResponse)
+def predict_steady_state_endpoint(req: SteadyStateRequest) -> SteadyStateResponse:
+    """Predict steady-state PK metrics via multi-dose PBPK superposition."""
+    try:
+        from omega_pbpk.clinical.steady_state_predictor import predict_steady_state
+
+        drug = _drug_request_to_drug(req.drug)
+        result = predict_steady_state(
+            drug=drug,
+            dose_mg=req.dose_mg,
+            interval_h=req.interval_h,
+            route=req.route,
+            n_doses=req.n_doses,
+            body_weight=req.body_weight,
+        )
+        return SteadyStateResponse(
+            css_max_mg_L=result.css_max_mg_L,
+            css_min_mg_L=result.css_min_mg_L,
+            css_avg_mg_L=result.css_avg_mg_L,
+            auc_tau_mg_h_L=result.auc_tau_mg_h_L,
+            accumulation_ratio=result.accumulation_ratio,
+            fluctuation_pct=result.fluctuation_pct,
+            time_to_ss_h=result.time_to_ss_h,
+            n_doses_to_ss=result.n_doses_to_ss,
+            dose_mg=result.dose_mg,
+            interval_h=result.interval_h,
+            route=result.route,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Steady-state prediction error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /ivivc
+# ---------------------------------------------------------------------------
+
+
+class IVIVCCorrelationResponse(BaseModel):
+    level: str
+    r_squared: float
+    slope: float
+    intercept: float
+    passes_criteria: bool
+
+
+class IVIVCRequest(BaseModel):
+    dissolution_times: list[float] = Field(..., min_length=3)
+    dissolution_fractions: list[float] = Field(..., min_length=3)
+    plasma_times: list[float] = Field(..., min_length=3)
+    plasma_conc: list[float] = Field(..., min_length=3)
+    ke: float = Field(..., gt=0, description="Elimination rate constant (1/h)")
+    vd_L: float = Field(..., gt=0, description="Volume of distribution (L)")
+    dose_mg: float = Field(default=100.0, gt=0)
+    levels: list[str] = Field(default=["A", "B", "C"])
+
+
+class IVIVCResponse(BaseModel):
+    level_a: IVIVCCorrelationResponse | None
+    level_b: IVIVCCorrelationResponse | None
+    level_c: IVIVCCorrelationResponse | None
+    f_absorbed: list[float]
+    f_dissolved: list[float]
+    mdt_in_vitro_h: float
+    mrt_in_vivo_h: float
+    recommended_level: str
+
+
+@app.post("/ivivc", response_model=IVIVCResponse)
+def ivivc_endpoint(req: IVIVCRequest) -> IVIVCResponse:
+    """Compute IVIVC (Level A/B/C) via Wagner-Nelson deconvolution."""
+    try:
+        from omega_pbpk.biopharmaceutics.ivivc import compute_ivivc
+
+        result = compute_ivivc(
+            dissolution_times=req.dissolution_times,
+            dissolution_fractions=req.dissolution_fractions,
+            plasma_times=req.plasma_times,
+            plasma_conc=req.plasma_conc,
+            ke=req.ke,
+            vd_L=req.vd_L,
+            dose_mg=req.dose_mg,
+            levels=req.levels,
+        )
+
+        def _corr(c):
+            if c is None:
+                return None
+            return IVIVCCorrelationResponse(
+                level=c.level,
+                r_squared=c.r_squared,
+                slope=c.slope,
+                intercept=c.intercept,
+                passes_criteria=c.passes_criteria,
+            )
+
+        return IVIVCResponse(
+            level_a=_corr(result.level_a),
+            level_b=_corr(result.level_b),
+            level_c=_corr(result.level_c),
+            f_absorbed=result.f_absorbed,
+            f_dissolved=result.f_dissolved,
+            mdt_in_vitro_h=result.mdt_in_vitro_h,
+            mrt_in_vivo_h=result.mrt_in_vivo_h,
+            recommended_level=result.recommended_level,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("IVIVC computation error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /population/pk_fit
+# ---------------------------------------------------------------------------
+
+
+class SubjectDataRequest(BaseModel):
+    subject_id: str
+    times: list[float] = Field(..., min_length=2)
+    conc: list[float] = Field(..., min_length=2)
+    dose_mg: float = Field(..., gt=0)
+    route: str = Field(default="oral", pattern="^(oral|iv)$")
+    body_weight: float = Field(default=70.0, gt=0)
+    covariates: dict[str, float] = Field(default_factory=dict)
+
+
+class IndividualEstimateResponse(BaseModel):
+    subject_id: str
+    cl_L_per_h: float
+    vd_L: float
+    ka_per_h: float
+    auc_pred: float
+    cmax_pred: float
+    rmse: float
+    converged: bool
+
+
+class PopulationPKFitRequest(BaseModel):
+    subjects: list[SubjectDataRequest] = Field(..., min_length=2)
+    model: str = Field(default="1cpt_oral", pattern="^(1cpt_oral|1cpt_iv)$")
+    cl_init: float = Field(default=5.0, gt=0)
+    vd_init: float = Field(default=50.0, gt=0)
+    ka_init: float = Field(default=1.0, gt=0)
+    fit_covariates: bool = False
+
+
+class PopulationPKFitResponse(BaseModel):
+    cl_pop_L_per_h: float
+    vd_pop_L: float
+    ka_pop_per_h: float
+    omega_cl_pct: float
+    omega_vd_pct: float
+    omega_ka_pct: float
+    sigma_prop_pct: float
+    individual_estimates: list[IndividualEstimateResponse]
+    n_subjects: int
+    n_observations: int
+    aic: float
+    bic: float
+    bw_cl_exponent: float | None
+    method: str
+
+
+@app.post("/population/pk_fit", response_model=PopulationPKFitResponse)
+def population_pk_fit(req: PopulationPKFitRequest) -> PopulationPKFitResponse:
+    """Fit a 1-compartment population PK model via Standard Two-Stage method."""
+    try:
+        from omega_pbpk.clinical.population_pk import SubjectData, fit_population_pk
+
+        subjects = [
+            SubjectData(
+                subject_id=s.subject_id,
+                times=s.times,
+                conc=s.conc,
+                dose_mg=s.dose_mg,
+                route=s.route,
+                body_weight=s.body_weight,
+                covariates=s.covariates,
+            )
+            for s in req.subjects
+        ]
+        result = fit_population_pk(
+            subjects=subjects,
+            model=req.model,
+            cl_init=req.cl_init,
+            vd_init=req.vd_init,
+            ka_init=req.ka_init,
+            fit_covariates=req.fit_covariates,
+        )
+        return PopulationPKFitResponse(
+            cl_pop_L_per_h=result.cl_pop_L_per_h,
+            vd_pop_L=result.vd_pop_L,
+            ka_pop_per_h=result.ka_pop_per_h,
+            omega_cl_pct=result.omega_cl_pct,
+            omega_vd_pct=result.omega_vd_pct,
+            omega_ka_pct=result.omega_ka_pct,
+            sigma_prop_pct=result.sigma_prop_pct,
+            individual_estimates=[
+                IndividualEstimateResponse(
+                    subject_id=e.subject_id,
+                    cl_L_per_h=e.cl_L_per_h,
+                    vd_L=e.vd_L,
+                    ka_per_h=e.ka_per_h,
+                    auc_pred=e.auc_pred,
+                    cmax_pred=e.cmax_pred,
+                    rmse=e.rmse,
+                    converged=e.converged,
+                )
+                for e in result.individual_estimates
+            ],
+            n_subjects=result.n_subjects,
+            n_observations=result.n_observations,
+            aic=result.aic,
+            bic=result.bic,
+            bw_cl_exponent=result.bw_cl_exponent,
+            method=result.method,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Population PK fitting error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /kidney/pk
+# ---------------------------------------------------------------------------
+
+
+class KidneyPKRequest(BaseModel):
+    plasma_times: list[float] = Field(..., min_length=3)
+    plasma_conc: list[float] = Field(..., min_length=3)
+    fup: float = Field(..., gt=0, le=1)
+    gfr_mL_per_min: float = Field(default=120.0, gt=0)
+    logP: float = 0.0
+    secretion_vmax_mg_h: float = Field(default=0.0, ge=0)
+    secretion_km_mg_L: float = Field(default=1.0, gt=0)
+    urine_flow_mL_h: float = Field(default=60.0, gt=0)
+    dose_mg: float = Field(default=0.0, ge=0)
+
+
+class KidneyPKResponse(BaseModel):
+    cl_renal_L_per_h: float
+    cl_filtration_L_per_h: float
+    cl_secretion_mean_L_per_h: float
+    reabsorption_fraction: float
+    fe_urine: float | None          # None when dose_mg=0 (NaN serialized as null)
+    urine_rate_mg_h: list[float]
+    urine_cumulative_mg: float
+    urine_conc_mg_L: list[float]
+    gfr_mL_per_min: float
+    secretion_vmax_mg_h: float
+    secretion_km_mg_L: float
+
+
+@app.post("/kidney/pk", response_model=KidneyPKResponse)
+def kidney_pk_endpoint(req: KidneyPKRequest) -> KidneyPKResponse:
+    """Mechanistic renal PK: filtration + active secretion + passive reabsorption."""
+    try:
+        import math
+        from omega_pbpk.core.kidney_pk import predict_renal_pk
+
+        result = predict_renal_pk(
+            plasma_times=req.plasma_times,
+            plasma_conc=req.plasma_conc,
+            fup=req.fup,
+            gfr_mL_per_min=req.gfr_mL_per_min,
+            logP=req.logP,
+            secretion_vmax_mg_h=req.secretion_vmax_mg_h,
+            secretion_km_mg_L=req.secretion_km_mg_L,
+            urine_flow_mL_h=req.urine_flow_mL_h,
+            dose_mg=req.dose_mg,
+        )
+        fe = None if math.isnan(result.fe_urine) else result.fe_urine
+        return KidneyPKResponse(
+            cl_renal_L_per_h=result.cl_renal_L_per_h,
+            cl_filtration_L_per_h=result.cl_filtration_L_per_h,
+            cl_secretion_mean_L_per_h=result.cl_secretion_mean_L_per_h,
+            reabsorption_fraction=result.reabsorption_fraction,
+            fe_urine=fe,
+            urine_rate_mg_h=result.urine_rate_mg_h,
+            urine_cumulative_mg=result.urine_cumulative_mg,
+            urine_conc_mg_L=result.urine_conc_mg_L,
+            gfr_mL_per_min=result.gfr_mL_per_min,
+            secretion_vmax_mg_h=result.secretion_vmax_mg_h,
+            secretion_km_mg_L=result.secretion_km_mg_L,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Kidney PK error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

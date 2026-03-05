@@ -14,6 +14,8 @@ Beyond core simulation, Omega PBPK provides an end-to-end drug-development toolk
 
 > **Safety Scope:** For computational research and model prototyping only. Not validated for clinical decision making. No real-world dosing recommendations are provided.
 
+The core simulation engine integrates a 35-state ODE system representing 13 perfusion-limited organs (lung, brain, heart, kidney, liver, spleen, gut wall, pancreas, thymus, reproductive, rest) plus 4 permeability-limited tissues (adipose, muscle, bone, skin) and an 8-segment ACAT gastrointestinal tract. Tissue-to-plasma partition coefficients are predicted using the Rodgers & Rowland method from drug physicochemical properties (logP, pKa, fup, drug type). Hepatic clearance is modeled via the well-stirred equation with unbound fraction (fup) and intrinsic clearance (CLint), gut-wall first-pass extraction (f_gut) is applied at the intestinal wall, and renal clearance routes drug directly to a urine sink compartment. Pharmacodynamic coupling is available through an Emax model with optional ke0 effect-compartment delay for hysteresis modeling.
+
 ## Features
 
 - 35-state whole-body PBPK ODE engine (LSODA, rtol=1e-8, atol=1e-10)
