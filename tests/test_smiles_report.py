@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 
 import pytest
 from typer.testing import CliRunner
@@ -21,7 +22,14 @@ from omega_pbpk.cli import app
 CAFFEINE_SMILES = "Cn1c(=O)c2c(ncn2C)n(C)c1=O"
 ASPIRIN_SMILES = "CC(=O)Oc1ccccc1C(=O)O"
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
 runner = CliRunner()
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
+    return _ANSI_RE.sub("", text)
 
 
 @pytest.mark.integration
@@ -32,10 +40,11 @@ class TestSmilesReportCLI:
         """smiles-report --help must list core options."""
         result = runner.invoke(app, ["smiles-report", "--help"])
         assert result.exit_code == 0
-        assert "--smiles" in result.output
-        assert "--dose" in result.output
-        assert "--output" in result.output
-        assert "--no-uq" in result.output
+        output = _strip_ansi(result.output)
+        assert "--smiles" in output
+        assert "--dose" in output
+        assert "--output" in output
+        assert "--no-uq" in output
 
     def test_caffeine_runs_without_error(self) -> None:
         """Caffeine SMILES should produce a report with exit code 0."""
