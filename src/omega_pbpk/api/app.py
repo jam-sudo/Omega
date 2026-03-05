@@ -39,14 +39,16 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import pathlib
 from typing import Any
 
 import numpy as np
 
 try:
     from fastapi import Depends, FastAPI, HTTPException, status
-    from fastapi.responses import RedirectResponse
+    from fastapi.responses import HTMLResponse, RedirectResponse
     from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+    from fastapi.staticfiles import StaticFiles
 
     HAS_FASTAPI = True
 except ImportError:
@@ -81,6 +83,10 @@ app = FastAPI(
     description="Whole-body PBPK simulation platform",
     version="0.9.0",
 )
+
+_STATIC_DIR = pathlib.Path(__file__).parent.parent / "static"
+if _STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 try:
     _OMEGA_VERSION = _pkg_version("omega-pbpk")
@@ -704,10 +710,13 @@ def _drug_request_to_drug(req: DrugRequest):
 # ---------------------------------------------------------------------------
 
 
-@app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    """Redirect root to interactive API docs."""
-    return RedirectResponse(url="/docs")
+@app.get("/", include_in_schema=False, response_class=HTMLResponse)
+def root() -> HTMLResponse:
+    """Serve the interactive dashboard."""
+    index_path = _STATIC_DIR / "index.html"
+    if index_path.is_file():
+        return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
+    return RedirectResponse(url="/docs")  # type: ignore[return-value]
 
 
 @app.get("/health", response_model=HealthResponse)
