@@ -1,9 +1,9 @@
 """Tests for interspecies allometric scaling."""
+
 from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
 from omega_pbpk.core.interspecies import (
@@ -12,7 +12,6 @@ from omega_pbpk.core.interspecies import (
     MONKEY,
     MOUSE,
     RAT,
-    RABBIT,
     SPECIES_DB,
     AllometricFit,
     AnimalPKData,
@@ -24,8 +23,8 @@ from omega_pbpk.core.interspecies import (
     scale_single_species,
 )
 
-
 # ── SpeciesPhysiology ───────────────────────────────────────────────
+
 
 class TestSpeciesPhysiology:
     def test_predefined_species_exist(self):
@@ -48,6 +47,7 @@ class TestSpeciesPhysiology:
 
 
 # ── Single species scaling ──────────────────────────────────────────
+
 
 class TestSingleSpeciesScaling:
     def test_same_weight_no_change(self):
@@ -80,11 +80,12 @@ class TestSingleSpeciesScaling:
 
 # ── Allometric regression ──────────────────────────────────────────
 
+
 class TestAllometricRegression:
     def test_perfect_fit_r2_one(self):
         # Generate data from Y = 2.0 * BW^0.75
         bw = [0.25, 3.5, 10.0, 70.0]
-        vals = [2.0 * w ** 0.75 for w in bw]
+        vals = [2.0 * w**0.75 for w in bw]
         fit = allometric_regression(bw, vals)
         assert fit.r_squared == pytest.approx(1.0, abs=1e-6)
         assert fit.exponent_b == pytest.approx(0.75, rel=0.01)
@@ -98,9 +99,9 @@ class TestAllometricRegression:
     def test_human_prediction_at_70kg(self):
         # Y = 3.0 * BW^0.8 → at 70 kg: 3.0 * 70^0.8
         bw = [0.02, 0.25, 5.0, 10.0]
-        vals = [3.0 * w ** 0.8 for w in bw]
+        vals = [3.0 * w**0.8 for w in bw]
         fit = allometric_regression(bw, vals, human_bw_kg=70.0)
-        expected = 3.0 * 70.0 ** 0.8
+        expected = 3.0 * 70.0**0.8
         assert fit.human_predicted == pytest.approx(expected, rel=0.01)
 
     def test_too_few_species_raises(self):
@@ -116,6 +117,7 @@ class TestAllometricRegression:
 
 
 # ── MLP and brain weight corrections ───────────────────────────────
+
 
 class TestCorrections:
     def test_mlp_correction_returns_float(self):
@@ -136,6 +138,7 @@ class TestCorrections:
 
 
 # ── predict_human_pk ────────────────────────────────────────────────
+
 
 class TestPredictHumanPK:
     def test_single_species_uses_fixed_exponents(self):

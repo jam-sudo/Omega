@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -40,9 +39,9 @@ __all__ = [
 # Default BSV (between-subject variability) coefficients of variation
 # ---------------------------------------------------------------------------
 
-_DEFAULT_BSV_CV_CL: float = 0.30   # CL CV (30%)
-_DEFAULT_BSV_CV_VD: float = 0.20   # Vd CV (20%)
-_DEFAULT_BSV_CV_KA: float = 0.40   # ka CV (40%)
+_DEFAULT_BSV_CV_CL: float = 0.30  # CL CV (30%)
+_DEFAULT_BSV_CV_VD: float = 0.20  # Vd CV (20%)
+_DEFAULT_BSV_CV_KA: float = 0.40  # ka CV (40%)
 
 _RESPONSE_THRESHOLD: float = 0.50  # fraction of Emax considered "response"
 
@@ -327,7 +326,10 @@ def _simulate_subject_pk(
         else:
             tmax = math.log(ka_i / ke) / (ka_i - ke)
             cmax = (
-                f_bio * dose_mg * ka_i / (vd_i * (ka_i - ke))
+                f_bio
+                * dose_mg
+                * ka_i
+                / (vd_i * (ka_i - ke))
                 * (math.exp(-ke * tmax) - math.exp(-ka_i * tmax))
             )
         auc_inf = f_bio * dose_mg / cl_i
@@ -392,11 +394,20 @@ def _pairwise_tests(
 
     for arm_name, dose_mg, data in arms:
         if len(data) < 2 or len(reference) < 2:
-            results.append(PairwiseResult(
-                arm_name=arm_name, dose_mg=dose_mg, endpoint=endpoint,
-                t_stat=0.0, p_value=1.0, p_adjusted=1.0, significant=False,
-                mean_difference=0.0, ci_lower=0.0, ci_upper=0.0,
-            ))
+            results.append(
+                PairwiseResult(
+                    arm_name=arm_name,
+                    dose_mg=dose_mg,
+                    endpoint=endpoint,
+                    t_stat=0.0,
+                    p_value=1.0,
+                    p_adjusted=1.0,
+                    significant=False,
+                    mean_difference=0.0,
+                    ci_lower=0.0,
+                    ci_upper=0.0,
+                )
+            )
             continue
 
         try:
@@ -409,31 +420,34 @@ def _pairwise_tests(
 
         # 95% CI for mean difference (Welch approximation)
         from scipy.stats import t as t_dist  # noqa: PLC0415
+
         n1, n2 = len(data), len(reference)
         se1 = float(np.var(data, ddof=1)) / n1
         se2 = float(np.var(reference, ddof=1)) / n2
         se_diff = math.sqrt(se1 + se2)
         # Welch–Satterthwaite df
         if se_diff > 0:
-            df = (se1 + se2)**2 / (se1**2 / (n1 - 1) + se2**2 / (n2 - 1))
+            df = (se1 + se2) ** 2 / (se1**2 / (n1 - 1) + se2**2 / (n2 - 1))
             t_crit = t_dist.ppf(0.975, df)
             ci_lo = mean_diff - t_crit * se_diff
             ci_hi = mean_diff + t_crit * se_diff
         else:
             ci_lo = ci_hi = mean_diff
 
-        results.append(PairwiseResult(
-            arm_name=arm_name,
-            dose_mg=dose_mg,
-            endpoint=endpoint,
-            t_stat=round(float(stat), 4),
-            p_value=round(float(p), 6),
-            p_adjusted=round(p_adj, 6),
-            significant=p_adj < alpha,
-            mean_difference=round(mean_diff, 4),
-            ci_lower=round(ci_lo, 4),
-            ci_upper=round(ci_hi, 4),
-        ))
+        results.append(
+            PairwiseResult(
+                arm_name=arm_name,
+                dose_mg=dose_mg,
+                endpoint=endpoint,
+                t_stat=round(float(stat), 4),
+                p_value=round(float(p), 6),
+                p_adjusted=round(p_adj, 6),
+                significant=p_adj < alpha,
+                mean_difference=round(mean_diff, 4),
+                ci_lower=round(ci_lo, 4),
+                ci_upper=round(ci_hi, 4),
+            )
+        )
 
     return results
 
@@ -441,13 +455,11 @@ def _pairwise_tests(
 def _hill_equation(dose: NDArray, emax: float, ed50: float, hill: float) -> NDArray:
     """Hill equation: effect = Emax × dose^n / (ED50^n + dose^n)."""
     d_n = np.power(np.maximum(dose, 0.0), hill)
-    ed50_n = max(ed50, 1e-12)**hill
+    ed50_n = max(ed50, 1e-12) ** hill
     return emax * d_n / (ed50_n + d_n)
 
 
-def _fit_dose_response(
-    doses: NDArray[np.float64], effects: NDArray[np.float64]
-) -> DoseResponseFit:
+def _fit_dose_response(doses: NDArray[np.float64], effects: NDArray[np.float64]) -> DoseResponseFit:
     """Fit Hill equation to (dose, effect) pairs.
 
     Excludes placebo (dose=0) from the fit; uses it as the baseline intercept.
@@ -465,7 +477,9 @@ def _fit_dose_response(
     try:
         bounds = ([0.0, 0.0, 0.1], [emax_guess * 5 + 1e-6, d_fit.max() * 100, 5.0])
         popt, _ = curve_fit(
-            _hill_equation, d_fit, e_fit,
+            _hill_equation,
+            d_fit,
+            e_fit,
             p0=[emax_guess, ed50_guess, 1.0],
             bounds=bounds,
             maxfev=2000,
@@ -519,9 +533,7 @@ def _conditional_power(
         return 0.5
 
     eff_diff = float(np.mean(effects_interim) - np.mean(reference_interim))
-    pooled_sd = float(np.std(
-        np.concatenate([effects_interim, reference_interim]), ddof=1
-    ))
+    pooled_sd = float(np.std(np.concatenate([effects_interim, reference_interim]), ddof=1))
     if pooled_sd < 1e-12:
         return 0.5
 
@@ -622,19 +634,24 @@ def run_parallel_trial(design: ParallelTrialDesign) -> ParallelTrialResult:
         auc_gmean = float(np.exp(np.mean(np.log(auc_arr))))
         auc_gsd = float(np.exp(np.std(np.log(auc_arr))))
 
-        arm_summaries.append(ArmSummary(
-            name=grp.name,
-            dose_mg=grp.dose_mg,
-            n=grp.n_subjects,
-            cmax_mean=round(cmax_gmean, 4),
-            cmax_gsd=round(cmax_gsd, 4),
-            auc_mean=round(auc_gmean, 4),
-            auc_gsd=round(auc_gsd, 4),
-            effect_mean=round(float(np.mean(eff_arr)), 4),
-            effect_sd=round(float(np.std(eff_arr, ddof=1)), 4),
-            responder_pct=round(float(np.mean([s.responder for s in all_subjects
-                                               if s.arm_name == grp.name])) * 100, 1),
-        ))
+        arm_summaries.append(
+            ArmSummary(
+                name=grp.name,
+                dose_mg=grp.dose_mg,
+                n=grp.n_subjects,
+                cmax_mean=round(cmax_gmean, 4),
+                cmax_gsd=round(cmax_gsd, 4),
+                auc_mean=round(auc_gmean, 4),
+                auc_gsd=round(auc_gsd, 4),
+                effect_mean=round(float(np.mean(eff_arr)), 4),
+                effect_sd=round(float(np.std(eff_arr, ddof=1)), 4),
+                responder_pct=round(
+                    float(np.mean([s.responder for s in all_subjects if s.arm_name == grp.name]))
+                    * 100,
+                    1,
+                ),
+            )
+        )
     result.arms = arm_summaries
 
     # One-way ANOVA
@@ -656,17 +673,20 @@ def run_parallel_trial(design: ParallelTrialDesign) -> ParallelTrialResult:
     pw_effect = _pairwise_tests(
         ref_effect,
         [(n, d, np.array(arm_data[n]["effect"])) for n, d in non_ref],
-        "effect", design.alpha,
+        "effect",
+        design.alpha,
     )
     pw_auc = _pairwise_tests(
         ref_auc,
         [(n, d, np.array(arm_data[n]["auc"])) for n, d in non_ref],
-        "auc", design.alpha,
+        "auc",
+        design.alpha,
     )
     pw_cmax = _pairwise_tests(
         ref_cmax,
         [(n, d, np.array(arm_data[n]["cmax"])) for n, d in non_ref],
-        "cmax", design.alpha,
+        "cmax",
+        design.alpha,
     )
     result.pairwise = pw_effect + pw_auc + pw_cmax
 

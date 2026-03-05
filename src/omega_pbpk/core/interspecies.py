@@ -1,4 +1,5 @@
 """Allometric interspecies scaling — animal-to-human PK prediction."""
+
 from __future__ import annotations
 
 import math
@@ -6,8 +7,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-
 # ── Species reference data ──────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class SpeciesPhysiology:
@@ -30,6 +31,7 @@ SPECIES_DB: dict[str, SpeciesPhysiology] = {
 
 
 # ── Data containers ─────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class AnimalPKData:
@@ -73,6 +75,7 @@ class HumanPKPrediction:
 
 # ── Core functions ──────────────────────────────────────────────────
 
+
 def scale_single_species(
     animal_value: float,
     animal_bw_kg: float,
@@ -111,7 +114,7 @@ def allometric_regression(
     ss_tot = float(np.sum((log_vals - np.mean(log_vals)) ** 2))
     r_sq = 1.0 - ss_res / ss_tot if ss_tot > 0 else 1.0
 
-    human_pred = a * human_bw_kg ** b
+    human_pred = a * human_bw_kg**b
 
     return AllometricFit(
         coefficient_a=a,
@@ -200,9 +203,11 @@ def predict_human_pk(
     bw_values = [SPECIES_DB[ad.species].body_weight_kg for ad in animal_data]
 
     # CL: mL/min/kg → L/h total = mL/min/kg × BW_kg × 60/1000
-    cl_total = [ad.cl_mL_min_kg * bw * 60.0 / 1000.0 for ad, bw in zip(animal_data, bw_values)]
+    cl_total = [
+        ad.cl_mL_min_kg * bw * 60.0 / 1000.0 for ad, bw in zip(animal_data, bw_values, strict=True)
+    ]
     # Vd: L/kg → L total = L/kg × BW_kg
-    vd_total = [ad.vd_L_kg * bw for ad, bw in zip(animal_data, bw_values)]
+    vd_total = [ad.vd_L_kg * bw for ad, bw in zip(animal_data, bw_values, strict=True)]
 
     if len(animal_data) == 1:
         # Single species: fixed exponents
@@ -266,7 +271,13 @@ def predict_human_pk(
 
 __all__ = [
     "SpeciesPhysiology",
-    "MOUSE", "RAT", "RABBIT", "DOG", "MONKEY", "HUMAN", "SPECIES_DB",
+    "MOUSE",
+    "RAT",
+    "RABBIT",
+    "DOG",
+    "MONKEY",
+    "HUMAN",
+    "SPECIES_DB",
     "AnimalPKData",
     "AllometricFit",
     "InterspeciesResult",

@@ -87,9 +87,7 @@ def predict_bioavailability(
         fg = 1.0
 
     # 3. fh — hepatic first-pass (well-stirred model)
-    clh = (fup * clint_hepatic * q_liver_L_per_h) / (
-        q_liver_L_per_h + fup * clint_hepatic
-    )
+    clh = (fup * clint_hepatic * q_liver_L_per_h) / (q_liver_L_per_h + fup * clint_hepatic)
     extraction_ratio = clh / q_liver_L_per_h if q_liver_L_per_h > 0 else 0.0
     fh = 1.0 - extraction_ratio
     fh = max(0.0, min(1.0, fh))

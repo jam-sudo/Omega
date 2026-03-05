@@ -152,7 +152,9 @@ def train_and_cache(
     model.param_names = FEATURE_NAMES
     model.output_names = OUTPUT_NAMES
 
-    logger.info("Training PBPKSurrogate: %d train, %d val, %d epochs...", n_train, len(X_val), epochs)
+    logger.info(
+        "Training PBPKSurrogate: %d train, %d val, %d epochs...", n_train, len(X_val), epochs
+    )
     history = model.train(X_train, y_train, epochs=epochs, lr=0.001, batch_size=32, seed=seed)
     train_loss = history["val_loss"][-1] if history["val_loss"] else float("inf")
 

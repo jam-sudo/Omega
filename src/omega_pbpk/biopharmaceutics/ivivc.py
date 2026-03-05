@@ -3,6 +3,7 @@
 Implements Wagner-Nelson deconvolution and Level A/B/C correlations
 per FDA Guidance for Industry: Extended Release Oral Dosage Forms (1997).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

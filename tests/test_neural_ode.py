@@ -61,7 +61,9 @@ def _get_tiny_node() -> NeuralODE:
         C0 = 5.0
         C = C0 * ka / (ka - ke) * (np.exp(-ke * t_eval) - np.exp(-ka * t_eval))
         C = np.maximum(C, 0.0)
-        p_raw = np.array([logP, np.log(fup), np.log(clint), np.log(mw / 300), np.log(rbp), np.log(peff)])
+        p_raw = np.array(
+            [logP, np.log(fup), np.log(clint), np.log(mw / 300), np.log(rbp), np.log(peff)]
+        )
         p_raw_list.append(p_raw)
         C_list.append(C)
 
@@ -194,16 +196,18 @@ class TestNeuralODE:
     def test_save_load_roundtrip(self):
         """save/load reproduces identical RK4 predictions."""
         node = _get_tiny_node()
-        out_before = node.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0,
-                                   mw=300.0, rbp=1.0, peff=1.0)
+        out_before = node.simulate(
+            logP=2.0, fup=0.5, clint_L_per_h=10.0, mw=300.0, rbp=1.0, peff=1.0
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             node.save(f"{tmpdir}/test_node.npz")
             node2 = NeuralODE(seed=1)
             node2.load(f"{tmpdir}/test_node.npz")
 
-        out_after = node2.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0,
-                                   mw=300.0, rbp=1.0, peff=1.0)
+        out_after = node2.simulate(
+            logP=2.0, fup=0.5, clint_L_per_h=10.0, mw=300.0, rbp=1.0, peff=1.0
+        )
         assert out_after.cmax_mg_L == pytest.approx(out_before.cmax_mg_L, rel=1e-5)
         assert out_after.auc_mg_h_L == pytest.approx(out_before.auc_mg_h_L, rel=1e-5)
 
@@ -218,16 +222,16 @@ class TestSimulate:
     def test_simulate_trajectory_length(self):
         """simulate returns trajectory with correct number of points."""
         node = _get_tiny_node()
-        out = node.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0,
-                            mw=300.0, rbp=1.0, peff=1.0, n_points=49)
+        out = node.simulate(
+            logP=2.0, fup=0.5, clint_L_per_h=10.0, mw=300.0, rbp=1.0, peff=1.0, n_points=49
+        )
         assert len(out.t_h) == 49
         assert len(out.C_mg_L) == 49
 
     def test_simulate_pk_metrics_positive(self):
         """Cmax, AUC, tmax, t_half must be non-negative."""
         node = _get_tiny_node()
-        out = node.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0,
-                            mw=300.0, rbp=1.0, peff=1.0)
+        out = node.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0, mw=300.0, rbp=1.0, peff=1.0)
         assert out.cmax_mg_L >= 0.0
         assert out.auc_mg_h_L >= 0.0
         assert out.tmax_h >= 0.0
@@ -236,10 +240,12 @@ class TestSimulate:
     def test_simulate_dose_scaling(self):
         """Doubling the dose approximately doubles Cmax (linear superposition)."""
         node = _get_tiny_node()
-        out1 = node.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0,
-                             mw=300.0, rbp=1.0, peff=1.0, dose_mg=100.0)
-        out2 = node.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0,
-                             mw=300.0, rbp=1.0, peff=1.0, dose_mg=200.0)
+        out1 = node.simulate(
+            logP=2.0, fup=0.5, clint_L_per_h=10.0, mw=300.0, rbp=1.0, peff=1.0, dose_mg=100.0
+        )
+        out2 = node.simulate(
+            logP=2.0, fup=0.5, clint_L_per_h=10.0, mw=300.0, rbp=1.0, peff=1.0, dose_mg=200.0
+        )
         if out1.cmax_mg_L > 1e-6:
             ratio = out2.cmax_mg_L / out1.cmax_mg_L
             assert ratio == pytest.approx(2.0, rel=0.01)
@@ -247,8 +253,9 @@ class TestSimulate:
     def test_simulate_t_end_respected(self):
         """Last time point matches t_end_h."""
         node = _get_tiny_node()
-        out = node.simulate(logP=2.0, fup=0.5, clint_L_per_h=10.0,
-                            mw=300.0, rbp=1.0, peff=1.0, t_end_h=12.0)
+        out = node.simulate(
+            logP=2.0, fup=0.5, clint_L_per_h=10.0, mw=300.0, rbp=1.0, peff=1.0, t_end_h=12.0
+        )
         assert out.t_h[-1] == pytest.approx(12.0)
 
 
@@ -301,7 +308,6 @@ class TestSingleton:
 class TestAPIEndpoint:
     def test_neural_ode_endpoint_200(self):
         """POST /predict/neural_ode returns 200 with trajectory and PK fields."""
-        import omega_pbpk.ml_models.neural_ode as mod
 
         fake_out = NeuralODEOutput(
             t_h=list(np.linspace(0, 24, 49)),

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.optimize import minimize
@@ -230,7 +230,9 @@ def calibrate_drug(
         else:
             _m0.setup_oral(dose_mg=dose_mg)
         _r0 = _m0.simulate(t_end_h=t_end_h, dt_h=0.1)
-        pre_metrics = compute_validation_metrics(obs_t, obs_c, _r0.time_h, _r0.plasma_concentration())
+        pre_metrics = compute_validation_metrics(
+            obs_t, obs_c, _r0.time_h, _r0.plasma_concentration()
+        )
     except Exception:
         pre_metrics = compute_validation_metrics(obs_t, obs_c, obs_t, pre_sim)
 
@@ -250,7 +252,7 @@ def calibrate_drug(
         d = _apply_params(drug, lc, lf, lk)
         sim_c = _simulate_at_obs(d, obs_t, dose_mg, route, body_weight, t_end_h)
         log_fe = np.log10(sim_c / obs_c)
-        return float(np.sum(log_fe ** 2))
+        return float(np.sum(log_fe**2))
 
     opt = minimize(
         objective,
@@ -281,7 +283,9 @@ def calibrate_drug(
         else:
             _mc.setup_oral(dose_mg=dose_mg)
         _rc = _mc.simulate(t_end_h=t_end_h, dt_h=0.1)
-        post_metrics = compute_validation_metrics(obs_t, obs_c, _rc.time_h, _rc.plasma_concentration())
+        post_metrics = compute_validation_metrics(
+            obs_t, obs_c, _rc.time_h, _rc.plasma_concentration()
+        )
     except Exception:
         post_metrics = pre_metrics
 

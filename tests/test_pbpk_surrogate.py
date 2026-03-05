@@ -17,11 +17,10 @@ from omega_pbpk.surrogate.pbpk_surrogate import (
     TrainingReport,
     _featurize,
     clear_cache,
+    load_or_train,
     predict_from_adme_dict,
     train_and_cache,
-    load_or_train,
 )
-
 
 # ---------------------------------------------------------------------------
 # Unit tests
@@ -37,12 +36,12 @@ class TestFeaturize:
 
     def test_featurize_values(self) -> None:
         x = _featurize(logP=1.5, fup=0.3, clint_L_h=10.0, mw=250.0, peff=2.0, rbp=0.9)
-        assert x[0] == pytest.approx(1.5)   # logP
-        assert x[1] == pytest.approx(0.3)   # fup
+        assert x[0] == pytest.approx(1.5)  # logP
+        assert x[1] == pytest.approx(0.3)  # fup
         assert x[2] == pytest.approx(10.0)  # clint
-        assert x[3] == pytest.approx(250.0) # mw
-        assert x[4] == pytest.approx(0.9)   # rbp
-        assert x[5] == pytest.approx(2.0)   # peff
+        assert x[3] == pytest.approx(250.0)  # mw
+        assert x[4] == pytest.approx(0.9)  # rbp
+        assert x[5] == pytest.approx(2.0)  # peff
 
 
 class TestFallbackPrediction:
@@ -52,20 +51,26 @@ class TestFallbackPrediction:
         """Even with no cached model, fallback produces a PBPKSurrogateOutput."""
         adme = {"logP": 2.0, "fup": 0.5, "clint_3a4": 5.0, "mw": 300.0, "peff": 1.0, "rbp": 1.0}
         # Use a non-existent cache dir to force fallback
-        result = predict_from_adme_dict(adme, dose_mg=100.0, cache_dir="/tmp/nonexistent_pbpk_abc123")
+        result = predict_from_adme_dict(
+            adme, dose_mg=100.0, cache_dir="/tmp/nonexistent_pbpk_abc123"
+        )
         assert isinstance(result, PBPKSurrogateOutput)
         assert result.cmax_mg_L >= 0.0
         assert result.auc_mg_h_L >= 0.0
 
     def test_fallback_cmax_positive(self) -> None:
         adme = {"logP": 1.0, "fup": 0.8, "clint_3a4": 2.0, "mw": 200.0, "peff": 5.0, "rbp": 1.0}
-        result = predict_from_adme_dict(adme, dose_mg=50.0, cache_dir="/tmp/nonexistent_pbpk_abc123")
+        result = predict_from_adme_dict(
+            adme, dose_mg=50.0, cache_dir="/tmp/nonexistent_pbpk_abc123"
+        )
         assert result.cmax_mg_L > 0
 
     def test_source_field(self) -> None:
         """Source should be 'fallback' or 'pbpk_surrogate'."""
         adme = {"logP": 0.0, "fup": 0.9, "clint_3a4": 1.0, "mw": 150.0, "peff": 3.0, "rbp": 1.0}
-        result = predict_from_adme_dict(adme, dose_mg=100.0, cache_dir="/tmp/nonexistent_pbpk_abc123")
+        result = predict_from_adme_dict(
+            adme, dose_mg=100.0, cache_dir="/tmp/nonexistent_pbpk_abc123"
+        )
         assert result.source in ("fallback", "pbpk_surrogate")
 
 
@@ -122,6 +127,7 @@ class TestTrainAndCache:
         model1 = load_or_train(cache_dir=cache, n_samples=20, epochs=10)
         # Modify a weight to detect if reloaded vs retrained
         import copy
+
         params1 = copy.deepcopy(model1.weights[0])
 
         model2 = load_or_train(cache_dir=cache, n_samples=20, epochs=10)
@@ -153,9 +159,9 @@ class TestEndToEndQuality:
 
     def test_aafe_reasonable_on_self_data(self, tmp_path: pathlib.Path) -> None:
         """AAFE on training data should be < 10 after 50 epochs (not overfit check)."""
-        from omega_pbpk.surrogate.train import build_training_dataset
         from omega_pbpk.surrogate import PKSurrogate
-        from omega_pbpk.surrogate.pbpk_surrogate import _compute_aafe, FEATURE_NAMES, OUTPUT_NAMES
+        from omega_pbpk.surrogate.pbpk_surrogate import FEATURE_NAMES, OUTPUT_NAMES, _compute_aafe
+        from omega_pbpk.surrogate.train import build_training_dataset
 
         X, y = build_training_dataset(n_samples=40, seed=7)
         if len(X) < 5:

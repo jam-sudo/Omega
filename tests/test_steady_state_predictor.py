@@ -14,9 +14,7 @@ from omega_pbpk.drugs.metformin import METFORMIN
 
 @pytest.fixture(scope="module")
 def caffeine_ss():
-    return predict_steady_state(
-        CAFFEINE, dose_mg=100, interval_h=12, route="oral", n_doses=10
-    )
+    return predict_steady_state(CAFFEINE, dose_mg=100, interval_h=12, route="oral", n_doses=10)
 
 
 def test_result_is_dataclass(caffeine_ss):
@@ -44,8 +42,6 @@ def test_caffeine_q12h_accumulates(caffeine_ss):
 
 @pytest.mark.integration
 def test_metformin_iv_runs():
-    result = predict_steady_state(
-        METFORMIN, dose_mg=500, interval_h=12, route="iv", n_doses=5
-    )
+    result = predict_steady_state(METFORMIN, dose_mg=500, interval_h=12, route="iv", n_doses=5)
     assert isinstance(result, SteadyStateResult)
     assert result.css_max_mg_L > 0
