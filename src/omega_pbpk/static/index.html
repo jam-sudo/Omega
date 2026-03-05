@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Omega PBPK</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header>
+  <h1>Omega PBPK</h1>
+  <p class="subtitle">Whole-body physiologically-based pharmacokinetic simulation platform</p>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="explorer">Compound Explorer</button>
+  <button class="tab-btn" data-tab="simulator">PK Simulator</button>
+  <button class="tab-btn" data-tab="optimizer">Dose Optimizer</button>
+  <button class="tab-btn" data-tab="ddi">DDI Checker</button>
+</nav>
+
+<main>
+
+  <!-- ===== COMPOUND EXPLORER ===== -->
+  <section id="tab-explorer" class="tab-panel">
+    <h2>Compound Explorer</h2>
+    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">
+      Enter a SMILES string to predict full ADME/PK profile via the Omega pipeline.
+    </p>
+    <div class="form-row">
+      <div class="form-group" style="flex:3;">
+        <label for="ex-smiles">SMILES</label>
+        <input id="ex-smiles" type="text" placeholder="e.g. Cn1c(=O)c2c(ncn2C)n(C)c1=O" value="Cn1c(=O)c2c(ncn2C)n(C)c1=O" />
+      </div>
+      <div class="form-group">
+        <label for="ex-dose">Dose (mg)</label>
+        <input id="ex-dose" type="number" value="200" min="0.1" step="0.1" />
+      </div>
+      <div class="form-group">
+        <label for="ex-route">Route</label>
+        <select id="ex-route">
+          <option value="oral">Oral</option>
+          <option value="iv">IV</option>
+          <option value="sc">SC</option>
+        </select>
+      </div>
+    </div>
+    <button id="ex-run" class="btn-primary">Run Explorer</button>
+    <div id="ex-error" class="error-box hidden"></div>
+    <div id="ex-spinner" class="spinner hidden"></div>
+    <div id="ex-results" class="results hidden">
+      <div id="ex-cards" class="pk-cards"></div>
+      <div class="chart-container">
+        <svg id="ex-chart" class="pk-chart" viewBox="0 0 600 280"></svg>
+      </div>
+      <div id="ex-adme" class="adme-grid" style="margin-top:1rem;"></div>
+    </div>
+  </section>
+
+  <!-- ===== PK SIMULATOR ===== -->
+  <section id="tab-simulator" class="tab-panel hidden">
+    <h2>PK Simulator</h2>
+    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">
+      Simulate plasma concentration–time profile from drug parameters.
+    </p>
+    <fieldset>
+      <legend>Drug Parameters</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="sim-name">Drug Name</label>
+          <input id="sim-name" type="text" value="caffeine" />
+        </div>
+        <div class="form-group">
+          <label for="sim-mw">MW (g/mol)</label>
+          <input id="sim-mw" type="number" value="194.19" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="sim-logp">logP</label>
+          <input id="sim-logp" type="number" value="-0.07" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="sim-fup">fu,p</label>
+          <input id="sim-fup" type="number" value="0.65" step="0.01" min="0" max="1" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="sim-clint">CLint hepatic (L/h)</label>
+          <input id="sim-clint" type="number" value="2.3" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="sim-vdss">Vdss (L/kg)</label>
+          <input id="sim-vdss" type="number" value="0.6" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="sim-peff">Peff (cm/s×10⁻⁴)</label>
+          <input id="sim-peff" type="number" value="2.0" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="sim-drug-type">Drug Type</label>
+          <select id="sim-drug-type">
+            <option value="neutral">Neutral</option>
+            <option value="acid">Acid</option>
+            <option value="base">Base</option>
+            <option value="zwitterion">Zwitterion</option>
+          </select>
+        </div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Dosing &amp; Subject</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="sim-dose">Dose (mg)</label>
+          <input id="sim-dose" type="number" value="200" step="1" />
+        </div>
+        <div class="form-group">
+          <label for="sim-route">Route</label>
+          <select id="sim-route">
+            <option value="oral">Oral</option>
+            <option value="iv">IV</option>
+            <option value="sc">SC</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="sim-dur">Duration (h)</label>
+          <input id="sim-dur" type="number" value="12" step="1" />
+        </div>
+        <div class="form-group">
+          <label for="sim-bw">Body Weight (kg)</label>
+          <input id="sim-bw" type="number" value="70" step="1" />
+        </div>
+      </div>
+    </fieldset>
+    <button id="sim-run" class="btn-primary">Run Simulation</button>
+    <div id="sim-error" class="error-box hidden"></div>
+    <div id="sim-spinner" class="spinner hidden"></div>
+    <div id="sim-results" class="results hidden">
+      <div id="sim-cards" class="pk-cards"></div>
+      <div class="chart-container">
+        <svg id="sim-chart" class="pk-chart" viewBox="0 0 600 280"></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DOSE OPTIMIZER ===== -->
+  <section id="tab-optimizer" class="tab-panel hidden">
+    <h2>Dose Optimizer</h2>
+    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">
+      RL-based dosing regimen optimization to hit target exposure windows.
+    </p>
+    <fieldset>
+      <legend>Drug Parameters</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="opt-name">Drug Name</label>
+          <input id="opt-name" type="text" value="caffeine" />
+        </div>
+        <div class="form-group">
+          <label for="opt-mw">MW (g/mol)</label>
+          <input id="opt-mw" type="number" value="194.19" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="opt-logp">logP</label>
+          <input id="opt-logp" type="number" value="-0.07" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="opt-fup">fu,p</label>
+          <input id="opt-fup" type="number" value="0.65" step="0.01" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="opt-clint">CLint (L/h)</label>
+          <input id="opt-clint" type="number" value="2.3" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="opt-vdss">Vdss (L/kg)</label>
+          <input id="opt-vdss" type="number" value="0.6" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="opt-peff">Peff</label>
+          <input id="opt-peff" type="number" value="2.0" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="opt-drug-type">Drug Type</label>
+          <select id="opt-drug-type">
+            <option value="neutral">Neutral</option>
+            <option value="acid">Acid</option>
+            <option value="base">Base</option>
+          </select>
+        </div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Optimization Target</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="opt-target-min">Target Cmin (mg/L)</label>
+          <input id="opt-target-min" type="number" value="1.0" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="opt-target-max">Target Cmax (mg/L)</label>
+          <input id="opt-target-max" type="number" value="10.0" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="opt-route">Route</label>
+          <select id="opt-route">
+            <option value="oral">Oral</option>
+            <option value="iv">IV</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="opt-bw">Body Weight (kg)</label>
+          <input id="opt-bw" type="number" value="70" step="1" />
+        </div>
+      </div>
+    </fieldset>
+    <button id="opt-run" class="btn-primary">Optimize Dose</button>
+    <div id="opt-error" class="error-box hidden"></div>
+    <div id="opt-spinner" class="spinner hidden"></div>
+    <div id="opt-results" class="results hidden">
+      <div id="opt-cards" class="pk-cards"></div>
+      <div class="chart-container">
+        <svg id="opt-chart" class="bar-chart" viewBox="0 0 600 280"></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DDI CHECKER ===== -->
+  <section id="tab-ddi" class="tab-panel hidden">
+    <h2>DDI Checker</h2>
+    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">
+      Simulate drug–drug interaction using victim + perpetrator PK parameters.
+    </p>
+    <fieldset>
+      <legend>Victim Drug</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ddi-v-name">Name</label>
+          <input id="ddi-v-name" type="text" value="midazolam" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-v-mw">MW (g/mol)</label>
+          <input id="ddi-v-mw" type="number" value="325.77" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-v-logp">logP</label>
+          <input id="ddi-v-logp" type="number" value="3.89" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-v-fup">fu,p</label>
+          <input id="ddi-v-fup" type="number" value="0.03" step="0.01" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ddi-v-clint">CLint (L/h)</label>
+          <input id="ddi-v-clint" type="number" value="28.0" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-v-vdss">Vdss (L/kg)</label>
+          <input id="ddi-v-vdss" type="number" value="1.1" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-v-peff">Peff</label>
+          <input id="ddi-v-peff" type="number" value="3.0" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-v-drug-type">Drug Type</label>
+          <select id="ddi-v-drug-type">
+            <option value="base">Base</option>
+            <option value="neutral">Neutral</option>
+            <option value="acid">Acid</option>
+          </select>
+        </div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Perpetrator Drug</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ddi-p-name">Name</label>
+          <input id="ddi-p-name" type="text" value="ketoconazole" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-p-mw">MW (g/mol)</label>
+          <input id="ddi-p-mw" type="number" value="531.43" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-p-logp">logP</label>
+          <input id="ddi-p-logp" type="number" value="4.35" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-p-fup">fu,p</label>
+          <input id="ddi-p-fup" type="number" value="0.01" step="0.01" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ddi-p-clint">CLint (L/h)</label>
+          <input id="ddi-p-clint" type="number" value="1.5" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-p-vdss">Vdss (L/kg)</label>
+          <input id="ddi-p-vdss" type="number" value="2.5" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-p-peff">Peff</label>
+          <input id="ddi-p-peff" type="number" value="2.5" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-p-ki">Ki (µM)</label>
+          <input id="ddi-p-ki" type="number" value="0.005" step="0.001" />
+        </div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Dosing</legend>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ddi-v-dose">Victim Dose (mg)</label>
+          <input id="ddi-v-dose" type="number" value="5" step="1" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-p-dose">Perpetrator Dose (mg)</label>
+          <input id="ddi-p-dose" type="number" value="200" step="1" />
+        </div>
+        <div class="form-group">
+          <label for="ddi-route">Route</label>
+          <select id="ddi-route">
+            <option value="oral">Oral</option>
+            <option value="iv">IV</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="ddi-dur">Duration (h)</label>
+          <input id="ddi-dur" type="number" value="24" step="1" />
+        </div>
+      </div>
+    </fieldset>
+    <button id="ddi-run" class="btn-primary">Check DDI</button>
+    <div id="ddi-error" class="error-box hidden"></div>
+    <div id="ddi-spinner" class="spinner hidden"></div>
+    <div id="ddi-results" class="results hidden">
+      <div id="ddi-cards" class="pk-cards"></div>
+      <div class="chart-container">
+        <svg id="ddi-chart" class="pk-chart" viewBox="0 0 600 280"></svg>
+      </div>
+      <div id="ddi-risk" class="risk-flags"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>Omega PBPK v0.9.0</span>
+  <a href="/docs" target="_blank" rel="noopener">API Docs</a>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

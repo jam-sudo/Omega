@@ -64,11 +64,11 @@ def test_health_ok():
 
 
 @pytest.mark.unit
-def test_root_redirects_to_docs():
-    """GET / should redirect to /docs."""
-    r = client.get("/", follow_redirects=False)
-    assert r.status_code in (301, 302, 307, 308)
-    assert "/docs" in r.headers.get("location", "")
+def test_root_returns_dashboard():
+    """GET / should return the HTML dashboard (200)."""
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
 
 
 # ---------------------------------------------------------------------------
