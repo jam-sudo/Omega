@@ -33,6 +33,7 @@ Endpoints:
   POST /ivivc               — In Vitro–In Vivo Correlation (Level A/B/C, Wagner-Nelson)
   POST /population/pk_fit  — Standard two-stage population PK fitting (CL, Vd, BSV, AIC/BIC)
   POST /kidney/pk          — Mechanistic renal PK: filtration + secretion + reabsorption
+  POST /scale/interspecies — Allometric interspecies scaling (animal → human PK)
 
 Auth endpoints (only active when OMEGA_AUTH_ENABLED=true):
   POST /auth/token             — obtain JWT bearer token
@@ -4637,4 +4638,65 @@ def kidney_pk_endpoint(req: KidneyPKRequest) -> KidneyPKResponse:
         raise
     except Exception as exc:
         logger.exception("Kidney PK error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /scale/interspecies
+# ---------------------------------------------------------------------------
+
+
+class AnimalPKInput(BaseModel):
+    species: str = Field(..., description="Species name: mouse, rat, rabbit, dog, monkey")
+    cl_mL_min_kg: float = Field(..., gt=0)
+    vd_L_kg: float = Field(..., gt=0)
+    thalf_h: float = Field(..., gt=0)
+    dose_mg_kg: float = Field(default=1.0, gt=0)
+
+
+class InterspeciesScalingRequest(BaseModel):
+    animal_data: list[AnimalPKInput] = Field(..., min_length=1)
+    human_bw_kg: float = Field(default=70.0, gt=0)
+
+
+class InterspeciesScalingResponse(BaseModel):
+    cl_L_per_h: float
+    vd_L: float
+    thalf_h: float
+    dose_mg: float
+    method_used: str
+    fit_quality: float | None
+    warnings: list[str]
+
+
+@app.post("/scale/interspecies", response_model=InterspeciesScalingResponse)
+def interspecies_scaling_endpoint(req: InterspeciesScalingRequest) -> InterspeciesScalingResponse:
+    """Allometric interspecies scaling — predict human PK from animal data."""
+    try:
+        from omega_pbpk.core.interspecies import AnimalPKData, predict_human_pk
+
+        animal_data = [
+            AnimalPKData(
+                species=a.species,
+                cl_mL_min_kg=a.cl_mL_min_kg,
+                vd_L_kg=a.vd_L_kg,
+                thalf_h=a.thalf_h,
+                dose_mg_kg=a.dose_mg_kg,
+            )
+            for a in req.animal_data
+        ]
+        result = predict_human_pk(animal_data, human_bw_kg=req.human_bw_kg)
+        return InterspeciesScalingResponse(
+            cl_L_per_h=result.cl_L_per_h,
+            vd_L=result.vd_L,
+            thalf_h=result.thalf_h,
+            dose_mg=result.dose_mg,
+            method_used=result.method_used,
+            fit_quality=result.fit_quality,
+            warnings=result.warnings,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Interspecies scaling error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
