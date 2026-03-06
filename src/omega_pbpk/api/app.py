@@ -8205,3 +8205,55 @@ def api_accumulation_index(body: dict):
         "accumulation_index_r": r,
         "thalf_h": 0.693 / ke,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 130 — Phase 2 Metabolism Prediction (UGT/SULT/MAO)
+# ---------------------------------------------------------------------------
+from omega_pbpk.prediction.phase2_predictor import Phase2Predictor as _Phase2Predictor  # noqa: E402
+
+_phase2_predictor = _Phase2Predictor()
+
+
+@app.post("/predict/phase2")
+def api_predict_phase2(body: dict):
+    """Predict Phase 2 metabolism (UGT/SULT/MAO CLint) from SMILES."""
+    try:
+        smiles = str(body["smiles"])
+        r = _phase2_predictor.predict(smiles)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "smiles": smiles,
+        "clint_ugt_ul_min_mg": r.clint_ugt_ul_min_mg,
+        "clint_sult_ul_min_mg": r.clint_sult_ul_min_mg,
+        "clint_mao_ul_min_mg": r.clint_mao_ul_min_mg,
+        "clint_phase2_total_ul_min_mg": r.clint_phase2_total_ul_min_mg,
+        "ugt_substrate_prob": r.ugt_substrate_prob,
+        "sult_substrate_prob": r.sult_substrate_prob,
+        "mao_substrate_prob": r.mao_substrate_prob,
+        "dominant_pathway": r.dominant_pathway,
+        "confidence": r.confidence,
+    }
+
+
+@app.post("/predict/phase2/batch")
+def api_predict_phase2_batch(body: dict):
+    """Predict Phase 2 metabolism for a list of SMILES."""
+    try:
+        smiles_list = list(body["smiles_list"])
+    except (KeyError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    results = []
+    for smiles in smiles_list:
+        r = _phase2_predictor.predict(str(smiles))
+        results.append({
+            "smiles": smiles,
+            "clint_ugt_ul_min_mg": r.clint_ugt_ul_min_mg,
+            "clint_sult_ul_min_mg": r.clint_sult_ul_min_mg,
+            "clint_mao_ul_min_mg": r.clint_mao_ul_min_mg,
+            "clint_phase2_total_ul_min_mg": r.clint_phase2_total_ul_min_mg,
+            "dominant_pathway": r.dominant_pathway,
+            "confidence": r.confidence,
+        })
+    return {"results": results, "n_compounds": len(results)}
