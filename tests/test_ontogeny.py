@@ -1,6 +1,5 @@
 """Tests for pediatric CYP ontogeny and physiological maturation functions."""
 
-
 import pytest
 
 from omega_pbpk.clinical.ontogeny import (
