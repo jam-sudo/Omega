@@ -5668,3 +5668,108 @@ def api_accumulation(req: _AccumulationReq):
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 75 — Tissue Binding Correction
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.pbpk_tissue_binding import predict_tissue_binding, compare_binding_species
+
+class _TissueBindingReq(BaseModel):
+    drug_name: str
+    logP: float
+    fup: float
+    kp_dict: dict[str, float] | None = None
+
+@app.post("/predict/tissue_binding")
+def api_tissue_binding(req: _TissueBindingReq):
+    try:
+        r = predict_tissue_binding(req.drug_name, req.logP, req.fup, req.kp_dict)
+        import dataclasses
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 76 — Food-Drug Interaction
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.food_drug_interaction import predict_food_effect, food_effect_bcs_matrix
+
+class _FoodEffectReq(BaseModel):
+    drug_name: str
+    logP: float
+    pka: float = 7.0
+    drug_type: str = "neutral"
+    dose_mg: float = 100.0
+    bcs_class: str = "II"
+    solubility_fasted_mg_mL: float = 0.1
+
+@app.post("/predict/food_effect")
+def api_food_effect(req: _FoodEffectReq):
+    try:
+        r = predict_food_effect(
+            req.drug_name, req.logP, req.pka, req.drug_type,
+            req.dose_mg, req.bcs_class, req.solubility_fasted_mg_mL,
+        )
+        import dataclasses
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 77 — Clearance Prediction
+# ---------------------------------------------------------------------------
+from omega_pbpk.prediction.clearance_prediction import predict_clearance, batch_clearance_predict
+
+class _ClearanceReq(BaseModel):
+    drug_name: str
+    logP: float
+    MW: float
+    fup: float
+    pka: float = 7.0
+    PSA: float = 60.0
+    drug_type: str = "neutral"
+
+@app.post("/predict/clearance")
+def api_clearance(req: _ClearanceReq):
+    try:
+        r = predict_clearance(req.drug_name, req.logP, req.MW, req.fup, req.pka, req.PSA, req.drug_type)
+        import dataclasses
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 78 — Therapeutic Drug Monitoring
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.drug_monitoring import assess_tdm, tdm_dashboard
+
+class _TDMReq(BaseModel):
+    drug_name: str
+    measured_conc_mg_L: list[float]
+    measured_times_h: list[float]
+    therapeutic_min_mg_L: float
+    therapeutic_max_mg_L: float
+    target_pct_within: float = 80.0
+
+@app.post("/tdm/assess")
+def api_tdm(req: _TDMReq):
+    try:
+        r = tdm_dashboard(
+            req.drug_name, req.measured_conc_mg_L, req.measured_times_h,
+            req.therapeutic_min_mg_L, req.therapeutic_max_mg_L,
+        )
+        return r
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
