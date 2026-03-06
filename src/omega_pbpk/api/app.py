@@ -6468,3 +6468,129 @@ def api_particle_dissolution_compare(req: _ParticleSizesReq):
         import dataclasses; return [dataclasses.asdict(r) for r in results]
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 103: Effect Compartment ===
+from omega_pbpk.core.effect_compartment import simulate_effect_compartment, simulate_pkpd_iv
+
+class _EffectCompartmentReq(BaseModel):
+    drug_name: str = "Drug"
+    times_h: list[float]
+    cp_mg_L: list[float]
+    ke0_per_h: float = 0.5
+    ec50_mg_L: float = 2.0
+    emax: float = 1.0
+    hill: float = 1.0
+
+class _PKPDIVReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    cl_L_per_h: float = 5.0
+    vd_L: float = 20.0
+    ke0_per_h: float = 0.5
+    ec50_mg_L: float = 2.0
+    emax: float = 1.0
+    hill: float = 1.0
+    t_end_h: float = 24.0
+
+@app.post("/simulate/effect_compartment")
+def api_effect_compartment(req: _EffectCompartmentReq):
+    try:
+        r = simulate_effect_compartment(req.drug_name, req.times_h, req.cp_mg_L, req.ke0_per_h, req.ec50_mg_L, req.emax, req.hill)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/simulate/pkpd/iv")
+def api_pkpd_iv(req: _PKPDIVReq):
+    try:
+        r = simulate_pkpd_iv(req.drug_name, req.dose_mg, req.cl_L_per_h, req.vd_L, req.ke0_per_h, req.ec50_mg_L, req.emax, req.hill, req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 104: Therapeutic Window ===
+from omega_pbpk.clinical.therapeutic_window import analyze_therapeutic_window, optimal_dose_for_window
+
+class _TherapeuticWindowReq(BaseModel):
+    drug_name: str = "Drug"
+    times_h: list[float]
+    conc_mg_L: list[float]
+    mec_mg_L: float
+    mtc_mg_L: float
+
+class _OptimalDoseReq(BaseModel):
+    drug_name: str = "Drug"
+    times_h: list[float]
+    conc_per_mg: list[float]
+    mec_mg_L: float
+    mtc_mg_L: float
+    dose_min_mg: float = 1.0
+    dose_max_mg: float = 1000.0
+
+@app.post("/analyze/therapeutic_window")
+def api_therapeutic_window(req: _TherapeuticWindowReq):
+    try:
+        r = analyze_therapeutic_window(req.drug_name, req.times_h, req.conc_mg_L, req.mec_mg_L, req.mtc_mg_L)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/analyze/therapeutic_window/optimal_dose")
+def api_optimal_dose(req: _OptimalDoseReq):
+    try:
+        return optimal_dose_for_window(req.drug_name, req.times_h, req.conc_per_mg, req.mec_mg_L, req.mtc_mg_L, req.dose_min_mg, req.dose_max_mg)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 105: Plasma Protein Binding Prediction ===
+from omega_pbpk.prediction.plasma_protein_binding import predict_ppb, ppb_sensitivity
+
+class _PPBReq(BaseModel):
+    drug_name: str = "Drug"
+    logP: float = 2.0
+    MW: float = 300.0
+    PSA: float = 60.0
+    pka_acid: float | None = None
+    pka_basic: float | None = None
+
+@app.post("/predict/plasma_protein_binding")
+def api_ppb(req: _PPBReq):
+    try:
+        r = predict_ppb(req.drug_name, req.logP, req.MW, req.PSA, req.pka_acid, req.pka_basic)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/predict/plasma_protein_binding/sensitivity")
+def api_ppb_sensitivity(req: _PPBReq):
+    try:
+        result = ppb_sensitivity(req.drug_name, req.logP, req.MW, req.PSA)
+        import dataclasses
+        return {k: dataclasses.asdict(v) if hasattr(v, "__dataclass_fields__") else v for k, v in result.items()}
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 106: Gastric Emptying ===
+from omega_pbpk.biopharmaceutics.gastric_emptying import simulate_gastric_emptying, compare_food_states
+
+class _GastricReq(BaseModel):
+    state: str = "fasted"
+    dose_mg: float = 100.0
+    ka_absorption_per_h: float = 1.0
+    t_end_h: float = 12.0
+
+@app.post("/simulate/gastric_emptying")
+def api_gastric_emptying(req: _GastricReq):
+    try:
+        r = simulate_gastric_emptying(req.state, req.dose_mg, req.ka_absorption_per_h, req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/simulate/gastric_emptying/compare")
+def api_gastric_compare(req: _GastricReq):
+    try:
+        result = compare_food_states(req.dose_mg, req.ka_absorption_per_h, req.t_end_h)
+        import dataclasses; return {k: dataclasses.asdict(v) for k, v in result.items()}
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
