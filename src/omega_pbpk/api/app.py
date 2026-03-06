@@ -7756,3 +7756,79 @@ def compare_mr_types_endpoint(body: dict):
         }
         for mr_type, r in results.items()
     }
+
+
+# ── Phase 123: Indirect Response PK/PD Model ─────────────────────────────────
+from omega_pbpk.core.indirect_response import (
+    IRType,
+    simulate_indirect_iv,
+    simulate_indirect_response,
+)
+
+
+@app.post("/simulate/indirect_response")
+def indirect_response_endpoint(body: dict):
+    """Simulate indirect response PD model (Types I–IV) from a given PK profile."""
+    try:
+        ir_type = IRType(body.get("ir_type", "type_i"))
+        result = simulate_indirect_response(
+            drug_name=body.get("drug_name", "Drug"),
+            times_h=body["times_h"],
+            cp_mg_L=body["cp_mg_L"],
+            ir_type=ir_type,
+            kin=float(body["kin"]),
+            kout=float(body["kout"]),
+            emax=float(body.get("emax", 1.0)),
+            ec50_mg_L=float(body.get("ec50_mg_L", 1.0)),
+            hill=float(body.get("hill", 1.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "ir_type": result.ir_type,
+        "r0": result.r0,
+        "rmax": result.rmax,
+        "rmin": result.rmin,
+        "tmax_h": result.tmax_h,
+        "auc_response": result.auc_response,
+        "return_to_baseline_h": result.return_to_baseline_h,
+        "times_h": result.times_h,
+        "response": result.response,
+        "cp_mg_L": result.cp_mg_L,
+    }
+
+
+@app.post("/simulate/indirect_response/iv")
+def indirect_response_iv_endpoint(body: dict):
+    """IV bolus PK + indirect response PD (Types I–IV)."""
+    try:
+        ir_type = IRType(body.get("ir_type", "type_i"))
+        result = simulate_indirect_iv(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            ir_type=ir_type,
+            kin=float(body["kin"]),
+            kout=float(body["kout"]),
+            emax=float(body.get("emax", 1.0)),
+            ec50_mg_L=float(body.get("ec50_mg_L", 1.0)),
+            hill=float(body.get("hill", 1.0)),
+            t_end_h=float(body.get("t_end_h", 48.0)),
+            dt_h=float(body.get("dt_h", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "ir_type": result.ir_type,
+        "r0": result.r0,
+        "rmax": result.rmax,
+        "rmin": result.rmin,
+        "tmax_h": result.tmax_h,
+        "auc_response": result.auc_response,
+        "return_to_baseline_h": result.return_to_baseline_h,
+        "times_h": result.times_h,
+        "response": result.response,
+    }
