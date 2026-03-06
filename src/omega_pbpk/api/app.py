@@ -6728,3 +6728,125 @@ def api_supersaturation_compare(req: _SupersatReq):
         import dataclasses; return {k: dataclasses.asdict(v) for k, v in result.items()}
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 111: TMDD QSS ===
+from omega_pbpk.core.target_mediated import simulate_tmdd_qss
+
+class _TMDDReq(BaseModel):
+    drug_name: str = "mAb"
+    dose_mg: float = 10.0
+    vd_L: float = 5.0
+    cl_L_per_h: float = 0.01
+    ksyn_nmol_L_h: float = 0.1
+    kdeg_per_h: float = 0.02
+    kon_per_nmol_per_h: float = 0.091
+    koff_per_h: float = 0.001
+    kint_per_h: float = 0.01
+    t_end_h: float = 168.0
+
+@app.post("/simulate/tmdd")
+def api_tmdd(req: _TMDDReq):
+    try:
+        r = simulate_tmdd_qss(req.drug_name, req.dose_mg, req.vd_L, req.cl_L_per_h, req.ksyn_nmol_L_h, req.kdeg_per_h, req.kon_per_nmol_per_h, req.koff_per_h, req.kint_per_h, t_end_h=req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 112: Pharmacogenomics ===
+from omega_pbpk.clinical.pharmacogenomics import predict_pgx_dose, batch_pgx_screen, cyp_phenotype_distribution
+
+class _PGxReq(BaseModel):
+    drug_name: str = "Drug"
+    cyp_enzyme: str = "CYP2D6"
+    allele1: str = "*1"
+    allele2: str = "*1"
+    standard_dose_mg: float = 100.0
+    fm: float = 0.8
+
+class _PGxBatchReq(BaseModel):
+    patients: list[dict]
+
+@app.post("/predict/pgx_dose")
+def api_pgx_dose(req: _PGxReq):
+    try:
+        r = predict_pgx_dose(req.drug_name, req.cyp_enzyme, req.allele1, req.allele2, req.standard_dose_mg, req.fm)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/predict/pgx_dose/batch")
+def api_pgx_batch(req: _PGxBatchReq):
+    try:
+        results = batch_pgx_screen(req.patients)
+        import dataclasses; return [dataclasses.asdict(r) for r in results]
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.get("/info/cyp_phenotype_distribution")
+def api_cyp_distribution(enzyme: str = "CYP2D6", population: str = "caucasian"):
+    try:
+        return cyp_phenotype_distribution(enzyme, population)
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 113: MW Prediction ===
+from omega_pbpk.prediction.mw_predictor import predict_mw, screen_mw
+
+class _MWReq(BaseModel):
+    drug_name: str = "Drug"
+    n_C: int = 20
+    n_N: int = 0
+    n_O: int = 0
+    n_S: int = 0
+    n_P: int = 0
+    n_F: int = 0
+    n_Cl: int = 0
+    n_Br: int = 0
+    n_I: int = 0
+    n_aromatic_rings: int = 0
+
+class _MWScreenReq(BaseModel):
+    compounds: list[dict]
+
+@app.post("/predict/molecular_weight")
+def api_mw(req: _MWReq):
+    try:
+        r = predict_mw(req.drug_name, req.n_C, req.n_N, req.n_O, req.n_S, req.n_P, req.n_F, req.n_Cl, req.n_Br, req.n_I, req.n_aromatic_rings)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/predict/molecular_weight/screen")
+def api_mw_screen(req: _MWScreenReq):
+    try:
+        results = screen_mw(req.compounds)
+        import dataclasses; return [dataclasses.asdict(r) for r in results]
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 114: In Vitro Dissolution ===
+from omega_pbpk.biopharmaceutics.in_vitro_dissolution import simulate_usp2_dissolution, compare_rpm
+
+class _InVitroDissReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    solubility_mg_mL: float = 1.0
+    particle_radius_um: float = 50.0
+    rpm: int = 50
+    pH: float = 6.8
+    t_end_min: float = 60.0
+
+@app.post("/simulate/in_vitro_dissolution")
+def api_in_vitro_dissolution(req: _InVitroDissReq):
+    try:
+        r = simulate_usp2_dissolution(req.drug_name, req.dose_mg, req.solubility_mg_mL, req.particle_radius_um, rpm=req.rpm, pH=req.pH, t_end_min=req.t_end_min)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/simulate/in_vitro_dissolution/compare_rpm")
+def api_dissolution_rpm(req: _InVitroDissReq):
+    try:
+        results = compare_rpm(req.drug_name, req.dose_mg, req.solubility_mg_mL)
+        import dataclasses; return [dataclasses.asdict(r) for r in results]
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
