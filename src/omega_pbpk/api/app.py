@@ -9885,3 +9885,407 @@ def api_drug_repurposing_screen(body: dict):
         ],
         "n_candidates": len(results),
     }
+
+
+# ===========================================================================
+# Phase 153-158 API endpoints
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Phase 153 — LNP PBPK
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.lnp_pbpk import (  # noqa: E402
+    LNPPBPKResult as _LnpPKResult,
+)
+from omega_pbpk.core.lnp_pbpk import (
+    optimize_pka as _compare_lnp_formulations,
+)
+from omega_pbpk.core.lnp_pbpk import (
+    simulate_lnp_pk as _simulate_lnp_pk,
+)
+
+
+@app.post("/simulate/lnp_pk")
+def api_lnp_pk(body: dict):
+    """Simulate LNP PBPK (IV, mRNA/siRNA delivery)."""
+    try:
+        r: _LnpPKResult = _simulate_lnp_pk(
+            lnp_name=body.get("formulation_name", "LNP"),
+            dose_mg_lipid=float(body["dose_mg"]),
+            size_nm=float(body.get("size_nm", 100.0)),
+            peg_mol_pct=float(body.get("peg_mol_pct", 2.0)),
+            pka_apparent=float(body.get("ionizable_lipid_pka", 6.5)),
+            cargo_type=body.get("payload_type", "mrna"),
+            t_end_h=float(body.get("t_end_h", 72.0)),
+            dt_h=float(body.get("dt_h", 0.1)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "formulation_name": r.lnp_name,
+        "size_nm": r.size_nm,
+        "dose_mg": r.dose_mg_lipid,
+        "cmax_plasma_mg_L": r.cmax_plasma_mg_L,
+        "auc_plasma": r.auc_plasma,
+        "liver_pct_at_24h": r.liver_pct_at_24h,
+        "spleen_pct_at_24h": r.spleen_pct_at_24h,
+        "t_half_h": r.t_half_plasma_h,
+        "endosomal_escape_efficiency": r.endosomal_escape_efficiency,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/lnp_pk/optimize_pka")
+def api_lnp_optimize_pka(body: dict):
+    """Optimize ionizable lipid pKa for LNP delivery."""
+    try:
+        results = _compare_lnp_formulations(
+            lnp_name=body.get("formulation_name", "LNP"),
+            dose_mg_lipid=float(body["dose_mg"]),
+            pka_range=body.get("pka_range"),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "pka_apparent": r.pka_apparent,
+                "liver_pct_at_24h": r.liver_pct_at_24h,
+                "spleen_pct_at_24h": r.spleen_pct_at_24h,
+                "t_half_h": r.t_half_plasma_h,
+                "endosomal_escape_efficiency": r.endosomal_escape_efficiency,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 154 — Minimal PBPK
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.minimal_pbpk import (  # noqa: E402
+    MinimalPBPKResult as _MinimalPBPKResult,
+)
+from omega_pbpk.core.minimal_pbpk import (
+    simulate_minimal_pbpk as _simulate_minimal_pbpk,
+)
+
+
+@app.post("/simulate/minimal_pbpk")
+def api_minimal_pbpk(body: dict):
+    """Simulate 3-compartment minimal PBPK."""
+    try:
+        r: _MinimalPBPKResult = _simulate_minimal_pbpk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            route=body.get("route", "iv"),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_central_L=float(body["vd_central_L"]),
+            vd_peripheral_L=float(body.get("vd_peripheral_L", 10.0)),
+            k12_per_h=float(body.get("k12_per_h", 0.5)),
+            k21_per_h=float(body.get("k21_per_h", 0.3)),
+            ka_per_h=float(body.get("ka_per_h", 1.0)),
+            f_oral=float(body.get("f_oral", 1.0)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+            dt_h=float(body.get("dt_h", 0.1)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "route": r.route,
+        "cmax_mg_L": r.cmax_mg_L,
+        "tmax_h": r.tmax_h,
+        "auc_0_t": r.auc_0_t,
+        "t_half_h": r.t_half_h,
+        "vdss_L": r.vdss_L,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/minimal_pbpk/vss")
+def api_minimal_pbpk_vss(body: dict):
+    """Calculate Vss from tissue Kp values (minimal PBPK)."""
+    try:
+        from omega_pbpk.core.minimal_pbpk import vss_calculator as _vss_calc
+        vss = _vss_calc(
+            fup=float(body.get("fup", 0.1)),
+            kp_rpt=float(body.get("kp_rpt", 2.0)),
+            kp_spt=float(body.get("kp_spt", 1.0)),
+            kp_fat=float(body.get("kp_fat", 5.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"vss_L": vss}
+
+
+# ---------------------------------------------------------------------------
+# Phase 155 — Tissue Distribution
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.tissue_distribution import (  # noqa: E402
+    TissueDistributionResult as _TissueDistributionResult,
+)
+from omega_pbpk.core.tissue_distribution import (
+    accumulation_risk_screen as _compare_compounds_distribution,
+)
+from omega_pbpk.core.tissue_distribution import (
+    predict_tissue_distribution as _calculate_tissue_distribution,
+)
+
+
+@app.post("/simulate/tissue_distribution")
+def api_tissue_distribution(body: dict):
+    """Calculate tissue distribution from physicochemical properties."""
+    try:
+        r: _TissueDistributionResult = _calculate_tissue_distribution(
+            drug_name=body.get("drug_name", "Drug"),
+            c_plasma_mg_L=float(body.get("c_plasma_mg_L", 1.0)),
+            logP=float(body["logP"]),
+            fup=float(body["fup"]),
+            kp_overrides=body.get("kp_overrides"),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "c_plasma_mg_L": r.c_plasma_mg_L,
+        "logP": r.logP,
+        "fup": r.fup,
+        "vss_L": r.vss_L,
+        "highest_kp_tissue": r.highest_kp_tissue,
+        "highest_kp_value": r.highest_kp_value,
+        "tissues_at_high_risk": r.tissues_at_high_risk,
+        "plasma_fraction_pct": r.plasma_fraction_pct,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/tissue_distribution/screen")
+def api_tissue_distribution_screen(body: dict):
+    """Screen multiple drugs for tissue accumulation risk."""
+    try:
+        results = _compare_compounds_distribution(drugs=body["drugs"])
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "drug_name": r.drug_name,
+                "vss_L": r.vss_L,
+                "highest_kp_tissue": r.highest_kp_tissue,
+                "tissues_at_high_risk": r.tissues_at_high_risk,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 156 — Reactive Metabolite
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.risk.reactive_metabolite import (  # noqa: E402
+    assess_reactive_metabolite as _assess_reactive_metabolite,
+)
+from omega_pbpk.risk.reactive_metabolite import (
+    screen_reactive_metabolites as _screen_reactive_metabolites,
+)
+
+
+@app.post("/risk/reactive_metabolite")
+def api_reactive_metabolite(body: dict):
+    """Assess reactive metabolite / bioactivation risk."""
+    try:
+        r = _assess_reactive_metabolite(
+            compound_name=body.get("compound_name", "Compound"),
+            smiles=body["smiles"],
+            mw=float(body["mw"]),
+            logP=float(body["logP"]),
+            daily_dose_mg=float(body.get("daily_dose_mg", 50.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "compound_name": r.compound_name,
+        "n_alerts": r.n_alerts,
+        "alert_score": r.alert_score,
+        "bioactivation_prediction": r.bioactivation_prediction,
+        "dili_risk": r.dili_risk,
+        "idiosyncratic_risk": r.idiosyncratic_risk,
+        "dose_burden_score": r.dose_burden_score,
+        "structural_class": r.structural_class,
+        "mitigation_suggestions": r.mitigation_suggestions,
+        "triggered_alerts": [a.name for a in r.alerts if a.triggered],
+        "notes": r.notes,
+    }
+
+
+@app.post("/risk/reactive_metabolite/screen")
+def api_reactive_metabolite_screen(body: dict):
+    """Screen a library of compounds for reactive metabolite risk."""
+    try:
+        results = _screen_reactive_metabolites(compounds=body["compounds"])
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "compound_name": r.compound_name,
+                "alert_score": r.alert_score,
+                "dili_risk": r.dili_risk,
+                "bioactivation_prediction": r.bioactivation_prediction,
+                "dose_burden_score": r.dose_burden_score,
+            }
+            for r in results
+        ],
+        "n_compounds": len(results),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 157 — Immunogenicity
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.risk.immunogenicity import (  # noqa: E402
+    assess_immunogenicity as _assess_immunogenicity,
+)
+from omega_pbpk.risk.immunogenicity import (
+    compare_routes_immunogenicity as _compare_routes_immunogenicity,
+)
+
+
+@app.post("/risk/immunogenicity")
+def api_immunogenicity(body: dict):
+    """Assess immunogenicity risk for a biologic drug."""
+    try:
+        r = _assess_immunogenicity(
+            protein_name=body.get("protein_name", "mAb"),
+            mw_kDa=float(body["mw_kDa"]),
+            protein_type=body.get("protein_type", "mab"),
+            peg_conjugated=bool(body.get("peg_conjugated", False)),
+            aggregation_score=float(body.get("aggregation_score", 0.0)),
+            humanization_pct=float(body.get("humanization_pct", 100.0)),
+            glycosylation=bool(body.get("glycosylation", True)),
+            route=body.get("route", "sc"),
+            treatment_duration_weeks=int(body.get("treatment_duration_weeks", 52)),
+            patient_condition=body.get("patient_condition", "autoimmune"),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "protein_name": r.protein_name,
+        "ada_risk_pct": r.ada_risk_pct,
+        "ada_risk_category": r.ada_risk_category,
+        "clinical_impact_prediction": r.clinical_impact_prediction,
+        "mitigation_strategies": r.mitigation_strategies,
+        "risk_drivers": r.risk_drivers,
+        "notes": r.notes,
+    }
+
+
+@app.post("/risk/immunogenicity/compare_routes")
+def api_immunogenicity_compare_routes(body: dict):
+    """Compare immunogenicity risk across IV, SC, IM routes."""
+    try:
+        results = _compare_routes_immunogenicity(
+            protein_name=body.get("protein_name", "mAb"),
+            mw_kDa=float(body["mw_kDa"]),
+            protein_type=body.get("protein_type", "mab"),
+            peg_conjugated=bool(body.get("peg_conjugated", False)),
+            aggregation_score=float(body.get("aggregation_score", 0.0)),
+            humanization_pct=float(body.get("humanization_pct", 100.0)),
+            glycosylation=bool(body.get("glycosylation", True)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "route": r.route,
+                "ada_risk_pct": r.ada_risk_pct,
+                "ada_risk_category": r.ada_risk_category,
+                "clinical_impact_prediction": r.clinical_impact_prediction,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 158 — Formulation Viscosity
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.prediction.formulation_viscosity import (  # noqa: E402
+    predict_viscosity as _predict_viscosity,
+)
+from omega_pbpk.prediction.formulation_viscosity import (
+    screen_concentrations as _screen_concentrations,
+)
+
+
+@app.post("/predict/formulation_viscosity")
+def api_formulation_viscosity(body: dict):
+    """Predict high-concentration mAb formulation viscosity."""
+    try:
+        r = _predict_viscosity(
+            protein_name=body.get("protein_name", "mAb"),
+            concentration_mg_mL=float(body["concentration_mg_mL"]),
+            mw_kDa=float(body.get("mw_kDa", 150.0)),
+            temperature_C=float(body.get("temperature_C", 25.0)),
+            ph=float(body.get("ph", 6.0)),
+            pi_pH=float(body.get("pi_pH", 7.5)),
+            logP=float(body.get("logP", 0.0)),
+            net_charge=float(body.get("net_charge", 0.0)),
+            arginine_mM=float(body.get("arginine_mM", 0.0)),
+            nacl_mM=float(body.get("nacl_mM", 0.0)),
+            sucrose_pct=float(body.get("sucrose_pct", 0.0)),
+            polysorbate_pct=float(body.get("polysorbate_pct", 0.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "protein_name": r.protein_name,
+        "concentration_mg_mL": r.concentration_mg_mL,
+        "viscosity_cP": r.viscosity_cP,
+        "viscosity_category": r.viscosity_category,
+        "sc_injectable": r.sc_injectable,
+        "relative_viscosity": r.relative_viscosity,
+        "self_association_index": r.self_association_index,
+        "excipient_effect": r.excipient_effect,
+        "concentration_for_20cP": r.concentration_for_20cP,
+        "notes": r.notes,
+    }
+
+
+@app.post("/predict/formulation_viscosity/screen")
+def api_formulation_viscosity_screen(body: dict):
+    """Screen viscosity across a range of concentrations."""
+    try:
+        results = _screen_concentrations(
+            protein_name=body.get("protein_name", "mAb"),
+            concentrations_mg_mL=[float(c) for c in body["concentrations_mg_mL"]],
+            mw_kDa=float(body.get("mw_kDa", 150.0)),
+            temperature_C=float(body.get("temperature_C", 25.0)),
+            ph=float(body.get("ph", 6.0)),
+            pi_pH=float(body.get("pi_pH", 7.5)),
+            logP=float(body.get("logP", 0.0)),
+            arginine_mM=float(body.get("arginine_mM", 0.0)),
+            nacl_mM=float(body.get("nacl_mM", 0.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "concentration_mg_mL": r.concentration_mg_mL,
+                "viscosity_cP": r.viscosity_cP,
+                "viscosity_category": r.viscosity_category,
+                "sc_injectable": r.sc_injectable,
+            }
+            for r in results
+        ],
+        "protein_name": body.get("protein_name", "mAb"),
+    }
