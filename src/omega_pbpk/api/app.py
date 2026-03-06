@@ -7574,7 +7574,7 @@ def ddi_network(body: dict):
     try:
         result = analyze_drug_network(drugs)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drugs": result.drugs,
         "n_interactions": result.n_interactions,
@@ -7620,7 +7620,7 @@ def predict_absorption_endpoint(body: dict):
             transit_h=float(body.get("transit_h", 3.5)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "fa": result.fa,
@@ -7673,7 +7673,7 @@ def simulate_2cpt_infusion_endpoint(body: dict):
             dt_h=float(body.get("dt_h", 0.05)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "infusion_rate_mg_h": result.infusion_rate_mg_h,
@@ -7717,7 +7717,7 @@ def simulate_modified_release_endpoint(body: dict):
             dt_h=float(body.get("dt_h", 0.1)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "mr_type": result.mr_type,
@@ -7745,7 +7745,7 @@ def compare_mr_types_endpoint(body: dict):
             vd_L=float(body["vd_L"]),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         mr_type: {
             "cmax_mg_L": r.cmax_mg_L,
