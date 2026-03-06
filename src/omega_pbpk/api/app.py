@@ -6057,3 +6057,102 @@ def api_dissolution_compare(req: _DissolutionCompareReq):
         return {k: dataclasses.asdict(v) for k, v in results.items()}
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 87 — Mass Balance
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.mass_balance import check_mass_balance
+
+class _MassBalanceReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    absorbed_mg: float
+    metabolized_mg: float = 0.0
+    excreted_mg: float = 0.0
+    remaining_mg: float = 0.0
+    tolerance_pct: float = 1.0
+
+@app.post("/validate/mass_balance")
+def api_mass_balance(req: _MassBalanceReq):
+    try:
+        r = check_mass_balance(req.drug_name, req.dose_mg, req.absorbed_mg,
+                                metabolized_mg=req.metabolized_mg,
+                                excreted_mg=req.excreted_mg,
+                                remaining_mg=req.remaining_mg,
+                                tolerance_pct=req.tolerance_pct)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 88 — NCA
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.nca import calculate_nca
+
+class _NCAReq(BaseModel):
+    drug_name: str
+    times_h: list[float]
+    conc_mg_L: list[float]
+    dose_mg: float
+    route: str = "oral"
+
+@app.post("/analyze/nca")
+def api_nca(req: _NCAReq):
+    try:
+        r = calculate_nca(req.drug_name, req.times_h, req.conc_mg_L, req.dose_mg, req.route)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 89 — Transporter DDI
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.transporter_ddi import assess_transporter_ddi
+
+class _TransporterDDIReq(BaseModel):
+    victim_drug: str
+    perpetrator_drug: str
+    transporter: str
+    ki_uM: float
+    inhibitor_conc_uM: float = 0.1
+    inhibition_type: str = "competitive"
+
+@app.post("/ddi/transporter")
+def api_transporter_ddi(req: _TransporterDDIReq):
+    try:
+        r = assess_transporter_ddi(req.victim_drug, req.perpetrator_drug, req.transporter,
+                                    req.ki_uM, inhibitor_conc_uM=req.inhibitor_conc_uM,
+                                    inhibition_type=req.inhibition_type)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 90 — Trial Simulation
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.trial_simulation import simulate_trial, dose_response_simulation
+
+class _TrialSimReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    n_subjects: int = 100
+    cl_L_per_h: float = 5.0
+    vd_L: float = 50.0
+    ec50_mg_L: float = 0.5
+    emax: float = 1.0
+    placebo_effect: float = 0.1
+    seed: int = 42
+
+@app.post("/simulate/trial")
+def api_trial_sim(req: _TrialSimReq):
+    try:
+        r = simulate_trial(req.drug_name, req.dose_mg, req.n_subjects,
+                            req.cl_L_per_h, req.vd_L, req.ec50_mg_L,
+                            req.emax, placebo_effect=req.placebo_effect, seed=req.seed)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
