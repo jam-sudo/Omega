@@ -6594,3 +6594,137 @@ def api_gastric_compare(req: _GastricReq):
         import dataclasses; return {k: dataclasses.asdict(v) for k, v in result.items()}
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 107: Michaelis-Menten PK ===
+from omega_pbpk.core.michaelis_menten import simulate_michaelis_menten, dose_proportionality_index
+
+class _MMReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    vd_L: float = 20.0
+    vmax_mg_h: float = 5.0
+    km_mg_L: float = 2.0
+    route: str = "iv"
+    ka_per_h: float = 1.0
+    t_end_h: float = 24.0
+
+class _DosePropReq(BaseModel):
+    drug_name: str = "Drug"
+    doses: list[float]
+    vd_L: float = 20.0
+    vmax_mg_h: float = 5.0
+    km_mg_L: float = 2.0
+
+@app.post("/simulate/michaelis_menten")
+def api_michaelis_menten(req: _MMReq):
+    try:
+        r = simulate_michaelis_menten(req.drug_name, req.dose_mg, req.vd_L, req.vmax_mg_h, req.km_mg_L, req.route, req.ka_per_h, t_end_h=req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/analyze/dose_proportionality")
+def api_dose_proportionality(req: _DosePropReq):
+    try:
+        return dose_proportionality_index(req.drug_name, req.doses, req.vd_L, req.vmax_mg_h, req.km_mg_L)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 108: Cumulative Toxicity ===
+from omega_pbpk.clinical.cumulative_toxicity import simulate_multicycle_pk, assess_cumulative_toxicity
+
+class _MulticycleReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    cl_L_per_h: float = 5.0
+    vd_L: float = 20.0
+    n_cycles: int = 6
+    cycle_interval_h: float = 504.0
+    t_per_cycle_h: float = 24.0
+
+class _CumToxReq(BaseModel):
+    drug_name: str = "Drug"
+    cycle_doses_mg: list[float]
+    cycle_aucs: list[float]
+    auc_mtc: float
+
+@app.post("/simulate/multicycle_pk")
+def api_multicycle_pk(req: _MulticycleReq):
+    try:
+        r = simulate_multicycle_pk(req.drug_name, req.dose_mg, req.cl_L_per_h, req.vd_L, req.n_cycles, req.cycle_interval_h, req.t_per_cycle_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/assess/cumulative_toxicity")
+def api_cumulative_toxicity(req: _CumToxReq):
+    try:
+        r = assess_cumulative_toxicity(req.drug_name, req.cycle_doses_mg, req.cycle_aucs, req.auc_mtc)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 109: logP Prediction ===
+from omega_pbpk.prediction.logp_predictor import predict_logp, screen_logp
+
+class _LogPReq(BaseModel):
+    drug_name: str = "Drug"
+    n_carbons: int = 20
+    n_nitrogens: int = 0
+    n_oxygens: int = 0
+    n_halogens: int = 0
+    n_aromatic_rings: int = 0
+    n_rotatable_bonds: int = 0
+    MW: float | None = None
+    PSA: float = 60.0
+    n_hbd: int = 0
+    n_hba: int = 0
+
+class _LogPScreenReq(BaseModel):
+    compounds: list[dict]
+
+@app.post("/predict/logp")
+def api_logp(req: _LogPReq):
+    try:
+        r = predict_logp(req.drug_name, req.n_carbons, req.n_nitrogens, req.n_oxygens, req.n_halogens, req.n_aromatic_rings, req.n_rotatable_bonds, req.MW, req.PSA, n_hbd=req.n_hbd, n_hba=req.n_hba)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/predict/logp/screen")
+def api_logp_screen(req: _LogPScreenReq):
+    try:
+        results = screen_logp(req.compounds)
+        import dataclasses; return [dataclasses.asdict(r) for r in results]
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 110: Supersaturation ===
+from omega_pbpk.biopharmaceutics.supersaturation import simulate_supersaturation, compare_formulations_supersaturation
+
+class _SupersatReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    volume_gut_mL: float = 250.0
+    solubility_mg_mL: float = 0.01
+    logP: float = 3.0
+    precipitation_rate_per_h: float = 2.0
+    absorption_rate_per_h: float = 1.0
+    polymer_parachute: bool = False
+    t_end_h: float = 6.0
+
+@app.post("/simulate/supersaturation")
+def api_supersaturation(req: _SupersatReq):
+    try:
+        r = simulate_supersaturation(req.drug_name, req.dose_mg, req.volume_gut_mL, req.solubility_mg_mL, req.logP, req.precipitation_rate_per_h, req.absorption_rate_per_h, req.polymer_parachute, req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/simulate/supersaturation/compare")
+def api_supersaturation_compare(req: _SupersatReq):
+    try:
+        result = compare_formulations_supersaturation(req.drug_name, req.dose_mg, req.solubility_mg_mL, req.logP)
+        import dataclasses; return {k: dataclasses.asdict(v) for k, v in result.items()}
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
