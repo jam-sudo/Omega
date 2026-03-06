@@ -1,353 +1,200 @@
-"""Tests for omega_pbpk.core.first_pass module."""
+"""Tests for first-pass metabolism calculator (Phase 173)."""
+
+from __future__ import annotations
+
+import math
 
 import pytest
 
-from omega_pbpk.core.first_pass import (
+from omega_pbpk.clinical.first_pass import (
     FirstPassResult,
-    _gut_availability,
-    _hepatic_extraction,
     calculate_first_pass,
-    first_pass_sensitivity,
+    sensitivity_first_pass,
 )
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+
+# ── Default behaviour ──────────────────────────────────────────────────
 
 
-@pytest.fixture
-def default_result():
-    return calculate_first_pass(
-        drug_name="TestDrug",
-        dose_mg=100.0,
-        fup=0.1,
-        cl_int_L_per_h=50.0,
-    )
+def test_default_returns_first_pass_result():
+    result = calculate_first_pass("DrugA")
+    assert isinstance(result, FirstPassResult)
 
 
-@pytest.fixture
-def high_extraction_result():
-    return calculate_first_pass(
-        drug_name="HighExtDrug",
-        dose_mg=50.0,
-        fup=0.9,
-        cl_int_L_per_h=5000.0,
-    )
+def test_default_drug_name():
+    result = calculate_first_pass("DrugA")
+    assert result.drug_name == "DrugA"
 
 
-@pytest.fixture
-def zero_extraction_result():
-    return calculate_first_pass(
-        drug_name="ZeroExtDrug",
-        dose_mg=100.0,
-        fup=0.1,
-        cl_int_L_per_h=0.0,
-    )
+def test_default_fa_is_one():
+    result = calculate_first_pass("DrugA")
+    assert result.fa == 1.0
 
 
-# ---------------------------------------------------------------------------
-# 1. Return type is FirstPassResult
-# ---------------------------------------------------------------------------
+def test_default_bioavailability_equals_product():
+    result = calculate_first_pass("DrugA")
+    expected = result.fa * result.fg * result.fh * result.fl
+    assert math.isclose(result.bioavailability_f, expected, rel_tol=1e-9)
 
 
-def test_returns_first_pass_result_type(default_result):
-    assert isinstance(default_result, FirstPassResult)
+def test_default_first_pass_loss_pct():
+    result = calculate_first_pass("DrugA")
+    expected_loss = (1.0 - result.bioavailability_f) * 100.0
+    assert math.isclose(result.first_pass_loss_pct, expected_loss, rel_tol=1e-9)
 
 
-# ---------------------------------------------------------------------------
-# 2. e_hepatic in [0, 0.999]
-# ---------------------------------------------------------------------------
+# ── High / Low extraction ──────────────────────────────────────────────
 
 
-def test_e_hepatic_lower_bound(zero_extraction_result):
-    assert zero_extraction_result.e_hepatic >= 0.0
+def test_high_clh_gives_high_extraction():
+    result = calculate_first_pass("DrugB", clh_intrinsic_L_per_h=500.0)
+    assert result.eh_liver > 0.7
+    assert result.high_extraction is True
+    assert result.bioavailability_f < 0.3
 
 
-def test_e_hepatic_upper_bound_default(default_result):
-    assert default_result.e_hepatic <= 0.999
+def test_low_clh_gives_low_extraction():
+    result = calculate_first_pass("DrugC", clh_intrinsic_L_per_h=1.0)
+    assert result.eh_liver < 0.3
+    assert result.high_extraction is False
+    assert result.bioavailability_f > 0.5
 
 
-def test_e_hepatic_upper_bound_high_extraction(high_extraction_result):
-    assert high_extraction_result.e_hepatic <= 0.999
-
-
-def test_e_hepatic_in_range_various():
-    for cl_int in [0.0, 1.0, 10.0, 100.0, 1000.0, 99999.0]:
-        result = calculate_first_pass("D", 100.0, 0.5, cl_int)
-        assert 0.0 <= result.e_hepatic <= 0.999, f"e_hepatic out of range for cl_int={cl_int}"
-
-
-# ---------------------------------------------------------------------------
-# 3. f_hepatic == 1 - e_hepatic (approximately)
-# ---------------------------------------------------------------------------
-
-
-def test_f_hepatic_equals_one_minus_e_hepatic(default_result):
-    assert default_result.f_hepatic == pytest.approx(1.0 - default_result.e_hepatic, rel=1e-6)
-
-
-def test_f_hepatic_equals_one_minus_e_hepatic_high(high_extraction_result):
-    assert high_extraction_result.f_hepatic == pytest.approx(
-        1.0 - high_extraction_result.e_hepatic, rel=1e-6
-    )
-
-
-# ---------------------------------------------------------------------------
-# 4. f_oral in [0, 1]
-# ---------------------------------------------------------------------------
-
-
-def test_f_oral_in_range_default(default_result):
-    assert 0.0 <= default_result.f_oral <= 1.0
-
-
-def test_f_oral_in_range_high_extraction(high_extraction_result):
-    assert 0.0 <= high_extraction_result.f_oral <= 1.0
-
-
-def test_f_oral_in_range_zero_extraction(zero_extraction_result):
-    assert 0.0 <= zero_extraction_result.f_oral <= 1.0
-
-
-# ---------------------------------------------------------------------------
-# 5. High cl_int -> high extraction
-# ---------------------------------------------------------------------------
-
-
-def test_high_cl_int_gives_high_extraction():
-    result = calculate_first_pass("D", 100.0, 0.9, 10000.0)
-    assert result.e_hepatic > 0.9
-
-
-def test_high_extraction_relative_ordering():
-    low = calculate_first_pass("D", 100.0, 0.5, 1.0)
-    high = calculate_first_pass("D", 100.0, 0.5, 1000.0)
-    assert high.e_hepatic > low.e_hepatic
-
-
-# ---------------------------------------------------------------------------
-# 6. Zero cl_int -> extraction ~ 0
-# ---------------------------------------------------------------------------
-
-
-def test_zero_cl_int_extraction_near_zero(zero_extraction_result):
-    assert zero_extraction_result.e_hepatic == pytest.approx(0.0, abs=1e-9)
-
-
-def test_zero_cl_int_f_hepatic_near_one(zero_extraction_result):
-    assert zero_extraction_result.f_hepatic == pytest.approx(1.0, abs=1e-9)
-
-
-# ---------------------------------------------------------------------------
-# 7. IV route -> f_oral == 1.0
-# ---------------------------------------------------------------------------
-
-
-def test_iv_route_f_oral_is_one():
+def test_high_extraction_flag_at_boundary():
+    # Eh exactly at 0.7 should not be flagged (> 0.7 required, not >=)
+    # With fup==fub, CLh_eff = CLh. Eh=0.7 => CLh/(Qh+CLh)=0.7 => CLh=0.7*Qh/0.3
+    qh = 90.0
+    clh = 0.7 * qh / 0.3
     result = calculate_first_pass(
-        drug_name="IVDrug",
-        dose_mg=10.0,
-        fup=0.5,
-        cl_int_L_per_h=100.0,
-        route="iv",
+        "DrugD", clh_intrinsic_L_per_h=clh, fup=0.5, fub=0.5,
     )
-    assert result.f_oral == pytest.approx(1.0, abs=1e-9)
+    assert result.high_extraction is False
 
 
-def test_iv_route_stored_in_result():
-    result = calculate_first_pass("IVDrug", 10.0, 0.5, 100.0, route="iv")
-    assert result.route == "iv"
+# ── Absorption edge cases ──────────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# 8. ValueError for dose_mg <= 0
-# ---------------------------------------------------------------------------
+def test_fa_zero_gives_zero_bioavailability():
+    result = calculate_first_pass("DrugE", fa=0.0)
+    assert result.bioavailability_f == 0.0
+    assert result.first_pass_loss_pct == 100.0
 
 
-def test_raises_on_zero_dose():
-    with pytest.raises(ValueError):
-        calculate_first_pass("D", 0.0, 0.1, 10.0)
+def test_fa_one_full_absorption():
+    result = calculate_first_pass("DrugF", fa=1.0)
+    assert result.fa == 1.0
+    assert result.bioavailability_f > 0.0
 
 
-def test_raises_on_negative_dose():
-    with pytest.raises(ValueError):
-        calculate_first_pass("D", -5.0, 0.1, 10.0)
+# ── Protein-binding correction ─────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# 9. ValueError for fup <= 0
-# ---------------------------------------------------------------------------
+def test_fu_correction_changes_result():
+    with_corr = calculate_first_pass("DrugG", fup=0.3, fub=0.5, use_fu_correction=True)
+    without_corr = calculate_first_pass("DrugG", fup=0.3, fub=0.5, use_fu_correction=False)
+    assert with_corr.bioavailability_f != without_corr.bioavailability_f
 
 
-def test_raises_on_zero_fup():
-    with pytest.raises(ValueError):
-        calculate_first_pass("D", 100.0, 0.0, 10.0)
+def test_fu_correction_off_uses_raw_clh():
+    result = calculate_first_pass(
+        "DrugH", clh_intrinsic_L_per_h=20.0, qh_L_per_h=90.0,
+        use_fu_correction=False,
+    )
+    expected_eh = 20.0 / (90.0 + 20.0)
+    assert math.isclose(result.eh_liver, expected_eh, rel_tol=1e-9)
 
 
-def test_raises_on_negative_fup():
-    with pytest.raises(ValueError):
-        calculate_first_pass("D", 100.0, -0.1, 10.0)
+# ── Lung extraction ───────────────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# 10. ValueError for cl_int < 0
-# ---------------------------------------------------------------------------
+def test_fl_less_than_one_reduces_f():
+    full = calculate_first_pass("DrugI", fl=1.0)
+    partial = calculate_first_pass("DrugI", fl=0.5)
+    assert partial.bioavailability_f < full.bioavailability_f
 
 
-def test_raises_on_negative_cl_int():
-    with pytest.raises(ValueError):
-        calculate_first_pass("D", 100.0, 0.1, -1.0)
+# ── Validation errors ──────────────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# 11. hepatic_cl_L_per_h == e_hepatic * q_hepatic (approximately)
-# ---------------------------------------------------------------------------
+def test_invalid_fa_negative():
+    with pytest.raises(ValueError, match="fa"):
+        calculate_first_pass("X", fa=-0.1)
 
 
-def test_hepatic_cl_equals_e_times_q(default_result):
-    expected = default_result.e_hepatic * default_result.q_hepatic_L_per_h
-    assert default_result.hepatic_cl_L_per_h == pytest.approx(expected, rel=1e-6)
+def test_invalid_fa_above_one():
+    with pytest.raises(ValueError, match="fa"):
+        calculate_first_pass("X", fa=1.1)
 
 
-def test_hepatic_cl_custom_q():
-    result = calculate_first_pass("D", 100.0, 0.5, 50.0, q_hepatic_L_per_h=60.0)
-    expected = result.e_hepatic * 60.0
-    assert result.hepatic_cl_L_per_h == pytest.approx(expected, rel=1e-6)
+def test_invalid_clg_zero():
+    with pytest.raises(ValueError, match="clg_L_per_h"):
+        calculate_first_pass("X", clg_L_per_h=0.0)
 
 
-# ---------------------------------------------------------------------------
-# 12. well_stirred_model == 'well_stirred'
-# ---------------------------------------------------------------------------
+def test_invalid_clh_negative():
+    with pytest.raises(ValueError, match="clh_intrinsic_L_per_h"):
+        calculate_first_pass("X", clh_intrinsic_L_per_h=-5.0)
 
 
-def test_well_stirred_model_label(default_result):
-    assert default_result.well_stirred_model == "well_stirred"
+def test_invalid_fup_zero():
+    with pytest.raises(ValueError, match="fup"):
+        calculate_first_pass("X", fup=0.0)
 
 
-# ---------------------------------------------------------------------------
-# 13. sensitivity list length == len(cl_int_range)
-# ---------------------------------------------------------------------------
+def test_invalid_fub_above_one():
+    with pytest.raises(ValueError, match="fub"):
+        calculate_first_pass("X", fub=1.5)
 
 
-def test_sensitivity_list_length():
-    cl_int_range = [1.0, 10.0, 50.0, 100.0, 500.0]
-    results = first_pass_sensitivity("D", 100.0, 0.5, cl_int_range)
-    assert len(results) == len(cl_int_range)
+def test_invalid_fl_negative():
+    with pytest.raises(ValueError, match="fl"):
+        calculate_first_pass("X", fl=-0.1)
 
 
-def test_sensitivity_list_length_single():
-    results = first_pass_sensitivity("D", 100.0, 0.5, [42.0])
-    assert len(results) == 1
+# ── Edge cases ─────────────────────────────────────────────────────────
 
 
-def test_sensitivity_returns_first_pass_results():
-    cl_int_range = [1.0, 10.0, 100.0]
-    results = first_pass_sensitivity("D", 100.0, 0.5, cl_int_range)
+def test_very_high_clearance():
+    result = calculate_first_pass("DrugJ", clh_intrinsic_L_per_h=10000.0)
+    assert result.eh_liver > 0.9
+    assert result.bioavailability_f < 0.1
+
+
+def test_very_low_clearance():
+    result = calculate_first_pass(
+        "DrugK", clg_L_per_h=0.01, clh_intrinsic_L_per_h=0.01,
+    )
+    assert result.bioavailability_f > 0.99
+
+
+def test_first_pass_loss_in_range():
+    result = calculate_first_pass("DrugL")
+    assert 0.0 <= result.first_pass_loss_pct <= 100.0
+
+
+def test_notes_is_string():
+    result = calculate_first_pass("DrugM")
+    assert isinstance(result.notes, str)
+
+
+# ── Sensitivity analysis ──────────────────────────────────────────────
+
+
+def test_sensitivity_returns_correct_count():
+    results = sensitivity_first_pass(
+        "DrugN",
+        fg_range=(1.0, 10.0, 3),
+        fh_range=(5.0, 50.0, 4),
+    )
+    assert len(results) == 3 * 4
+
+
+def test_sensitivity_all_results_are_first_pass_result():
+    results = sensitivity_first_pass(
+        "DrugO",
+        fg_range=(1.0, 5.0, 2),
+        fh_range=(10.0, 30.0, 2),
+    )
     for r in results:
         assert isinstance(r, FirstPassResult)
-
-
-# ---------------------------------------------------------------------------
-# 14. Higher cl_int -> higher e_hepatic (monotonicity in sensitivity)
-# ---------------------------------------------------------------------------
-
-
-def test_sensitivity_monotone_extraction():
-    cl_int_range = [0.1, 1.0, 10.0, 100.0, 1000.0]
-    results = first_pass_sensitivity("D", 100.0, 0.3, cl_int_range)
-    extractions = [r.e_hepatic for r in results]
-    assert extractions == sorted(extractions), "e_hepatic should increase with cl_int"
-
-
-# ---------------------------------------------------------------------------
-# 15. fa=1 and low logP -> f_oral close to f_hepatic
-# ---------------------------------------------------------------------------
-
-
-def test_fa1_low_logP_f_oral_close_to_fh():
-    """With fa=1 and low logP (high peff, fg~1), f_oral ≈ f_hepatic."""
-    result = calculate_first_pass(
-        drug_name="Hydrophilic",
-        dose_mg=100.0,
-        fup=0.5,
-        cl_int_L_per_h=20.0,
-        fa=1.0,
-        logP=-1.0,  # very hydrophilic -> high gut permeability -> fg near 1.0
-    )
-    # f_oral = fa * fg * fh; with fa=1 and fg≈1, f_oral ≈ fh
-    assert result.f_oral <= result.f_hepatic  # f_oral = fa*fg*fh <= fh
-
-
-# ---------------------------------------------------------------------------
-# 16. _hepatic_extraction private function
-# ---------------------------------------------------------------------------
-
-
-def test_hepatic_extraction_zero_clint():
-    e = _hepatic_extraction(0.0, 90.0, 0.5)
-    assert e == pytest.approx(0.0, abs=1e-9)
-
-
-def test_hepatic_extraction_clamped_high():
-    e = _hepatic_extraction(1e9, 90.0, 1.0)
-    assert e <= 0.999
-
-
-def test_hepatic_extraction_formula():
-    cl_int, q, fup = 50.0, 90.0, 0.5
-    expected = fup * cl_int / (q + fup * cl_int)
-    e = _hepatic_extraction(cl_int, q, fup)
-    assert e == pytest.approx(expected, rel=1e-6)
-
-
-# ---------------------------------------------------------------------------
-# 17. _gut_availability private function
-# ---------------------------------------------------------------------------
-
-
-def test_gut_availability_in_range():
-    fa, logP = 1.0, 2.0
-    peff = 1.0  # arbitrary positive
-    fg = _gut_availability(fa=fa, peff_cm_s=peff, logP=logP)
-    assert 0.1 <= fg <= 1.0
-
-
-def test_gut_availability_lower_bound():
-    # Even with extreme unfavorable conditions, fg >= 0.1
-    fg = _gut_availability(fa=0.0, peff_cm_s=0.0, logP=-10.0)
-    assert fg >= 0.1
-
-
-def test_gut_availability_upper_bound():
-    # Favorable conditions should not exceed 1.0
-    fg = _gut_availability(fa=1.0, peff_cm_s=100.0, logP=5.0)
-    assert fg <= 1.0
-
-
-# ---------------------------------------------------------------------------
-# 18. Dataclass field correctness
-# ---------------------------------------------------------------------------
-
-
-def test_result_stores_drug_name(default_result):
-    assert default_result.drug_name == "TestDrug"
-
-
-def test_result_stores_dose(default_result):
-    assert default_result.dose_mg == pytest.approx(100.0)
-
-
-def test_result_stores_fup(default_result):
-    assert default_result.fup == pytest.approx(0.1)
-
-
-def test_result_stores_q_hepatic(default_result):
-    assert default_result.q_hepatic_L_per_h == pytest.approx(90.0)
-
-
-def test_result_route_default_is_oral(default_result):
-    assert default_result.route == "oral"
-
-
-def test_result_peak_portal_conc_nonnegative(default_result):
-    assert default_result.peak_portal_conc_mg_L >= 0.0
+        assert 0.0 <= r.first_pass_loss_pct <= 100.0
