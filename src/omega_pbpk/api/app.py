@@ -8345,3 +8345,83 @@ def api_cyp1a2_ontogeny(age_years: float):
 def api_gfr_ontogeny(age_years: float):
     """GFR maturation fraction at given postnatal age."""
     return {"age_years": age_years, "gfr_fraction": _gfr_ontogeny(age_years)}
+
+
+# ---------------------------------------------------------------------------
+# Phase 133 — Maternal-Fetal PBPK
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.maternal_fetal import (
+    compare_gestational_ages as _compare_gestational_ages,
+)
+from omega_pbpk.core.maternal_fetal import (  # noqa: E402
+    simulate_maternal_fetal as _simulate_maternal_fetal,
+)
+
+
+@app.post("/simulate/maternal_fetal")
+def api_maternal_fetal(body: dict):
+    """Simulate maternal and fetal drug concentrations with placental transfer."""
+    try:
+        r = _simulate_maternal_fetal(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_maternal_L_per_h=float(body["cl_maternal_L_per_h"]),
+            vd_maternal_L=float(body["vd_maternal_L"]),
+            gestational_age_weeks=float(body.get("gestational_age_weeks", 28.0)),
+            fup=float(body.get("fup", 0.1)),
+            logP=float(body.get("logP", 1.0)),
+            kp_placenta=float(body.get("kp_placenta", 0.5)),
+            cl_fetal_L_per_h=float(body.get("cl_fetal_L_per_h", 0.0)),
+            route=body.get("route", "iv"),
+            ka_per_h=float(body.get("ka_per_h", 1.0)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "gestational_age": r.gestational_age,
+        "cmax_maternal": r.cmax_maternal,
+        "cmax_fetal": r.cmax_fetal,
+        "auc_maternal": r.auc_maternal,
+        "auc_fetal": r.auc_fetal,
+        "fetal_exposure_ratio": r.fetal_exposure_ratio,
+        "tmax_fetal_h": r.tmax_fetal_h,
+        "kp_placenta": r.kp_placenta,
+        "ps_L_per_h": r.ps_L_per_h,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "cm_mg_L": r.cm_mg_L,
+        "cf_mg_L": r.cf_mg_L,
+    }
+
+
+@app.post("/simulate/maternal_fetal/compare_ga")
+def api_maternal_fetal_compare_ga(body: dict):
+    """Compare maternal-fetal PK across multiple gestational ages."""
+    try:
+        ages = body.get("ages_weeks", [12.0, 20.0, 28.0, 36.0, 40.0])
+        results = _compare_gestational_ages(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_maternal_L_per_h=float(body["cl_maternal_L_per_h"]),
+            vd_maternal_L=float(body["vd_maternal_L"]),
+            ages_weeks=[float(a) for a in ages],
+            fup=float(body.get("fup", 0.1)),
+            logP=float(body.get("logP", 1.0)),
+            kp_placenta=float(body.get("kp_placenta", 0.5)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "gestational_age": r.gestational_age,
+                "cmax_maternal": r.cmax_maternal,
+                "cmax_fetal": r.cmax_fetal,
+                "fetal_exposure_ratio": r.fetal_exposure_ratio,
+                "ps_L_per_h": r.ps_L_per_h,
+            }
+            for r in results
+        ]
+    }
