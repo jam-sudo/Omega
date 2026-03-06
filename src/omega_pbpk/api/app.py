@@ -6257,3 +6257,91 @@ def api_first_pass(req: _FirstPassReq):
         import dataclasses; return dataclasses.asdict(r)
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 95 — Concentration Ratio Prediction
+# ---------------------------------------------------------------------------
+from omega_pbpk.prediction.concentration_ratio import predict_kp, predict_kp_panel
+
+class _KpReq(BaseModel):
+    drug_name: str
+    logP: float
+    fup: float
+    tissue: str
+    pka: float = 7.0
+    drug_type: str = "neutral"
+
+@app.post("/predict/kp")
+def api_kp(req: _KpReq):
+    try:
+        r = predict_kp(req.drug_name, req.logP, req.fup, req.tissue, req.pka, req.drug_type)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 96 — Half-Life Calculator
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.half_life_calculator import calculate_half_life, optimal_dosing_interval
+
+class _HalfLifeReq(BaseModel):
+    drug_name: str
+    t_half_h: float
+    dosing_interval_h: float | None = None
+
+@app.post("/calculate/half_life")
+def api_half_life(req: _HalfLifeReq):
+    try:
+        r = calculate_half_life(req.drug_name, req.t_half_h, req.dosing_interval_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 97 — Sparse PK Sampling
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.sparse_pk import optimize_sparse_sampling, recommend_sampling_times
+
+class _SparseReq(BaseModel):
+    drug_name: str
+    n_samples: int
+    pk_params: dict | None = None
+    t_window_h: float = 24.0
+    seed: int = 42
+
+@app.post("/design/sparse_sampling")
+def api_sparse_sampling(req: _SparseReq):
+    try:
+        r = optimize_sparse_sampling(req.drug_name, req.n_samples,
+                                      req.pk_params or {}, req.t_window_h, req.seed)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 98 — Drug Product Characterization
+# ---------------------------------------------------------------------------
+from omega_pbpk.biopharmaceutics.drug_product import classify_formulation
+
+class _DrugProductReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    solubility_mg_mL: float
+    Peff_cm_s: float = 1e-4
+    ka_per_h: float = 1.0
+    dissolution_time_h: float = 0.5
+    formulation_type: str = "tablet"
+
+@app.post("/classify/drug_product")
+def api_drug_product(req: _DrugProductReq):
+    try:
+        r = classify_formulation(req.drug_name, req.dose_mg, req.solubility_mg_mL,
+                                  req.Peff_cm_s, req.ka_per_h,
+                                  req.dissolution_time_h, req.formulation_type)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
