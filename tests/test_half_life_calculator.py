@@ -1,20 +1,21 @@
 """Tests for omega_pbpk.clinical.half_life_calculator."""
 
 import math
-import pytest
+
 import numpy as np
+import pytest
 
 from omega_pbpk.clinical.half_life_calculator import (
     HalfLifeResult,
     calculate_half_life,
-    optimal_dosing_interval,
     half_life_from_data,
+    optimal_dosing_interval,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def basic_result():
@@ -29,6 +30,7 @@ def result_with_interval():
 # ---------------------------------------------------------------------------
 # 1. Return type
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_calculate_half_life_returns_dataclass(self, basic_result):
@@ -60,6 +62,7 @@ class TestReturnType:
 # 2. n_half_lives_to_steady_state ≈ 4.32
 # ---------------------------------------------------------------------------
 
+
 class TestNHalfLivesToSteadyState:
     def test_n_ss_approx_4_32_short_half_life(self):
         result = calculate_half_life("DrugA", t_half_h=2.0)
@@ -83,6 +86,7 @@ class TestNHalfLivesToSteadyState:
 # 3. tss_h = n_ss * t_half_h
 # ---------------------------------------------------------------------------
 
+
 class TestTssH:
     def test_tss_h_equals_n_ss_times_t_half(self):
         result = calculate_half_life("DrugA", t_half_h=8.0)
@@ -103,6 +107,7 @@ class TestTssH:
 # ---------------------------------------------------------------------------
 # 4. accumulation_ratio >= 1
 # ---------------------------------------------------------------------------
+
 
 class TestAccumulationRatio:
     def test_accumulation_ratio_geq_1_default(self, basic_result):
@@ -126,6 +131,7 @@ class TestAccumulationRatio:
 # 5. recommended_doses_per_day ≈ 24 / tau
 # ---------------------------------------------------------------------------
 
+
 class TestRecommendedDosesPerDay:
     def test_doses_per_day_approx_24_over_tau(self):
         tau = 8.0
@@ -145,6 +151,7 @@ class TestRecommendedDosesPerDay:
 # ---------------------------------------------------------------------------
 # 6. ValueError for t_half_h <= 0
 # ---------------------------------------------------------------------------
+
 
 class TestValueError:
     def test_zero_t_half_raises_value_error(self):
@@ -167,6 +174,7 @@ class TestValueError:
 # ---------------------------------------------------------------------------
 # 7. optimal_dosing_interval: tau ≈ t_half when R = 2
 # ---------------------------------------------------------------------------
+
 
 class TestOptimalDosingInterval:
     def test_tau_equals_t_half_for_r2(self):
@@ -193,6 +201,7 @@ class TestOptimalDosingInterval:
 # ---------------------------------------------------------------------------
 # 8. half_life_from_data
 # ---------------------------------------------------------------------------
+
 
 class TestHalfLifeFromData:
     def _monoexp_data(self, t_half, c0=100.0, n_points=20):
@@ -249,6 +258,7 @@ class TestHalfLifeFromData:
 # ---------------------------------------------------------------------------
 # 9. t_half_h preserved in result
 # ---------------------------------------------------------------------------
+
 
 class TestTHalfPreserved:
     def test_t_half_preserved_calculate(self):

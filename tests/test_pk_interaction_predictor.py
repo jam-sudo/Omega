@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omega_pbpk.prediction.pk_interaction_predictor import (
     PKInteractionResult,
     _aucr_cyp_inhibition,

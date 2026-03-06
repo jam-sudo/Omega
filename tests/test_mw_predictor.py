@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omega_pbpk.prediction.mw_predictor import MWResult, predict_mw, screen_mw
 
 

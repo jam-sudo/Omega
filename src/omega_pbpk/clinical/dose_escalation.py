@@ -27,8 +27,8 @@ def _emax_dlt_probability(
     """Emax model for DLT probability."""
     if dose <= 0:
         return 0.0
-    dh = dose ** hill
-    edh = ed50 ** hill
+    dh = dose**hill
+    edh = ed50**hill
     prob = emax * dh / (edh + dh)
     return float(min(max(prob, 0.0), 1.0))
 
@@ -67,7 +67,7 @@ def simulate_3plus3(
     stopping_reason = "max_dose_reached"
     prev_dose = 0.0
 
-    for i, dose in enumerate(levels):
+    for _i, dose in enumerate(levels):
         idx = dose_levels.index(dose)
         p_dlt = _emax_dlt_probability(dose, ed50_mg, emax, hill)
 
@@ -134,7 +134,7 @@ def simulate_accelerated_titration(
     n_patients: list[int] = [0] * len(dose_levels)
     switch_idx = len(dose_levels)  # index where 3+3 starts
 
-    for i, dose in enumerate(dose_levels):
+    for i, _dose in enumerate(dose_levels):
         p_dlt = dlt_probs[i]
         n_patients[i] += 1
         if rng.random() < p_dlt:

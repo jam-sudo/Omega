@@ -15,18 +15,18 @@ class AdherenceResult:
     drug_name: str
     n_doses_planned: int
     n_doses_taken: int
-    adherence_rate: float         # fraction of doses taken
+    adherence_rate: float  # fraction of doses taken
     times_h: list[float]
-    conc_mg_L: list[float]        # plasma concentration (with missed doses)
+    conc_mg_L: list[float]  # plasma concentration (with missed doses)
     conc_perfect_mg_L: list[float]  # reference (100% adherence)
     auc_actual: float
     auc_perfect: float
-    auc_ratio: float              # actual/perfect
+    auc_ratio: float  # actual/perfect
     cmin_actual: float
     cmin_perfect: float
-    time_below_mec_h: float       # time with C < MEC (if MEC provided)
+    time_below_mec_h: float  # time with C < MEC (if MEC provided)
     therapeutic_failure_risk: str  # low / moderate / high
-    dose_times_h: list[float]     # when doses were taken
+    dose_times_h: list[float]  # when doses were taken
     missed_dose_times_h: list[float]
 
 
@@ -72,8 +72,8 @@ def simulate_adherence(
     # Determine which doses are taken
     scheduled_times = [i * dosing_interval_h for i in range(n_doses)]
     taken_mask = [rng.random() < adherence_rate for _ in range(n_doses)]
-    taken_times = [t for t, m in zip(scheduled_times, taken_mask) if m]
-    missed_times = [t for t, m in zip(scheduled_times, taken_mask) if not m]
+    taken_times = [t for t, m in zip(scheduled_times, taken_mask, strict=True) if m]
+    missed_times = [t for t, m in zip(scheduled_times, taken_mask, strict=True) if not m]
 
     n_steps = max(int(t_sim_h / dt_h), 1)
     t = np.linspace(0.0, t_sim_h, n_steps + 1)
@@ -108,8 +108,8 @@ def simulate_adherence(
     auc_perfect = float(np_trapz(conc_perfect, t))
     auc_ratio = auc_actual / max(auc_perfect, 1e-9)
 
-    cmin_actual = float(np.min(conc_actual[int(dosing_interval_h / dt_h):]))  # after first dose
-    cmin_perfect = float(np.min(conc_perfect[int(dosing_interval_h / dt_h):]))
+    cmin_actual = float(np.min(conc_actual[int(dosing_interval_h / dt_h) :]))  # after first dose
+    cmin_perfect = float(np.min(conc_perfect[int(dosing_interval_h / dt_h) :]))
 
     # Time below MEC
     if mec_mg_L is not None:
@@ -162,8 +162,7 @@ def compare_adherence_levels(
     if adherence_levels is None:
         adherence_levels = [1.0, 0.9, 0.8, 0.7, 0.5]
     return [
-        simulate_adherence(drug_name, dose_mg, cl_L_per_h, vd_L,
-                           adherence_rate=a, **kwargs)
+        simulate_adherence(drug_name, dose_mg, cl_L_per_h, vd_L, adherence_rate=a, **kwargs)
         for a in adherence_levels
     ]
 

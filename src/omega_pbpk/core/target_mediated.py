@@ -14,19 +14,19 @@ from omega_pbpk._compat import np_trapz
 class TMDDResult:
     drug_name: str
     times_h: list[float]
-    free_drug_mg_L: list[float]     # free drug concentration (Cp)
-    bound_drug_mg_L: list[float]    # drug-target complex (RC)
-    free_target_nmol_L: list[float] # free receptor (Rtot - RC)
-    total_target_nmol_L: float      # total receptor at baseline
-    auc_free: float                  # AUC of free drug
+    free_drug_mg_L: list[float]  # free drug concentration (Cp)
+    bound_drug_mg_L: list[float]  # drug-target complex (RC)
+    free_target_nmol_L: list[float]  # free receptor (Rtot - RC)
+    total_target_nmol_L: float  # total receptor at baseline
+    auc_free: float  # AUC of free drug
     cmax_free: float
     tmax_h: float
-    receptor_occupancy_max: float   # max RO (0–1)
+    receptor_occupancy_max: float  # max RO (0–1)
     ksyn_nmol_L_h: float
     kdeg_per_h: float
     kon_per_nmol_per_h: float
     koff_per_h: float
-    kd_nmol_L: float                # kd = koff/kon
+    kd_nmol_L: float  # kd = koff/kon
 
 
 def simulate_tmdd_qss(
@@ -87,8 +87,8 @@ def simulate_tmdd_qss(
     # State variables: Ctot (total drug, mg/L), Rtot (total receptor, nmol/L)
     Ctot = np.zeros(n + 1)
     Rtot = np.zeros(n + 1)
-    Cp = np.zeros(n + 1)   # free drug
-    RC = np.zeros(n + 1)   # complex (nmol/L)
+    Cp = np.zeros(n + 1)  # free drug
+    RC = np.zeros(n + 1)  # complex (nmol/L)
 
     if route.lower() == "iv":
         Ctot[0] = dose_mg / vd_L
@@ -101,7 +101,7 @@ def simulate_tmdd_qss(
         ctot_nmol = ctot_mg * conv
         # Quadratic: Cp^2 + (Rtot + Kd - Ctot)*Cp - Kd*Ctot = 0
         b = rtot_nmol + kd - ctot_nmol
-        discriminant = max(b ** 2 + 4 * kd * ctot_nmol, 0.0)
+        discriminant = max(b**2 + 4 * kd * ctot_nmol, 0.0)
         cp_nmol = (-b + math.sqrt(discriminant)) / 2.0
         cp_nmol = max(cp_nmol, 0.0)
         rc_nmol = ctot_nmol - cp_nmol

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 # Atomic weights (g/mol)
 _ATOMIC_WEIGHTS = {
     "C": 12.011,
@@ -47,8 +46,8 @@ class MWResult:
     n_S: int
     n_halogens: int
     monoisotopic_MW: float
-    lipinski_mw_ok: bool   # MW < 500
-    drug_like: bool        # Lipinski-like check
+    lipinski_mw_ok: bool  # MW < 500
+    drug_like: bool  # Lipinski-like check
 
 
 def predict_mw(
@@ -77,10 +76,6 @@ def predict_mw(
     explicit_H : int or None
         Override H count if known.
     """
-    # Estimate sp3 vs sp2 carbons
-    n_arom_c = min(n_aromatic_rings * 6, n_C)
-    n_sp3_c = n_C - n_arom_c if n_sp3_carbons is None else n_sp3_carbons
-
     # Estimate H count using valence rules
     if explicit_H is not None:
         n_H = explicit_H
@@ -116,8 +111,16 @@ def predict_mw(
     # Molecular formula string
     parts = []
     for sym, count in [
-        ("C", n_C), ("H", n_H), ("N", n_N), ("O", n_O),
-        ("S", n_S), ("P", n_P), ("F", n_F), ("Cl", n_Cl), ("Br", n_Br), ("I", n_I),
+        ("C", n_C),
+        ("H", n_H),
+        ("N", n_N),
+        ("O", n_O),
+        ("S", n_S),
+        ("P", n_P),
+        ("F", n_F),
+        ("Cl", n_Cl),
+        ("Br", n_Br),
+        ("I", n_I),
     ]:
         if count > 0:
             parts.append(f"{sym}{count}" if count > 1 else sym)

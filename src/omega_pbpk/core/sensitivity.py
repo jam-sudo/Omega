@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 import numpy as np
 
@@ -104,7 +104,10 @@ def local_sensitivity(
             )
         )
 
-    results.sort(key=lambda r: abs(r.sensitivity_index) if not np.isnan(r.sensitivity_index) else -1.0, reverse=True)
+    results.sort(
+        key=lambda r: abs(r.sensitivity_index) if not np.isnan(r.sensitivity_index) else -1.0,
+        reverse=True,
+    )
     for rank, result in enumerate(results, start=1):
         result.rank = rank
 

@@ -63,7 +63,7 @@ def simulate_particle_dissolution(
 
     # Volume of one particle
     r0 = particle_radius_um
-    vol_particle_um3 = (4.0 / 3.0) * math.pi * r0 ** 3
+    vol_particle_um3 = (4.0 / 3.0) * math.pi * r0**3
     mass_per_particle_mg = vol_particle_um3 * rho_mg_um3
 
     if mass_per_particle_mg <= 0:
@@ -74,7 +74,7 @@ def simulate_particle_dissolution(
     h = _diffusion_layer_thickness(r0)
 
     # Initial dissolution rate (sink conditions): dM/dt = D*n*4pi*r²*Cs/h
-    init_area_um2 = n_particles * 4.0 * math.pi * r0 ** 2
+    init_area_um2 = n_particles * 4.0 * math.pi * r0**2
     init_rate_mg_h = D_um2_h * init_area_um2 * Cs_mg_um3 / h
 
     n_steps = max(int(t_end_h / dt_h), 1)
@@ -95,7 +95,7 @@ def simulate_particle_dissolution(
             continue
         r_cur = (mass_per_particle_cur / rho_mg_um3 * 3.0 / (4.0 * math.pi)) ** (1.0 / 3.0)
         h_cur = _diffusion_layer_thickness(r_cur)
-        area_cur = n_particles * 4.0 * math.pi * r_cur ** 2
+        area_cur = n_particles * 4.0 * math.pi * r_cur**2
         rate = D_um2_h * area_cur * Cs_mg_um3 / max(h_cur, 1e-3)
         dm = rate * dt_h
         dm = min(dm, mass_undissolved)
@@ -141,8 +141,7 @@ def compare_particle_sizes(
 ) -> list[ParticleResult]:
     """Simulate dissolution for each particle radius."""
     return [
-        simulate_particle_dissolution(drug_name, dose_mg, r, solubility_mg_mL)
-        for r in radii_um
+        simulate_particle_dissolution(drug_name, dose_mg, r, solubility_mg_mL) for r in radii_um
     ]
 
 

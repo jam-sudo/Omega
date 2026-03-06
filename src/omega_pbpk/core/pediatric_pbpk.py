@@ -37,7 +37,7 @@ def _gfr_maturation(age_years: float) -> float:
     """GFR maturation based on postmenstrual age, clamped to [0.03, 1.0]."""
     postmenstrual_age = age_years * 52 + 40
     ratio = postmenstrual_age / 40.0
-    ratio_pow = ratio ** 3.4
+    ratio_pow = ratio**3.4
     gfr_fraction = ratio_pow / (ratio_pow + 1.0)
     return max(0.03, min(1.0, gfr_fraction))
 

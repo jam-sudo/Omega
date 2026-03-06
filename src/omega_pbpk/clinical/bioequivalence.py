@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -83,8 +82,8 @@ def assess_bioequivalence(
     drug_reference: str,
     auc_test: list[float],
     auc_reference: list[float],
-    cmax_test: Optional[list[float]] = None,
-    cmax_reference: Optional[list[float]] = None,
+    cmax_test: list[float] | None = None,
+    cmax_reference: list[float] | None = None,
 ) -> BioequivalenceResult:
     """Assess bioequivalence using FDA 80-125% rule.
 

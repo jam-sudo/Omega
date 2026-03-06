@@ -97,7 +97,8 @@ class TestCompareAdherenceLevels:
         assert isinstance(results, list)
 
     def test_higher_adherence_higher_auc(self):
-        results = compare_adherence_levels("Drug", 100.0, 5.0, 20.0,
-                                           adherence_levels=[0.5, 1.0], n_doses=5, dt_h=1.0)
+        results = compare_adherence_levels(
+            "Drug", 100.0, 5.0, 20.0, adherence_levels=[0.5, 1.0], n_doses=5, dt_h=1.0
+        )
         r_low, r_high = results
         assert r_high.auc_actual >= r_low.auc_actual - 1e-6

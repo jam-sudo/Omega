@@ -1,6 +1,7 @@
 """Tests for omega_pbpk.prediction.vd_predictor module."""
 
 import pytest
+
 from omega_pbpk.prediction.vd_predictor import (
     VdPredictionResult,
     predict_vd,
@@ -13,6 +14,7 @@ VALID_CATEGORIES = {"low", "moderate", "high", "very_high"}
 
 # --- VdPredictionResult dataclass ---
 
+
 def test_result_is_dataclass_instance():
     result = predict_vd("DrugA", logP=2.0, MW=300.0, fup=0.1)
     assert isinstance(result, VdPredictionResult)
@@ -21,10 +23,19 @@ def test_result_is_dataclass_instance():
 def test_result_fields_present():
     result = predict_vd("DrugA", logP=2.0, MW=300.0, fup=0.1)
     for field in (
-        "drug_name", "logP", "MW", "fup", "pka", "PSA",
-        "vd_predicted_L", "vd_per_kg_L_per_kg", "vd_central_L",
-        "vd_peripheral_L", "tissue_distribution_category",
-        "confidence", "allometric_exponent",
+        "drug_name",
+        "logP",
+        "MW",
+        "fup",
+        "pka",
+        "PSA",
+        "vd_predicted_L",
+        "vd_per_kg_L_per_kg",
+        "vd_central_L",
+        "vd_peripheral_L",
+        "tissue_distribution_category",
+        "confidence",
+        "allometric_exponent",
     ):
         assert hasattr(result, field), f"Missing field: {field}"
 
@@ -58,6 +69,7 @@ def test_allometric_exponent_is_0_9():
 
 # --- Central + peripheral volumes ---
 
+
 def test_vd_central_plus_peripheral_equals_predicted():
     result = predict_vd("DrugE", logP=2.5, MW=400.0, fup=0.15)
     assert result.vd_central_L + result.vd_peripheral_L == pytest.approx(
@@ -82,6 +94,7 @@ def test_vd_per_kg_is_vd_over_70():
 
 # --- Category ---
 
+
 def test_category_is_valid_string():
     result = predict_vd("DrugH", logP=2.0, MW=300.0, fup=0.2)
     assert result.tissue_distribution_category in VALID_CATEGORIES
@@ -100,6 +113,7 @@ def test_category_very_high_for_large_vd():
 
 
 # --- Confidence ---
+
 
 def test_confidence_high_when_logP_and_MW_in_range():
     result = predict_vd("DrugI", logP=2.0, MW=300.0, fup=0.1)
@@ -123,6 +137,7 @@ def test_confidence_low_when_MW_out_of_range_low():
 
 # --- Physicochemical relationships ---
 
+
 def test_high_logP_gives_higher_vd_than_low_logP():
     low = predict_vd("LowLogP", logP=0.0, MW=300.0, fup=0.1, PSA=60.0)
     high = predict_vd("HighLogP", logP=5.0, MW=300.0, fup=0.1, PSA=60.0)
@@ -141,6 +156,7 @@ def test_vd_predicted_within_bounds():
 
 
 # --- vd_allometric_scale ---
+
 
 def test_allometric_scale_returns_float():
     result = vd_allometric_scale(280.0, reference_weight_kg=70.0, target_weight_kg=20.0)
@@ -173,6 +189,7 @@ def test_allometric_scale_custom_exponent():
 
 # --- vd_population_range ---
 
+
 def test_population_range_has_required_keys():
     result = vd_population_range("DrugM", logP=2.0, MW=300.0, fup=0.1)
     assert "p5" in result
@@ -200,6 +217,7 @@ def test_population_range_custom_cv():
 
 
 # --- ValueError cases ---
+
 
 def test_raises_for_fup_zero():
     with pytest.raises(ValueError):

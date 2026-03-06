@@ -1,15 +1,16 @@
 """Tests for omega_pbpk.core.nca — NCA analysis module."""
 
 import math
-import pytest
+
 import numpy as np
+import pytest
 
 from omega_pbpk.core.nca import NCAResult, calculate_nca, compare_nca
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mono_profile(c0: float, ke: float, times: list[float]) -> list[float]:
     """Ideal monoexponential IV profile: C(t) = C0 * exp(-ke * t)."""
@@ -31,6 +32,7 @@ CONC_ORAL = [0.0, 1.2, 2.5, 4.0, 3.5, 2.1, 1.2, 0.4, 0.05]
 # 1. Result type
 # ---------------------------------------------------------------------------
 
+
 class TestResultType:
     def test_returns_nca_result_instance(self):
         res = calculate_nca("DrugA", TIMES_IV, CONC_IV, DOSE, route="iv")
@@ -38,6 +40,7 @@ class TestResultType:
 
     def test_nca_result_is_dataclass(self):
         import dataclasses
+
         assert dataclasses.is_dataclass(NCAResult)
 
     def test_drug_name_stored(self):
@@ -68,6 +71,7 @@ class TestResultType:
 # ---------------------------------------------------------------------------
 # 2. Cmax / Tmax
 # ---------------------------------------------------------------------------
+
 
 class TestCmaxTmax:
     def test_cmax_positive(self):
@@ -101,6 +105,7 @@ class TestCmaxTmax:
 # 3. AUC
 # ---------------------------------------------------------------------------
 
+
 class TestAUC:
     def test_auc_0_t_positive(self):
         res = calculate_nca("DrugA", TIMES_IV, CONC_IV, DOSE, route="iv")
@@ -132,6 +137,7 @@ class TestAUC:
 # ---------------------------------------------------------------------------
 # 4. PK parameters
 # ---------------------------------------------------------------------------
+
 
 class TestPKParameters:
     def test_mrt_positive(self):
@@ -168,6 +174,7 @@ class TestPKParameters:
 # 5. Monoexponential recovery accuracy
 # ---------------------------------------------------------------------------
 
+
 class TestMonoexponentialAccuracy:
     """For ideal monoexponential data the estimated t_half should be close
     to the true value (within 10 %)."""
@@ -197,6 +204,7 @@ class TestMonoexponentialAccuracy:
 # ---------------------------------------------------------------------------
 # 6. Validation / error handling
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_raises_value_error_if_less_than_3_points(self):
@@ -229,6 +237,7 @@ class TestValidation:
 # 7. Default route
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultRoute:
     def test_default_route_is_oral(self):
         res = calculate_nca("DrugB", TIMES_ORAL, CONC_ORAL, DOSE)
@@ -238,6 +247,7 @@ class TestDefaultRoute:
 # ---------------------------------------------------------------------------
 # 8. compare_nca
 # ---------------------------------------------------------------------------
+
 
 class TestCompareNCA:
     def _two_results(self):

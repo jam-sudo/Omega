@@ -90,9 +90,7 @@ def optimize_sparse_sampling(
         unique_times = sorted(set(round(float(v), 4) for v in raw))
         if len(unique_times) < n_samples:
             # Fallback: evenly spaced
-            unique_times = list(
-                np.linspace(t_window_h / (n_samples + 1), t_window_h, n_samples)
-            )
+            unique_times = list(np.linspace(t_window_h / (n_samples + 1), t_window_h, n_samples))
         candidate = unique_times[:n_samples]
         crit = _d_criterion(candidate, ka, ke, vd)
         if crit > best_criterion:

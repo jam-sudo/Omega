@@ -121,7 +121,7 @@ def predict_pk_interaction(
     else:
         risk = _risk_level_induction(aucr)
 
-    cmax_ratio = float(aucr ** 0.5)
+    cmax_ratio = float(aucr**0.5)
     confidence = 0.9 if fm > 0.5 else 0.7
     recommendation = _fda_recommendation(mechanism, risk)
 

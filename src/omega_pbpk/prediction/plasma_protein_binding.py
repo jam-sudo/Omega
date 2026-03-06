@@ -9,12 +9,12 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class PPBResult:
     drug_name: str
-    fup: float              # fraction unbound in plasma (0–1)
-    ppb_pct: float          # protein binding % (100*(1-fup))
-    primary_protein: str    # HSA / AAG / mixed
-    log_ka: float           # log10 association constant
+    fup: float  # fraction unbound in plasma (0–1)
+    ppb_pct: float  # protein binding % (100*(1-fup))
+    primary_protein: str  # HSA / AAG / mixed
+    log_ka: float  # log10 association constant
     confidence: float
-    classification: str     # low (<10%) / moderate (10-75%) / high (>75%)
+    classification: str  # low (<10%) / moderate (10-75%) / high (>75%)
 
 
 def _predict_fup(

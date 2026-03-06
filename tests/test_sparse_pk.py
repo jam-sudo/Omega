@@ -1,12 +1,12 @@
 """Tests for omega_pbpk.clinical.sparse_pk module."""
 
 import pytest
+
 from omega_pbpk.clinical.sparse_pk import (
     SamplingResult,
     optimize_sparse_sampling,
     recommend_sampling_times,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -12,17 +12,17 @@ from omega_pbpk._compat import np_trapz
 @dataclass(frozen=True)
 class TherapeuticWindowResult:
     drug_name: str
-    mec_mg_L: float          # minimum effective concentration
-    mtc_mg_L: float          # minimum toxic concentration
+    mec_mg_L: float  # minimum effective concentration
+    mtc_mg_L: float  # minimum toxic concentration
     cmax_mg_L: float
     cmin_mg_L: float
-    time_in_range_h: float   # time with MEC <= C <= MTC
+    time_in_range_h: float  # time with MEC <= C <= MTC
     time_above_mtc_h: float  # time above toxic level
     time_below_mec_h: float  # time below effective level
     pct_time_in_range: float
-    therapeutic_ratio: float # MTC/MEC
-    auc_therapeutic: float   # AUC while in range
-    risk_level: str          # safe / caution / toxic
+    therapeutic_ratio: float  # MTC/MEC
+    auc_therapeutic: float  # AUC while in range
+    risk_level: str  # safe / caution / toxic
     recommendation: str
 
 

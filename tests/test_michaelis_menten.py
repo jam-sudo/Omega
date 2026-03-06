@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from omega_pbpk.core.michaelis_menten import (
@@ -92,13 +91,17 @@ class TestSimulateMM:
             _default(km_mg_L=0.0)
 
     def test_oral_route_tmax_after_t0(self):
-        r = simulate_michaelis_menten("Drug", 100.0, 20.0, 5.0, 2.0, route="oral", ka_per_h=1.5, t_end_h=24.0, dt_h=0.05)
+        r = simulate_michaelis_menten(
+            "Drug", 100.0, 20.0, 5.0, 2.0, route="oral", ka_per_h=1.5, t_end_h=24.0, dt_h=0.05
+        )
         assert r.tmax_h > 0.0
 
 
 class TestDoseProportionality:
     def test_returns_dict_with_keys(self):
-        result = dose_proportionality_index("Drug", [10.0, 50.0, 100.0], vd_L=20.0, vmax_mg_h=50.0, km_mg_L=2.0)
+        result = dose_proportionality_index(
+            "Drug", [10.0, 50.0, 100.0], vd_L=20.0, vmax_mg_h=50.0, km_mg_L=2.0
+        )
         assert "doses" in result
         assert "aucs" in result
         assert "beta" in result
@@ -106,7 +109,9 @@ class TestDoseProportionality:
 
     def test_linear_pk_beta_near_1(self):
         # When Km >> dose/Vd, PK is linear → beta ≈ 1
-        result = dose_proportionality_index("Drug", [1.0, 5.0, 10.0], vd_L=20.0, vmax_mg_h=100.0, km_mg_L=100.0)
+        result = dose_proportionality_index(
+            "Drug", [1.0, 5.0, 10.0], vd_L=20.0, vmax_mg_h=100.0, km_mg_L=100.0
+        )
         assert abs(result["beta"] - 1.0) < 0.3
 
     def test_is_proportional_is_bool(self):

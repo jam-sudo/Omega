@@ -12,20 +12,20 @@ from omega_pbpk._compat import np_trapz
 @dataclass(frozen=True)
 class InVitroDissolutionResult:
     drug_name: str
-    apparatus: str           # "USP II" (paddle)
-    medium: str              # buffer description
+    apparatus: str  # "USP II" (paddle)
+    medium: str  # buffer description
     pH: float
     rpm: int
     dose_mg: float
     solubility_medium_mg_mL: float
     volume_mL: float
     times_min: list[float]
-    dissolved_pct: list[float]   # % dissolved over time
-    t50_min: float               # time to 50% dissolution
-    t80_min: float               # time to 80% dissolution
-    t90_min: float               # time to 90% dissolution
-    de_pct: float                # dissolution efficiency (AUC/100*t_end)
-    classification: str          # rapid (>80% at 30min) / moderate / slow
+    dissolved_pct: list[float]  # % dissolved over time
+    t50_min: float  # time to 50% dissolution
+    t80_min: float  # time to 80% dissolution
+    t90_min: float  # time to 90% dissolution
+    de_pct: float  # dissolution efficiency (AUC/100*t_end)
+    classification: str  # rapid (>80% at 30min) / moderate / slow
 
 
 def simulate_usp2_dissolution(
@@ -61,10 +61,6 @@ def simulate_usp2_dissolution(
     if volume_mL <= 0:
         raise ValueError("volume_mL must be > 0")
 
-    # Sink conditions: C_medium << Cs (typical USP requirement)
-    # Maximum dissolved if all drug dissolved: C_max_mg_mL = dose/volume
-    C_max = dose_mg / volume_mL
-
     # Effective diffusion layer thickness (Levich model, simplified)
     # h_static ~ 50 um, decreases with rpm
     h_static_um = 50.0
@@ -75,7 +71,7 @@ def simulate_usp2_dissolution(
 
     # Particle density (assume 1.2 g/cm³)
     rho_mg_um3 = 1.2 * 1000.0 / 1e12  # mg/um³
-    vol_particle = (4.0 / 3.0) * 3.14159 * particle_radius_um ** 3
+    vol_particle = (4.0 / 3.0) * 3.14159 * particle_radius_um**3
     mass_per_particle = vol_particle * rho_mg_um3
     n_particles = dose_mg / max(mass_per_particle, 1e-15)
 
@@ -98,7 +94,7 @@ def simulate_usp2_dissolution(
         r_cur = (mass_per_cur / rho_mg_um3 * 3.0 / (4.0 * 3.14159)) ** (1.0 / 3.0)
 
         # Sink condition: concentration in medium ≈ 0 (true sink)
-        area_cur = n_particles * 4.0 * 3.14159 * r_cur ** 2
+        area_cur = n_particles * 4.0 * 3.14159 * r_cur**2
         diss_rate = D_um2_min * area_cur * Cs_mg_um3 / max(h_um, 0.1)
 
         dm = min(diss_rate * dt_min, mass_undissolved)
@@ -156,10 +152,7 @@ def compare_rpm(
     """Compare dissolution profiles at multiple paddle speeds."""
     if rpms is None:
         rpms = [25, 50, 100]
-    return [
-        simulate_usp2_dissolution(drug_name, dose_mg, solubility_mg_mL, rpm=r)
-        for r in rpms
-    ]
+    return [simulate_usp2_dissolution(drug_name, dose_mg, solubility_mg_mL, rpm=r) for r in rpms]
 
 
 __all__ = [

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -71,9 +70,7 @@ def _terminal_slope(
     # Drop non-positive concentrations
     mask = c_term > 0
     if mask.sum() < 3:
-        raise ValueError(
-            "Fewer than 3 positive concentration points available for terminal slope."
-        )
+        raise ValueError("Fewer than 3 positive concentration points available for terminal slope.")
     t_term = t_term[mask]
     ln_c = np.log(c_term[mask])
 
@@ -163,7 +160,7 @@ def calculate_nca(
     aumc_0_t = float(np.trapz(tc, t))
     # Extrapolation: (Clast * tlast) / ke + Clast / ke^2
     t_last = float(t[-1])
-    aumc_extrap = (c_last * t_last) / ke + c_last / (ke ** 2)
+    aumc_extrap = (c_last * t_last) / ke + c_last / (ke**2)
     aumc_0_inf = aumc_0_t + aumc_extrap
 
     # MRT and half-life
