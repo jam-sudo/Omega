@@ -8247,13 +8247,15 @@ def api_predict_phase2_batch(body: dict):
     results = []
     for smiles in smiles_list:
         r = _phase2_predictor.predict(str(smiles))
-        results.append({
-            "smiles": smiles,
-            "clint_ugt_ul_min_mg": r.clint_ugt_ul_min_mg,
-            "clint_sult_ul_min_mg": r.clint_sult_ul_min_mg,
-            "clint_mao_ul_min_mg": r.clint_mao_ul_min_mg,
-            "clint_phase2_total_ul_min_mg": r.clint_phase2_total_ul_min_mg,
-            "dominant_pathway": r.dominant_pathway,
-            "confidence": r.confidence,
-        })
+        results.append(
+            {
+                "smiles": smiles,
+                "clint_ugt_ul_min_mg": r.clint_ugt_ul_min_mg,
+                "clint_sult_ul_min_mg": r.clint_sult_ul_min_mg,
+                "clint_mao_ul_min_mg": r.clint_mao_ul_min_mg,
+                "clint_phase2_total_ul_min_mg": r.clint_phase2_total_ul_min_mg,
+                "dominant_pathway": r.dominant_pathway,
+                "confidence": r.confidence,
+            }
+        )
     return {"results": results, "n_compounds": len(results)}
