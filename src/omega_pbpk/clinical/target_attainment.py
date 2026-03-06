@@ -1,8 +1,9 @@
 """PK/PD target attainment analysis — MIC-based PTA for antibiotics and other drugs."""
+
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -12,7 +13,8 @@ from omega_pbpk._compat import np_trapz
 @dataclass(frozen=True)
 class PKPDIndex:
     """PK/PD index type."""
-    name: str   # "fT>MIC", "AUC/MIC", "Cmax/MIC"
+
+    name: str  # "fT>MIC", "AUC/MIC", "Cmax/MIC"
     target: float  # breakpoint value for efficacy
     description: str
 
@@ -26,20 +28,21 @@ CMAX_MIC = PKPDIndex("Cmax/MIC", 10.0, "Peak/MIC ratio (aminoglycosides: ≥10)"
 @dataclass(frozen=True)
 class TargetAttainmentResult:
     """Result of PK/PD target attainment analysis."""
+
     drug_name: str
     dose_mg: float
     interval_h: float
     mic_mg_L: float
-    pkpd_index: str          # "fT>MIC", "AUC/MIC", "Cmax/MIC"
-    index_value: float       # computed index value
-    index_target: float      # required target
+    pkpd_index: str  # "fT>MIC", "AUC/MIC", "Cmax/MIC"
+    index_value: float  # computed index value
+    index_target: float  # required target
     target_attained: bool
-    pta_percent: float       # probability of target attainment (from MIC distribution)
-    f_t_mic_pct: float       # % dosing interval free drug > MIC
-    auc24_mg_h_L: float      # 24h AUC (total)
-    fauc24_mg_h_L: float     # 24h fAUC (unbound)
+    pta_percent: float  # probability of target attainment (from MIC distribution)
+    f_t_mic_pct: float  # % dosing interval free drug > MIC
+    auc24_mg_h_L: float  # 24h AUC (total)
+    fauc24_mg_h_L: float  # 24h fAUC (unbound)
     cmax_mg_L: float
-    fcmax_mg_L: float        # free Cmax
+    fcmax_mg_L: float  # free Cmax
     times_h: list[float]
     conc_mg_L: list[float]
     free_conc_mg_L: list[float]
@@ -48,11 +51,12 @@ class TargetAttainmentResult:
 @dataclass(frozen=True)
 class PTACurveResult:
     """PTA curve across a range of MIC values."""
+
     drug_name: str
     dose_mg: float
     interval_h: float
     mic_values: list[float]
-    pta_values: list[float]   # PTA at each MIC (0–100%)
+    pta_values: list[float]  # PTA at each MIC (0–100%)
     pkpd_index: str
     mic90_breakpoint: float | None  # MIC where PTA drops below 90%
 
@@ -251,16 +255,23 @@ def compute_pta_curve(
     pta_values = []
     for mic in mic_range:
         result = compute_target_attainment(
-            drug_name=drug_name, dose_mg=dose_mg, cl_L_per_h=cl_L_per_h,
-            vd_L=vd_L, mic_mg_L=mic, fup=fup, ka_per_h=ka_per_h,
-            route=route, interval_h=interval_h, pkpd_index=pkpd_index,
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            cl_L_per_h=cl_L_per_h,
+            vd_L=vd_L,
+            mic_mg_L=mic,
+            fup=fup,
+            ka_per_h=ka_per_h,
+            route=route,
+            interval_h=interval_h,
+            pkpd_index=pkpd_index,
             index_target=index_target,
         )
         pta_values.append(result.pta_percent)
 
     # Find MIC90 breakpoint (MIC where PTA drops below 90%)
     mic90 = None
-    for mic, pta in zip(mic_range, pta_values):
+    for mic, pta in zip(mic_range, pta_values, strict=True):
         if pta >= 90.0:
             mic90 = mic
 

@@ -4,8 +4,8 @@ import pytest
 
 from omega_pbpk.prediction.clearance_prediction import (
     ClearancePredictionResult,
-    predict_clearance,
     batch_clearance_predict,
+    predict_clearance,
 )
 
 VALID_DRUG_LIKE = dict(drug_name="DrugA", logP=2.0, MW=300.0, fup=0.1)
@@ -17,6 +17,7 @@ VALID_ROUTES = {"renal", "hepatic", "mixed"}
 # ---------------------------------------------------------------------------
 # Result type and structure
 # ---------------------------------------------------------------------------
+
 
 class TestResultType:
     def test_returns_result_instance(self):
@@ -33,8 +34,12 @@ class TestResultType:
 
     def test_all_cl_fields_present(self):
         result = predict_clearance(**VALID_DRUG_LIKE)
-        for attr in ("cl_predicted_L_per_h", "cl_renal_L_per_h",
-                     "cl_hepatic_L_per_h", "cl_total_L_per_h"):
+        for attr in (
+            "cl_predicted_L_per_h",
+            "cl_renal_L_per_h",
+            "cl_hepatic_L_per_h",
+            "cl_total_L_per_h",
+        ):
             assert hasattr(result, attr)
 
     def test_vd_field_present(self):
@@ -57,6 +62,7 @@ class TestResultType:
 # ---------------------------------------------------------------------------
 # Numerical constraints
 # ---------------------------------------------------------------------------
+
 
 class TestNumericalConstraints:
     def test_cl_total_equals_hepatic_plus_renal(self):
@@ -99,6 +105,7 @@ class TestNumericalConstraints:
 # Elimination route
 # ---------------------------------------------------------------------------
 
+
 class TestEliminationRoute:
     def test_route_in_valid_set(self):
         result = predict_clearance(**VALID_DRUG_LIKE)
@@ -112,6 +119,7 @@ class TestEliminationRoute:
 # ---------------------------------------------------------------------------
 # Confidence scoring
 # ---------------------------------------------------------------------------
+
 
 class TestConfidence:
     def test_drug_like_confidence_0_9(self):
@@ -136,6 +144,7 @@ class TestConfidence:
 # Physicochemical relationships
 # ---------------------------------------------------------------------------
 
+
 class TestPhysicochemicalRelationships:
     def test_high_fup_higher_cl_hepatic_than_low_fup(self):
         low_fup = predict_clearance(drug_name="Low", logP=2.0, MW=300.0, fup=0.01)
@@ -151,6 +160,7 @@ class TestPhysicochemicalRelationships:
 # ---------------------------------------------------------------------------
 # ValueError inputs
 # ---------------------------------------------------------------------------
+
 
 class TestValueErrors:
     def test_fup_zero_raises(self):
@@ -178,6 +188,7 @@ class TestValueErrors:
 # Optional parameters
 # ---------------------------------------------------------------------------
 
+
 class TestOptionalParameters:
     def test_default_pka_and_psa(self):
         result = predict_clearance(drug_name="Default", logP=2.0, MW=300.0, fup=0.1)
@@ -190,9 +201,7 @@ class TestOptionalParameters:
         assert result.pka == pytest.approx(4.5)
 
     def test_drug_type_accepted(self):
-        result = predict_clearance(
-            drug_name="Acid", logP=2.0, MW=300.0, fup=0.1, drug_type="acid"
-        )
+        result = predict_clearance(drug_name="Acid", logP=2.0, MW=300.0, fup=0.1, drug_type="acid")
         assert isinstance(result, ClearancePredictionResult)
 
 
@@ -200,12 +209,13 @@ class TestOptionalParameters:
 # Batch prediction
 # ---------------------------------------------------------------------------
 
+
 class TestBatchClearancePredict:
     def _compounds(self):
         return [
             {"drug_name": "Fast", "logP": 1.0, "MW": 200.0, "fup": 0.9},
             {"drug_name": "Slow", "logP": 2.0, "MW": 400.0, "fup": 0.05},
-            {"drug_name": "Mid",  "logP": 2.0, "MW": 300.0, "fup": 0.3},
+            {"drug_name": "Mid", "logP": 2.0, "MW": 300.0, "fup": 0.3},
         ]
 
     def test_batch_returns_list(self):

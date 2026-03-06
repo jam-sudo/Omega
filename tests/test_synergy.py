@@ -1,15 +1,15 @@
 """Tests for drug combination synergy analysis (Phase 66)."""
+
 from __future__ import annotations
 
 import math
-import pytest
 
 from omega_pbpk.clinical.synergy import (
     SynergyResult,
-    dose_response,
+    assess_combination_synergy,
     compute_bliss_independence,
     compute_loewe_ci,
-    assess_combination_synergy,
+    dose_response,
     synergy_matrix,
 )
 
@@ -25,8 +25,6 @@ class TestDoseResponse:
         assert dose_response(1000.0, ic50=1.0) > 0.99
 
     def test_hill_n_steepens_curve(self):
-        e_steep = dose_response(10.0, ic50=10.0, hill_n=2.0)
-        e_shallow = dose_response(10.0, ic50=10.0, hill_n=0.5)
         # At IC50, both give 0.5; test above IC50 for steeper curve
         e_high_steep = dose_response(20.0, ic50=10.0, hill_n=2.0)
         e_high_shallow = dose_response(20.0, ic50=10.0, hill_n=0.5)

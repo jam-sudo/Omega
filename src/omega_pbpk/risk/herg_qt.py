@@ -1,8 +1,9 @@
 """hERG channel inhibition and QT prolongation risk prediction."""
+
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -93,10 +94,12 @@ def qtc_prolongation_risk_table(
     results = []
     for cmax in [0.01, 0.1, 1.0, 10.0]:
         r = predict_herg_risk(drug_name, logP, pka_basic, MW, cmax_free_mg_L=cmax)
-        results.append({
-            "cmax_free_mg_L": cmax,
-            "herg_inhibition_pct": r.herg_inhibition_pct,
-            "delta_qtc_ms": r.delta_qtc_ms,
-            "risk_category": r.risk_category,
-        })
+        results.append(
+            {
+                "cmax_free_mg_L": cmax,
+                "herg_inhibition_pct": r.herg_inhibition_pct,
+                "delta_qtc_ms": r.delta_qtc_ms,
+                "risk_category": r.risk_category,
+            }
+        )
     return results

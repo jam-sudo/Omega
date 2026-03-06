@@ -1,14 +1,14 @@
 """Tests for CNS PBPK module — BBB penetration prediction and CNS PK simulation."""
+
 from __future__ import annotations
 
-import pytest
 import numpy as np
 
 from omega_pbpk.core.cns_pbpk import (
     CNSPenetrationResult,
+    assess_cns_exposure,
     predict_bbb_penetration,
     simulate_cns_pk,
-    assess_cns_exposure,
 )
 
 _TIMES = [float(i) for i in range(25)]
@@ -69,8 +69,15 @@ class TestPredictBBB:
 class TestSimulateCNSPK:
     def test_returns_dict_with_keys(self):
         result = simulate_cns_pk(_TIMES, _CONC, kp_uu_brain=0.3)
-        expected = {"times_h", "brain_conc", "plasma_conc", "kp_uu_ss",
-                    "auc_brain", "auc_plasma", "brain_plasma_auc_ratio"}
+        expected = {
+            "times_h",
+            "brain_conc",
+            "plasma_conc",
+            "kp_uu_ss",
+            "auc_brain",
+            "auc_plasma",
+            "brain_plasma_auc_ratio",
+        }
         assert expected.issubset(set(result.keys()))
 
     def test_auc_brain_positive(self):
@@ -97,22 +104,26 @@ class TestSimulateCNSPK:
 
 class TestAssessCNSExposure:
     def test_returns_dict_with_penetration_and_pk(self):
-        r = assess_cns_exposure("Drug", logP=2, MW=300, psa=60,
-                                plasma_times=_TIMES, plasma_conc=_CONC)
+        r = assess_cns_exposure(
+            "Drug", logP=2, MW=300, psa=60, plasma_times=_TIMES, plasma_conc=_CONC
+        )
         assert "penetration" in r and "pk" in r
 
     def test_penetration_is_result_type(self):
-        r = assess_cns_exposure("Drug", logP=2, MW=300, psa=60,
-                                plasma_times=_TIMES, plasma_conc=_CONC)
+        r = assess_cns_exposure(
+            "Drug", logP=2, MW=300, psa=60, plasma_times=_TIMES, plasma_conc=_CONC
+        )
         assert isinstance(r["penetration"], CNSPenetrationResult)
 
     def test_pk_has_auc_keys(self):
-        r = assess_cns_exposure("Drug", logP=2, MW=300, psa=60,
-                                plasma_times=_TIMES, plasma_conc=_CONC)
+        r = assess_cns_exposure(
+            "Drug", logP=2, MW=300, psa=60, plasma_times=_TIMES, plasma_conc=_CONC
+        )
         assert "auc_brain" in r["pk"]
 
     def test_full_workflow_aspirin(self):
-        r = assess_cns_exposure("Aspirin", logP=1.2, MW=180, psa=63,
-                                plasma_times=_TIMES, plasma_conc=_CONC, fup=0.01)
+        r = assess_cns_exposure(
+            "Aspirin", logP=1.2, MW=180, psa=63, plasma_times=_TIMES, plasma_conc=_CONC, fup=0.01
+        )
         pen = r["penetration"]
         assert 0.001 <= pen.kp_uu_brain <= 1.0

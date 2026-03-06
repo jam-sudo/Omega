@@ -1,7 +1,6 @@
 """Tests for drug solubility prediction (Phase 68)."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from omega_pbpk.prediction.solubility import (
     SolubilityResult,
@@ -45,7 +44,11 @@ class TestPredictSolubility:
     def test_neutral_same_ph_profile(self):
         r = self._run(drug_type="neutral")
         # Neutral drug: stomach ≈ intestine ≈ colon
-        assert abs(r.sol_ph_stomach_mg_mL - r.sol_ph_intestine_mg_mL) / max(r.sol_ph_stomach_mg_mL, 1e-6) < 0.01
+        assert (
+            abs(r.sol_ph_stomach_mg_mL - r.sol_ph_intestine_mg_mL)
+            / max(r.sol_ph_stomach_mg_mL, 1e-6)
+            < 0.01
+        )
 
     def test_bcs_class_high_when_soluble(self):
         r = self._run(logP=0.0)  # low logP → higher solubility

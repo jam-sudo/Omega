@@ -1,9 +1,8 @@
 """Tests for ADR risk scoring (Phase 70)."""
+
 from __future__ import annotations
 
-import pytest
-
-from omega_pbpk.risk.adr_risk import ADRRiskResult, score_adr_risk, batch_adr_screen
+from omega_pbpk.risk.adr_risk import ADRRiskResult, batch_adr_screen, score_adr_risk
 
 
 def _default(**kw):
@@ -75,18 +74,41 @@ class TestScoreADRRisk:
         assert isinstance(_default().risk_flags, list)
 
     def test_safe_drug_low_score(self):
-        r = score_adr_risk("Safe", logP=0.0, MW=150, fup=1.0, cmax_mg_L=1.0,
-                           dose_mg=10.0, fraction_renal=0.0, kp_uu_brain=0.0,
-                           delta_qtc_ms=0.0, sol_mg_mL=10.0)
+        r = score_adr_risk(
+            "Safe",
+            logP=0.0,
+            MW=150,
+            fup=1.0,
+            cmax_mg_L=1.0,
+            dose_mg=10.0,
+            fraction_renal=0.0,
+            kp_uu_brain=0.0,
+            delta_qtc_ms=0.0,
+            sol_mg_mL=10.0,
+        )
         assert r.risk_tier == "low"
 
 
 class TestBatchADRScreen:
     def _compounds(self):
         return [
-            {"drug_name": "DrugA", "logP": 1.0, "MW": 200, "fup": 0.9, "cmax_mg_L": 1.0, "dose_mg": 100},
-            {"drug_name": "DrugB", "logP": 4.0, "MW": 400, "fup": 0.1, "cmax_mg_L": 5.0, "dose_mg": 100,
-             "reactive_metabolite": True},
+            {
+                "drug_name": "DrugA",
+                "logP": 1.0,
+                "MW": 200,
+                "fup": 0.9,
+                "cmax_mg_L": 1.0,
+                "dose_mg": 100,
+            },
+            {
+                "drug_name": "DrugB",
+                "logP": 4.0,
+                "MW": 400,
+                "fup": 0.1,
+                "cmax_mg_L": 5.0,
+                "dose_mg": 100,
+                "reactive_metabolite": True,
+            },
         ]
 
     def test_returns_list(self):
@@ -106,12 +128,22 @@ class TestBatchADRScreen:
 
 class TestRiskTierConsistency:
     def test_low_tier_threshold(self):
-        r = score_adr_risk("Safe", logP=0.0, MW=150, fup=1.0, cmax_mg_L=0.5,
-                           dose_mg=5.0, fraction_renal=0.0)
+        r = score_adr_risk(
+            "Safe", logP=0.0, MW=150, fup=1.0, cmax_mg_L=0.5, dose_mg=5.0, fraction_renal=0.0
+        )
         assert r.risk_tier == "low"
 
     def test_risky_drug_higher_tier(self):
-        r = score_adr_risk("Risky", logP=5.0, MW=500, fup=0.01, cmax_mg_L=10.0,
-                           dose_mg=500.0, reactive_metabolite=True,
-                           delta_qtc_ms=60.0, kp_uu_brain=0.9, sol_mg_mL=0.001)
+        r = score_adr_risk(
+            "Risky",
+            logP=5.0,
+            MW=500,
+            fup=0.01,
+            cmax_mg_L=10.0,
+            dose_mg=500.0,
+            reactive_metabolite=True,
+            delta_qtc_ms=60.0,
+            kp_uu_brain=0.9,
+            sol_mg_mL=0.001,
+        )
         assert r.risk_tier != "low"

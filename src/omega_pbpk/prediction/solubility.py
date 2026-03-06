@@ -1,10 +1,8 @@
 """Drug solubility prediction — thermodynamic and kinetic models."""
+
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
-
-import numpy as np
+from dataclasses import dataclass
 
 __all__ = ["SolubilityResult", "predict_solubility", "solubility_ph_profile"]
 
@@ -12,7 +10,7 @@ __all__ = ["SolubilityResult", "predict_solubility", "solubility_ph_profile"]
 def _general_solubility_yalkowsky(logP: float, mp_celsius: float = 150.0) -> float:
     """Yalkowsky GSE: log10(S_mg_mL) = 0.5 - logP - 0.01 * max(mp - 25, 0)."""
     log_s = 0.5 - logP - 0.01 * max(mp_celsius - 25.0, 0.0)
-    s = 10.0 ** log_s
+    s = 10.0**log_s
     return max(0.0001, min(s, 1000.0))
 
 

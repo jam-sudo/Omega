@@ -75,16 +75,13 @@ def predict_food_effect(
     if dose_mg <= 0:
         raise ValueError(f"dose_mg must be positive, got {dose_mg}")
     if solubility_fasted_mg_mL <= 0:
-        raise ValueError(
-            f"solubility_fasted_mg_mL must be positive, got {solubility_fasted_mg_mL}"
-        )
+        raise ValueError(f"solubility_fasted_mg_mL must be positive, got {solubility_fasted_mg_mL}")
 
     gastric_pH_fasted = 1.5
     gastric_pH_fed = 4.5
 
     # Bile salt enhancement: higher logP → more bile micellar solubilization
     bile_factor_fed = 1.0 + 3.0 * _sigmoid(logP - 2.0)
-    bile_factor_fasted = 1.0
 
     motility_factor_fed = 0.65
     motility_factor_fasted = 1.0
@@ -110,9 +107,7 @@ def predict_food_effect(
     # Simplified AUC ratio: driven by solubility increase and motility reduction
     # predicted_AUC_ratio = (solubility_fed / solubility_fasted) * (motility_fed / motility_fasted)
     predicted_AUC_ratio = (
-        (solubility_fed / solubility_fasted_mg_mL)
-        * motility_factor_fed
-        / motility_factor_fasted
+        (solubility_fed / solubility_fasted_mg_mL) * motility_factor_fed / motility_factor_fasted
     )
     predicted_Cmax_ratio = predicted_AUC_ratio * 0.8
 

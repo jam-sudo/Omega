@@ -1,10 +1,9 @@
 """Drug combination synergy — Bliss independence, Loewe additivity, CI method."""
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-
-import numpy as np
 
 __all__ = [
     "SynergyResult",
@@ -21,8 +20,8 @@ def dose_response(dose: float, ic50: float, hill_n: float = 1.0) -> float:
     dose = max(dose, 0.0)
     if ic50 <= 0:
         raise ValueError("ic50 must be > 0")
-    d_n = dose ** hill_n
-    return d_n / (ic50 ** hill_n + d_n)
+    d_n = dose**hill_n
+    return d_n / (ic50**hill_n + d_n)
 
 
 def compute_bliss_independence(effect_A: float, effect_B: float) -> float:
@@ -85,9 +84,7 @@ def assess_combination_synergy(
     combo_effect = observed_effect if observed_effect is not None else bliss_expected
     bliss_delta = combo_effect - bliss_expected
 
-    loewe_ci = compute_loewe_ci(
-        dose_A, dose_B, ic50_A, ic50_B, combo_effect, hill_n_A, hill_n_B
-    )
+    loewe_ci = compute_loewe_ci(dose_A, dose_B, ic50_A, ic50_B, combo_effect, hill_n_A, hill_n_B)
 
     # CI classification
     if math.isnan(loewe_ci):
@@ -143,9 +140,7 @@ def synergy_matrix(
     """Return 2D list [i][j] = SynergyResult for doses_A[i] x doses_B[j]."""
     return [
         [
-            assess_combination_synergy(
-                drug_A, drug_B, da, db, ic50_A, ic50_B, hill_n_A, hill_n_B
-            )
+            assess_combination_synergy(drug_A, drug_B, da, db, ic50_A, ic50_B, hill_n_A, hill_n_B)
             for db in doses_B
         ]
         for da in doses_A

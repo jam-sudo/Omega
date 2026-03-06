@@ -1,48 +1,48 @@
 """Dose individualization — covariates-based dose adjustment for renal/hepatic impairment."""
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
 
-import numpy as np
-
 
 @dataclass(frozen=True)
 class PatientCovariates:
     """Patient-specific covariates for dose individualization."""
+
     body_weight_kg: float = 70.0
     age_years: float = 40.0
-    sex: str = "male"              # "male" or "female"
+    sex: str = "male"  # "male" or "female"
     serum_creatinine_mg_dL: float = 1.0
     egfr_mL_min: float | None = None  # if None, estimated from CrCl
-    child_pugh_score: int = 5         # 5-6=A, 7-9=B, 10-15=C
+    child_pugh_score: int = 5  # 5-6=A, 7-9=B, 10-15=C
     bilirubin_mg_dL: float = 1.0
     albumin_g_dL: float = 4.0
-    alt_U_L: float = 30.0             # alanine aminotransferase
+    alt_U_L: float = 30.0  # alanine aminotransferase
 
 
 @dataclass(frozen=True)
 class IndividualizedDoseResult:
     """Result of dose individualization."""
+
     patient_id: str
     standard_dose_mg: float
     individualized_dose_mg: float
     dose_interval_h: float
-    dose_adjustment_factor: float    # individualized / standard
-    renal_adjustment: float          # renal component of adjustment
-    hepatic_adjustment: float        # hepatic component of adjustment
-    weight_adjustment: float         # allometric/weight component
+    dose_adjustment_factor: float  # individualized / standard
+    renal_adjustment: float  # renal component of adjustment
+    hepatic_adjustment: float  # hepatic component of adjustment
+    weight_adjustment: float  # allometric/weight component
     egfr_mL_min: float
     crcl_mL_min: float
-    renal_impairment_grade: str      # "normal", "mild", "moderate", "severe", "ESRD"
-    hepatic_impairment_grade: str    # "normal", "mild" (CP-A), "moderate" (CP-B), "severe" (CP-C)
-    predicted_auc_ratio: float       # expected AUC relative to standard patient
+    renal_impairment_grade: str  # "normal", "mild", "moderate", "severe", "ESRD"
+    hepatic_impairment_grade: str  # "normal", "mild" (CP-A), "moderate" (CP-B), "severe" (CP-C)
+    predicted_auc_ratio: float  # expected AUC relative to standard patient
     warnings: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
 
-def _cockcroft_gault(weight_kg: float, age_years: float, sex: str,
-                     scr_mg_dL: float) -> float:
+def _cockcroft_gault(weight_kg: float, age_years: float, sex: str, scr_mg_dL: float) -> float:
     """Cockcroft-Gault equation for CrCl (mL/min)."""
     crcl = (140 - age_years) * weight_kg / (72 * scr_mg_dL)
     if sex.lower() in ("female", "f"):
@@ -56,8 +56,13 @@ def _egfr_ckd_epi(age_years: float, sex: str, scr_mg_dL: float) -> float:
     alpha = -0.241 if sex.lower() in ("female", "f") else -0.302
     sex_factor = 1.012 if sex.lower() in ("female", "f") else 1.0
     scr_kappa = scr_mg_dL / kappa
-    egfr = 142 * min(scr_kappa, 1.0) ** alpha * max(scr_kappa, 1.0) ** (-1.200) \
-           * 0.9938 ** age_years * sex_factor
+    egfr = (
+        142
+        * min(scr_kappa, 1.0) ** alpha
+        * max(scr_kappa, 1.0) ** (-1.200)
+        * 0.9938**age_years
+        * sex_factor
+    )
     return max(egfr, 5.0)
 
 
@@ -78,11 +83,11 @@ def _child_pugh_grade(score: int) -> str:
     if score <= 6:
         return "normal"
     elif score <= 9:
-        return "mild"    # Child-Pugh A
+        return "mild"  # Child-Pugh A
     elif score <= 12:
         return "moderate"  # Child-Pugh B
     else:
-        return "severe"   # Child-Pugh C
+        return "severe"  # Child-Pugh C
 
 
 def _renal_dose_adjustment(
@@ -119,9 +124,9 @@ def _hepatic_dose_adjustment(cp_score: int, fraction_hepatic: float) -> float:
     # Reduction in hepatic CL by CP grade (FDA guidance approximations)
     cl_reduction = {
         "normal": 1.0,
-        "mild": 0.75,     # CP-A: ~25% CL reduction
+        "mild": 0.75,  # CP-A: ~25% CL reduction
         "moderate": 0.50,  # CP-B: ~50% CL reduction
-        "severe": 0.25,    # CP-C: ~75% CL reduction
+        "severe": 0.25,  # CP-C: ~75% CL reduction
     }
     grade = _child_pugh_grade(cp_score)
     hepatic_cl_factor = cl_reduction[grade]
@@ -132,8 +137,9 @@ def _hepatic_dose_adjustment(cp_score: int, fraction_hepatic: float) -> float:
     return combined_cl_ratio
 
 
-def _weight_adjustment(weight_kg: float, reference_kg: float = 70.0,
-                        exponent: float = 0.75) -> float:
+def _weight_adjustment(
+    weight_kg: float, reference_kg: float = 70.0, exponent: float = 0.75
+) -> float:
     """Allometric weight-based dose adjustment."""
     return (weight_kg / reference_kg) ** exponent
 
@@ -168,13 +174,13 @@ def individualize_dose(
     notes: list[str] = []
 
     # Compute renal function
-    crcl = _cockcroft_gault(patient.body_weight_kg, patient.age_years,
-                             patient.sex, patient.serum_creatinine_mg_dL)
+    crcl = _cockcroft_gault(
+        patient.body_weight_kg, patient.age_years, patient.sex, patient.serum_creatinine_mg_dL
+    )
     if patient.egfr_mL_min is not None:
         egfr = patient.egfr_mL_min
     else:
-        egfr = _egfr_ckd_epi(patient.age_years, patient.sex,
-                               patient.serum_creatinine_mg_dL)
+        egfr = _egfr_ckd_epi(patient.age_years, patient.sex, patient.serum_creatinine_mg_dL)
 
     renal_grade = _renal_impairment_grade(egfr)
     hepatic_grade = _child_pugh_grade(patient.child_pugh_score)
@@ -209,18 +215,26 @@ def individualize_dose(
 
     # Clinical notes
     if renal_grade != "normal":
-        notes.append(f"Renal impairment ({renal_grade}): eGFR={egfr:.0f} mL/min, CrCl={crcl:.0f} mL/min")
+        notes.append(
+            f"Renal impairment ({renal_grade}): eGFR={egfr:.0f} mL/min, CrCl={crcl:.0f} mL/min"
+        )
     if hepatic_grade not in ("normal", "mild"):
-        notes.append(f"Hepatic impairment (Child-Pugh {hepatic_grade}): score={patient.child_pugh_score}")
+        notes.append(
+            f"Hepatic impairment (Child-Pugh {hepatic_grade}): score={patient.child_pugh_score}"
+        )
     if patient.age_years >= 65:
-        warnings.append("Elderly patient (≥65y): monitor closely; consider conservative starting dose")
+        warnings.append(
+            "Elderly patient (≥65y): monitor closely; consider conservative starting dose"
+        )
     if patient.age_years < 18:
         warnings.append("Pediatric patient: weight-based dosing recommended")
 
     # Round to practical dose (nearest 5 mg)
     individualized_dose_rounded = round(individualized_dose / 5) * 5
     if abs(individualized_dose_rounded - individualized_dose) > 0.1:
-        notes.append(f"Rounded from {individualized_dose:.1f} mg to {individualized_dose_rounded} mg")
+        notes.append(
+            f"Rounded from {individualized_dose:.1f} mg to {individualized_dose_rounded} mg"
+        )
     individualized_dose = max(individualized_dose_rounded, 5.0)
 
     return IndividualizedDoseResult(

@@ -1,10 +1,12 @@
 """Enterohepatic recirculation (EHC) — biliary excretion + intestinal reabsorption."""
+
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
+
 from omega_pbpk._compat import np_trapz
 
 
@@ -154,12 +156,14 @@ def ehc_sensitivity(
             vd_L=vd_L,
             f_biliary=fb,
         )
-        results.append({
-            "f_biliary": fb,
-            "auc_total": r.auc_total_mg_h_L,
-            "n_secondary_peaks": len(r.secondary_peak_times),
-            "ehc_fraction": r.ehc_fraction,
-        })
+        results.append(
+            {
+                "f_biliary": fb,
+                "auc_total": r.auc_total_mg_h_L,
+                "n_secondary_peaks": len(r.secondary_peak_times),
+                "ehc_fraction": r.ehc_fraction,
+            }
+        )
     return results
 
 

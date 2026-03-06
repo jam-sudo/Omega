@@ -1,4 +1,5 @@
 """Two-compartment PK model — central + peripheral compartments."""
+
 from __future__ import annotations
 
 import math
@@ -12,16 +13,16 @@ from omega_pbpk._compat import np_trapz
 @dataclass(frozen=True)
 class TwoCompartmentResult:
     times_h: list[float]
-    cp_central: list[float]     # concentration in central compartment (mg/L)
+    cp_central: list[float]  # concentration in central compartment (mg/L)
     cp_peripheral: list[float]  # concentration in peripheral compartment (mg/L)
-    auc_0_inf: float            # AUC 0→∞ (mg·h/L)
-    auc_0_t: float              # AUC 0→last time point
+    auc_0_inf: float  # AUC 0→∞ (mg·h/L)
+    auc_0_t: float  # AUC 0→last time point
     cmax: float
     tmax_h: float
-    thalf_alpha_h: float        # distribution half-life
-    thalf_beta_h: float         # elimination half-life
-    vd_ss_L: float              # volume of distribution at steady state
-    cl_L_per_h: float           # systemic clearance
+    thalf_alpha_h: float  # distribution half-life
+    thalf_beta_h: float  # elimination half-life
+    vd_ss_L: float  # volume of distribution at steady state
+    cl_L_per_h: float  # systemic clearance
     vd_central_L: float
     vd_peripheral_L: float
 
@@ -29,11 +30,12 @@ class TwoCompartmentResult:
 @dataclass(frozen=True)
 class TwoCompartmentParams:
     """Two-compartment micro-rate constants."""
+
     k10: float  # elimination rate (1/h)
     k12: float  # central → peripheral (1/h)
     k21: float  # peripheral → central (1/h)
     vd_central_L: float
-    ka_per_h: float = 0.0   # absorption rate (oral), 0 for IV
+    ka_per_h: float = 0.0  # absorption rate (oral), 0 for IV
 
 
 def params_from_macro(
@@ -47,14 +49,15 @@ def params_from_macro(
     k10 = cl_L_per_h / vd_central_L
     k12 = q_L_per_h / vd_central_L
     k21 = q_L_per_h / vd_peripheral_L
-    return TwoCompartmentParams(k10=k10, k12=k12, k21=k21,
-                                 vd_central=vd_central_L, ka_per_h=ka_per_h)
+    return TwoCompartmentParams(
+        k10=k10, k12=k12, k21=k21, vd_central=vd_central_L, ka_per_h=ka_per_h
+    )
 
 
 def _alpha_beta(k10: float, k12: float, k21: float) -> tuple[float, float]:
     """Compute hybrid rate constants α and β."""
     s = k10 + k12 + k21
-    d = math.sqrt(max(s ** 2 - 4 * k10 * k21, 0.0))
+    d = math.sqrt(max(s**2 - 4 * k10 * k21, 0.0))
     alpha = (s + d) / 2.0
     beta = (s - d) / 2.0
     return alpha, beta
@@ -125,7 +128,7 @@ def simulate_two_compartment(
             flux_12 = k12 * (a_central / vd_central_L) * vd_central_L * dt_h
             flux_21 = k21 * a_peri * dt_h
             a_central -= (k10 * a_central + flux_12 - flux_21) * dt_h
-            a_peri += (flux_12 - flux_21)
+            a_peri += flux_12 - flux_21
             a_central = max(a_central, 0.0)
             a_peri = max(a_peri, 0.0)
             cp_peri[i + 1] = a_peri / vd_peripheral_L
@@ -220,8 +223,10 @@ def fit_biexponential(
     A = math.exp(float(coeffs_alpha[1]))
 
     return {
-        "A": A, "alpha": max(alpha, beta + 1e-6),
-        "B": B, "beta": max(beta, 1e-6),
+        "A": A,
+        "alpha": max(alpha, beta + 1e-6),
+        "B": B,
+        "beta": max(beta, 1e-6),
         "thalf_alpha_h": math.log(2) / max(alpha, 1e-6),
         "thalf_beta_h": math.log(2) / max(beta, 1e-6),
     }

@@ -4,8 +4,8 @@ import pytest
 
 from omega_pbpk.prediction.protein_corona import (
     ProteinBindingResult,
-    predict_protein_binding,
     binding_sensitivity_analysis,
+    predict_protein_binding,
 )
 
 
@@ -41,27 +41,19 @@ class TestPredictProteinBinding:
         assert abs(total - 1.0) < 0.1, f"Fractions sum to {total}, expected ~1.0"
 
     def test_high_logP_lower_fup(self):
-        result_low = predict_protein_binding(
-            drug_name="LowLogP", MW=300.0, logP=0.0
-        )
-        result_high = predict_protein_binding(
-            drug_name="HighLogP", MW=300.0, logP=4.0
-        )
+        result_low = predict_protein_binding(drug_name="LowLogP", MW=300.0, logP=0.0)
+        result_high = predict_protein_binding(drug_name="HighLogP", MW=300.0, logP=4.0)
         assert result_high.fup < result_low.fup
 
     def test_acid_drug_high_albumin_binding(self):
         result_acid = predict_protein_binding(
             drug_name="AcidDrug", MW=300.0, logP=2.0, pka_acid=4.5
         )
-        result_neutral = predict_protein_binding(
-            drug_name="NeutralDrug", MW=300.0, logP=2.0
-        )
+        result_neutral = predict_protein_binding(drug_name="NeutralDrug", MW=300.0, logP=2.0)
         assert result_acid.f_albumin > result_neutral.f_albumin
 
     def test_basic_drug_agp_binding(self):
-        result = predict_protein_binding(
-            drug_name="BasicDrug", MW=300.0, logP=2.0, pka_basic=9.0
-        )
+        result = predict_protein_binding(drug_name="BasicDrug", MW=300.0, logP=2.0, pka_basic=9.0)
         assert result.f_agp > 0
 
     def test_bpr_positive(self, basic_result):

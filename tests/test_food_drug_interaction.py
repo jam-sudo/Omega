@@ -1,15 +1,18 @@
 """Tests for omega_pbpk.clinical.food_drug_interaction module."""
+
 import pytest
+
 from omega_pbpk.clinical.food_drug_interaction import (
     FoodEffectResult,
-    predict_food_effect,
     food_effect_bcs_matrix,
+    predict_food_effect,
 )
 
 VALID_CATEGORIES = {"positive", "negative", "neutral"}
 
 
 # --- Basic result type and structure ---
+
 
 def test_predict_food_effect_returns_food_effect_result():
     result = predict_food_effect("ibuprofen", logP=3.5)
@@ -32,6 +35,7 @@ def test_drug_name_preserved_custom():
 
 
 # --- Category values ---
+
 
 def test_food_effect_category_in_valid_set():
     result = predict_food_effect("ibuprofen", logP=3.5)
@@ -56,6 +60,7 @@ def test_moderate_logP_category_is_valid():
 
 
 # --- Numeric field constraints ---
+
 
 def test_cmax_ratio_positive():
     result = predict_food_effect("ibuprofen", logP=3.5)
@@ -100,6 +105,7 @@ def test_pka_preserved_in_result():
 
 # --- ValueError for invalid inputs ---
 
+
 def test_raises_value_error_for_zero_dose():
     with pytest.raises(ValueError):
         predict_food_effect("drug_x", logP=3.0, dose_mg=0)
@@ -121,6 +127,7 @@ def test_raises_value_error_for_negative_solubility():
 
 
 # --- BCS matrix ---
+
 
 def test_bcs_matrix_returns_dict_with_four_keys():
     matrix = food_effect_bcs_matrix("ibuprofen", logP=3.5)
@@ -159,6 +166,7 @@ def test_bcs_matrix_bcs_class_II_high_logP_positive():
 
 
 # --- Default parameters ---
+
 
 def test_default_bcs_class_is_II():
     """Default bcs_class='II' should match explicit class II result for same inputs."""

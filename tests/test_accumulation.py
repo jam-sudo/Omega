@@ -1,13 +1,12 @@
 """Tests for drug accumulation and steady-state analysis (Phase 74)."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from omega_pbpk.clinical.accumulation import (
     AccumulationResult,
     accumulation_ratio,
-    simulate_accumulation,
     dosing_regimen_comparison,
+    simulate_accumulation,
 )
 
 
@@ -40,6 +39,7 @@ class TestAccumulationRatio:
 
     def test_formula(self):
         import math
+
         r = accumulation_ratio(t_half_h=12.0, tau_h=12.0)
         expected = 1.0 / (1.0 - math.exp(-0.693))
         assert abs(r - expected) < 0.1
@@ -97,7 +97,14 @@ class TestDosingRegimenComparison:
     def test_entries_have_keys(self):
         r = dosing_regimen_comparison("Drug", 100.0, 5.0, 50.0)
         for entry in r:
-            for key in ("regimen", "tau_h", "dose_mg", "css_avg", "fluctuation_pct", "peak_trough_ratio"):
+            for key in (
+                "regimen",
+                "tau_h",
+                "dose_mg",
+                "css_avg",
+                "fluctuation_pct",
+                "peak_trough_ratio",
+            ):
                 assert key in entry, f"Missing key {key} in {entry}"
 
     def test_once_daily_highest_fluctuation(self):

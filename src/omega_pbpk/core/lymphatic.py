@@ -1,8 +1,9 @@
 """Intestinal lymphatic absorption — alternative route for lipophilic drugs."""
+
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -12,22 +13,23 @@ from omega_pbpk._compat import np_trapz
 @dataclass(frozen=True)
 class LymphaticAbsorptionResult:
     """Result of lymphatic absorption prediction."""
+
     drug_name: str
     logP: float
     dose_mg: float
-    f_lymph: float              # fraction absorbed via lymph (0–1)
-    f_portal: float             # fraction absorbed via portal vein (1 - f_lymph)
-    auc_total_mg_h_L: float     # total plasma AUC
-    auc_lymph_mg_h_L: float     # AUC contribution from lymphatic route
-    auc_portal_mg_h_L: float    # AUC contribution from portal route
-    fh_portal: float            # hepatic first-pass for portal fraction
-    fh_lymph: float             # hepatic first-pass for lymphatic fraction (bypassed = 1.0)
-    bioavailability_portal: float   # F via portal (with first-pass)
-    bioavailability_lymph: float    # F via lymph (bypasses first-pass = f_lymph)
-    bioavailability_total: float    # combined F
+    f_lymph: float  # fraction absorbed via lymph (0–1)
+    f_portal: float  # fraction absorbed via portal vein (1 - f_lymph)
+    auc_total_mg_h_L: float  # total plasma AUC
+    auc_lymph_mg_h_L: float  # AUC contribution from lymphatic route
+    auc_portal_mg_h_L: float  # AUC contribution from portal route
+    fh_portal: float  # hepatic first-pass for portal fraction
+    fh_lymph: float  # hepatic first-pass for lymphatic fraction (bypassed = 1.0)
+    bioavailability_portal: float  # F via portal (with first-pass)
+    bioavailability_lymph: float  # F via lymph (bypasses first-pass = f_lymph)
+    bioavailability_total: float  # combined F
     times_h: list[float]
     plasma_conc: list[float]
-    lymph_conc: list[float]     # drug in lymph (thoracic duct, mg/L)
+    lymph_conc: list[float]  # drug in lymph (thoracic duct, mg/L)
     tmax_h: float
     cmax_mg_L: float
 
@@ -51,7 +53,12 @@ def _lymphatic_fraction(logP: float, solubility_mg_mL: float = 1.0) -> float:
     return float(np.clip(f_base * sol_factor, 0.0, 0.50))
 
 
-def _hepatic_first_pass(cl_L_per_h: float, q_liver_L_per_h: float = 90.0, fup: float = 1.0, cl_int_L_per_h: float | None = None) -> float:
+def _hepatic_first_pass(
+    cl_L_per_h: float,
+    q_liver_L_per_h: float = 90.0,
+    fup: float = 1.0,
+    cl_int_L_per_h: float | None = None,
+) -> float:
     """Hepatic extraction fraction (well-stirred model). Returns fh = 1 - E."""
     if cl_int_L_per_h is not None:
         e = fup * cl_int_L_per_h / (q_liver_L_per_h + fup * cl_int_L_per_h)
@@ -117,10 +124,6 @@ def simulate_lymphatic_absorption(
     F_portal = fa * f_portal * fh
     F_lymph = fa * f_lymph  # bypasses liver
     F_total = F_portal + F_lymph
-
-    # Effective doses reaching systemic circulation
-    dose_portal = dose_mg * F_portal
-    dose_lymph = dose_mg * F_lymph
 
     # Simulate plasma PK with two absorption inputs (forward Euler)
     n = max(int(t_end_h / dt_h), 1)
@@ -200,14 +203,24 @@ def compare_food_effect(
 ) -> dict[str, LymphaticAbsorptionResult]:
     """Compare fasted vs fed lymphatic absorption (food effect on lipophilic drugs)."""
     fasted = simulate_lymphatic_absorption(
-        drug_name=drug_name, logP=logP, dose_mg=dose_mg,
-        cl_L_per_h=cl_L_per_h, vd_L=vd_L, ka_per_h=ka_per_h, fup=fup,
+        drug_name=drug_name,
+        logP=logP,
+        dose_mg=dose_mg,
+        cl_L_per_h=cl_L_per_h,
+        vd_L=vd_L,
+        ka_per_h=ka_per_h,
+        fup=fup,
         solubility_mg_mL=solubility_fasted_mg_mL,
         lymph_flow_L_per_h=lymph_flow_fasted_L_per_h,
     )
     fed = simulate_lymphatic_absorption(
-        drug_name=drug_name, logP=logP, dose_mg=dose_mg,
-        cl_L_per_h=cl_L_per_h, vd_L=vd_L, ka_per_h=ka_per_h, fup=fup,
+        drug_name=drug_name,
+        logP=logP,
+        dose_mg=dose_mg,
+        cl_L_per_h=cl_L_per_h,
+        vd_L=vd_L,
+        ka_per_h=ka_per_h,
+        fup=fup,
         solubility_mg_mL=solubility_fed_mg_mL,
         lymph_flow_L_per_h=lymph_flow_fed_L_per_h,
     )

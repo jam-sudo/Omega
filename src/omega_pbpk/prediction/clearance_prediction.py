@@ -8,9 +8,7 @@ hepatic clearance, renal clearance, volume of distribution, and half-life.
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +49,7 @@ def _predict_cl_hepatic(logP: float, MW: float, fup: float, PSA: float) -> float
     return max(0.01, min(150.0, base_cl * logP_factor * mw_factor * PSA_factor))
 
 
-def _predict_cl_renal(
-    MW: float, fup: float, pka: float, drug_type: str = "neutral"
-) -> float:
+def _predict_cl_renal(MW: float, fup: float, pka: float, drug_type: str = "neutral") -> float:
     """Predict renal clearance (L/h) from physicochemical properties."""
     base_renal = 1.5 * fup
     mw_penalty = max(0.0, 1.0 - (MW - 300) / 500)
