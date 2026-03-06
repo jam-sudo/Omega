@@ -8915,3 +8915,488 @@ def api_adme_benchmark():
         logger.exception("ADME benchmark error")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return result
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/nano_pk  (Phase 141)
+# POST /simulate/nano_pk/compare_formulations
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.nano_pbpk import (  # noqa: E402
+    compare_formulations as _compare_nano_formulations,
+)
+from omega_pbpk.core.nano_pbpk import (
+    simulate_nano_pk as _simulate_nano_pk,
+)
+
+
+@app.post("/simulate/nano_pk")
+def api_nano_pk(body: dict):
+    """Simulate nanoparticle PBPK: plasma, MPS organs, tumor EPR, drug release."""
+    try:
+        r = _simulate_nano_pk(
+            nanoparticle_name=body.get("nanoparticle_name", "NP"),
+            dose_mg=float(body["dose_mg"]),
+            size_nm=float(body.get("size_nm", 100.0)),
+            zeta_potential_mV=float(body.get("zeta_potential_mV", 0.0)),
+            peg_density_chains_per_nm2=float(body.get("peg_density_chains_per_nm2", 0.1)),
+            drug_loading_pct=float(body.get("drug_loading_pct", 10.0)),
+            drug_release_rate_per_h=float(body.get("drug_release_rate_per_h", 0.1)),
+            cl_drug_L_per_h=float(body.get("cl_drug_L_per_h", 1.0)),
+            vd_drug_L=float(body.get("vd_drug_L", 20.0)),
+            tumor_weight_g=float(body.get("tumor_weight_g", 1.0)),
+            t_end_h=float(body.get("t_end_h", 72.0)),
+            dt_h=float(body.get("dt_h", 0.1)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "nanoparticle_name": r.nanoparticle_name,
+        "size_nm": r.size_nm,
+        "peg_density": r.peg_density,
+        "dose_mg": r.dose_mg,
+        "cmax_plasma_mg_L": r.cmax_plasma_mg_L,
+        "auc_plasma": r.auc_plasma,
+        "liver_pct_at_24h": r.liver_pct_at_24h,
+        "tumor_pct_at_24h": r.tumor_pct_at_24h,
+        "t_half_h": r.t_half_h,
+        "epr_efficiency": r.epr_efficiency,
+        "corona_factor": r.corona_factor,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "c_plasma_mg_L": r.c_plasma_mg_L,
+        "a_tumor_pct": r.a_tumor_pct,
+        "c_drug_plasma_mg_L": r.c_drug_plasma_mg_L,
+    }
+
+
+@app.post("/simulate/nano_pk/compare_formulations")
+def api_nano_compare(body: dict):
+    """Compare nanoparticle PK across multiple formulations (size, PEG, charge)."""
+    try:
+        formulations = body.get("formulations", [])
+        if not formulations:
+            raise ValueError("formulations list is required")
+        results = _compare_nano_formulations(
+            nanoparticle_name=body.get("nanoparticle_name", "NP"),
+            dose_mg=float(body["dose_mg"]),
+            formulations=formulations,
+            tumor_weight_g=float(body.get("tumor_weight_g", 1.0)),
+            t_end_h=float(body.get("t_end_h", 72.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "size_nm": r.size_nm,
+                "peg_density": r.peg_density,
+                "zeta_potential_mV": r.zeta_potential_mV,
+                "cmax_plasma_mg_L": r.cmax_plasma_mg_L,
+                "auc_plasma": r.auc_plasma,
+                "t_half_h": r.t_half_h,
+                "tumor_pct_at_24h": r.tumor_pct_at_24h,
+                "epr_efficiency": r.epr_efficiency,
+                "liver_pct_at_24h": r.liver_pct_at_24h,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/tumor_pk   (Phase 142)
+# POST /simulate/tumor_pk/dose_response
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.tumor_pk import (  # noqa: E402
+    dose_response_tumor as _dose_response_tumor,
+)
+from omega_pbpk.clinical.tumor_pk import (
+    simulate_tumor_pk as _simulate_tumor_pk,
+)
+
+
+@app.post("/simulate/tumor_pk")
+def api_tumor_pk(body: dict):
+    """Simulate tumor PK/PD: two-region solid tumor model with cell kill."""
+    try:
+        r = _simulate_tumor_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            route=body.get("route", "iv"),
+            ka_per_h=float(body.get("ka_per_h", 1.0)),
+            f_oral=float(body.get("f_oral", 1.0)),
+            tumor_weight_g=float(body.get("tumor_weight_g", 5.0)),
+            tumor_blood_flow_L_per_h=float(body.get("tumor_blood_flow_L_per_h", 0.01)),
+            k_penetration_per_h=float(body.get("k_penetration_per_h", 0.1)),
+            drug_permeability=float(body.get("drug_permeability", 1.0)),
+            pd_model=body.get("pd_model", "emax"),
+            ec50_mg_L=float(body.get("ec50_mg_L", 1.0)),
+            emax=float(body.get("emax", 1.0)),
+            hill_n=float(body.get("hill_n", 1.0)),
+            tumor_doubling_time_h=float(body.get("tumor_doubling_time_h", 168.0)),
+            t_end_h=float(body.get("t_end_h", 168.0)),
+            dt_h=float(body.get("dt_h", 0.1)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "tumor_weight_g": r.tumor_weight_g,
+        "dose_mg": r.dose_mg,
+        "route": r.route,
+        "pd_model": r.pd_model,
+        "cmax_sys": r.cmax_sys,
+        "cmax_tumor_vasc": r.cmax_tumor_vasc,
+        "cmax_tumor_avsc": r.cmax_tumor_avsc,
+        "auc_sys": r.auc_sys,
+        "auc_tumor_vasc": r.auc_tumor_vasc,
+        "max_log_kill": r.max_log_kill,
+        "tumor_eradication": r.tumor_eradication,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "c_sys_mg_L": r.c_sys_mg_L,
+        "tumor_cells_norm": r.tumor_cells_norm,
+        "log_cell_kill": r.log_cell_kill,
+    }
+
+
+@app.post("/simulate/tumor_pk/dose_response")
+def api_tumor_dose_response(body: dict):
+    """Tumor dose-response: simulate across multiple doses, return kill metrics."""
+    try:
+        doses = body.get("doses_mg", [])
+        if not doses:
+            raise ValueError("doses_mg list is required")
+        results = _dose_response_tumor(
+            drug_name=body.get("drug_name", "Drug"),
+            doses_mg=[float(d) for d in doses],
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            pd_model=body.get("pd_model", "emax"),
+            ec50_mg_L=float(body.get("ec50_mg_L", 1.0)),
+            emax=float(body.get("emax", 1.0)),
+            t_end_h=float(body.get("t_end_h", 168.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "dose_mg": r.dose_mg,
+                "max_log_kill": r.max_log_kill,
+                "tumor_eradication": r.tumor_eradication,
+                "cmax_sys": r.cmax_sys,
+                "auc_sys": r.auc_sys,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /risk/genotoxicity   (Phase 143)
+# POST /risk/genotoxicity/screen
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.risk.genotoxicity import (  # noqa: E402
+    assess_genotoxicity as _assess_genotoxicity,
+)
+from omega_pbpk.risk.genotoxicity import (
+    screen_library as _screen_geno_library,
+)
+
+
+@app.post("/risk/genotoxicity")
+def api_genotoxicity(body: dict):
+    """Genotoxicity assessment: Ames surrogate, micronucleus risk, structural alerts."""
+    try:
+        result = _assess_genotoxicity(
+            compound_name=body.get("compound_name", "Compound"),
+            smiles=body["smiles"],
+            mw=float(body["mw"]),
+            logP=float(body["logP"]),
+            tpsa=float(body.get("tpsa", 50.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "compound_name": result.compound_name,
+        "ames_prediction": result.ames_prediction,
+        "ames_probability": result.ames_probability,
+        "micronucleus_risk": result.micronucleus_risk,
+        "ichs2r1_flag": result.ichs2r1_flag,
+        "structural_class": result.structural_class,
+        "n_alerts": result.n_alerts,
+        "alert_score": result.alert_score,
+        "alerts": [
+            {
+                "name": a.name,
+                "triggered": a.triggered,
+                "weight": a.weight,
+                "description": a.description,
+            }
+            for a in result.alerts
+            if a.triggered
+        ],
+        "notes": result.notes,
+    }
+
+
+@app.post("/risk/genotoxicity/screen")
+def api_genotoxicity_screen(body: dict):
+    """Screen compound library for genotoxicity risk, sorted by alert score."""
+    compounds = body.get("compounds", [])
+    if not isinstance(compounds, list) or not compounds:
+        raise HTTPException(status_code=400, detail="compounds must be a non-empty list")
+    try:
+        results = _screen_geno_library(compounds)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "results": [
+            {
+                "compound_name": r.compound_name,
+                "structural_class": r.structural_class,
+                "ames_prediction": r.ames_prediction,
+                "alert_score": r.alert_score,
+                "n_alerts": r.n_alerts,
+                "ichs2r1_flag": r.ichs2r1_flag,
+            }
+            for r in results
+        ],
+        "n_compounds": len(results),
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/sublingual_pk   (Phase 144)
+# POST /simulate/sublingual_pk/compare_oral
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.sublingual_pbpk import (  # noqa: E402
+    compare_sublingual_oral as _compare_sublingual_oral,
+)
+from omega_pbpk.core.sublingual_pbpk import (
+    simulate_sublingual_pk as _simulate_sublingual_pk,
+)
+
+
+@app.post("/simulate/sublingual_pk")
+def api_sublingual_pk(body: dict):
+    """Simulate sublingual/buccal drug absorption bypassing hepatic first-pass."""
+    try:
+        r = _simulate_sublingual_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            route=body.get("route", "sublingual"),
+            ka_mucosal_per_h=float(body.get("ka_mucosal_per_h", 3.0)),
+            ka_swallowed_per_h=float(body.get("ka_swallowed_per_h", 1.0)),
+            f_swallowed=float(body.get("f_swallowed", 0.3)),
+            f_hepatic_first_pass=float(body.get("f_hepatic_first_pass", 0.5)),
+            cl_L_per_h=float(body.get("cl_L_per_h", 1.0)),
+            vd_L=float(body.get("vd_L", 30.0)),
+            t_contact_h=float(body.get("t_contact_h", 0.25)),
+            t_end_h=float(body.get("t_end_h", 12.0)),
+            dt_h=float(body.get("dt_h", 0.02)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "route": r.route,
+        "dose_mg": r.dose_mg,
+        "cmax_mg_L": r.cmax_mg_L,
+        "tmax_h": r.tmax_h,
+        "auc_0_t": r.auc_0_t,
+        "bioavailability": r.bioavailability,
+        "mucosal_fraction_absorbed": r.mucosal_fraction_absorbed,
+        "first_pass_avoided_mg": r.first_pass_avoided_mg,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "cp_mg_L": r.cp_mg_L,
+    }
+
+
+@app.post("/simulate/sublingual_pk/compare_oral")
+def api_sublingual_compare_oral(body: dict):
+    """Compare sublingual vs oral PK for the same dose."""
+    try:
+        sl, oral = _compare_sublingual_oral(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body.get("cl_L_per_h", 1.0)),
+            vd_L=float(body.get("vd_L", 30.0)),
+            f_hepatic_first_pass=float(body.get("f_hepatic_first_pass", 0.5)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "sublingual": {
+            "route": sl.route,
+            "cmax_mg_L": sl.cmax_mg_L,
+            "tmax_h": sl.tmax_h,
+            "auc_0_t": sl.auc_0_t,
+            "bioavailability": sl.bioavailability,
+            "first_pass_avoided_mg": sl.first_pass_avoided_mg,
+        },
+        "oral": {
+            "route": oral.route,
+            "cmax_mg_L": oral.cmax_mg_L,
+            "tmax_h": oral.tmax_h,
+            "auc_0_t": oral.auc_0_t,
+            "bioavailability": oral.bioavailability,
+            "first_pass_avoided_mg": oral.first_pass_avoided_mg,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /trial/adaptive   (Phase 145)
+# POST /trial/sample_size
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.adaptive_trial import (  # noqa: E402
+    design_adaptive_trial as _design_adaptive_trial,
+)
+from omega_pbpk.clinical.adaptive_trial import (
+    sample_size_calculator as _sample_size_calculator,
+)
+
+
+@app.post("/trial/adaptive")
+def api_adaptive_trial(body: dict):
+    """Design adaptive clinical trial with interim analyses and stopping rules."""
+    try:
+        result = _design_adaptive_trial(
+            trial_name=body.get("trial_name", "Trial"),
+            n_total=int(body["n_total"]),
+            effect_size=float(body["effect_size"]),
+            alpha=float(body.get("alpha", 0.05)),
+            power=float(body.get("power", 0.80)),
+            n_interim=int(body.get("n_interim", 2)),
+            sigma=float(body.get("sigma", 1.0)),
+            n_arms=int(body.get("n_arms", 2)),
+            stopping_rule=body.get("stopping_rule", "obf"),
+            seed=int(body.get("seed", 42)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "trial_name": result.trial_name,
+        "n_total_planned": result.n_total_planned,
+        "final_decision": result.final_decision,
+        "actual_n_enrolled": result.actual_n_enrolled,
+        "stopping_reason": result.stopping_reason,
+        "type1_error_spent": result.type1_error_spent,
+        "estimated_power": result.estimated_power,
+        "notes": result.notes,
+        "interim_analyses": [
+            {
+                "analysis_number": ia.analysis_number,
+                "n_enrolled": ia.n_enrolled,
+                "z_statistic": ia.z_statistic,
+                "p_value": ia.p_value,
+                "decision": ia.decision,
+                "conditional_power": ia.conditional_power,
+            }
+            for ia in result.interim_analyses
+        ],
+    }
+
+
+@app.post("/trial/sample_size")
+def api_sample_size(body: dict):
+    """Calculate minimum sample size per arm for desired power."""
+    try:
+        n = _sample_size_calculator(
+            effect_size=float(body["effect_size"]),
+            alpha=float(body.get("alpha", 0.05)),
+            power=float(body.get("power", 0.80)),
+            sigma=float(body.get("sigma", 1.0)),
+            n_arms=int(body.get("n_arms", 2)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"n_per_arm": n, "n_total": n * int(body.get("n_arms", 2))}
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/admet   (Phase 146)
+# POST /predict/admet/screen
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.prediction.admet_profile import (  # noqa: E402
+    predict_admet as _predict_admet,
+)
+from omega_pbpk.prediction.admet_profile import (
+    screen_admet as _screen_admet,
+)
+
+
+@app.post("/predict/admet")
+def api_admet_profile(body: dict):
+    """Comprehensive ADMET profile: MW, logP, fup, Peff, BCS, BBB, hERG, risk score."""
+    try:
+        profile = _predict_admet(
+            compound_name=body.get("compound_name", "Compound"),
+            smiles=body.get("smiles", ""),
+            mw=float(body["mw"]),
+            logP=float(body["logP"]),
+            logS=float(body["logS"]) if "logS" in body else None,
+            tpsa=float(body.get("tpsa", 50.0)),
+            pka=float(body.get("pka", 7.0)),
+            cmax_uM=float(body.get("cmax_uM", 1.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "compound_name": profile.compound_name,
+        "mw": profile.mw,
+        "logP": profile.logP,
+        "logS": profile.logS,
+        "tpsa": profile.tpsa,
+        "fup": profile.fup,
+        "peff_cm_s": profile.peff_cm_s,
+        "bcs_class": profile.bcs_class,
+        "f_oral": profile.f_oral,
+        "vd_L_per_kg": profile.vd_L_per_kg,
+        "t_half_h": profile.t_half_h,
+        "lipinski_pass": profile.lipinski_pass,
+        "bbb_penetrant": profile.bbb_penetrant,
+        "herg_risk": profile.herg_risk,
+        "overall_risk_score": profile.overall_risk_score,
+        "drug_likeness_score": profile.drug_likeness_score,
+        "development_recommendation": profile.development_recommendation,
+        "notes": profile.notes,
+    }
+
+
+@app.post("/predict/admet/screen")
+def api_admet_screen(body: dict):
+    """Screen compound library for ADMET properties, ranked by overall risk."""
+    compounds = body.get("compounds", [])
+    if not isinstance(compounds, list) or not compounds:
+        raise HTTPException(status_code=400, detail="compounds must be a non-empty list")
+    try:
+        profiles = _screen_admet(compounds)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "results": [
+            {
+                "compound_name": p.compound_name,
+                "overall_risk_score": p.overall_risk_score,
+                "development_recommendation": p.development_recommendation,
+                "bcs_class": p.bcs_class,
+                "lipinski_pass": p.lipinski_pass,
+                "herg_risk": p.herg_risk,
+                "t_half_h": p.t_half_h,
+            }
+            for p in profiles
+        ],
+        "n_compounds": len(profiles),
+    }
