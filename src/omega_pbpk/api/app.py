@@ -8259,3 +8259,33 @@ def api_predict_phase2_batch(body: dict):
             }
         )
     return {"results": results, "n_compounds": len(results)}
+
+
+# ---------------------------------------------------------------------------
+# Phase 131 — DoseOptimizer FIH dose endpoint
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.dose_optimization import DoseOptimizer as _DoseOptimizer  # noqa: E402
+
+_dose_optimizer = _DoseOptimizer()
+
+
+@app.post("/predict/fih_dose_v2")
+def api_fih_dose_v2(body: dict):
+    """Calculate first-in-human dose via BSA allometric scaling (DoseOptimizer)."""
+    try:
+        r = _dose_optimizer.fih_dose(
+            noael_mg_kg=float(body["noael_mg_kg"]),
+            species=body.get("species", "rat"),
+            body_weight_kg=float(body.get("body_weight_kg", 70.0)),
+            safety_factor=float(body.get("safety_factor", 10.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "method": r.method,
+        "noael_mg_kg": r.noael_mg_kg,
+        "hek": r.hek,
+        "safety_factor": r.safety_factor,
+        "fih_dose_mg": r.fih_dose_mg,
+        "body_weight_kg": r.body_weight_kg,
+    }
