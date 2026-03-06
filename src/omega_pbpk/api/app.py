@@ -7783,7 +7783,7 @@ def indirect_response_endpoint(body: dict):
             hill=float(body.get("hill", 1.0)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "ir_type": result.ir_type,
@@ -7819,7 +7819,7 @@ def indirect_response_iv_endpoint(body: dict):
             dt_h=float(body.get("dt_h", 0.05)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "ir_type": result.ir_type,
@@ -7860,7 +7860,7 @@ def simulate_depot_pk_endpoint(body: dict):
             dt_h=float(body.get("dt_h", 0.1)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "route": result.route,
@@ -7894,7 +7894,7 @@ def compare_routes_endpoint(body: dict):
             t_end_h=float(body.get("t_end_h", 72.0)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         route: {
             "cmax": r.cmax,
@@ -7904,4 +7904,71 @@ def compare_routes_endpoint(body: dict):
             "flip_flop": r.flip_flop,
         }
         for route, r in results.items()
+    }
+
+
+# ── Phase 125: Transdermal Patch PK ──────────────────────────────────────────
+from omega_pbpk.core.transdermal import compare_patch_sizes, simulate_transdermal
+
+
+@app.post("/simulate/transdermal")
+def simulate_transdermal_endpoint(body: dict):
+    """Simulate transdermal drug delivery from a skin patch."""
+    try:
+        result = simulate_transdermal(
+            drug_name=body.get("drug_name", "Drug"),
+            patch_area_cm2=float(body["patch_area_cm2"]),
+            donor_conc_mg_mL=float(body["donor_conc_mg_mL"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            skin_permeability_cm_h=float(body.get("skin_permeability_cm_h", 1e-3)),
+            patch_duration_h=float(body.get("patch_duration_h", 24.0)),
+            t_end_h=float(body.get("t_end_h", 48.0)),
+            dt_h=float(body.get("dt_h", 0.1)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "css_mg_L": result.css_mg_L,
+        "cmax": result.cmax,
+        "tmax_h": result.tmax_h,
+        "tss_h": result.tss_h,
+        "auc_0_t": result.auc_0_t,
+        "tlag_h": result.tlag_h,
+        "daily_dose_mg": result.daily_dose_mg,
+        "times_h": result.times_h,
+        "cp_central": result.cp_central,
+        "flux_mg_h": result.flux_mg_h,
+        "cumulative_absorbed_mg": result.cumulative_absorbed_mg,
+    }
+
+
+@app.post("/simulate/transdermal/compare_sizes")
+def compare_patch_sizes_endpoint(body: dict):
+    """Compare different patch sizes for dose-ranging."""
+    try:
+        areas = [float(a) for a in body["areas_cm2"]]
+        results = compare_patch_sizes(
+            drug_name=body.get("drug_name", "Drug"),
+            areas_cm2=areas,
+            donor_conc_mg_mL=float(body["donor_conc_mg_mL"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            skin_permeability_cm_h=float(body.get("skin_permeability_cm_h", 1e-3)),
+            patch_duration_h=float(body.get("patch_duration_h", 24.0)),
+            t_end_h=float(body.get("t_end_h", 48.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "results": [
+            {
+                "patch_area_cm2": r.patch_area_cm2,
+                "css_mg_L": r.css_mg_L,
+                "cmax": r.cmax,
+                "daily_dose_mg": r.daily_dose_mg,
+            }
+            for r in results
+        ]
     }
