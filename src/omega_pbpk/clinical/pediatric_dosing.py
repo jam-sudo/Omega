@@ -1,10 +1,8 @@
 """Pediatric dose scaling — allometric + maturation function."""
+
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
-
-import numpy as np
+from dataclasses import dataclass
 
 __all__ = [
     "PediatricDosingResult",
@@ -91,9 +89,7 @@ def pediatric_dose(
     if child_weight_kg is None:
         child_weight_kg = max(3.0, min(40.0, 3.0 + 2.0 * child_age_years))
 
-    allometric = allometric_dose_scaling(
-        adult_dose_mg, adult_weight_kg, child_weight_kg
-    )
+    allometric = allometric_dose_scaling(adult_dose_mg, adult_weight_kg, child_weight_kg)
 
     cyp3a4_f = _interpolate_ontogeny(child_age_years, CYP3A4_ONTOGENY)
     gfr = _interpolate_ontogeny(child_age_years, GFR_ONTOGENY)

@@ -1,16 +1,15 @@
 """Tests for two-compartment PK model (Phase 61)."""
+
 from __future__ import annotations
 
-import math
-import pytest
 import numpy as np
+import pytest
 
 from omega_pbpk.core.two_compartment import (
     TwoCompartmentResult,
-    TwoCompartmentParams,
     _alpha_beta,
-    simulate_two_compartment,
     fit_biexponential,
+    simulate_two_compartment,
 )
 
 

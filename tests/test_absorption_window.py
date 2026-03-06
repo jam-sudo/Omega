@@ -1,13 +1,12 @@
 """Tests for GI absorption window modeling (Phase 65)."""
+
 from __future__ import annotations
 
-import pytest
-
 from omega_pbpk.core.absorption_window import (
-    AbsorptionWindowResult,
     GI_SEGMENTS,
-    simulate_absorption_window,
+    AbsorptionWindowResult,
     compare_fed_fasted_absorption,
+    simulate_absorption_window,
 )
 
 
@@ -23,8 +22,9 @@ class TestGISegments:
 
 class TestSimulateAbsorptionWindow:
     def _run(self, **kw):
-        defaults = dict(drug_name="TestDrug", dose_mg=100.0, logP=2.0,
-                        sol_ph7_mg_mL=5.0, dose_volume_mL=240.0)
+        defaults = dict(
+            drug_name="TestDrug", dose_mg=100.0, logP=2.0, sol_ph7_mg_mL=5.0, dose_volume_mL=240.0
+        )
         defaults.update(kw)
         return simulate_absorption_window(**defaults)
 

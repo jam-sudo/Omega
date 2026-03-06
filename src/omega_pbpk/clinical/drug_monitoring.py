@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 import numpy as np
 
@@ -18,8 +17,8 @@ __all__ = [
 @dataclass(frozen=True)
 class TDMResult:
     drug_name: str
-    measured_conc_mg_L: List[float]
-    measured_times_h: List[float]
+    measured_conc_mg_L: list[float]
+    measured_times_h: list[float]
     therapeutic_min_mg_L: float
     therapeutic_max_mg_L: float
     n_above: int
@@ -36,8 +35,8 @@ class TDMResult:
 
 def assess_tdm(
     drug_name: str,
-    measured_conc_mg_L: List[float],
-    measured_times_h: List[float],
+    measured_conc_mg_L: list[float],
+    measured_times_h: list[float],
     therapeutic_min_mg_L: float,
     therapeutic_max_mg_L: float,
     target_pct_within: float = 80.0,
@@ -51,9 +50,7 @@ def assess_tdm(
     if len(measured_conc_mg_L) < 2:
         raise ValueError("At least 2 concentration measurements are required.")
     if len(measured_conc_mg_L) != len(measured_times_h):
-        raise ValueError(
-            "measured_conc_mg_L and measured_times_h must have the same length."
-        )
+        raise ValueError("measured_conc_mg_L and measured_times_h must have the same length.")
 
     conc = np.array(measured_conc_mg_L, dtype=float)
     times = np.array(measured_times_h, dtype=float)
@@ -119,8 +116,8 @@ def assess_tdm(
 
 def tdm_dashboard(
     drug_name: str,
-    measured_conc_mg_L: List[float],
-    measured_times_h: List[float],
+    measured_conc_mg_L: list[float],
+    measured_times_h: list[float],
     therapeutic_min_mg_L: float,
     therapeutic_max_mg_L: float,
 ) -> dict:
@@ -147,7 +144,7 @@ def tdm_dashboard(
         "max_observed": float(np.max(conc)),
     }
 
-    recommendations: List[str] = []
+    recommendations: list[str] = []
     adjustment = result.recommended_dose_adjustment
     factor = result.dose_adjustment_factor
 
@@ -166,11 +163,13 @@ def tdm_dashboard(
 
     if result.alert_level == "critical":
         recommendations.append(
-            "CRITICAL: Concentrations are dangerously out of range. Immediate clinical review required."
+            "CRITICAL: Concentrations are dangerously out of range. "
+            "Immediate clinical review required."
         )
     elif result.alert_level == "caution":
         recommendations.append(
-            f"CAUTION: Only {result.pct_within:.1f}% of concentrations are within the therapeutic range."
+            f"CAUTION: Only {result.pct_within:.1f}% of concentrations "
+            "are within the therapeutic range."
         )
 
     recommendations.append(
@@ -202,7 +201,7 @@ def tdm_dashboard(
     }
 
 
-def population_tdm_summary(patient_results: List[TDMResult]) -> dict:
+def population_tdm_summary(patient_results: list[TDMResult]) -> dict:
     """Summarize TDM results across a patient population."""
     n_patients = len(patient_results)
 

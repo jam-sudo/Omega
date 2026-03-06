@@ -1,14 +1,14 @@
 """Tests for intestinal lymphatic absorption (Phase 59)."""
+
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.lymphatic import (
     LymphaticAbsorptionResult,
     _lymphatic_fraction,
-    simulate_lymphatic_absorption,
     compare_food_effect,
+    simulate_lymphatic_absorption,
 )
 
 
@@ -62,8 +62,9 @@ class TestSimulateLymphaticAbsorption:
 
     def test_auc_portal_plus_lymph_equals_total(self):
         result = self._default()
-        assert abs(result.auc_portal_mg_h_L + result.auc_lymph_mg_h_L
-                   - result.auc_total_mg_h_L) < 1e-6
+        assert (
+            abs(result.auc_portal_mg_h_L + result.auc_lymph_mg_h_L - result.auc_total_mg_h_L) < 1e-6
+        )
 
     def test_bioavailability_bounds(self):
         result = self._default()

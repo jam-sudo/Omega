@@ -1,4 +1,5 @@
 """Tests for hERG/QT prolongation risk prediction (Phase 64)."""
+
 from __future__ import annotations
 
 import pytest
@@ -21,19 +22,30 @@ class TestHERGRisk:
         r_high = predict_herg_risk("A", logP=4.0, pka_basic=0.0, MW=300)
         assert r_high.risk_score > r_low.risk_score
 
-    @pytest.mark.parametrize("logP,pka_basic,MW", [
-        (0, 0, 100), (2, 5, 300), (5, 10, 600), (-1, 0, 150), (3, 8, 450),
-    ])
+    @pytest.mark.parametrize(
+        "logP,pka_basic,MW",
+        [
+            (0, 0, 100),
+            (2, 5, 300),
+            (5, 10, 600),
+            (-1, 0, 150),
+            (3, 8, 450),
+        ],
+    )
     def test_risk_score_bounded_0_10(self, logP, pka_basic, MW):
         r = predict_herg_risk("X", logP=logP, pka_basic=pka_basic, MW=MW)
         assert 0 <= r.risk_score <= 10
 
-    @pytest.mark.parametrize("logP,pka_basic,MW,cmax_free", [
-        (0, 0, 100, 0.01), (5, 10, 600, 10.0), (2, 5, 300, 1.0),
-    ])
+    @pytest.mark.parametrize(
+        "logP,pka_basic,MW,cmax_free",
+        [
+            (0, 0, 100, 0.01),
+            (5, 10, 600, 10.0),
+            (2, 5, 300, 1.0),
+        ],
+    )
     def test_herg_inhibition_pct_bounded(self, logP, pka_basic, MW, cmax_free):
-        r = predict_herg_risk("X", logP=logP, pka_basic=pka_basic, MW=MW,
-                              cmax_free_mg_L=cmax_free)
+        r = predict_herg_risk("X", logP=logP, pka_basic=pka_basic, MW=MW, cmax_free_mg_L=cmax_free)
         assert 0 <= r.herg_inhibition_pct <= 95
 
     def test_delta_qtc_nonnegative(self):
@@ -86,6 +98,6 @@ class TestQTcRiskTable:
         r = qtc_prolongation_risk_table("A", logP=3.0, pka_basic=7.0, MW=350)
         inhibitions = [e["herg_inhibition_pct"] for e in r]
         cmaxes = [e["cmax_free_mg_L"] for e in r]
-        paired = sorted(zip(cmaxes, inhibitions))
+        paired = sorted(zip(cmaxes, inhibitions, strict=True))
         for i in range(len(paired) - 1):
             assert paired[i][1] <= paired[i + 1][1]

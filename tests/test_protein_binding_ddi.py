@@ -1,7 +1,7 @@
 """Tests for protein binding displacement DDI module."""
+
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.clinical.protein_binding_ddi import (
@@ -14,7 +14,7 @@ from omega_pbpk.clinical.protein_binding_ddi import (
 # Reference drugs
 WARFARIN = BindingDrug(
     name="warfarin",
-    fup=0.01,       # 99% bound
+    fup=0.01,  # 99% bound
     fu_tissue=0.05,
     vd_L=10.0,
     cl_L_per_h=0.2,
@@ -22,7 +22,7 @@ WARFARIN = BindingDrug(
 
 DIAZEPAM = BindingDrug(
     name="diazepam",
-    fup=0.02,       # 98% bound
+    fup=0.02,  # 98% bound
     fu_tissue=0.1,
     vd_L=70.0,
     cl_L_per_h=1.8,
@@ -30,7 +30,7 @@ DIAZEPAM = BindingDrug(
 
 LIDOCAINE = BindingDrug(
     name="lidocaine",
-    fup=0.3,        # moderate binding, high extraction
+    fup=0.3,  # moderate binding, high extraction
     fu_tissue=0.5,
     vd_L=90.0,
     cl_L_per_h=60.0,  # high extraction ~0.67
@@ -66,7 +66,9 @@ class TestPredictDisplacement:
     def test_low_extraction_cl_scales_with_fup(self):
         # Low-extraction: CL ∝ fup; doubling fup doubles CL
         result = predict_displacement(WARFARIN, perpetrator_fup_effect=0.02)
-        assert result.cl_displaced_L_per_h == pytest.approx(result.fup_ratio * WARFARIN.cl_L_per_h, rel=0.1)
+        assert result.cl_displaced_L_per_h == pytest.approx(
+            result.fup_ratio * WARFARIN.cl_L_per_h, rel=0.1
+        )
 
     def test_low_extraction_auc_unchanged(self):
         # For low-extraction drug: AUC ≈ unchanged (CL increases proportionally)
@@ -103,8 +105,9 @@ class TestPredictDisplacement:
         assert result.clinical_significance == "major"
 
     def test_victim_name_stored(self):
-        result = predict_displacement(WARFARIN, perpetrator_fup_effect=0.02,
-                                      perpetrator_name="aspirin")
+        result = predict_displacement(
+            WARFARIN, perpetrator_fup_effect=0.02, perpetrator_name="aspirin"
+        )
         assert result.victim_name == "warfarin"
         assert result.perpetrator_name == "aspirin"
 
@@ -114,8 +117,7 @@ class TestPredictDisplacement:
 
     def test_custom_cl_int(self):
         # Explicit CLint should not raise
-        result = predict_displacement(WARFARIN, perpetrator_fup_effect=0.02,
-                                      cl_int_L_per_h=50.0)
+        result = predict_displacement(WARFARIN, perpetrator_fup_effect=0.02, cl_int_L_per_h=50.0)
         assert result.cl_displaced_L_per_h > 0
 
     def test_fup_displaced_stored(self):

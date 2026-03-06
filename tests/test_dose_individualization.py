@@ -1,7 +1,9 @@
 """Tests for dose individualization module."""
+
 from __future__ import annotations
 
 import pytest
+
 from omega_pbpk.clinical.dose_individualization import (
     IndividualizedDoseResult,
     PatientCovariates,
@@ -10,20 +12,24 @@ from omega_pbpk.clinical.dose_individualization import (
 )
 
 # Standard patient
-STANDARD = PatientCovariates(body_weight_kg=70, age_years=40, sex="male",
-                              serum_creatinine_mg_dL=1.0, child_pugh_score=5)
+STANDARD = PatientCovariates(
+    body_weight_kg=70, age_years=40, sex="male", serum_creatinine_mg_dL=1.0, child_pugh_score=5
+)
 
 # Renal impaired
-RENAL_SEVERE = PatientCovariates(body_weight_kg=70, age_years=60, sex="male",
-                                  serum_creatinine_mg_dL=4.0, child_pugh_score=5)
+RENAL_SEVERE = PatientCovariates(
+    body_weight_kg=70, age_years=60, sex="male", serum_creatinine_mg_dL=4.0, child_pugh_score=5
+)
 
 # Hepatic impaired (Child-Pugh C)
-HEPATIC_SEVERE = PatientCovariates(body_weight_kg=65, age_years=55, sex="female",
-                                    serum_creatinine_mg_dL=1.0, child_pugh_score=13)
+HEPATIC_SEVERE = PatientCovariates(
+    body_weight_kg=65, age_years=55, sex="female", serum_creatinine_mg_dL=1.0, child_pugh_score=13
+)
 
 # Elderly
-ELDERLY = PatientCovariates(body_weight_kg=60, age_years=78, sex="female",
-                             serum_creatinine_mg_dL=1.2, child_pugh_score=5)
+ELDERLY = PatientCovariates(
+    body_weight_kg=60, age_years=78, sex="female", serum_creatinine_mg_dL=1.2, child_pugh_score=5
+)
 
 
 class TestPatientCovariates:
@@ -83,8 +89,7 @@ class TestIndividualizeDose:
 
     def test_predicted_auc_ratio_higher_with_impairment(self):
         # Impaired clearance → AUC ratio > 1.0
-        r = individualize_dose("P001", RENAL_SEVERE, 100.0,
-                                fraction_renal=0.8)
+        r = individualize_dose("P001", RENAL_SEVERE, 100.0, fraction_renal=0.8)
         # After dose adjustment, AUC ratio should be ~1.0 (that's the point)
         assert r.predicted_auc_ratio > 0
 
@@ -102,15 +107,25 @@ class TestIndividualizeDose:
         assert r.dose_adjustment_factor == pytest.approx(expected, rel=0.01)
 
     def test_weight_adjustment_heavier_patient(self):
-        heavy = PatientCovariates(body_weight_kg=120, age_years=40, sex="male",
-                                   serum_creatinine_mg_dL=1.0, child_pugh_score=5)
+        heavy = PatientCovariates(
+            body_weight_kg=120,
+            age_years=40,
+            sex="male",
+            serum_creatinine_mg_dL=1.0,
+            child_pugh_score=5,
+        )
         r = individualize_dose("P001", heavy, 100.0, use_weight_adjustment=True)
         r_std = individualize_dose("P001", STANDARD, 100.0, use_weight_adjustment=True)
         assert r.individualized_dose_mg > r_std.individualized_dose_mg
 
     def test_custom_egfr_used(self):
-        patient = PatientCovariates(body_weight_kg=70, age_years=40, sex="male",
-                                     serum_creatinine_mg_dL=1.0, egfr_mL_min=20.0)
+        patient = PatientCovariates(
+            body_weight_kg=70,
+            age_years=40,
+            sex="male",
+            serum_creatinine_mg_dL=1.0,
+            egfr_mL_min=20.0,
+        )
         r = individualize_dose("P001", patient, 100.0, fraction_renal=0.8)
         assert r.egfr_mL_min == pytest.approx(20.0)
         assert r.renal_impairment_grade == "severe"

@@ -4,9 +4,9 @@ import pytest
 
 from omega_pbpk.clinical.pediatric_dosing import (
     PediatricDosingResult,
+    allometric_dose_scaling,
     pediatric_dose,
     pediatric_dose_range,
-    allometric_dose_scaling,
 )
 
 

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from omega_pbpk.clinical.pop_pk import PopPKResult, simulate_pop_pk, eta_shrinkage
+from omega_pbpk.clinical.pop_pk import PopPKResult, eta_shrinkage, simulate_pop_pk
 
 
 class TestSimulatePopPK:

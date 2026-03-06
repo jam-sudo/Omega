@@ -5838,7 +5838,8 @@ def api_tdm(req: _TDMReq):
 # ---------------------------------------------------------------------------
 # Phase 79 — Renal Dosing
 # ---------------------------------------------------------------------------
-from omega_pbpk.clinical.renal_dosing import adjust_renal_dose, renal_dose_from_patient
+from omega_pbpk.clinical.renal_dosing import adjust_renal_dose
+
 
 class _RenalDoseReq(BaseModel):
     drug_name: str
@@ -5847,20 +5848,31 @@ class _RenalDoseReq(BaseModel):
     crcl_mL_per_min: float
     fraction_renal: float = 0.5
 
+
 @app.post("/dose/renal")
 def api_renal_dose(req: _RenalDoseReq):
     try:
-        r = adjust_renal_dose(req.drug_name, req.dose_mg, req.dosing_interval_h,
-                               req.crcl_mL_per_min, req.fraction_renal)
-        import dataclasses; return dataclasses.asdict(r)
-    except HTTPException: raise
-    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+        r = adjust_renal_dose(
+            req.drug_name,
+            req.dose_mg,
+            req.dosing_interval_h,
+            req.crcl_mL_per_min,
+            req.fraction_renal,
+        )
+        import dataclasses
+
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
 # Phase 80 — Permeability Prediction
 # ---------------------------------------------------------------------------
 from omega_pbpk.prediction.permeability import predict_permeability
+
 
 class _PermeabilityReq(BaseModel):
     drug_name: str
@@ -5870,20 +5882,27 @@ class _PermeabilityReq(BaseModel):
     HBD: int | None = None
     efflux_substrate: bool = False
 
+
 @app.post("/predict/permeability")
 def api_permeability(req: _PermeabilityReq):
     try:
-        r = predict_permeability(req.drug_name, req.logP, req.MW, req.PSA,
-                                  req.HBD, req.efflux_substrate)
-        import dataclasses; return dataclasses.asdict(r)
-    except HTTPException: raise
-    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+        r = predict_permeability(
+            req.drug_name, req.logP, req.MW, req.PSA, req.HBD, req.efflux_substrate
+        )
+        import dataclasses
+
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
 # Phase 81 — Flip-Flop PK
 # ---------------------------------------------------------------------------
 from omega_pbpk.core.flip_flop import simulate_flip_flop
+
 
 class _FlipFlopReq(BaseModel):
     drug_name: str
@@ -5894,20 +5913,27 @@ class _FlipFlopReq(BaseModel):
     f: float = 1.0
     t_end_h: float = 24.0
 
+
 @app.post("/simulate/flip_flop")
 def api_flip_flop(req: _FlipFlopReq):
     try:
-        r = simulate_flip_flop(req.drug_name, req.dose_mg, req.vd_L,
-                                req.ka_per_h, req.ke_per_h, req.f, req.t_end_h)
-        import dataclasses; return dataclasses.asdict(r)
-    except HTTPException: raise
-    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+        r = simulate_flip_flop(
+            req.drug_name, req.dose_mg, req.vd_L, req.ka_per_h, req.ke_per_h, req.f, req.t_end_h
+        )
+        import dataclasses
+
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
 # Phase 82 — Organ Impairment
 # ---------------------------------------------------------------------------
 from omega_pbpk.clinical.organ_impairment import adjust_for_organ_impairment
+
 
 class _OrganImpairmentReq(BaseModel):
     drug_name: str
@@ -5921,15 +5947,26 @@ class _OrganImpairmentReq(BaseModel):
     fraction_renal: float = 0.3
     fraction_hepatic: float = 0.6
 
+
 @app.post("/dose/organ_impairment")
 def api_organ_impairment(req: _OrganImpairmentReq):
     try:
         r = adjust_for_organ_impairment(
-            req.drug_name, req.dose_mg, req.dosing_interval_h,
-            req.cl_L_per_h, req.vd_L, req.crcl_mL_per_min,
-            req.child_pugh_score, req.nyha_class,
-            req.fraction_renal, req.fraction_hepatic,
+            req.drug_name,
+            req.dose_mg,
+            req.dosing_interval_h,
+            req.cl_L_per_h,
+            req.vd_L,
+            req.crcl_mL_per_min,
+            req.child_pugh_score,
+            req.nyha_class,
+            req.fraction_renal,
+            req.fraction_hepatic,
         )
-        import dataclasses; return dataclasses.asdict(r)
-    except HTTPException: raise
-    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+        import dataclasses
+
+        return dataclasses.asdict(r)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

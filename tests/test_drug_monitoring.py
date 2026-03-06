@@ -1,11 +1,12 @@
 """Tests for omega_pbpk.clinical.drug_monitoring."""
 
 import pytest
+
 from omega_pbpk.clinical.drug_monitoring import (
     TDMResult,
     assess_tdm,
-    tdm_dashboard,
     population_tdm_summary,
+    tdm_dashboard,
 )
 
 # ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ CONC_MIXED = [8.0, 14.0, 22.0, 11.0, 25.0]
 # 1. TDMResult is a dataclass (has expected fields)
 # ---------------------------------------------------------------------------
 
+
 def test_tdm_result_type():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
     assert isinstance(result, TDMResult)
@@ -45,12 +47,21 @@ def test_tdm_result_type():
 def test_tdm_result_has_all_fields():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
     expected_fields = [
-        "drug_name", "measured_conc_mg_L", "measured_times_h",
-        "therapeutic_min_mg_L", "therapeutic_max_mg_L",
-        "n_above", "n_below", "n_within",
-        "pct_within", "time_above_min_h", "time_below_min_h",
-        "recommended_dose_adjustment", "dose_adjustment_factor",
-        "monitoring_interval_h", "alert_level",
+        "drug_name",
+        "measured_conc_mg_L",
+        "measured_times_h",
+        "therapeutic_min_mg_L",
+        "therapeutic_max_mg_L",
+        "n_above",
+        "n_below",
+        "n_within",
+        "pct_within",
+        "time_above_min_h",
+        "time_below_min_h",
+        "recommended_dose_adjustment",
+        "dose_adjustment_factor",
+        "monitoring_interval_h",
+        "alert_level",
     ]
     for field in expected_fields:
         assert hasattr(result, field), f"Missing field: {field}"
@@ -59,6 +70,7 @@ def test_tdm_result_has_all_fields():
 # ---------------------------------------------------------------------------
 # 2. n_above + n_below + n_within == len(measured_conc)
 # ---------------------------------------------------------------------------
+
 
 def test_counts_sum_to_total_all_within():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
@@ -78,6 +90,7 @@ def test_counts_sum_to_total_all_below():
 # ---------------------------------------------------------------------------
 # 3. pct_within in [0, 100]
 # ---------------------------------------------------------------------------
+
 
 def test_pct_within_bounds_all_within():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
@@ -103,6 +116,7 @@ def test_pct_within_is_0_when_all_below():
 # 4. dose_adjustment_factor > 0
 # ---------------------------------------------------------------------------
 
+
 def test_dose_adjustment_factor_positive_all_within():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
     assert result.dose_adjustment_factor > 0.0
@@ -117,6 +131,7 @@ def test_dose_adjustment_factor_positive_all_below():
 # 5. monitoring_interval_h > 0
 # ---------------------------------------------------------------------------
 
+
 def test_monitoring_interval_positive():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
     assert result.monitoring_interval_h > 0.0
@@ -126,6 +141,7 @@ def test_monitoring_interval_positive():
 # 6. alert_level is a valid string
 # ---------------------------------------------------------------------------
 
+
 def test_alert_level_valid():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
     assert result.alert_level in {"normal", "caution", "critical"}
@@ -134,6 +150,7 @@ def test_alert_level_valid():
 # ---------------------------------------------------------------------------
 # 7. Dose adjustment logic
 # ---------------------------------------------------------------------------
+
 
 def test_all_within_gives_maintain():
     result = assess_tdm(DRUG, CONC_ALL_WITHIN, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
@@ -175,6 +192,7 @@ def test_recommended_dose_adjustment_valid_string():
 # 8. Critical alert for very high concentrations
 # ---------------------------------------------------------------------------
 
+
 def test_very_high_conc_gives_critical_alert():
     result = assess_tdm(DRUG, CONC_VERY_HIGH, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
     assert result.alert_level == "critical"
@@ -183,6 +201,7 @@ def test_very_high_conc_gives_critical_alert():
 # ---------------------------------------------------------------------------
 # 9. ValueError cases
 # ---------------------------------------------------------------------------
+
 
 def test_raises_value_error_min_equals_max():
     with pytest.raises(ValueError):
@@ -207,6 +226,7 @@ def test_raises_value_error_mismatched_lengths():
 # ---------------------------------------------------------------------------
 # 10. tdm_dashboard keys and structure
 # ---------------------------------------------------------------------------
+
 
 def test_dashboard_has_required_top_level_keys():
     result = tdm_dashboard(DRUG, CONC_MIXED, TIMES_5, THERAPEUTIC_MIN, THERAPEUTIC_MAX)
@@ -235,6 +255,7 @@ def test_dashboard_assessment_is_tdm_result():
 # ---------------------------------------------------------------------------
 # 11. population_tdm_summary keys and logic
 # ---------------------------------------------------------------------------
+
 
 def _make_result(conc, times, tmin=THERAPEUTIC_MIN, tmax=THERAPEUTIC_MAX):
     return assess_tdm(DRUG, conc, times, tmin, tmax)

@@ -1,9 +1,8 @@
 """Tests for enterohepatic recirculation simulator (Phase 69)."""
+
 from __future__ import annotations
 
-import pytest
-
-from omega_pbpk.core.enterohepatic import EHCResult, simulate_ehc, ehc_sensitivity
+from omega_pbpk.core.enterohepatic import EHCResult, ehc_sensitivity, simulate_ehc
 
 
 def _default(**overrides):

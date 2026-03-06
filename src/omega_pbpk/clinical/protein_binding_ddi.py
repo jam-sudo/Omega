@@ -1,7 +1,7 @@
 """Protein binding displacement DDI — competitive plasma protein binding."""
+
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -10,29 +10,31 @@ import numpy as np
 @dataclass(frozen=True)
 class BindingDrug:
     """Drug with plasma protein binding parameters."""
+
     name: str
-    fup: float          # fraction unbound in plasma (0, 1]
-    fu_tissue: float    # fraction unbound in tissue (0, 1]
-    vd_L: float         # volume of distribution at baseline fup (L)
-    cl_L_per_h: float   # total clearance at baseline fup (L/h)
-    ka_albumin: float = 0.0   # association constant for albumin (L/μmol), optional
-    ka_agp: float = 0.0       # association constant for α1-acid glycoprotein, optional
+    fup: float  # fraction unbound in plasma (0, 1]
+    fu_tissue: float  # fraction unbound in tissue (0, 1]
+    vd_L: float  # volume of distribution at baseline fup (L)
+    cl_L_per_h: float  # total clearance at baseline fup (L/h)
+    ka_albumin: float = 0.0  # association constant for albumin (L/μmol), optional
+    ka_agp: float = 0.0  # association constant for α1-acid glycoprotein, optional
 
 
 @dataclass(frozen=True)
 class DisplacementResult:
     """Result of protein binding displacement analysis."""
+
     victim_name: str
     perpetrator_name: str
     fup_baseline: float
     fup_displaced: float
-    fup_ratio: float           # fup_displaced / fup_baseline
-    vd_displaced_L: float      # Vd after displacement
+    fup_ratio: float  # fup_displaced / fup_baseline
+    vd_displaced_L: float  # Vd after displacement
     cl_displaced_L_per_h: float  # CL after displacement (low-extraction drugs)
-    auc_ratio: float           # AUC_displaced / AUC_baseline (for low-extraction)
-    cmax_ratio: float          # Cmax ratio (= fup_ratio for low-extraction)
-    extraction_ratio: float    # hepatic extraction ratio (0–1)
-    is_high_extraction: bool   # E > 0.7
+    auc_ratio: float  # AUC_displaced / AUC_baseline (for low-extraction)
+    cmax_ratio: float  # Cmax ratio (= fup_ratio for low-extraction)
+    extraction_ratio: float  # hepatic extraction ratio (0–1)
+    is_high_extraction: bool  # E > 0.7
     clinical_significance: str  # "none", "minor", "moderate", "major"
     warnings: list[str] = field(default_factory=list)
 
@@ -123,9 +125,7 @@ def predict_displacement(
         cl_displaced = fup_new * cl_int
 
     # Displaced Vd
-    vd_displaced = _vd_after_displacement(
-        victim.vd_L, fup_base, fup_new, victim.fu_tissue
-    )
+    vd_displaced = _vd_after_displacement(victim.vd_L, fup_base, fup_new, victim.fu_tissue)
 
     # Unbound AUC ratio: for low-extraction, CL ∝ fup so AUC_total ∝ 1/fup,
     # but AUC_unbound = AUC_total * fup → stays constant (ratio = 1.0).

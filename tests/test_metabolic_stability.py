@@ -1,20 +1,20 @@
 """Tests for omega_pbpk.clinical.metabolic_stability module."""
 
 import math
-import numpy as np
+
 import pytest
 
 from omega_pbpk.clinical.metabolic_stability import (
     MetabolicStabilityResult,
-    predict_metabolic_stability,
     clint_from_half_life,
     in_vitro_clearance_from_depletion,
+    predict_metabolic_stability,
 )
-
 
 # ---------------------------------------------------------------------------
 # TestClintFromHalfLife
 # ---------------------------------------------------------------------------
+
 
 class TestClintFromHalfLife:
     def test_returns_positive_float(self):
@@ -42,6 +42,7 @@ class TestClintFromHalfLife:
 # ---------------------------------------------------------------------------
 # TestPredictMetabolicStability
 # ---------------------------------------------------------------------------
+
 
 class TestPredictMetabolicStability:
     def test_returns_result_type(self):
@@ -97,6 +98,7 @@ class TestPredictMetabolicStability:
 # TestInVitroClearanceFromDepletion
 # ---------------------------------------------------------------------------
 
+
 class TestInVitroClearanceFromDepletion:
     @staticmethod
     def _make_depletion_data(ke: float, n_points: int = 6, dt: float = 5.0):
@@ -111,7 +113,13 @@ class TestInVitroClearanceFromDepletion:
             times_min=times, concentrations=concs, drug_name="TestDrug"
         )
         assert isinstance(result, dict)
-        for key in ("drug_name", "t_half_min", "ke_per_min", "r_squared", "clint_uL_per_min_per_mg"):
+        for key in (
+            "drug_name",
+            "t_half_min",
+            "ke_per_min",
+            "r_squared",
+            "clint_uL_per_min_per_mg",
+        ):
             assert key in result, f"Missing key: {key}"
 
     def test_t_half_positive(self):

@@ -1,10 +1,9 @@
 """Adverse drug reaction (ADR) risk scoring — physicochemical + exposure-based."""
+
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-
-import numpy as np
+from dataclasses import dataclass
 
 __all__ = ["ADRRiskResult", "score_adr_risk", "batch_adr_screen"]
 
@@ -32,35 +31,27 @@ def _clip(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
 
-def _hepatotoxicity_score(
-    logP: float, mw: float, reactive_metabolite: bool = False
-) -> float:
+def _hepatotoxicity_score(logP: float, mw: float, reactive_metabolite: bool = False) -> float:
     lipophilicity_risk = _clip(logP * 1.5, 0, 4)
     mw_risk = 1.0 if mw > 300 else 0.0
     rm_risk = 4.0 if reactive_metabolite else 0.0
     return _clip(lipophilicity_risk + mw_risk + rm_risk, 0, 10)
 
 
-def _nephrotoxicity_score(
-    fup: float, fraction_renal: float, gfr_mL_min: float = 120.0
-) -> float:
+def _nephrotoxicity_score(fup: float, fraction_renal: float, gfr_mL_min: float = 120.0) -> float:
     renal_load = fraction_renal * 5.0
     low_gfr_risk = _clip((120 - gfr_mL_min) / 12, 0, 3)
     free_drug_risk = _clip((1 - fup) * 2, 0, 2)
     return _clip(renal_load + low_gfr_risk + free_drug_risk, 0, 10)
 
 
-def _cardiotoxicity_score(
-    delta_qtc_ms: float = 0.0, is_pgp_inhibitor: bool = False
-) -> float:
+def _cardiotoxicity_score(delta_qtc_ms: float = 0.0, is_pgp_inhibitor: bool = False) -> float:
     qtc_risk = _clip(delta_qtc_ms / 10.0, 0, 6)
     pgp_risk = 2.0 if is_pgp_inhibitor else 0.0
     return _clip(qtc_risk + pgp_risk, 0, 10)
 
 
-def _neurotoxicity_score(
-    kp_uu_brain: float = 0.0, cns_active: bool = False
-) -> float:
+def _neurotoxicity_score(kp_uu_brain: float = 0.0, cns_active: bool = False) -> float:
     bbb_risk = _clip(kp_uu_brain * 8, 0, 6)
     cns_risk = 3.0 if cns_active else 0.0
     return _clip(bbb_risk + cns_risk, 0, 10)

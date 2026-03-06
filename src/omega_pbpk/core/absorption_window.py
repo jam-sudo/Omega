@@ -1,15 +1,16 @@
 """GI absorption window — pH-dependent dissolution and segment-specific absorption."""
+
 from __future__ import annotations
+
 import math
-from dataclasses import dataclass, field
-import numpy as np
+from dataclasses import dataclass
 
 GI_SEGMENTS = [
-    {"name": "stomach",   "pH": 2.0,  "transit_h": 1.0,  "length_cm": 25,  "radius_cm": 4.0},
-    {"name": "duodenum",  "pH": 5.5,  "transit_h": 0.5,  "length_cm": 25,  "radius_cm": 1.5},
-    {"name": "jejunum",   "pH": 6.2,  "transit_h": 1.5,  "length_cm": 100, "radius_cm": 1.5},
-    {"name": "ileum",     "pH": 7.0,  "transit_h": 3.0,  "length_cm": 150, "radius_cm": 1.5},
-    {"name": "colon",     "pH": 7.5,  "transit_h": 20.0, "length_cm": 150, "radius_cm": 3.5},
+    {"name": "stomach", "pH": 2.0, "transit_h": 1.0, "length_cm": 25, "radius_cm": 4.0},
+    {"name": "duodenum", "pH": 5.5, "transit_h": 0.5, "length_cm": 25, "radius_cm": 1.5},
+    {"name": "jejunum", "pH": 6.2, "transit_h": 1.5, "length_cm": 100, "radius_cm": 1.5},
+    {"name": "ileum", "pH": 7.0, "transit_h": 3.0, "length_cm": 150, "radius_cm": 1.5},
+    {"name": "colon", "pH": 7.5, "transit_h": 20.0, "length_cm": 150, "radius_cm": 3.5},
 ]
 
 
@@ -131,12 +132,24 @@ def compare_fed_fasted_absorption(
 ) -> dict[str, AbsorptionWindowResult]:
     """Compare absorption under fed and fasted conditions."""
     fasted = simulate_absorption_window(
-        drug_name, dose_mg, logP, pka, drug_type, sol_ph7_mg_mL,
-        dose_volume_mL=240.0, particle_size_um=50.0,
+        drug_name,
+        dose_mg,
+        logP,
+        pka,
+        drug_type,
+        sol_ph7_mg_mL,
+        dose_volume_mL=240.0,
+        particle_size_um=50.0,
     )
     fed = simulate_absorption_window(
-        drug_name, dose_mg, logP, pka, drug_type, sol_ph7_mg_mL,
-        dose_volume_mL=500.0, particle_size_um=100.0,
+        drug_name,
+        dose_mg,
+        logP,
+        pka,
+        drug_type,
+        sol_ph7_mg_mL,
+        dose_volume_mL=500.0,
+        particle_size_um=100.0,
     )
     return {"fasted": fasted, "fed": fed}
 
