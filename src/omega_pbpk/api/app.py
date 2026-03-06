@@ -10708,3 +10708,411 @@ def api_antiviral_dose_response(body: dict):
             for r in results
         ]
     }
+
+
+# ===========================================================================
+# Phase 165-170 API endpoints
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Phase 165 — Transdermal Drug Delivery
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.transdermal_pk import (  # noqa: E402
+    compare_formulations_transdermal as _compare_formulations_transdermal,
+)
+from omega_pbpk.core.transdermal_pk import (
+    simulate_transdermal_pk as _simulate_transdermal_pk,
+)
+
+
+@app.post("/simulate/transdermal_pk")
+def api_transdermal_pk(body: dict):
+    """Simulate transdermal drug delivery (SC depot → dermis → plasma)."""
+    try:
+        r = _simulate_transdermal_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg_cm2=float(body["dose_mg_cm2"]),
+            area_cm2=float(body["area_cm2"]),
+            k_sc_per_h=float(body.get("k_sc_per_h", 0.01)),
+            k_dermis_per_h=float(body.get("k_dermis_per_h", 0.5)),
+            cl_sys_L_per_h=float(body.get("cl_sys_L_per_h", 5.0)),
+            vd_sys_L=float(body.get("vd_sys_L", 50.0)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "dose_mg": r.dose_mg,
+        "area_cm2": r.area_cm2,
+        "cmax_plasma": r.cmax_plasma,
+        "tmax_plasma_h": r.tmax_plasma_h,
+        "auc_plasma": r.auc_plasma,
+        "skin_to_plasma_ratio": r.skin_to_plasma_ratio,
+        "transdermal_bioavailability": r.transdermal_bioavailability,
+        "lag_time_h": r.lag_time_h,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/transdermal_pk/compare_formulations")
+def api_transdermal_compare(body: dict):
+    """Compare transdermal formulations with different permeability parameters."""
+    try:
+        results = _compare_formulations_transdermal(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg_cm2=float(body["dose_mg_cm2"]),
+            area_cm2=float(body["area_cm2"]),
+            formulations=body["formulations"],
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "drug_name": r.drug_name,
+                "cmax_plasma": r.cmax_plasma,
+                "auc_plasma": r.auc_plasma,
+                "lag_time_h": r.lag_time_h,
+                "transdermal_bioavailability": r.transdermal_bioavailability,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 166 — Drug Stability & Degradation
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.prediction.drug_stability import (
+    compare_storage_conditions as _compare_storage_conditions,
+)
+from omega_pbpk.prediction.drug_stability import (
+    predict_stability as _predict_stability,
+)
+
+
+@app.post("/predict/stability")
+def api_drug_stability(body: dict):
+    """Predict drug shelf life and purity under storage conditions."""
+    try:
+        r = _predict_stability(
+            drug_name=body.get("drug_name", "Drug"),
+            initial_purity_pct=float(body.get("initial_purity_pct", 100.0)),
+            temperature_C=float(body.get("temperature_C", 25.0)),
+            humidity_pct=float(body.get("humidity_pct", 60.0)),
+            k_deg_per_month=float(body.get("k_deg_per_month", 0.005)),
+            activation_energy_kJ_per_mol=float(body.get("activation_energy_kJ_per_mol", 80.0)),
+            t_months=float(body.get("t_months", 24.0)),
+            acceptance_limit_pct=float(body.get("acceptance_limit_pct", 97.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "temperature_C": r.temperature_C,
+        "shelf_life_months": r.shelf_life_months,
+        "purity_at_end_pct": r.purity_at_end_pct,
+        "degradation_rate_per_month": r.degradation_rate_per_month,
+        "stability_category": r.stability_category,
+        "notes": r.notes,
+    }
+
+
+@app.post("/predict/stability/compare_conditions")
+def api_stability_compare(body: dict):
+    """Compare drug stability at 5°C, 25°C, and 40°C."""
+    try:
+        results = _compare_storage_conditions(
+            drug_name=body.get("drug_name", "Drug"),
+            initial_purity_pct=float(body.get("initial_purity_pct", 100.0)),
+            k_deg_per_month=float(body.get("k_deg_per_month", 0.005)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "temperature_C": r.temperature_C,
+                "shelf_life_months": r.shelf_life_months,
+                "purity_at_end_pct": r.purity_at_end_pct,
+                "stability_category": r.stability_category,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 167 — Saturable Protein Binding
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.protein_binding import (  # noqa: E402
+    binding_curve as _binding_curve,
+)
+from omega_pbpk.core.protein_binding import (
+    simulate_protein_binding as _simulate_protein_binding,
+)
+
+
+@app.post("/predict/saturable_binding")
+def api_saturable_protein_binding(body: dict):
+    """Predict saturable plasma protein binding at a given concentration."""
+    try:
+        r = _simulate_protein_binding(
+            drug_name=body.get("drug_name", "Drug"),
+            total_conc_mg_L=float(body["total_conc_mg_L"]),
+            n_sites=int(body.get("n_sites", 1)),
+            ka_L_per_mg=float(body.get("ka_L_per_mg", 0.5)),
+            protein_conc_g_L=float(body.get("protein_conc_g_L", 40.0)),
+            mw_drug=float(body.get("mw_drug", 300.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "total_conc_mg_L": r.total_conc_mg_L,
+        "free_conc_mg_L": r.free_conc_mg_L,
+        "bound_conc_mg_L": r.bound_conc_mg_L,
+        "fup": r.fup,
+        "percent_bound": r.percent_bound,
+        "saturation_pct": r.saturation_pct,
+        "notes": r.notes,
+    }
+
+
+@app.post("/predict/saturable_binding/curve")
+def api_saturable_binding_curve(body: dict):
+    """Generate protein binding curve across concentration range."""
+    try:
+        results = _binding_curve(
+            drug_name=body.get("drug_name", "Drug"),
+            concentrations_mg_L=[float(c) for c in body["concentrations_mg_L"]],
+            n_sites=int(body.get("n_sites", 1)),
+            ka_L_per_mg=float(body.get("ka_L_per_mg", 0.5)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "total_conc_mg_L": r.total_conc_mg_L,
+                "fup": r.fup,
+                "percent_bound": r.percent_bound,
+                "saturation_pct": r.saturation_pct,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 168 — MDR Modulation
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.mdr_modulation import (  # noqa: E402
+    screen_mdr_inhibitors as _screen_mdr_inhibitors,
+)
+from omega_pbpk.clinical.mdr_modulation import (
+    simulate_mdr_effect as _simulate_mdr_effect,
+)
+
+
+@app.post("/simulate/mdr_effect")
+def api_mdr_effect(body: dict):
+    """Simulate MDR/P-gp efflux effect on intracellular drug accumulation."""
+    try:
+        r = _simulate_mdr_effect(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            mdr_efflux_rate_per_h=float(body.get("mdr_efflux_rate_per_h", 0.5)),
+            k_in_per_h=float(body.get("k_in_per_h", 1.0)),
+            k_out_per_h=float(body.get("k_out_per_h", 0.3)),
+            inhibitor_fraction=float(body.get("inhibitor_fraction", 0.0)),
+            cell_volume_fraction=float(body.get("cell_volume_fraction", 0.7)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "inhibitor_fraction": r.inhibitor_fraction,
+        "cmax_plasma": r.cmax_plasma,
+        "cmax_intracellular": r.cmax_intracellular,
+        "auc_plasma": r.auc_plasma,
+        "auc_intracellular": r.auc_intracellular,
+        "intracellular_to_plasma_ratio": r.intracellular_to_plasma_ratio,
+        "mdr_fold_change": r.mdr_fold_change,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/mdr_effect/screen_inhibitors")
+def api_mdr_screen_inhibitors(body: dict):
+    """Screen MDR inhibitors for their effect on intracellular drug accumulation."""
+    try:
+        results = _screen_mdr_inhibitors(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            inhibitors=body["inhibitors"],
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "drug_name": r.drug_name,
+                "inhibitor_fraction": r.inhibitor_fraction,
+                "intracellular_to_plasma_ratio": r.intracellular_to_plasma_ratio,
+                "mdr_fold_change": r.mdr_fold_change,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 169 — Drug Solubility Prediction
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.prediction.solubility_predictor import (  # noqa: E402
+    predict_solubility as _predict_solubility,
+)
+from omega_pbpk.prediction.solubility_predictor import (
+    screen_solubility as _screen_solubility,
+)
+
+
+@app.post("/predict/solubility")
+def api_solubility(body: dict):
+    """Predict aqueous drug solubility using ESOL model."""
+    try:
+        r = _predict_solubility(
+            compound_name=body.get("compound_name", "Compound"),
+            smiles=body["smiles"],
+            mw=float(body["mw"]),
+            logP=float(body["logP"]),
+            mp_C=float(body.get("mp_C", 150.0)),
+            n_rotatable_bonds=int(body.get("n_rotatable_bonds", 5)),
+            n_hbd=int(body.get("n_hbd", 2)),
+            n_hba=int(body.get("n_hba", 4)),
+            n_aromatic_rings=int(body.get("n_aromatic_rings", 1)),
+            pka_acid=float(body["pka_acid"]) if "pka_acid" in body else None,
+            ph=float(body.get("ph", 7.4)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "compound_name": r.compound_name,
+        "log10_solubility_mg_mL": r.log10_solubility_mg_mL,
+        "solubility_mg_mL": r.solubility_mg_mL,
+        "solubility_ug_mL": r.solubility_ug_mL,
+        "solubility_uM": r.solubility_uM,
+        "solubility_class": r.solubility_class,
+        "bcs_solubility_flag": r.bcs_solubility_flag,
+        "ph_correction_applied": r.ph_correction_applied,
+        "notes": r.notes,
+    }
+
+
+@app.post("/predict/solubility/screen")
+def api_solubility_screen(body: dict):
+    """Screen a compound library for solubility, sorted ascending."""
+    try:
+        results = _screen_solubility(compounds=body["compounds"])
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "compound_name": r.compound_name,
+                "solubility_mg_mL": r.solubility_mg_mL,
+                "solubility_class": r.solubility_class,
+                "bcs_solubility_flag": r.bcs_solubility_flag,
+            }
+            for r in results
+        ],
+        "n_compounds": len(results),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 170 — Pediatric Dose Finding
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.pediatric_dose import (  # noqa: E402
+    calculate_pediatric_dose as _calculate_pediatric_dose,
+)
+from omega_pbpk.clinical.pediatric_dose import (
+    dose_across_ages as _dose_across_ages,
+)
+
+
+@app.post("/dose/pediatric")
+def api_pediatric_dose(body: dict):
+    """Calculate pediatric dose from adult data using allometric + maturation scaling."""
+    try:
+        r = _calculate_pediatric_dose(
+            drug_name=body.get("drug_name", "Drug"),
+            adult_dose_mg=float(body["adult_dose_mg"]),
+            child_age_years=float(body["child_age_years"]),
+            child_weight_kg=float(body["child_weight_kg"]),
+            adult_weight_kg=float(body.get("adult_weight_kg", 70.0)),
+            child_height_cm=float(body.get("child_height_cm", 100.0)),
+            allometric_exponent=float(body.get("allometric_exponent", 0.75)),
+            elimination=body.get("elimination", "hepatic"),
+            cl_adult_L_per_h=float(body.get("cl_adult_L_per_h", 10.0)),
+            vd_adult_L=float(body.get("vd_adult_L", 70.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "child_age_years": r.child_age_years,
+        "child_weight_kg": r.child_weight_kg,
+        "adult_dose_mg": r.adult_dose_mg,
+        "pediatric_dose_mg": r.pediatric_dose_mg,
+        "cl_child_L_per_h": r.cl_child_L_per_h,
+        "vd_child_L": r.vd_child_L,
+        "dose_per_kg_mg_kg": r.dose_per_kg_mg_kg,
+        "t_half_child_h": r.t_half_child_h,
+        "maturation_factor": r.maturation_factor,
+        "notes": r.notes,
+    }
+
+
+@app.post("/dose/pediatric/age_range")
+def api_pediatric_dose_age_range(body: dict):
+    """Calculate pediatric doses across a range of ages."""
+    try:
+        results = _dose_across_ages(
+            drug_name=body.get("drug_name", "Drug"),
+            adult_dose_mg=float(body["adult_dose_mg"]),
+            ages_years=[float(a) for a in body["ages_years"]],
+            child_weights_kg=(
+                [float(w) for w in body["weights_kg"]] if "weights_kg" in body else None
+            ),
+            cl_adult_L_per_h=float(body.get("cl_adult_L_per_h", 10.0)),
+            vd_adult_L=float(body.get("vd_adult_L", 70.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "child_age_years": r.child_age_years,
+                "child_weight_kg": r.child_weight_kg,
+                "pediatric_dose_mg": r.pediatric_dose_mg,
+                "dose_per_kg_mg_kg": r.dose_per_kg_mg_kg,
+                "maturation_factor": r.maturation_factor,
+                "t_half_child_h": r.t_half_child_h,
+            }
+            for r in results
+        ]
+    }
