@@ -7927,7 +7927,7 @@ def simulate_transdermal_endpoint(body: dict):
             dt_h=float(body.get("dt_h", 0.1)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "css_mg_L": result.css_mg_L,
@@ -7960,7 +7960,7 @@ def compare_patch_sizes_endpoint(body: dict):
             t_end_h=float(body.get("t_end_h", 48.0)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "results": [
             {
@@ -7992,7 +7992,7 @@ def predict_ph_solubility_endpoint(body: dict):
             n_points=int(body.get("n_points", 81)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "drug_type": result.drug_type,
@@ -8048,7 +8048,7 @@ def ppb_saturation_endpoint(body: dict):
             n_points=int(body.get("n_points", 50)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "protein": result.protein,
@@ -8072,5 +8072,69 @@ def fup_at_conc_endpoint(body: dict):
             bmax_mg_L=float(body["bmax_mg_L"]),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {"fup": fup, "total_conc_mg_L": body["total_conc_mg_L"]}
+
+
+# ── Phase 128: First-in-Human Dose Prediction ─────────────────────────────────
+from omega_pbpk.clinical.fih_dose import (
+    compare_species,
+    most_conservative_mrsd,
+    predict_fih_dose,
+)
+
+
+@app.post("/predict/fih_dose")
+def fih_dose_endpoint(body: dict):
+    """Predict first-in-human starting dose from animal NOAEL (FDA 2005 Guidance)."""
+    try:
+        result = predict_fih_dose(
+            drug_name=body.get("drug_name", "Drug"),
+            noael_mg_kg=float(body["noael_mg_kg"]),
+            species=body.get("species", "rat"),
+            safety_factor=body.get("safety_factor"),
+            method=body.get("method", "bsa"),
+            human_bw_kg=float(body.get("human_bw_kg", 60.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "species": result.species,
+        "noael_mg_kg": result.noael_mg_kg,
+        "hed_mg_kg": result.hed_mg_kg,
+        "hed_mg": result.hed_mg,
+        "mrsd_mg": result.mrsd_mg,
+        "mrsd_mg_kg": result.mrsd_mg_kg,
+        "safety_factor": result.safety_factor,
+        "method": result.method,
+        "notes": result.notes,
+    }
+
+
+@app.post("/predict/fih_dose/compare_species")
+def fih_compare_species_endpoint(body: dict):
+    """Compare FIH dose predictions across multiple species and return most conservative."""
+    try:
+        noael_by_species = {k: float(v) for k, v in body["noael_by_species"].items()}
+        results = compare_species(
+            drug_name=body.get("drug_name", "Drug"),
+            noael_by_species=noael_by_species,
+            method=body.get("method", "bsa"),
+            human_bw_kg=float(body.get("human_bw_kg", 60.0)),
+        )
+        best = most_conservative_mrsd(results)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "by_species": {
+            sp: {"hed_mg": r.hed_mg, "mrsd_mg": r.mrsd_mg, "safety_factor": r.safety_factor}
+            for sp, r in results.items()
+        },
+        "most_conservative": {
+            "species": best.species,
+            "mrsd_mg": best.mrsd_mg,
+            "hed_mg": best.hed_mg,
+            "notes": best.notes,
+        },
+    }
