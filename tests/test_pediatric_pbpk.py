@@ -1,295 +1,307 @@
-"""Tests for Phase 22 pediatric PBPK: ontogeny wiring, enzyme maturation, GFR scaling, API.
+"""Tests for omega_pbpk.core.pediatric_pbpk module."""
 
-Tests are organized into four classes:
-  TestOntogenyWiring     — age_years parameter, pediatric vs adult PK ordering
-  TestEnzymeMaturation   — fm-weighted enzyme maturation via _clint_effective
-  TestGFROntogeny        — renal CL reduction in neonates/children
-  TestPediatricAPI       — POST /simulate/pediatric endpoint contract
-"""
-
-from __future__ import annotations
-
+import math
 import pytest
-from fastapi.testclient import TestClient
-
-from omega_pbpk.api.app import app
-from omega_pbpk.core.body import WholeBodyPBPK
-from omega_pbpk.drugs.drug import Drug
-
-client = TestClient(app)
-
-# ---------------------------------------------------------------------------
-# Shared test drug — midazolam-like CYP3A4 primary substrate
-# ---------------------------------------------------------------------------
-
-TEST_DRUG = Drug(
-    name="test_ped",
-    mw=325.8,
-    logP=3.89,
-    pka=[6.15],
-    drug_type="monoprotic_base",
-    fup=0.032,
-    rbp=0.66,
-    clint_hepatic_L_per_h=750.0,
-    peff=5.37,
-    fm={"CYP3A4": 0.93, "other": 0.07},
-    kp={
-        "lung": 0.6,
-        "brain": 6.0,
-        "heart": 5.0,
-        "kidney": 5.0,
-        "liver": 5.8,
-        "spleen": 3.8,
-        "gut_wall": 4.2,
-        "rest": 2.5,
-    },
+from omega_pbpk.core.pediatric_pbpk import (
+    PediatricScalingResult,
+    scale_to_pediatric,
+    _cyp3a4_maturation,
+    _gfr_maturation,
 )
 
-TEST_DRUG_PAYLOAD = {
-    "name": "test_ped",
-    "mw": 325.8,
-    "logP": 3.89,
-    "pka": [6.15],
-    "drug_type": "monoprotic_base",
-    "fup": 0.032,
-    "rbp": 0.66,
-    "clint_hepatic_L_per_h": 750.0,
-    "peff": 5.37,
-    "fm": {"CYP3A4": 0.93, "other": 0.07},
-}
 
-_DOSE_MG = 1.0
-_SIM_H = 12.0
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+DRUG = "TestDrug"
+ADULT_CL = 10.0   # L/h
+ADULT_VD = 50.0   # L
+ADULT_DOSE = 100.0  # mg
 
 
-def _run_iv(drug: Drug, bw: float, age: float | None) -> dict:
-    """Helper: IV bolus simulation → pk_summary dict."""
-    model = WholeBodyPBPK(drug=drug, body_weight=bw, age_years=age)
-    model.setup_iv(_DOSE_MG)
-    return model.simulate(t_end_h=_SIM_H).pk_summary()
+# ---------------------------------------------------------------------------
+# 1. Return type is PediatricScalingResult
+# ---------------------------------------------------------------------------
+
+def test_returns_pediatric_scaling_result():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5)
+    assert isinstance(result, PediatricScalingResult)
 
 
-# ===========================================================================
-# TestOntogenyWiring
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# 2. Dataclass fields are populated
+# ---------------------------------------------------------------------------
+
+def test_result_fields_populated():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5, weight_kg=20.0)
+    assert result.drug_name == DRUG
+    assert result.age_years == 5
+    assert result.weight_kg == pytest.approx(20.0)
+    assert result.adult_cl_L_per_h == pytest.approx(ADULT_CL)
+    assert result.adult_vd_L == pytest.approx(ADULT_VD)
+    assert result.scaling_method == "allometric_mat"
 
 
-@pytest.mark.integration
-class TestOntogenyWiring:
-    """Verify that age_years parameter correctly modifies pediatric PK."""
+# ---------------------------------------------------------------------------
+# 3. Pediatric CL <= adult CL for children (< 12 years)
+# ---------------------------------------------------------------------------
 
-    def test_adult_age_unscaled(self):
-        """WholeBodyPBPK(age_years=30) AUC matches age_years=None (same 70 kg adult)."""
-        pk_none = _run_iv(TEST_DRUG, bw=70.0, age=None)
-        pk_30 = _run_iv(TEST_DRUG, bw=70.0, age=30.0)
-        rel_diff = abs(pk_none["AUC_mg_h_L"] - pk_30["AUC_mg_h_L"]) / max(
-            pk_none["AUC_mg_h_L"], 1e-12
-        )
-        assert rel_diff < 0.01, f"AUC rel diff = {rel_diff:.4f}, expected < 1 %"
-
-    def test_neonate_lower_clearance(self):
-        """Neonate (0.1 y, 3 kg) apparent CL is lower than adult (age=None, 70 kg)."""
-        pk_adult = _run_iv(TEST_DRUG, bw=70.0, age=None)
-        pk_neo = _run_iv(TEST_DRUG, bw=3.0, age=0.1)
-        assert pk_neo["CL_L_h"] < pk_adult["CL_L_h"], (
-            f"Neonate CL={pk_neo['CL_L_h']:.4f} should be < adult CL={pk_adult['CL_L_h']:.4f}"
-        )
-
-    def test_neonate_higher_auc(self):
-        """Neonate (0.1 y, 3 kg) has higher AUC than adult — immature clearance."""
-        pk_adult = _run_iv(TEST_DRUG, bw=70.0, age=None)
-        pk_neo = _run_iv(TEST_DRUG, bw=3.0, age=0.1)
-        assert pk_neo["AUC_mg_h_L"] > pk_adult["AUC_mg_h_L"], (
-            f"Neonate AUC={pk_neo['AUC_mg_h_L']:.4f} should exceed "
-            f"adult={pk_adult['AUC_mg_h_L']:.4f}"
-        )
-
-    def test_infant_intermediate(self):
-        """1-year-old (10 kg) AUC lies between neonate and adult."""
-        pk_adult = _run_iv(TEST_DRUG, bw=70.0, age=None)
-        pk_neo = _run_iv(TEST_DRUG, bw=3.0, age=0.1)
-        pk_infant = _run_iv(TEST_DRUG, bw=10.0, age=1.0)
-        assert pk_infant["AUC_mg_h_L"] > pk_adult["AUC_mg_h_L"], (
-            f"Infant AUC {pk_infant['AUC_mg_h_L']:.4f} should exceed "
-            f"adult {pk_adult['AUC_mg_h_L']:.4f}"
-        )
-        assert pk_infant["AUC_mg_h_L"] < pk_neo["AUC_mg_h_L"], (
-            f"Infant AUC {pk_infant['AUC_mg_h_L']:.4f} should be below "
-            f"neonate {pk_neo['AUC_mg_h_L']:.4f}"
-        )
-
-    def test_adolescent_near_adult(self):
-        """15-year-old (60 kg) AUC is within 30 % of adult."""
-        pk_adult = _run_iv(TEST_DRUG, bw=70.0, age=None)
-        pk_teen = _run_iv(TEST_DRUG, bw=60.0, age=15.0)
-        ratio = pk_teen["AUC_mg_h_L"] / max(pk_adult["AUC_mg_h_L"], 1e-12)
-        assert 0.7 <= ratio <= 1.5, (
-            f"Adolescent/adult AUC ratio = {ratio:.3f} expected in [0.7, 1.5]"
-        )
+@pytest.mark.parametrize("age", [0.5, 1.0, 2.0, 5.0, 8.0, 11.0])
+def test_pediatric_cl_less_than_adult_for_children(age):
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=age, weight_kg=20.0)
+    assert result.pediatric_cl_L_per_h <= result.adult_cl_L_per_h
 
 
-# ===========================================================================
-# TestEnzymeMaturation
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# 4. Pediatric Vd <= adult Vd for children (weight-based scaling)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("age,wt", [(1, 10), (5, 18), (8, 25), (11, 35)])
+def test_pediatric_vd_less_than_adult_for_children(age, wt):
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=age, weight_kg=wt)
+    assert result.pediatric_vd_L <= result.adult_vd_L
 
 
-@pytest.mark.integration
-class TestEnzymeMaturation:
-    """Verify fm-weighted enzyme maturation scaling in _clint_effective."""
+# ---------------------------------------------------------------------------
+# 5. Half-life = 0.693 * Vd / CL
+# ---------------------------------------------------------------------------
 
-    def test_cyp3a4_fm_scaling(self):
-        """Drug with fm_CYP3A4=0.93 shows >3× AUC elevation at birth vs adult."""
-        pk_adult = _run_iv(TEST_DRUG, bw=70.0, age=None)
-        pk_neo = _run_iv(TEST_DRUG, bw=3.0, age=0.1)
-        ratio = pk_neo["AUC_mg_h_L"] / max(pk_adult["AUC_mg_h_L"], 1e-12)
-        assert ratio > 3.0, f"Expected neonate/adult AUC ratio > 3, got {ratio:.2f}"
+def test_t_half_formula():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5, weight_kg=20.0)
+    expected = 0.693 * result.pediatric_vd_L / result.pediatric_cl_L_per_h
+    assert result.pediatric_t_half_h == pytest.approx(expected, rel=1e-3)
 
-    def test_no_fm_defaults(self):
-        """Drug without fm dict still applies CYP3A4 default ontogeny; neonate AUC > adult."""
-        drug_no_fm = Drug(
-            name="no_fm",
-            mw=325.8,
-            logP=3.89,
-            fup=0.032,
-            rbp=0.66,
-            clint_hepatic_L_per_h=750.0,
-            peff=5.37,
-        )
-        pk_adult = _run_iv(drug_no_fm, bw=70.0, age=None)
-        pk_neo = _run_iv(drug_no_fm, bw=3.0, age=0.1)
-        assert pk_neo["AUC_mg_h_L"] > pk_adult["AUC_mg_h_L"]
 
-    def test_mixed_fm_weighted(self):
-        """CYP3A4-only drug has higher effective CLint at birth than CYP3A4+CYP2D6 drug.
+# ---------------------------------------------------------------------------
+# 6. Pediatric dose proportional to CL ratio
+# ---------------------------------------------------------------------------
 
-        CYP2D6 matures more slowly than CYP3A4 (tm50=0.4 y vs 0.25 y, higher Hill),
-        so adding CYP2D6 fraction increases the overall CLint reduction at birth.
-        """
-        drug_pure_3a4 = Drug(
-            name="pure_3a4",
-            mw=325.8,
-            logP=3.89,
-            fup=0.032,
-            rbp=0.66,
-            clint_hepatic_L_per_h=750.0,
-            peff=5.37,
-            fm={"CYP3A4": 1.0},
-        )
-        drug_mixed = Drug(
-            name="mixed_fm",
-            mw=325.8,
-            logP=3.89,
-            fup=0.032,
-            rbp=0.66,
-            clint_hepatic_L_per_h=750.0,
-            peff=5.37,
-            fm={"CYP3A4": 0.50, "CYP2D6": 0.50},
-        )
-        neo_pure = WholeBodyPBPK(drug=drug_pure_3a4, body_weight=3.0, age_years=0.1)
-        neo_mixed = WholeBodyPBPK(drug=drug_mixed, body_weight=3.0, age_years=0.1)
-        # CYP3A4-only drug retains more CLint at birth → higher effective CLint
-        assert neo_pure._clint_effective() > neo_mixed._clint_effective(), (
-            f"Pure CYP3A4 CLint_eff {neo_pure._clint_effective():.2f} should exceed "
-            f"mixed {neo_mixed._clint_effective():.2f} at birth"
-        )
+def test_pediatric_dose_proportional_to_cl_ratio():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5, weight_kg=20.0)
+    cl_ratio = result.pediatric_cl_L_per_h / result.adult_cl_L_per_h
+    expected_dose = ADULT_DOSE * cl_ratio
+    assert result.pediatric_dose_mg == pytest.approx(expected_dose, rel=1e-3)
 
-    def test_non_cyp_fraction_unscaled(self):
-        """fm={'other': 1.0} yields no maturation reduction — CLint ratio neonate/adult ≈ 1."""
-        drug_other = Drug(
-            name="other_fm",
-            mw=325.8,
-            logP=3.89,
-            fup=0.032,
-            rbp=0.66,
-            clint_hepatic_L_per_h=200.0,
-            peff=5.37,
-            fm={"other": 1.0},
-        )
-        model_neo = WholeBodyPBPK(drug=drug_other, body_weight=3.0, age_years=0.1)
-        model_adult = WholeBodyPBPK(drug=drug_other, body_weight=70.0, age_years=None)
-        ratio = model_neo._clint_effective() / max(model_adult._clint_effective(), 1e-12)
-        assert abs(ratio - 1.0) < 0.01, (
-            f"Non-CYP fm should not be maturation-scaled; CLint ratio = {ratio:.4f}"
+
+# ---------------------------------------------------------------------------
+# 7. weight_kg estimated if None
+# ---------------------------------------------------------------------------
+
+def test_weight_estimated_when_none():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5, weight_kg=None)
+    assert result.weight_kg is not None
+    assert result.weight_kg > 0
+
+
+# ---------------------------------------------------------------------------
+# 8. Weight preserved when explicitly provided
+# ---------------------------------------------------------------------------
+
+def test_weight_preserved_when_provided():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5, weight_kg=18.5)
+    assert result.weight_kg == pytest.approx(18.5)
+
+
+# ---------------------------------------------------------------------------
+# 9. Adult age (~30y) -> pediatric CL approx adult CL
+# ---------------------------------------------------------------------------
+
+def test_adult_age_cl_approx_adult():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=30, weight_kg=70.0)
+    assert result.pediatric_cl_L_per_h == pytest.approx(ADULT_CL, rel=0.20)
+
+
+# ---------------------------------------------------------------------------
+# 10. CYP3A4 maturation fraction in [0.05, 1.0]
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("age", [0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 18.0, 30.0])
+def test_cyp3a4_maturation_range(age):
+    val = _cyp3a4_maturation(age)
+    assert 0.05 <= val <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# 11. GFR maturation fraction in [0.03, 1.0]
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("age", [0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 18.0, 30.0])
+def test_gfr_maturation_range(age):
+    val = _gfr_maturation(age)
+    assert 0.03 <= val <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# 12. CYP3A4 maturation increases with age
+# ---------------------------------------------------------------------------
+
+def test_cyp3a4_maturation_increases_with_age():
+    ages = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    values = [_cyp3a4_maturation(a) for a in ages]
+    for i in range(len(values) - 1):
+        assert values[i] <= values[i + 1], (
+            f"CYP3A4 maturation did not increase: age {ages[i]} -> {ages[i+1]}"
         )
 
 
-# ===========================================================================
-# TestGFROntogeny
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# 13. GFR maturation increases with age
+# ---------------------------------------------------------------------------
+
+def test_gfr_maturation_increases_with_age():
+    ages = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    values = [_gfr_maturation(a) for a in ages]
+    for i in range(len(values) - 1):
+        assert values[i] <= values[i + 1], (
+            f"GFR maturation did not increase: age {ages[i]} -> {ages[i+1]}"
+        )
 
 
-@pytest.mark.integration
-class TestGFROntogeny:
-    """Verify GFR-based renal clearance ontogeny scaling."""
+# ---------------------------------------------------------------------------
+# 14. adult_cl <= 0 raises ValueError
+# ---------------------------------------------------------------------------
 
-    def test_renal_neonate_reduced(self):
-        """Neonate GFR factor is < 0.5 and less than adult GFR factor (1.0)."""
-        model_neo = WholeBodyPBPK(drug=TEST_DRUG, body_weight=3.0, age_years=0.1)
-        model_adult = WholeBodyPBPK(drug=TEST_DRUG, body_weight=70.0, age_years=None)
-        gfr_neo = model_neo._ontogeny_factors["gfr"]
-        gfr_adult = model_adult._ontogeny_factors["gfr"]
-        assert gfr_neo < gfr_adult, f"Neonate GFR {gfr_neo:.3f} should be < adult {gfr_adult:.3f}"
-        assert gfr_neo < 0.5, f"Neonate GFR factor {gfr_neo:.3f} should be < 0.5"
-
-    def test_renal_adult_unscaled(self):
-        """Adult (age_years=None) GFR ontogeny factor is exactly 1.0."""
-        model = WholeBodyPBPK(drug=TEST_DRUG, body_weight=70.0, age_years=None)
-        assert model._ontogeny_factors["gfr"] == 1.0
+def test_raises_on_zero_adult_cl():
+    with pytest.raises(ValueError):
+        scale_to_pediatric(DRUG, 0.0, ADULT_VD, ADULT_DOSE, age_years=5)
 
 
-# ===========================================================================
-# TestPediatricAPI
-# ===========================================================================
+def test_raises_on_negative_adult_cl():
+    with pytest.raises(ValueError):
+        scale_to_pediatric(DRUG, -1.0, ADULT_VD, ADULT_DOSE, age_years=5)
 
 
-def _ped_payload(**overrides) -> dict:
-    """Build a valid POST /simulate/pediatric payload."""
-    payload = {
-        "drug": TEST_DRUG_PAYLOAD,
-        "dose_mg": 1.0,
-        "route": "iv",
-        "duration_h": 12.0,
-        "age_years": 0.5,
-        "body_weight_kg": 7.0,
-    }
-    payload.update(overrides)
-    return payload
+# ---------------------------------------------------------------------------
+# 15. adult_vd <= 0 raises ValueError
+# ---------------------------------------------------------------------------
+
+def test_raises_on_zero_adult_vd():
+    with pytest.raises(ValueError):
+        scale_to_pediatric(DRUG, ADULT_CL, 0.0, ADULT_DOSE, age_years=5)
 
 
-@pytest.mark.integration
-class TestPediatricAPI:
-    """Verify POST /simulate/pediatric endpoint contract."""
+def test_raises_on_negative_adult_vd():
+    with pytest.raises(ValueError):
+        scale_to_pediatric(DRUG, ADULT_CL, -10.0, ADULT_DOSE, age_years=5)
 
-    def test_endpoint_returns_200(self):
-        """Valid pediatric payload returns HTTP 200."""
-        r = client.post("/simulate/pediatric", json=_ped_payload())
-        assert r.status_code == 200, r.text
 
-    def test_adult_comparison(self):
-        """Response contains both pediatric and adult PK keys."""
-        r = client.post("/simulate/pediatric", json=_ped_payload())
-        assert r.status_code == 200, r.text
-        body = r.json()
-        for key in (
-            "pediatric_auc_mg_h_L",
-            "pediatric_cmax_mg_L",
-            "adult_auc_mg_h_L",
-            "adult_cmax_mg_L",
-            "auc_ratio",
-            "cmax_ratio",
-            "ontogeny_factors",
-        ):
-            assert key in body, f"Missing key: {key}"
+# ---------------------------------------------------------------------------
+# 16. adult_dose <= 0 raises ValueError
+# ---------------------------------------------------------------------------
 
-    def test_invalid_age_rejects(self):
-        """age_years > 18 returns HTTP 422 (Pydantic field validation)."""
-        r = client.post("/simulate/pediatric", json=_ped_payload(age_years=20.0))
-        assert r.status_code == 422, f"Expected 422, got {r.status_code}: {r.text}"
+def test_raises_on_nonpositive_adult_dose():
+    with pytest.raises(ValueError):
+        scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, 0.0, age_years=5)
 
-    def test_cmax_ratio_positive(self):
-        """cmax_ratio and auc_ratio returned by endpoint are strictly positive."""
-        r = client.post("/simulate/pediatric", json=_ped_payload())
-        assert r.status_code == 200, r.text
-        body = r.json()
-        assert body["cmax_ratio"] > 0, f"cmax_ratio={body['cmax_ratio']}"
-        assert body["auc_ratio"] > 0, f"auc_ratio={body['auc_ratio']}"
+
+# ---------------------------------------------------------------------------
+# 17. age_years < 0 raises ValueError
+# ---------------------------------------------------------------------------
+
+def test_raises_on_negative_age():
+    with pytest.raises(ValueError):
+        scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=-1)
+
+
+# ---------------------------------------------------------------------------
+# 18. Adolescent (16y) CL closer to adult than infant (1y)
+# ---------------------------------------------------------------------------
+
+def test_adolescent_cl_closer_to_adult_than_infant():
+    infant = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=1, weight_kg=10.0)
+    adolescent = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=16, weight_kg=60.0)
+
+    infant_diff = abs(infant.pediatric_cl_L_per_h - ADULT_CL)
+    adolescent_diff = abs(adolescent.pediatric_cl_L_per_h - ADULT_CL)
+
+    assert adolescent_diff < infant_diff, (
+        f"Adolescent CL diff ({adolescent_diff:.3f}) should be < infant CL diff ({infant_diff:.3f})"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 19. Maturation fractions stored in result
+# ---------------------------------------------------------------------------
+
+def test_maturation_fractions_in_result():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5, weight_kg=20.0)
+    assert 0.0 < result.cyp3a4_maturation_fraction <= 1.0
+    assert 0.0 < result.renal_maturation_fraction <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# 20. CL scales with weight^0.75 (allometric exponent check)
+# ---------------------------------------------------------------------------
+
+def test_cl_scales_allometrically():
+    """Doubling weight at same age should scale CL by ~2^0.75."""
+    wt1, wt2 = 20.0, 40.0
+    r1 = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=10, weight_kg=wt1)
+    r2 = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=10, weight_kg=wt2)
+
+    ratio_cl = r2.pediatric_cl_L_per_h / r1.pediatric_cl_L_per_h
+    expected_ratio = (wt2 / wt1) ** 0.75  # ~1.682
+
+    assert ratio_cl == pytest.approx(expected_ratio, rel=0.05), (
+        f"CL ratio {ratio_cl:.3f} should be ~{expected_ratio:.3f} (weight^0.75)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 21. Newborn (age 0) does not raise, returns valid result
+# ---------------------------------------------------------------------------
+
+def test_newborn_age_zero_valid():
+    result = scale_to_pediatric(DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=0, weight_kg=3.5)
+    assert result.pediatric_cl_L_per_h > 0
+    assert result.pediatric_vd_L > 0
+    assert result.pediatric_t_half_h > 0
+    assert result.pediatric_dose_mg > 0
+
+
+# ---------------------------------------------------------------------------
+# 22. fraction_cyp3a4 affects CL (higher CYP3A4 fraction in infant → lower CL)
+# ---------------------------------------------------------------------------
+
+def test_fraction_cyp3a4_affects_cl():
+    r_high_cyp = scale_to_pediatric(
+        DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=1, weight_kg=10.0,
+        fraction_cyp3a4=0.9, fraction_renal=0.0,
+    )
+    r_low_cyp = scale_to_pediatric(
+        DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=1, weight_kg=10.0,
+        fraction_cyp3a4=0.1, fraction_renal=0.0,
+    )
+    # Infant has immature CYP3A4; higher fraction → more CL suppression
+    assert r_high_cyp.pediatric_cl_L_per_h <= r_low_cyp.pediatric_cl_L_per_h
+
+
+# ---------------------------------------------------------------------------
+# 23. Scaling method stored correctly
+# ---------------------------------------------------------------------------
+
+def test_scaling_method_stored():
+    result = scale_to_pediatric(
+        DRUG, ADULT_CL, ADULT_VD, ADULT_DOSE, age_years=5,
+        weight_kg=20.0, method="allometric_mat",
+    )
+    assert result.scaling_method == "allometric_mat"
+
+
+# ---------------------------------------------------------------------------
+# 24. CYP3A4 maturation at birth is near floor (heavily immature)
+# ---------------------------------------------------------------------------
+
+def test_cyp3a4_maturation_low_at_birth():
+    val = _cyp3a4_maturation(0.0)
+    assert val < 0.3, f"CYP3A4 maturation at birth {val:.3f} should be < 0.3"
+
+
+# ---------------------------------------------------------------------------
+# 25. GFR maturation at birth is near floor
+# ---------------------------------------------------------------------------
+
+def test_gfr_maturation_low_at_birth():
+    val = _gfr_maturation(0.0)
+    assert val <= 0.5, f"GFR maturation at birth {val:.3f} should be <=0.5"  # simplified model

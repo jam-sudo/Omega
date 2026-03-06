@@ -6156,3 +6156,104 @@ def api_trial_sim(req: _TrialSimReq):
         import dataclasses; return dataclasses.asdict(r)
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 91 — Pediatric PBPK Scaling
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.pediatric_pbpk import scale_to_pediatric
+
+class _PedPBPKReq(BaseModel):
+    drug_name: str
+    adult_cl_L_per_h: float
+    adult_vd_L: float
+    adult_dose_mg: float
+    age_years: float
+    weight_kg: float | None = None
+    fraction_cyp3a4: float = 0.5
+    fraction_renal: float = 0.3
+
+@app.post("/simulate/pediatric_pbpk")
+def api_pediatric_pbpk(req: _PedPBPKReq):
+    try:
+        r = scale_to_pediatric(req.drug_name, req.adult_cl_L_per_h, req.adult_vd_L,
+                                req.adult_dose_mg, req.age_years, req.weight_kg,
+                                req.fraction_cyp3a4, req.fraction_renal)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 92 — Bioequivalence Assessment
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.bioequivalence import assess_bioequivalence, simulate_be_study
+
+class _BEReq(BaseModel):
+    drug_test: str
+    drug_reference: str
+    auc_test: list[float]
+    auc_reference: list[float]
+    cmax_test: list[float] | None = None
+    cmax_reference: list[float] | None = None
+
+@app.post("/analyze/bioequivalence")
+def api_be(req: _BEReq):
+    try:
+        r = assess_bioequivalence(req.drug_test, req.drug_reference,
+                                   req.auc_test, req.auc_reference,
+                                   req.cmax_test, req.cmax_reference)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 93 — Protein Displacement DDI
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.protein_displacement import assess_protein_displacement
+
+class _ProteinDispReq(BaseModel):
+    victim_drug: str
+    perpetrator_drug: str
+    baseline_fup: float
+    ki_app_uM: float
+    competitor_conc_uM: float
+    is_nti: bool = False
+    binding_site: str = "albumin_site_I"
+
+@app.post("/ddi/protein_displacement")
+def api_protein_displacement(req: _ProteinDispReq):
+    try:
+        r = assess_protein_displacement(req.victim_drug, req.perpetrator_drug,
+                                         req.baseline_fup, req.ki_app_uM,
+                                         req.competitor_conc_uM, is_nti=req.is_nti,
+                                         binding_site=req.binding_site)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 94 — First-Pass Extraction
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.first_pass import calculate_first_pass
+
+class _FirstPassReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    fup: float
+    cl_int_L_per_h: float
+    fa: float = 1.0
+    logP: float = 2.0
+    q_hepatic_L_per_h: float = 90.0
+    route: str = "oral"
+
+@app.post("/simulate/first_pass")
+def api_first_pass(req: _FirstPassReq):
+    try:
+        r = calculate_first_pass(req.drug_name, req.dose_mg, req.fup, req.cl_int_L_per_h,
+                                  req.fa, req.logP, req.q_hepatic_L_per_h, req.route)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
