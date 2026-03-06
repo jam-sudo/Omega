@@ -3,12 +3,11 @@
 import pytest
 
 from omega_pbpk.biopharmaceutics.modified_release import (
-    MRType,
     ModifiedReleaseResult,
+    MRType,
     compare_mr_types,
     simulate_modified_release,
 )
-
 
 _DRUG = "test_drug"
 _DOSE = 200.0
@@ -18,7 +17,13 @@ _VD = 50.0
 
 class TestMRType:
     def test_all_types_exist(self):
-        types = [MRType.MATRIX, MRType.OSMOTIC, MRType.MULTIPARTICULATE, MRType.EROSION, MRType.DIFFUSION]
+        types = [
+            MRType.MATRIX,
+            MRType.OSMOTIC,
+            MRType.MULTIPARTICULATE,
+            MRType.EROSION,
+            MRType.DIFFUSION,
+        ]
         assert len(types) == 5
 
     def test_values(self):
@@ -43,7 +48,10 @@ class TestInputValidation:
 class TestOROSSimulation:
     def setup_method(self):
         self.result = simulate_modified_release(
-            _DRUG, _DOSE, _CL, _VD,
+            _DRUG,
+            _DOSE,
+            _CL,
+            _VD,
             mr_type=MRType.OSMOTIC,
             release_duration_h=12.0,
             t_end_h=24.0,
@@ -88,7 +96,10 @@ class TestOROSSimulation:
 class TestMatrixSimulation:
     def setup_method(self):
         self.result = simulate_modified_release(
-            _DRUG, _DOSE, _CL, _VD,
+            _DRUG,
+            _DOSE,
+            _CL,
+            _VD,
             mr_type=MRType.MATRIX,
             release_duration_h=12.0,
             t_end_h=24.0,
@@ -113,7 +124,10 @@ class TestMatrixSimulation:
 class TestDiffusionSimulation:
     def setup_method(self):
         self.result = simulate_modified_release(
-            _DRUG, _DOSE, _CL, _VD,
+            _DRUG,
+            _DOSE,
+            _CL,
+            _VD,
             mr_type=MRType.DIFFUSION,
             k_release=0.2,
             t_end_h=24.0,
@@ -131,7 +145,10 @@ class TestDiffusionSimulation:
 class TestMultiparticulateSimulation:
     def setup_method(self):
         self.result = simulate_modified_release(
-            _DRUG, _DOSE, _CL, _VD,
+            _DRUG,
+            _DOSE,
+            _CL,
+            _VD,
             mr_type=MRType.MULTIPARTICULATE,
             k_release=0.15,
             t_end_h=24.0,
