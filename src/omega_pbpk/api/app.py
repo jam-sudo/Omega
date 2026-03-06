@@ -7832,3 +7832,76 @@ def indirect_response_iv_endpoint(body: dict):
         "times_h": result.times_h,
         "response": result.response,
     }
+
+
+# ── Phase 124: SC/IM Depot Absorption PK ─────────────────────────────────────
+from omega_pbpk.core.depot_absorption import (
+    DepotRoute,
+    compare_routes,
+    simulate_depot_pk,
+)
+
+
+@app.post("/simulate/depot_pk")
+def simulate_depot_pk_endpoint(body: dict):
+    """Simulate SC or IM depot absorption PK."""
+    try:
+        route = DepotRoute(body.get("route", "sc"))
+        result = simulate_depot_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            ka_per_h=float(body["ka_per_h"]),
+            route=route,
+            bioavailability=float(body.get("bioavailability", 1.0)),
+            tlag_h=float(body.get("tlag_h", 0.0)),
+            t_end_h=float(body.get("t_end_h", 72.0)),
+            dt_h=float(body.get("dt_h", 0.1)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "route": result.route,
+        "cmax": result.cmax,
+        "tmax_h": result.tmax_h,
+        "auc_0_t": result.auc_0_t,
+        "auc_0_inf": result.auc_0_inf,
+        "thalf_abs_h": result.thalf_abs_h,
+        "thalf_elim_h": result.thalf_elim_h,
+        "f_abs": result.f_abs,
+        "flip_flop": result.flip_flop,
+        "bioavailability": result.bioavailability,
+        "times_h": result.times_h,
+        "cp_central": result.cp_central,
+        "a_depot": result.a_depot,
+    }
+
+
+@app.post("/simulate/depot_pk/compare_routes")
+def compare_routes_endpoint(body: dict):
+    """Compare SC vs IM for same drug and dose."""
+    try:
+        results = compare_routes(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            ka_per_h=float(body["ka_per_h"]),
+            bioavailability=float(body.get("bioavailability", 1.0)),
+            tlag_h=float(body.get("tlag_h", 0.0)),
+            t_end_h=float(body.get("t_end_h", 72.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        route: {
+            "cmax": r.cmax,
+            "tmax_h": r.tmax_h,
+            "auc_0_inf": r.auc_0_inf,
+            "thalf_abs_h": r.thalf_abs_h,
+            "flip_flop": r.flip_flop,
+        }
+        for route, r in results.items()
+    }
