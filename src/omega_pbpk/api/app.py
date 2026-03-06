@@ -7972,3 +7972,56 @@ def compare_patch_sizes_endpoint(body: dict):
             for r in results
         ]
     }
+
+
+# ── Phase 126: pH-Solubility Profile Prediction ───────────────────────────────
+from omega_pbpk.prediction.ph_solubility import predict_ph_solubility, screen_ph_solubility
+
+
+@app.post("/predict/ph_solubility")
+def predict_ph_solubility_endpoint(body: dict):
+    """Predict drug solubility vs pH using Henderson-Hasselbalch equation."""
+    try:
+        result = predict_ph_solubility(
+            drug_name=body.get("drug_name", "Drug"),
+            intrinsic_solubility_mg_mL=float(body["intrinsic_solubility_mg_mL"]),
+            drug_type=body.get("drug_type", "neutral"),
+            pka1=body.get("pka1"),
+            pka2=body.get("pka2"),
+            ph_range=tuple(body.get("ph_range", [1.0, 9.0])),
+            n_points=int(body.get("n_points", 81)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "drug_type": result.drug_type,
+        "pka_values": result.pka_values,
+        "max_solubility_mg_mL": result.max_solubility_mg_mL,
+        "ph_max_solubility": result.ph_max_solubility,
+        "min_solubility_mg_mL": result.min_solubility_mg_mL,
+        "solubility_at_ph_7_4": result.solubility_at_ph_7_4,
+        "solubility_at_ph_6_8": result.solubility_at_ph_6_8,
+        "solubility_at_ph_1_2": result.solubility_at_ph_1_2,
+        "ph_values": result.ph_values,
+        "solubility_mg_mL": result.solubility_mg_mL,
+    }
+
+
+@app.post("/predict/ph_solubility/screen")
+def screen_ph_solubility_endpoint(body: dict):
+    """Screen multiple compounds for pH-solubility profiles."""
+    compounds = body.get("compounds", [])
+    results = screen_ph_solubility(compounds)
+    return {
+        "results": [
+            {
+                "drug_name": r.drug_name,
+                "drug_type": r.drug_type,
+                "solubility_at_ph_7_4": r.solubility_at_ph_7_4,
+                "solubility_at_ph_1_2": r.solubility_at_ph_1_2,
+                "max_solubility_mg_mL": r.max_solubility_mg_mL,
+            }
+            for r in results
+        ]
+    }
