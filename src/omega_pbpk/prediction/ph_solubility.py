@@ -2,25 +2,24 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class pHSolubilityResult:
     drug_name: str
-    drug_type: str           # "acid", "base", "amphoteric", "neutral"
+    drug_type: str  # "acid", "base", "amphoteric", "neutral"
     pka_values: list[float]
     intrinsic_solubility_mg_mL: float
     ph_values: list[float]
     solubility_mg_mL: list[float]
-    ph_max_solubility: float   # pH of maximum solubility
+    ph_max_solubility: float  # pH of maximum solubility
     max_solubility_mg_mL: float
-    ph_min_solubility: float   # pH of minimum solubility
+    ph_min_solubility: float  # pH of minimum solubility
     min_solubility_mg_mL: float
     solubility_at_ph_7_4: float
-    solubility_at_ph_6_8: float   # small intestine
-    solubility_at_ph_1_2: float   # stomach
+    solubility_at_ph_6_8: float  # small intestine
+    solubility_at_ph_1_2: float  # stomach
 
 
 def _ionization_factor_acid(ph: float, pka: float) -> float:
@@ -65,7 +64,9 @@ def predict_ph_solubility(
     if drug_type not in ("acid", "base", "amphoteric", "neutral"):
         raise ValueError("drug_type must be 'acid', 'base', 'amphoteric', or 'neutral'")
 
-    ph_vals = [ph_range[0] + i * (ph_range[1] - ph_range[0]) / (n_points - 1) for i in range(n_points)]
+    ph_vals = [
+        ph_range[0] + i * (ph_range[1] - ph_range[0]) / (n_points - 1) for i in range(n_points)
+    ]
     S0 = intrinsic_solubility_mg_mL
 
     pka_list = []

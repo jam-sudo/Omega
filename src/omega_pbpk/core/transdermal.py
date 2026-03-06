@@ -15,17 +15,17 @@ class TransdermalResult:
     drug_name: str
     patch_area_cm2: float
     times_h: list[float]
-    flux_mg_h: list[float]          # drug flux through skin (mg/h)
-    cp_central: list[float]         # plasma concentration (mg/L)
+    flux_mg_h: list[float]  # drug flux through skin (mg/h)
+    cp_central: list[float]  # plasma concentration (mg/L)
     cumulative_absorbed_mg: list[float]  # total drug absorbed over time
-    css_mg_L: float                 # steady-state plasma concentration
-    tss_h: float                    # time to reach 90% Css
+    css_mg_L: float  # steady-state plasma concentration
+    tss_h: float  # time to reach 90% Css
     cmax: float
     tmax_h: float
     auc_0_t: float
-    tlag_h: float                   # skin lag time (h)
-    permeability_cm_h: float        # effective skin permeability
-    daily_dose_mg: float            # mg absorbed per 24h at steady state
+    tlag_h: float  # skin lag time (h)
+    permeability_cm_h: float  # effective skin permeability
+    daily_dose_mg: float  # mg absorbed per 24h at steady state
 
 
 def simulate_transdermal(
@@ -75,11 +75,13 @@ def simulate_transdermal(
     ke = cl_L_per_h / vd_L
 
     # Lag time from skin diffusion (h): tlag = h²/(6D), D ≈ Kp * h
-    tlag = (skin_thickness_cm ** 2) / (skin_permeability_cm_h * skin_lag_factor)
+    tlag = (skin_thickness_cm**2) / (skin_permeability_cm_h * skin_lag_factor)
     tlag = max(tlag, 0.0)
 
     # Maximum flux at steady state (mg/h)
-    flux_ss = skin_permeability_cm_h * patch_area_cm2 * donor_conc_mg_mL  # cm/h * cm² * mg/cm³ = mg/h
+    flux_ss = (
+        skin_permeability_cm_h * patch_area_cm2 * donor_conc_mg_mL
+    )  # cm/h * cm² * mg/cm³ = mg/h
 
     # Css = flux_ss / CL (at steady state)
     css = flux_ss / cl_L_per_h

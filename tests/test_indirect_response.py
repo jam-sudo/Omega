@@ -1,9 +1,10 @@
 """Tests for indirect response PK/PD models — Types I–IV."""
+
 import pytest
 
 from omega_pbpk.core.indirect_response import (
-    IRType,
     IndirectResponseResult,
+    IRType,
     simulate_indirect_iv,
     simulate_indirect_response,
 )
@@ -64,9 +65,7 @@ class TestInputValidation:
 
     def test_emax_negative_raises(self):
         with pytest.raises(ValueError):
-            simulate_indirect_response(
-                "D", _TIMES, _CP, IRType.TYPE_I, kin=1, kout=0.1, emax=-1
-            )
+            simulate_indirect_response("D", _TIMES, _CP, IRType.TYPE_I, kin=1, kout=0.1, emax=-1)
 
 
 # ── Type I: inhibit kin → response DECREASES ────────────────────────────
@@ -134,33 +133,69 @@ class TestBaseline:
 class TestSimulateIndirectIV:
     def test_returns_result(self):
         r = simulate_indirect_iv(
-            "IVDrug", dose_mg=100, cl_L_per_h=5, vd_L=50,
-            ir_type=IRType.TYPE_III, kin=KIN, kout=KOUT,
-            emax=EMAX, ec50_mg_L=EC50, hill=HILL, t_end_h=48,
+            "IVDrug",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ir_type=IRType.TYPE_III,
+            kin=KIN,
+            kout=KOUT,
+            emax=EMAX,
+            ec50_mg_L=EC50,
+            hill=HILL,
+            t_end_h=48,
         )
         assert isinstance(r, IndirectResponseResult)
 
     def test_baseline_correct(self):
         r = simulate_indirect_iv(
-            "IVDrug", 100, 5, 50, IRType.TYPE_III, KIN, KOUT, t_end_h=48,
+            "IVDrug",
+            100,
+            5,
+            50,
+            IRType.TYPE_III,
+            KIN,
+            KOUT,
+            t_end_h=48,
         )
         assert r.r0 == pytest.approx(KIN / KOUT)
 
     def test_times_nonempty(self):
         r = simulate_indirect_iv(
-            "IVDrug", 100, 5, 50, IRType.TYPE_III, KIN, KOUT, t_end_h=48,
+            "IVDrug",
+            100,
+            5,
+            50,
+            IRType.TYPE_III,
+            KIN,
+            KOUT,
+            t_end_h=48,
         )
         assert len(r.times_h) > 0
 
     def test_lengths_match(self):
         r = simulate_indirect_iv(
-            "IVDrug", 100, 5, 50, IRType.TYPE_III, KIN, KOUT, t_end_h=48,
+            "IVDrug",
+            100,
+            5,
+            50,
+            IRType.TYPE_III,
+            KIN,
+            KOUT,
+            t_end_h=48,
         )
         assert len(r.response) == len(r.times_h)
 
     def test_rmax_positive(self):
         r = simulate_indirect_iv(
-            "IVDrug", 100, 5, 50, IRType.TYPE_III, KIN, KOUT, t_end_h=48,
+            "IVDrug",
+            100,
+            5,
+            50,
+            IRType.TYPE_III,
+            KIN,
+            KOUT,
+            t_end_h=48,
         )
         assert r.rmax > 0
 

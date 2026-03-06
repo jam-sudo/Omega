@@ -11,10 +11,10 @@ from omega_pbpk._compat import np_trapz
 
 
 class IRType(str, Enum):
-    TYPE_I = "type_i"      # inhibit kin
-    TYPE_II = "type_ii"    # inhibit kout
+    TYPE_I = "type_i"  # inhibit kin
+    TYPE_II = "type_ii"  # inhibit kout
     TYPE_III = "type_iii"  # stimulate kin
-    TYPE_IV = "type_iv"    # stimulate kout
+    TYPE_IV = "type_iv"  # stimulate kout
 
 
 @dataclass(frozen=True)
@@ -73,8 +73,8 @@ def simulate_indirect_response(
         cp = max(cp_mg_L[i - 1], 0.0)
 
         # Hill function
-        cp_h = cp ** hill
-        ec_h = ec50_mg_L ** hill
+        cp_h = cp**hill
+        ec_h = ec50_mg_L**hill
         h = emax * cp_h / (ec_h + cp_h) if (ec_h + cp_h) > 0 else 0.0
 
         if ir == IRType.TYPE_I:

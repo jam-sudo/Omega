@@ -7,27 +7,23 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from omega_pbpk._compat import np_trapz
-
 
 @dataclass(frozen=True)
 class PPBSaturationResult:
     drug_name: str
-    protein: str              # "albumin" or "aag"
+    protein: str  # "albumin" or "aag"
     total_conc_mg_L: list[float]
     free_conc_mg_L: list[float]
     bound_conc_mg_L: list[float]
-    fup: list[float]          # free fraction at each total concentration
-    fup_linear: float         # fup at low concentrations (linear region)
-    saturation_conc_mg_L: float   # concentration at 50% saturation of binding sites
-    kd_mg_L: float            # dissociation constant
-    bmax_mg_L: float          # max binding capacity (mg drug / L plasma)
+    fup: list[float]  # free fraction at each total concentration
+    fup_linear: float  # fup at low concentrations (linear region)
+    saturation_conc_mg_L: float  # concentration at 50% saturation of binding sites
+    kd_mg_L: float  # dissociation constant
+    bmax_mg_L: float  # max binding capacity (mg drug / L plasma)
     n_binding_sites: float
 
 
-def _free_fraction_saturable(
-    ct: float, kd: float, bmax: float
-) -> float:
+def _free_fraction_saturable(ct: float, kd: float, bmax: float) -> float:
     """Solve free fraction from saturable binding.
 
     Ct = Cf + Cb; Cb = Bmax * Cf / (Kd + Cf)
@@ -76,11 +72,13 @@ def predict_ppb_saturation(
         raise ValueError("bmax_mg_L must be > 0")
 
     # Log-spaced concentration range
-    ct_vals = list(np.logspace(
-        math.log10(conc_range_mg_L[0]),
-        math.log10(conc_range_mg_L[1]),
-        n_points,
-    ))
+    ct_vals = list(
+        np.logspace(
+            math.log10(conc_range_mg_L[0]),
+            math.log10(conc_range_mg_L[1]),
+            n_points,
+        )
+    )
 
     free_vals = []
     bound_vals = []
