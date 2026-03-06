@@ -1,7 +1,5 @@
 """Tests for nonlinear plasma protein binding — saturable binding model."""
 
-import math
-
 import pytest
 
 from omega_pbpk.prediction.ppb_saturation import (
@@ -10,7 +8,7 @@ from omega_pbpk.prediction.ppb_saturation import (
     predict_ppb_saturation,
 )
 
-_KD = 2.0    # mg/L
+_KD = 2.0  # mg/L
 _BMAX = 100.0  # mg/L
 
 
@@ -58,7 +56,9 @@ class TestPPBSaturation:
 
     def test_mass_balance(self):
         """Cf + Cb == Ct for every concentration."""
-        for ct, cf, cb in zip(self.r.total_conc_mg_L, self.r.free_conc_mg_L, self.r.bound_conc_mg_L):
+        for ct, cf, cb in zip(
+            self.r.total_conc_mg_L, self.r.free_conc_mg_L, self.r.bound_conc_mg_L, strict=False
+        ):
             assert cf + cb == pytest.approx(ct, rel=1e-6)
 
     def test_n_points(self):

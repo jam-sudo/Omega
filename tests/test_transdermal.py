@@ -141,15 +141,13 @@ class TestLongSimulation:
 class TestComparePatchSizes:
     def test_returns_list(self):
         results = compare_patch_sizes(
-            "drug", [10.0, 20.0, 40.0], 2.0, 50.0, 250.0,
-            skin_permeability_cm_h=1e-3, t_end_h=48.0
+            "drug", [10.0, 20.0, 40.0], 2.0, 50.0, 250.0, skin_permeability_cm_h=1e-3, t_end_h=48.0
         )
         assert len(results) == 3
 
     def test_monotone_css(self):
         results = compare_patch_sizes(
-            "drug", [10.0, 20.0, 40.0], 2.0, 50.0, 250.0,
-            skin_permeability_cm_h=1e-3, t_end_h=48.0
+            "drug", [10.0, 20.0, 40.0], 2.0, 50.0, 250.0, skin_permeability_cm_h=1e-3, t_end_h=48.0
         )
         css_vals = [r.css_mg_L for r in results]
         assert css_vals[0] < css_vals[1] < css_vals[2]

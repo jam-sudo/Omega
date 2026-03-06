@@ -126,8 +126,24 @@ def compare_routes(
 ) -> dict[str, DepotPKResult]:
     """Compare SC vs IM for same drug."""
     return {
-        "sc": simulate_depot_pk(drug_name, dose_mg, cl_L_per_h, vd_L, ka_per_h, DepotRoute.SUBCUTANEOUS, **kwargs),
-        "im": simulate_depot_pk(drug_name, dose_mg, cl_L_per_h, vd_L, ka_per_h, DepotRoute.INTRAMUSCULAR, **kwargs),
+        "sc": simulate_depot_pk(
+            drug_name,
+            dose_mg,
+            cl_L_per_h,
+            vd_L,
+            ka_per_h,
+            DepotRoute.SUBCUTANEOUS,
+            **kwargs,
+        ),
+        "im": simulate_depot_pk(
+            drug_name,
+            dose_mg,
+            cl_L_per_h,
+            vd_L,
+            ka_per_h,
+            DepotRoute.INTRAMUSCULAR,
+            **kwargs,
+        ),
     }
 
 

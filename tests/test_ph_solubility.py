@@ -48,16 +48,16 @@ class TestAcidDrug:
 
     def test_at_pka_double_s0(self):
         """At pH=pKa: S = S0 * (1 + 10^0) = 2*S0."""
-        r_at_pka = predict_ph_solubility("test", 1.0, "acid", pka1=4.0,
-                                          ph_range=(3.9, 4.1), n_points=3)
+        r_at_pka = predict_ph_solubility(
+            "test", 1.0, "acid", pka1=4.0, ph_range=(3.9, 4.1), n_points=3
+        )
         # Middle point closest to pKa=4.0
         mid = r_at_pka.solubility_mg_mL[1]
         assert mid == pytest.approx(2.0, rel=0.01)
 
     def test_low_ph_near_s0(self):
         """At very low pH (pH << pKa), S ≈ S0."""
-        r = predict_ph_solubility("test", 1.0, "acid", pka1=7.0,
-                                   ph_range=(1.0, 2.0), n_points=5)
+        r = predict_ph_solubility("test", 1.0, "acid", pka1=7.0, ph_range=(1.0, 2.0), n_points=5)
         # pH=1, pKa=7: S = 1*(1+10^(1-7)) ≈ 1
         assert r.solubility_mg_mL[0] == pytest.approx(1.0, rel=0.01)
 
@@ -141,8 +141,18 @@ class TestOutputFormat:
 class TestScreening:
     def test_screen_multiple(self):
         compounds = [
-            {"drug_name": "acid_drug", "intrinsic_solubility_mg_mL": 0.1, "drug_type": "acid", "pka1": 4.0},
-            {"drug_name": "base_drug", "intrinsic_solubility_mg_mL": 0.5, "drug_type": "base", "pka1": 9.0},
+            {
+                "drug_name": "acid_drug",
+                "intrinsic_solubility_mg_mL": 0.1,
+                "drug_type": "acid",
+                "pka1": 4.0,
+            },
+            {
+                "drug_name": "base_drug",
+                "intrinsic_solubility_mg_mL": 0.5,
+                "drug_type": "base",
+                "pka1": 9.0,
+            },
         ]
         results = screen_ph_solubility(compounds)
         assert len(results) == 2

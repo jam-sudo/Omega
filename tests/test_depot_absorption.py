@@ -1,7 +1,12 @@
 """Tests for SC/IM depot absorption PK model."""
+
 import pytest
+
 from omega_pbpk.core.depot_absorption import (
-    DepotRoute, DepotPKResult, simulate_depot_pk, compare_routes
+    DepotPKResult,
+    DepotRoute,
+    compare_routes,
+    simulate_depot_pk,
 )
 
 
@@ -32,7 +37,14 @@ class TestInputValidation:
 
     def test_bioavailability_zero_raises(self):
         with pytest.raises(ValueError):
-            simulate_depot_pk("X", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, bioavailability=0)
+            simulate_depot_pk(
+                "X",
+                dose_mg=100,
+                cl_L_per_h=5,
+                vd_L=50,
+                ka_per_h=0.5,
+                bioavailability=0,
+            )
 
 
 class TestSCSimulation:
@@ -87,21 +99,56 @@ class TestFlipFlop:
 
 class TestLagTime:
     def test_lag_delays_tmax(self):
-        no_lag = simulate_depot_pk("DrugC", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, tlag_h=0)
-        with_lag = simulate_depot_pk("DrugC", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, tlag_h=2.0)
+        no_lag = simulate_depot_pk(
+            "DrugC",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ka_per_h=0.5,
+            tlag_h=0,
+        )
+        with_lag = simulate_depot_pk(
+            "DrugC",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ka_per_h=0.5,
+            tlag_h=2.0,
+        )
         assert with_lag.tmax_h > no_lag.tmax_h
 
 
 class TestIMFasterThanSC:
     def test_im_tmax_less_than_sc(self):
-        sc = simulate_depot_pk("DrugD", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, route=DepotRoute.SUBCUTANEOUS)
-        im = simulate_depot_pk("DrugD", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, route=DepotRoute.INTRAMUSCULAR)
+        sc = simulate_depot_pk(
+            "DrugD",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ka_per_h=0.5,
+            route=DepotRoute.SUBCUTANEOUS,
+        )
+        im = simulate_depot_pk(
+            "DrugD",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ka_per_h=0.5,
+            route=DepotRoute.INTRAMUSCULAR,
+        )
         assert im.tmax_h < sc.tmax_h
 
 
 class TestBioavailability:
     def test_auc_scales_with_f(self):
-        result = simulate_depot_pk("DrugE", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, bioavailability=0.5)
+        result = simulate_depot_pk(
+            "DrugE",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ka_per_h=0.5,
+            bioavailability=0.5,
+        )
         expected_auc = 0.5 * (100 / 5)  # F * dose / CL
         assert abs(result.auc_0_inf - expected_auc) / expected_auc < 0.30
 
@@ -132,9 +179,17 @@ class TestCompareRoutes:
 
 class TestLaggedAbsorptionDelay:
     def test_cp_near_zero_before_lag(self):
-        result = simulate_depot_pk("DrugG", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, tlag_h=5.0, t_end_h=48.0)
+        result = simulate_depot_pk(
+            "DrugG",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ka_per_h=0.5,
+            tlag_h=5.0,
+            t_end_h=48.0,
+        )
         # cp at t < 5h should be ~0
-        for t, cp in zip(result.times_h, result.cp_central):
+        for t, cp in zip(result.times_h, result.cp_central, strict=False):
             if t < 5.0:
                 assert cp < 1e-6, f"cp={cp} at t={t}h should be ~0 before lag"
 
@@ -142,7 +197,14 @@ class TestLaggedAbsorptionDelay:
 class TestResultFields:
     @pytest.fixture()
     def result(self):
-        return simulate_depot_pk("DrugH", dose_mg=100, cl_L_per_h=5, vd_L=50, ka_per_h=0.5, route=DepotRoute.SUBCUTANEOUS)
+        return simulate_depot_pk(
+            "DrugH",
+            dose_mg=100,
+            cl_L_per_h=5,
+            vd_L=50,
+            ka_per_h=0.5,
+            route=DepotRoute.SUBCUTANEOUS,
+        )
 
     def test_route_stored(self, result):
         assert result.route == "sc"
