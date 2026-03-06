@@ -11116,3 +11116,87 @@ def api_pediatric_dose_age_range(body: dict):
             for r in results
         ]
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 171 — BBB Efflux PK
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.bbb_efflux import compare_efflux_inhibition, simulate_bbb_efflux
+
+
+@app.post("/simulate/bbb_efflux")
+def api_bbb_efflux(body: dict):
+    try:
+        r = simulate_bbb_efflux(
+            drug_name=str(body["drug_name"]),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_plasma_L=float(body["vd_plasma_L"]),
+            k_bbb_in_per_h=float(body.get("k_bbb_in_per_h", 0.3)),
+            k_bbb_out_per_h=float(body.get("k_bbb_out_per_h", 0.1)),
+            k_pgp_efflux_per_h=float(body.get("k_pgp_efflux_per_h", 0.5)),
+            pgp_inhibition_fraction=float(body.get("pgp_inhibition_fraction", 0.0)),
+            v_brain_L=float(body.get("v_brain_L", 1.4)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "cmax_plasma_mg_L": r.cmax_plasma_mg_L,
+        "cmax_brain_mg_L": r.cmax_brain_mg_L,
+        "kp_uu_brain": r.kp_uu_brain,
+        "auc_plasma": r.auc_plasma,
+        "auc_brain": r.auc_brain,
+        "pgp_efflux_ratio": r.pgp_efflux_ratio,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/bbb_efflux/compare_inhibition")
+def api_bbb_efflux_compare_inhibition(body: dict):
+    try:
+        inhibition_levels = [float(x) for x in body.get("inhibition_levels", [0.0, 0.5, 1.0])]
+        results = compare_efflux_inhibition(
+            drug_name=str(body["drug_name"]),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_plasma_L=float(body["vd_plasma_L"]),
+            inhibition_levels=inhibition_levels,
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "pgp_efflux_ratio": r.pgp_efflux_ratio,
+                "kp_uu_brain": r.kp_uu_brain,
+                "cmax_brain_mg_L": r.cmax_brain_mg_L,
+            }
+            for r in results
+        ]
+    }
+
+# Phase 176 — Dose Proportionality (power model)
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.dose_proportionality import assess_dose_proportionality
+
+
+@app.post("/analyze/dose_proportionality_power")
+def api_dose_proportionality_power(body: dict):
+    try:
+        r = assess_dose_proportionality(
+            doses_mg=[float(x) for x in body["doses_mg"]],
+            aucs=[float(x) for x in body["aucs"]],
+            cmaxes=[float(x) for x in body["cmaxes"]] if "cmaxes" in body else None,
+            pk_name=str(body.get("pk_name", "AUC")),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "assessment": r.assessment,
+        "auc_beta": r.auc_beta,
+        "auc_r2": r.auc_r2,
+        "cmax_beta": r.cmax_beta,
+        "notes": r.notes,
+    }
