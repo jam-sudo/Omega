@@ -4889,6 +4889,7 @@ class LymphaticResponse(BaseModel):
 def simulate_lymphatic(req: LymphaticRequest) -> LymphaticResponse:
     try:
         from omega_pbpk.core.lymphatic import simulate_lymphatic_absorption
+
         r = simulate_lymphatic_absorption(
             drug_name=req.drug_name,
             logP=req.logP,
@@ -4949,6 +4950,7 @@ class TargetAttainmentResponse(BaseModel):
 def pkpd_target_attainment(req: TargetAttainmentRequest) -> TargetAttainmentResponse:
     try:
         from omega_pbpk.clinical.target_attainment import compute_target_attainment
+
         r = compute_target_attainment(
             dose_mg=req.dose_mg,
             cl_L_per_h=req.cl_L_per_h,
@@ -5007,6 +5009,7 @@ class TwoCompResponse(BaseModel):
 def simulate_two_comp(req: TwoCompRequest) -> TwoCompResponse:
     try:
         from omega_pbpk.core.two_compartment import simulate_two_compartment
+
         r = simulate_two_compartment(
             dose_mg=req.dose_mg,
             cl_L_per_h=req.cl_L_per_h,
@@ -5067,8 +5070,10 @@ class DoseIndivResponse(BaseModel):
 def dose_individualize(req: DoseIndivRequest) -> DoseIndivResponse:
     try:
         from omega_pbpk.clinical.dose_individualization import (
-            PatientCovariates, individualize_dose,
+            PatientCovariates,
+            individualize_dose,
         )
+
         patient = PatientCovariates(
             body_weight_kg=req.body_weight_kg,
             age_years=req.age_years,
@@ -5126,6 +5131,7 @@ class CNSResponse(BaseModel):
 def simulate_cns(req: CNSRequest) -> CNSResponse:
     try:
         from omega_pbpk.core.cns_pbpk import predict_bbb_penetration
+
         r = predict_bbb_penetration(
             drug_name=req.drug_name,
             logP=req.logP,
@@ -5172,6 +5178,7 @@ class HERGResponse(BaseModel):
 def herg_risk(req: HERGRequest) -> HERGResponse:
     try:
         from omega_pbpk.risk.herg_qt import predict_herg_risk
+
         r = predict_herg_risk(
             drug_name=req.drug_name,
             logP=req.logP,
@@ -5221,6 +5228,7 @@ class AbsorptionWindowResponse(BaseModel):
 def simulate_absorption_window_endpoint(req: AbsorptionWindowRequest) -> AbsorptionWindowResponse:
     try:
         from omega_pbpk.core.absorption_window import simulate_absorption_window
+
         r = simulate_absorption_window(
             drug_name=req.drug_name,
             dose_mg=req.dose_mg,
@@ -5279,7 +5287,9 @@ class SynergyResponse(BaseModel):
 def pkpd_synergy(req: SynergyRequest) -> SynergyResponse:
     try:
         import math
+
         from omega_pbpk.clinical.synergy import assess_combination_synergy
+
         r = assess_combination_synergy(
             drug_A=req.drug_A,
             drug_B=req.drug_B,
@@ -5339,6 +5349,7 @@ class PediatricDoseResponse(BaseModel):
 def dose_pediatric(req: PediatricDoseRequest) -> PediatricDoseResponse:
     try:
         from omega_pbpk.clinical.pediatric_dosing import pediatric_dose
+
         r = pediatric_dose(
             adult_dose_mg=req.adult_dose_mg,
             adult_weight_kg=req.adult_weight_kg,
@@ -5393,6 +5404,7 @@ class SolubilityResponse(BaseModel):
 def predict_solubility_endpoint(req: SolubilityRequest) -> SolubilityResponse:
     try:
         from omega_pbpk.prediction.solubility import predict_solubility
+
         r = predict_solubility(
             drug_name=req.drug_name,
             logP=req.logP,
@@ -5451,6 +5463,7 @@ class EHCResponse(BaseModel):
 def simulate_ehc_endpoint(req: EHCRequest) -> EHCResponse:
     try:
         from omega_pbpk.core.enterohepatic import simulate_ehc
+
         r = simulate_ehc(
             drug_name=req.drug_name,
             dose_mg=req.dose_mg,
@@ -5515,6 +5528,7 @@ class ADRResponse(BaseModel):
 def adr_risk(req: ADRRequest) -> ADRResponse:
     try:
         from omega_pbpk.risk.adr_risk import score_adr_risk
+
         r = score_adr_risk(
             drug_name=req.drug_name,
             logP=req.logP,
@@ -5550,7 +5564,10 @@ def adr_risk(req: ADRRequest) -> ADRResponse:
 # ---------------------------------------------------------------------------
 # Phase 71 — Protein Binding / Corona
 # ---------------------------------------------------------------------------
-from omega_pbpk.prediction.protein_corona import predict_protein_binding, binding_sensitivity_analysis
+from omega_pbpk.prediction.protein_corona import (
+    predict_protein_binding,
+)
+
 
 class _ProteinBindingReq(BaseModel):
     drug_name: str
@@ -5560,13 +5577,17 @@ class _ProteinBindingReq(BaseModel):
     MW: float = 300.0
     drug_conc_uM: float = 0.1
 
+
 @app.post("/predict/protein_binding")
 def api_protein_binding(req: _ProteinBindingReq):
     try:
         r = predict_protein_binding(
-            drug_name=req.drug_name, logP=req.logP,
-            pka_acid=req.pka_acid, pka_basic=req.pka_basic,
-            MW=req.MW, drug_conc_uM=req.drug_conc_uM,
+            drug_name=req.drug_name,
+            logP=req.logP,
+            pka_acid=req.pka_acid,
+            pka_basic=req.pka_basic,
+            MW=req.MW,
+            drug_conc_uM=req.drug_conc_uM,
         )
         return r.__dict__
     except HTTPException:
@@ -5580,6 +5601,7 @@ def api_protein_binding(req: _ProteinBindingReq):
 # ---------------------------------------------------------------------------
 from omega_pbpk.clinical.metabolic_stability import predict_metabolic_stability
 
+
 class _MetabStabReq(BaseModel):
     drug_name: str
     t_half_min: float
@@ -5588,13 +5610,17 @@ class _MetabStabReq(BaseModel):
     fup: float = 1.0
     protein_mg_mL: float = 0.5
 
+
 @app.post("/predict/metabolic_stability")
 def api_metabolic_stability(req: _MetabStabReq):
     try:
         r = predict_metabolic_stability(
-            req.drug_name, t_half_min=req.t_half_min,
-            assay_type=req.assay_type, species=req.species,
-            fup=req.fup, protein_mg_mL=req.protein_mg_mL,
+            req.drug_name,
+            t_half_min=req.t_half_min,
+            assay_type=req.assay_type,
+            species=req.species,
+            fup=req.fup,
+            protein_mg_mL=req.protein_mg_mL,
         )
         return r.__dict__
     except HTTPException:
@@ -5607,6 +5633,7 @@ def api_metabolic_stability(req: _MetabStabReq):
 # Phase 73 — Population PK
 # ---------------------------------------------------------------------------
 from omega_pbpk.clinical.pop_pk import simulate_pop_pk
+
 
 class _PopPKReq(BaseModel):
     n_subjects: int = 100
@@ -5621,19 +5648,25 @@ class _PopPKReq(BaseModel):
     therapeutic_low_mg_L: float | None = None
     therapeutic_high_mg_L: float | None = None
 
+
 @app.post("/simulate/pop_pk")
 def api_pop_pk(req: _PopPKReq):
     try:
         r = simulate_pop_pk(
-            n_subjects=req.n_subjects, dose_mg=req.dose_mg,
+            n_subjects=req.n_subjects,
+            dose_mg=req.dose_mg,
             cl_typical_L_per_h=req.cl_typical_L_per_h,
             vd_typical_L=req.vd_typical_L,
-            omega_cl=req.omega_cl, omega_vd=req.omega_vd,
-            route=req.route, t_end_h=req.t_end_h, seed=req.seed,
+            omega_cl=req.omega_cl,
+            omega_vd=req.omega_vd,
+            route=req.route,
+            t_end_h=req.t_end_h,
+            seed=req.seed,
             therapeutic_low_mg_L=req.therapeutic_low_mg_L,
             therapeutic_high_mg_L=req.therapeutic_high_mg_L,
         )
         import dataclasses
+
         return dataclasses.asdict(r)
     except HTTPException:
         raise
@@ -5644,7 +5677,8 @@ def api_pop_pk(req: _PopPKReq):
 # ---------------------------------------------------------------------------
 # Phase 74 — Drug Accumulation
 # ---------------------------------------------------------------------------
-from omega_pbpk.clinical.accumulation import simulate_accumulation, dosing_regimen_comparison
+from omega_pbpk.clinical.accumulation import simulate_accumulation
+
 
 class _AccumulationReq(BaseModel):
     drug_name: str
@@ -5654,15 +5688,20 @@ class _AccumulationReq(BaseModel):
     dosing_interval_h: float = 12.0
     n_doses: int = 10
 
+
 @app.post("/simulate/accumulation")
 def api_accumulation(req: _AccumulationReq):
     try:
         r = simulate_accumulation(
-            drug_name=req.drug_name, dose_mg=req.dose_mg,
-            cl_L_per_h=req.cl_L_per_h, vd_L=req.vd_L,
-            dosing_interval_h=req.dosing_interval_h, n_doses=req.n_doses,
+            drug_name=req.drug_name,
+            dose_mg=req.dose_mg,
+            cl_L_per_h=req.cl_L_per_h,
+            vd_L=req.vd_L,
+            dosing_interval_h=req.dosing_interval_h,
+            n_doses=req.n_doses,
         )
         import dataclasses
+
         return dataclasses.asdict(r)
     except HTTPException:
         raise
@@ -5673,7 +5712,8 @@ def api_accumulation(req: _AccumulationReq):
 # ---------------------------------------------------------------------------
 # Phase 75 — Tissue Binding Correction
 # ---------------------------------------------------------------------------
-from omega_pbpk.core.pbpk_tissue_binding import predict_tissue_binding, compare_binding_species
+from omega_pbpk.core.pbpk_tissue_binding import predict_tissue_binding
+
 
 class _TissueBindingReq(BaseModel):
     drug_name: str
@@ -5681,11 +5721,13 @@ class _TissueBindingReq(BaseModel):
     fup: float
     kp_dict: dict[str, float] | None = None
 
+
 @app.post("/predict/tissue_binding")
 def api_tissue_binding(req: _TissueBindingReq):
     try:
         r = predict_tissue_binding(req.drug_name, req.logP, req.fup, req.kp_dict)
         import dataclasses
+
         return dataclasses.asdict(r)
     except HTTPException:
         raise
@@ -5696,7 +5738,8 @@ def api_tissue_binding(req: _TissueBindingReq):
 # ---------------------------------------------------------------------------
 # Phase 76 — Food-Drug Interaction
 # ---------------------------------------------------------------------------
-from omega_pbpk.clinical.food_drug_interaction import predict_food_effect, food_effect_bcs_matrix
+from omega_pbpk.clinical.food_drug_interaction import predict_food_effect
+
 
 class _FoodEffectReq(BaseModel):
     drug_name: str
@@ -5707,14 +5750,21 @@ class _FoodEffectReq(BaseModel):
     bcs_class: str = "II"
     solubility_fasted_mg_mL: float = 0.1
 
+
 @app.post("/predict/food_effect")
 def api_food_effect(req: _FoodEffectReq):
     try:
         r = predict_food_effect(
-            req.drug_name, req.logP, req.pka, req.drug_type,
-            req.dose_mg, req.bcs_class, req.solubility_fasted_mg_mL,
+            req.drug_name,
+            req.logP,
+            req.pka,
+            req.drug_type,
+            req.dose_mg,
+            req.bcs_class,
+            req.solubility_fasted_mg_mL,
         )
         import dataclasses
+
         return dataclasses.asdict(r)
     except HTTPException:
         raise
@@ -5725,7 +5775,8 @@ def api_food_effect(req: _FoodEffectReq):
 # ---------------------------------------------------------------------------
 # Phase 77 — Clearance Prediction
 # ---------------------------------------------------------------------------
-from omega_pbpk.prediction.clearance_prediction import predict_clearance, batch_clearance_predict
+from omega_pbpk.prediction.clearance_prediction import predict_clearance
+
 
 class _ClearanceReq(BaseModel):
     drug_name: str
@@ -5736,11 +5787,15 @@ class _ClearanceReq(BaseModel):
     PSA: float = 60.0
     drug_type: str = "neutral"
 
+
 @app.post("/predict/clearance")
 def api_clearance(req: _ClearanceReq):
     try:
-        r = predict_clearance(req.drug_name, req.logP, req.MW, req.fup, req.pka, req.PSA, req.drug_type)
+        r = predict_clearance(
+            req.drug_name, req.logP, req.MW, req.fup, req.pka, req.PSA, req.drug_type
+        )
         import dataclasses
+
         return dataclasses.asdict(r)
     except HTTPException:
         raise
@@ -5751,7 +5806,8 @@ def api_clearance(req: _ClearanceReq):
 # ---------------------------------------------------------------------------
 # Phase 78 — Therapeutic Drug Monitoring
 # ---------------------------------------------------------------------------
-from omega_pbpk.clinical.drug_monitoring import assess_tdm, tdm_dashboard
+from omega_pbpk.clinical.drug_monitoring import tdm_dashboard
+
 
 class _TDMReq(BaseModel):
     drug_name: str
@@ -5761,15 +5817,119 @@ class _TDMReq(BaseModel):
     therapeutic_max_mg_L: float
     target_pct_within: float = 80.0
 
+
 @app.post("/tdm/assess")
 def api_tdm(req: _TDMReq):
     try:
         r = tdm_dashboard(
-            req.drug_name, req.measured_conc_mg_L, req.measured_times_h,
-            req.therapeutic_min_mg_L, req.therapeutic_max_mg_L,
+            req.drug_name,
+            req.measured_conc_mg_L,
+            req.measured_times_h,
+            req.therapeutic_min_mg_L,
+            req.therapeutic_max_mg_L,
         )
         return r
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 79 — Renal Dosing
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.renal_dosing import adjust_renal_dose, renal_dose_from_patient
+
+class _RenalDoseReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    dosing_interval_h: float
+    crcl_mL_per_min: float
+    fraction_renal: float = 0.5
+
+@app.post("/dose/renal")
+def api_renal_dose(req: _RenalDoseReq):
+    try:
+        r = adjust_renal_dose(req.drug_name, req.dose_mg, req.dosing_interval_h,
+                               req.crcl_mL_per_min, req.fraction_renal)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 80 — Permeability Prediction
+# ---------------------------------------------------------------------------
+from omega_pbpk.prediction.permeability import predict_permeability
+
+class _PermeabilityReq(BaseModel):
+    drug_name: str
+    logP: float
+    MW: float
+    PSA: float
+    HBD: int | None = None
+    efflux_substrate: bool = False
+
+@app.post("/predict/permeability")
+def api_permeability(req: _PermeabilityReq):
+    try:
+        r = predict_permeability(req.drug_name, req.logP, req.MW, req.PSA,
+                                  req.HBD, req.efflux_substrate)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 81 — Flip-Flop PK
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.flip_flop import simulate_flip_flop
+
+class _FlipFlopReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    vd_L: float
+    ka_per_h: float
+    ke_per_h: float
+    f: float = 1.0
+    t_end_h: float = 24.0
+
+@app.post("/simulate/flip_flop")
+def api_flip_flop(req: _FlipFlopReq):
+    try:
+        r = simulate_flip_flop(req.drug_name, req.dose_mg, req.vd_L,
+                                req.ka_per_h, req.ke_per_h, req.f, req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 82 — Organ Impairment
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.organ_impairment import adjust_for_organ_impairment
+
+class _OrganImpairmentReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    dosing_interval_h: float
+    cl_L_per_h: float
+    vd_L: float
+    crcl_mL_per_min: float = 100.0
+    child_pugh_score: int = 5
+    nyha_class: int = 1
+    fraction_renal: float = 0.3
+    fraction_hepatic: float = 0.6
+
+@app.post("/dose/organ_impairment")
+def api_organ_impairment(req: _OrganImpairmentReq):
+    try:
+        r = adjust_for_organ_impairment(
+            req.drug_name, req.dose_mg, req.dosing_interval_h,
+            req.cl_L_per_h, req.vd_L, req.crcl_mL_per_min,
+            req.child_pugh_score, req.nyha_class,
+            req.fraction_renal, req.fraction_hepatic,
+        )
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
