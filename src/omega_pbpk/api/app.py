@@ -8425,3 +8425,77 @@ def api_maternal_fetal_compare_ga(body: dict):
             for r in results
         ]
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 134 — Lung PBPK (inhaled drug pharmacokinetics)
+# ---------------------------------------------------------------------------
+from omega_pbpk.core.lung_pbpk import (
+    compare_devices as _compare_lung_devices,
+)
+from omega_pbpk.core.lung_pbpk import (  # noqa: E402
+    simulate_lung_pk as _simulate_lung_pk,
+)
+
+
+@app.post("/simulate/lung_pk")
+def api_lung_pk(body: dict):
+    """Simulate inhaled drug PK with regional lung deposition."""
+    try:
+        r = _simulate_lung_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            device=body.get("device", "dpi"),
+            ka_pulmonary_per_h=float(body.get("ka_pulmonary_per_h", 4.0)),
+            ka_tb_per_h=float(body.get("ka_tb_per_h", 1.0)),
+            ka_op_per_h=float(body.get("ka_op_per_h", 0.5)),
+            f_gi=float(body.get("f_gi", 0.5)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "device": r.device,
+        "dose_mg": r.dose_mg,
+        "cmax_mg_L": r.cmax_mg_L,
+        "tmax_h": r.tmax_h,
+        "auc_0_t": r.auc_0_t,
+        "lung_bioavailability": r.lung_bioavailability,
+        "total_bioavailability": r.total_bioavailability,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "cp_mg_L": r.cp_mg_L,
+    }
+
+
+@app.post("/simulate/lung_pk/compare_devices")
+def api_lung_compare_devices(body: dict):
+    """Compare inhaled PK across different inhaler device types."""
+    try:
+        results = _compare_lung_devices(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            devices=body.get("devices"),
+            ka_pulmonary_per_h=float(body.get("ka_pulmonary_per_h", 4.0)),
+            f_gi=float(body.get("f_gi", 0.5)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "device": r.device,
+                "cmax_mg_L": r.cmax_mg_L,
+                "tmax_h": r.tmax_h,
+                "auc_0_t": r.auc_0_t,
+                "lung_bioavailability": r.lung_bioavailability,
+                "total_bioavailability": r.total_bioavailability,
+            }
+            for r in results
+        ]
+    }
