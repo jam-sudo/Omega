@@ -1,15 +1,25 @@
-"""Pediatric dose scaling — allometric + maturation function."""
+"""Pediatric dose scaling — allometric + maturation function + weight/BSA-based rules."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 __all__ = [
+    # Legacy API (kept for backward compatibility)
     "PediatricDosingResult",
     "pediatric_dose",
     "pediatric_dose_range",
     "allometric_dose_scaling",
+    # New API (Phase 228)
+    "PediatricDoseResult",
+    "bsa_dubois",
+    "calculate_pediatric_dose",
+    "dose_frequency_adjustment",
 ]
+
+# ---------------------------------------------------------------------------
+# Legacy API
+# ---------------------------------------------------------------------------
 
 # CYP3A4 ontogeny: (age_years, fraction_adult_activity)
 CYP3A4_ONTOGENY: list[tuple[float, float]] = [
@@ -147,3 +157,244 @@ def pediatric_dose_range(
             }
         )
     return results
+
+
+# ---------------------------------------------------------------------------
+# New API (Phase 228)
+# ---------------------------------------------------------------------------
+
+# Maturation half-life for clearance (years) — simplified Hill model
+# CL maturation: CL_mat = CL_adult * age^n / (TM50^n + age^n)
+_CL_MAT_TM50 = 0.25  # half-mature age in years (approximately 3 months post-birth)
+_CL_MAT_HILL = 3.4  # Hill exponent
+
+
+def bsa_dubois(weight_kg: float, height_cm: float) -> float:
+    """Compute body surface area using DuBois formula.
+
+    BSA = 0.007184 * weight_kg^0.425 * height_cm^0.725  (m²)
+
+    Parameters
+    ----------
+    weight_kg:
+        Body weight in kilograms (must be > 0).
+    height_cm:
+        Height in centimetres (must be > 0).
+
+    Returns
+    -------
+    float
+        BSA in m².
+    """
+    if weight_kg <= 0:
+        raise ValueError("weight_kg must be positive.")
+    if height_cm <= 0:
+        raise ValueError("height_cm must be positive.")
+    return 0.007184 * (weight_kg**0.425) * (height_cm**0.725)
+
+
+@dataclass
+class PediatricDoseResult:
+    """Result from weight/BSA-based pediatric dose calculation."""
+
+    drug_name: str
+    method: str
+    age_years: float | None
+    weight_kg: float | None
+    height_cm: float | None
+    bsa_m2: float | None
+    adult_dose_mg: float
+    calculated_dose_mg: float
+    adjusted_dose_mg: float
+    dose_per_kg: float | None
+    was_clamped: bool
+    cautions: list[str]
+    notes: str
+
+
+def calculate_pediatric_dose(
+    drug_name: str,
+    adult_dose_mg: float,
+    adult_bsa_m2: float = 1.73,
+    weight_kg: float | None = None,
+    height_cm: float | None = None,
+    age_years: float | None = None,
+    method: str = "bsa",
+    max_dose_mg: float | None = None,
+    min_dose_mg: float | None = None,
+) -> PediatricDoseResult:
+    """Calculate weight/BSA-based pediatric dose.
+
+    Parameters
+    ----------
+    drug_name:
+        Drug name (informational).
+    adult_dose_mg:
+        Adult dose in mg.
+    adult_bsa_m2:
+        Reference adult BSA in m² (default 1.73).
+    weight_kg:
+        Child weight in kg (required for bsa, weight, clark methods).
+    height_cm:
+        Child height in cm (required for bsa method).
+    age_years:
+        Child age in years (required for young method).
+    method:
+        One of "bsa", "weight", "young", "clark".
+    max_dose_mg:
+        Upper clamp on dose.
+    min_dose_mg:
+        Lower clamp on dose.
+
+    Returns
+    -------
+    PediatricDoseResult
+    """
+    if adult_dose_mg <= 0:
+        raise ValueError("adult_dose_mg must be positive.")
+
+    valid_methods = {"bsa", "weight", "young", "clark"}
+    if method not in valid_methods:
+        raise ValueError(f"method must be one of {valid_methods}. Got: {method!r}")
+
+    # Validate required parameters per method
+    if method == "bsa":
+        if weight_kg is None:
+            raise ValueError("weight_kg is required for method='bsa'.")
+        if height_cm is None:
+            raise ValueError("height_cm is required for method='bsa'.")
+        if weight_kg <= 0:
+            raise ValueError("weight_kg must be positive.")
+        if height_cm <= 0:
+            raise ValueError("height_cm must be positive.")
+    elif method == "weight":
+        if weight_kg is None:
+            raise ValueError("weight_kg is required for method='weight'.")
+        if weight_kg <= 0:
+            raise ValueError("weight_kg must be positive.")
+    elif method == "young":
+        if age_years is None:
+            raise ValueError("age_years is required for method='young'.")
+        if age_years <= 0:
+            raise ValueError("age_years must be positive.")
+    elif method == "clark":
+        if weight_kg is None:
+            raise ValueError("weight_kg is required for method='clark'.")
+        if weight_kg <= 0:
+            raise ValueError("weight_kg must be positive.")
+
+    # Compute BSA if relevant
+    bsa_m2: float | None = None
+    if method == "bsa" and weight_kg is not None and height_cm is not None:
+        bsa_m2 = bsa_dubois(weight_kg, height_cm)
+
+    # Calculate dose
+    if method == "bsa":
+        calculated_dose = adult_dose_mg * (bsa_m2 / adult_bsa_m2)  # type: ignore[operator]
+        notes = f"BSA method: {bsa_m2:.3f} m² / {adult_bsa_m2} m² (reference)"
+    elif method == "weight":
+        mg_per_kg_adult = adult_dose_mg / 70.0  # use 70 kg reference adult
+        calculated_dose = mg_per_kg_adult * weight_kg  # type: ignore[operator]
+        notes = f"Weight method: {mg_per_kg_adult:.3f} mg/kg × {weight_kg} kg"
+    elif method == "young":
+        calculated_dose = adult_dose_mg * age_years / (age_years + 12.0)  # type: ignore[operator]
+        notes = f"Young's rule: age {age_years} / (age + 12)"
+    else:  # clark
+        calculated_dose = adult_dose_mg * weight_kg / 68.0  # type: ignore[operator]
+        notes = f"Clark's rule: {weight_kg} kg / 68 kg"
+
+    # Clamp
+    adjusted_dose = calculated_dose
+    was_clamped = False
+    if max_dose_mg is not None and adjusted_dose > max_dose_mg:
+        adjusted_dose = max_dose_mg
+        was_clamped = True
+    if min_dose_mg is not None and adjusted_dose < min_dose_mg:
+        adjusted_dose = min_dose_mg
+        was_clamped = True
+
+    # Dose per kg
+    dose_per_kg: float | None = None
+    if weight_kg is not None and weight_kg > 0:
+        dose_per_kg = adjusted_dose / weight_kg
+
+    # Age-specific cautions
+    cautions: list[str] = []
+    if age_years is not None:
+        if age_years < 2.0:
+            cautions.append(
+                "Very young patient (age < 2 years): use with extreme caution, "
+                "verify dose with neonatal/infant specialist."
+            )
+        if age_years < 1.0:
+            cautions.append(
+                "Infant (age < 1 year): immature organ function, consider reduced dosing interval."
+            )
+        if age_years < 0.25:
+            cautions.append(
+                "Neonate: highly variable PK; therapeutic drug monitoring recommended."
+            )
+    if weight_kg is not None and weight_kg < 5.0:
+        cautions.append("Low body weight (< 5 kg): precise weight-based dosing critical.")
+
+    return PediatricDoseResult(
+        drug_name=drug_name,
+        method=method,
+        age_years=age_years,
+        weight_kg=weight_kg,
+        height_cm=height_cm,
+        bsa_m2=bsa_m2,
+        adult_dose_mg=adult_dose_mg,
+        calculated_dose_mg=calculated_dose,
+        adjusted_dose_mg=adjusted_dose,
+        dose_per_kg=dose_per_kg,
+        was_clamped=was_clamped,
+        cautions=cautions,
+        notes=notes,
+    )
+
+
+def dose_frequency_adjustment(
+    age_years: float,
+    adult_frequency_h: float,
+    maturation_factor: float = 1.0,
+) -> float:
+    """Adjust dosing interval based on age-related clearance maturation.
+
+    Younger patients have lower clearance maturation → longer dosing interval.
+
+    Parameters
+    ----------
+    age_years:
+        Patient age in years.
+    adult_frequency_h:
+        Adult dosing interval in hours (e.g. 8, 12, 24).
+    maturation_factor:
+        Additional scaling factor (default 1.0 = no extra adjustment).
+
+    Returns
+    -------
+    float
+        Adjusted dosing interval in hours. Younger patients → larger value.
+    """
+    if age_years <= 0:
+        raise ValueError("age_years must be positive.")
+    if adult_frequency_h <= 0:
+        raise ValueError("adult_frequency_h must be positive.")
+
+    # Clearance maturation fraction (Hill equation)
+    # mat = age^hill / (TM50^hill + age^hill)
+    tm50 = _CL_MAT_TM50
+    hill = _CL_MAT_HILL
+    mat = (age_years**hill) / (tm50**hill + age_years**hill)
+
+    # Clip to [0.05, 1.0] to prevent unreasonably long intervals
+    mat = max(0.05, min(1.0, mat))
+
+    # Adjusted interval = adult_interval / maturation (lower CL → longer interval)
+    adjusted = adult_frequency_h / (mat * maturation_factor)
+
+    # Practical ceiling: no more than 5× adult interval
+    adjusted = min(adjusted, adult_frequency_h * 5.0)
+
+    return adjusted
