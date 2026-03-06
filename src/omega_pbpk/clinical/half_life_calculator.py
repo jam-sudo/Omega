@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -22,8 +21,8 @@ _N_HALF_LIVES_TO_SS = math.log(1.0 / (1.0 - 0.95)) / math.log(2.0)  # ~4.3219
 class HalfLifeResult:
     drug_name: str
     t_half_h: float
-    t_half_alpha_h: Optional[float]
-    t_half_beta_h: Optional[float]
+    t_half_alpha_h: float | None
+    t_half_beta_h: float | None
     n_half_lives_to_steady_state: float
     n_half_lives_to_washout: float
     tss_h: float
@@ -36,7 +35,7 @@ class HalfLifeResult:
 def calculate_half_life(
     drug_name: str,
     t_half_h: float,
-    dosing_interval_h: Optional[float] = None,
+    dosing_interval_h: float | None = None,
     target_fluctuation_pct: float = 100.0,
 ) -> HalfLifeResult:
     """Calculate half-life-derived PK dosing parameters.
@@ -109,9 +108,7 @@ def optimal_dosing_interval(
     if t_half_h <= 0:
         raise ValueError(f"t_half_h must be > 0, got {t_half_h}")
     if target_accumulation_ratio <= 1.0:
-        raise ValueError(
-            f"target_accumulation_ratio must be > 1, got {target_accumulation_ratio}"
-        )
+        raise ValueError(f"target_accumulation_ratio must be > 1, got {target_accumulation_ratio}")
 
     R = target_accumulation_ratio
     tau_unclamped = t_half_h * math.log2(R / (R - 1.0))

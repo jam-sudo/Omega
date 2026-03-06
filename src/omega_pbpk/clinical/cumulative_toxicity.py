@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
-
-from omega_pbpk._compat import np_trapz
 
 
 @dataclass(frozen=True)
@@ -16,11 +13,11 @@ class CumulativeToxicityResult:
     cycle_doses_mg: list[float]
     cycle_aucs: list[float]
     cumulative_auc: float
-    toxicity_score: list[float]   # per cycle (0–1)
-    cumulative_toxicity: float    # total 0–1
-    dlt_probability: float        # probability of dose-limiting toxicity
-    predicted_grade: int          # CTCAE grade 0-4
-    safe_cumulative_auc: float    # threshold before toxicity
+    toxicity_score: list[float]  # per cycle (0–1)
+    cumulative_toxicity: float  # total 0–1
+    dlt_probability: float  # probability of dose-limiting toxicity
+    predicted_grade: int  # CTCAE grade 0-4
+    safe_cumulative_auc: float  # threshold before toxicity
     recommendation: str
 
 
@@ -53,9 +50,6 @@ def simulate_multicycle_pk(
     if n_cycles <= 0:
         raise ValueError("n_cycles must be > 0")
     ke = cl_L_per_h / vd_L
-
-    # Use superposition: Cn_trough = C0_trough * (1 - r^n)/(1-r) where r=exp(-ke*tau)
-    r = math.exp(-ke * cycle_interval_h)
 
     n_pts = max(int(t_per_cycle_h / dt_h), 1)
     t_cycle = np.linspace(0.0, t_per_cycle_h, n_pts + 1)
@@ -148,8 +142,8 @@ def assess_cumulative_toxicity(
         if auc_i <= 0:
             tox_scores.append(0.0)
             continue
-        auc_h = auc_i ** hill
-        mtc_h = auc_mtc ** hill
+        auc_h = auc_i**hill
+        mtc_h = auc_mtc**hill
         tox_i = auc_h / (mtc_h + auc_h)
         tox_scores.append(float(tox_i))
 
@@ -160,7 +154,7 @@ def assess_cumulative_toxicity(
 
     # DLT probability based on cumulative AUC
     dlt_prob = float(min(cumulative_auc / max(safe_cumulative_auc, 1e-9), 1.0))
-    dlt_prob = float((cumulative_auc ** hill) / (safe_cumulative_auc ** hill + cumulative_auc ** hill))
+    dlt_prob = float((cumulative_auc**hill) / (safe_cumulative_auc**hill + cumulative_auc**hill))
 
     # CTCAE grade
     if cumtox < 0.10:

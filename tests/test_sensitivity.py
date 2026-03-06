@@ -1,6 +1,7 @@
 """Tests for omega_pbpk.core.sensitivity module."""
 
 import pytest
+
 from omega_pbpk.core.sensitivity import (
     SensitivityResult,
     local_sensitivity,
@@ -20,6 +21,7 @@ NOMINAL_PARAMS = {"CL": 2.0, "Vd": 10.0}
 # ---------------------------------------------------------------------------
 # SensitivityResult dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestSensitivityResultDataclass:
     def test_has_required_fields(self):
@@ -52,6 +54,7 @@ class TestSensitivityResultDataclass:
 # ---------------------------------------------------------------------------
 # local_sensitivity — basic structure
 # ---------------------------------------------------------------------------
+
 
 class TestLocalSensitivityStructure:
     def test_returns_list(self):
@@ -102,6 +105,7 @@ class TestLocalSensitivityStructure:
 # local_sensitivity — ranking
 # ---------------------------------------------------------------------------
 
+
 class TestLocalSensitivityRanking:
     def test_ranks_are_unique_integers(self):
         results = local_sensitivity(sim, NOMINAL_PARAMS)
@@ -134,6 +138,7 @@ class TestLocalSensitivityRanking:
 # ---------------------------------------------------------------------------
 # local_sensitivity — unit elasticity (product model)
 # ---------------------------------------------------------------------------
+
 
 class TestLocalSensitivityElasticity:
     """For output = CL * Vd, doubling either param doubles output.
@@ -179,6 +184,7 @@ class TestLocalSensitivityElasticity:
 # local_sensitivity — ValueError for invalid h
 # ---------------------------------------------------------------------------
 
+
 class TestLocalSensitivityValidation:
     def test_h_zero_raises_value_error(self):
         with pytest.raises(ValueError):
@@ -209,11 +215,10 @@ class TestLocalSensitivityValidation:
 # normalized_sensitivity_matrix
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizedSensitivityMatrix:
     def test_returns_dict(self):
-        matrix = normalized_sensitivity_matrix(
-            sim, NOMINAL_PARAMS, output_metrics=["auc"]
-        )
+        matrix = normalized_sensitivity_matrix(sim, NOMINAL_PARAMS, output_metrics=["auc"])
         assert isinstance(matrix, dict)
 
     def test_dict_has_correct_metric_keys(self):
@@ -224,15 +229,11 @@ class TestNormalizedSensitivityMatrix:
             assert m in matrix
 
     def test_single_metric_key_present(self):
-        matrix = normalized_sensitivity_matrix(
-            sim, NOMINAL_PARAMS, output_metrics=["auc"]
-        )
+        matrix = normalized_sensitivity_matrix(sim, NOMINAL_PARAMS, output_metrics=["auc"])
         assert "auc" in matrix
 
     def test_matrix_values_contain_param_sensitivities(self):
-        matrix = normalized_sensitivity_matrix(
-            sim, NOMINAL_PARAMS, output_metrics=["auc"]
-        )
+        matrix = normalized_sensitivity_matrix(sim, NOMINAL_PARAMS, output_metrics=["auc"])
         auc_row = matrix["auc"]
         assert isinstance(auc_row, list)
         param_names = [r.parameter_name for r in auc_row]
@@ -247,6 +248,7 @@ class TestNormalizedSensitivityMatrix:
 # ---------------------------------------------------------------------------
 # tornado_plot_data
 # ---------------------------------------------------------------------------
+
 
 class TestTornadoPlotData:
     def setup_method(self):

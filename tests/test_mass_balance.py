@@ -1,13 +1,13 @@
 """Tests for omega_pbpk.core.mass_balance module."""
 
 import pytest
+
 from omega_pbpk.core.mass_balance import (
     MassBalanceResult,
     check_mass_balance,
     compare_mass_balance,
     track_simulation_balance,
 )
-
 
 # ---------------------------------------------------------------------------
 # MassBalanceResult dataclass structure
@@ -156,12 +156,8 @@ class TestCheckMassBalanceUnbalanced:
 
     def test_custom_tolerance_affects_balanced_flag(self):
         # 95% recovery — unbalanced at 1% tolerance, balanced at 10% tolerance
-        result_tight = check_mass_balance(
-            "DrugN", dose_mg=100, absorbed_mg=95, tolerance_pct=1.0
-        )
-        result_loose = check_mass_balance(
-            "DrugN", dose_mg=100, absorbed_mg=95, tolerance_pct=10.0
-        )
+        result_tight = check_mass_balance("DrugN", dose_mg=100, absorbed_mg=95, tolerance_pct=1.0)
+        result_loose = check_mass_balance("DrugN", dose_mg=100, absorbed_mg=95, tolerance_pct=10.0)
         assert result_tight.is_balanced is False
         assert result_loose.is_balanced is True
 

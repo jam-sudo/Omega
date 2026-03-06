@@ -71,8 +71,20 @@ class TestPredictPGxDose:
 class TestBatchScreen:
     def test_returns_list(self):
         patients = [
-            {"drug_name": "Drug", "cyp_enzyme": "CYP2D6", "allele1": "*1", "allele2": "*4", "standard_dose_mg": 100.0},
-            {"drug_name": "Drug", "cyp_enzyme": "CYP2D6", "allele1": "*4", "allele2": "*4", "standard_dose_mg": 100.0},
+            {
+                "drug_name": "Drug",
+                "cyp_enzyme": "CYP2D6",
+                "allele1": "*1",
+                "allele2": "*4",
+                "standard_dose_mg": 100.0,
+            },
+            {
+                "drug_name": "Drug",
+                "cyp_enzyme": "CYP2D6",
+                "allele1": "*4",
+                "allele2": "*4",
+                "standard_dose_mg": 100.0,
+            },
         ]
         results = batch_pgx_screen(patients)
         assert len(results) == 2

@@ -1,17 +1,18 @@
 """Tests for omega_pbpk.clinical.transporter_ddi module."""
 
 import pytest
+
 from omega_pbpk.clinical.transporter_ddi import (
     TransporterDDIResult,
+    _r_value,
     assess_transporter_ddi,
     batch_transporter_screen,
-    _r_value,
 )
-
 
 # ---------------------------------------------------------------------------
 # _r_value unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestRValueFormula:
     def test_competitive_basic(self):
@@ -44,6 +45,7 @@ class TestRValueFormula:
 # assess_transporter_ddi — return type and field preservation
 # ---------------------------------------------------------------------------
 
+
 class TestAssessTransporterDDIReturnType:
     def test_returns_transporter_ddi_result(self):
         result = assess_transporter_ddi("digoxin", "clarithromycin", "P-gp", ki_uM=1.0)
@@ -62,8 +64,9 @@ class TestAssessTransporterDDIReturnType:
         assert result.transporter == "OATP1B1"
 
     def test_inhibition_type_preserved(self):
-        result = assess_transporter_ddi("digoxin", "verapamil", "P-gp", ki_uM=1.0,
-                                        inhibition_type="competitive")
+        result = assess_transporter_ddi(
+            "digoxin", "verapamil", "P-gp", ki_uM=1.0, inhibition_type="competitive"
+        )
         assert result.inhibition_type == "competitive"
 
     def test_ki_uM_preserved(self):
@@ -71,8 +74,9 @@ class TestAssessTransporterDDIReturnType:
         assert result.ki_uM == pytest.approx(3.5)
 
     def test_inhibitor_conc_uM_preserved(self):
-        result = assess_transporter_ddi("drug_a", "drug_b", "BCRP", ki_uM=1.0,
-                                        inhibitor_conc_uM=0.25)
+        result = assess_transporter_ddi(
+            "drug_a", "drug_b", "BCRP", ki_uM=1.0, inhibitor_conc_uM=0.25
+        )
         assert result.inhibitor_conc_uM == pytest.approx(0.25)
 
 
@@ -80,27 +84,32 @@ class TestAssessTransporterDDIReturnType:
 # assess_transporter_ddi — r_value and aucr_predicted calculations
 # ---------------------------------------------------------------------------
 
+
 class TestAssessTransporterDDICalculations:
     def test_r_value_formula(self):
         """r_value = 1 + I/Ki; I=0.5, Ki=0.5 -> 2.0"""
-        result = assess_transporter_ddi("drug_a", "drug_b", "P-gp", ki_uM=0.5,
-                                        inhibitor_conc_uM=0.5)
+        result = assess_transporter_ddi(
+            "drug_a", "drug_b", "P-gp", ki_uM=0.5, inhibitor_conc_uM=0.5
+        )
         assert result.r_value == pytest.approx(2.0)
 
     def test_r_value_equals_aucr(self):
         """aucr_predicted should equal r_value."""
-        result = assess_transporter_ddi("drug_a", "drug_b", "P-gp", ki_uM=1.0,
-                                        inhibitor_conc_uM=1.0)
+        result = assess_transporter_ddi(
+            "drug_a", "drug_b", "P-gp", ki_uM=1.0, inhibitor_conc_uM=1.0
+        )
         assert result.aucr_predicted == pytest.approx(result.r_value)
 
     def test_r_value_gte_one(self):
-        result = assess_transporter_ddi("drug_a", "drug_b", "OATP1B1", ki_uM=100.0,
-                                        inhibitor_conc_uM=0.001)
+        result = assess_transporter_ddi(
+            "drug_a", "drug_b", "OATP1B1", ki_uM=100.0, inhibitor_conc_uM=0.001
+        )
         assert result.r_value >= 1.0
 
     def test_aucr_gte_one(self):
-        result = assess_transporter_ddi("drug_a", "drug_b", "OCT2", ki_uM=50.0,
-                                        inhibitor_conc_uM=0.0)
+        result = assess_transporter_ddi(
+            "drug_a", "drug_b", "OCT2", ki_uM=50.0, inhibitor_conc_uM=0.0
+        )
         assert result.aucr_predicted >= 1.0
 
     def test_default_inhibitor_conc(self):
@@ -113,58 +122,65 @@ class TestAssessTransporterDDICalculations:
 # assess_transporter_ddi — clinical_relevance thresholds
 # ---------------------------------------------------------------------------
 
+
 class TestClinicalRelevance:
     def test_contraindicated_threshold(self):
         """aucr >= 5 -> contraindicated"""
         # I=4.0, Ki=1.0 -> r=5.0
-        result = assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1.0,
-                                        inhibitor_conc_uM=4.0)
+        result = assess_transporter_ddi(
+            "drug_v", "drug_p", "P-gp", ki_uM=1.0, inhibitor_conc_uM=4.0
+        )
         assert result.clinical_relevance == "contraindicated"
 
     def test_strong_threshold(self):
         """2 <= aucr < 5 -> strong"""
         # I=1.0, Ki=1.0 -> r=2.0
-        result = assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1.0,
-                                        inhibitor_conc_uM=1.0)
+        result = assess_transporter_ddi(
+            "drug_v", "drug_p", "P-gp", ki_uM=1.0, inhibitor_conc_uM=1.0
+        )
         assert result.clinical_relevance == "strong"
 
     def test_moderate_threshold(self):
         """1.25 <= aucr < 2 -> moderate"""
         # I=0.25, Ki=1.0 -> r=1.25
-        result = assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1.0,
-                                        inhibitor_conc_uM=0.25)
+        result = assess_transporter_ddi(
+            "drug_v", "drug_p", "P-gp", ki_uM=1.0, inhibitor_conc_uM=0.25
+        )
         assert result.clinical_relevance == "moderate"
 
     def test_weak_threshold(self):
         """aucr < 1.25 -> weak"""
         # I=0.1, Ki=1.0 -> r=1.1
-        result = assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1.0,
-                                        inhibitor_conc_uM=0.1)
+        result = assess_transporter_ddi(
+            "drug_v", "drug_p", "P-gp", ki_uM=1.0, inhibitor_conc_uM=0.1
+        )
         assert result.clinical_relevance == "weak"
 
     def test_high_ratio_is_contraindicated(self):
         """Very high I/Ki ratio must yield contraindicated."""
-        result = assess_transporter_ddi("digoxin", "quinidine", "P-gp", ki_uM=0.1,
-                                        inhibitor_conc_uM=10.0)
+        result = assess_transporter_ddi(
+            "digoxin", "quinidine", "P-gp", ki_uM=0.1, inhibitor_conc_uM=10.0
+        )
         assert result.clinical_relevance == "contraindicated"
 
     def test_low_ratio_is_weak(self):
         """Very low I/Ki ratio must yield weak."""
-        result = assess_transporter_ddi("metformin", "trimethoprim", "OCT2",
-                                        ki_uM=100.0, inhibitor_conc_uM=0.001)
+        result = assess_transporter_ddi(
+            "metformin", "trimethoprim", "OCT2", ki_uM=100.0, inhibitor_conc_uM=0.001
+        )
         assert result.clinical_relevance == "weak"
 
     def test_clinical_relevance_is_valid_string(self):
         valid = {"contraindicated", "strong", "moderate", "weak"}
         for ki, conc in [(0.1, 5.0), (1.0, 1.5), (1.0, 0.3), (10.0, 0.01)]:
-            result = assess_transporter_ddi("v", "p", "P-gp", ki_uM=ki,
-                                            inhibitor_conc_uM=conc)
+            result = assess_transporter_ddi("v", "p", "P-gp", ki_uM=ki, inhibitor_conc_uM=conc)
             assert result.clinical_relevance in valid
 
 
 # ---------------------------------------------------------------------------
 # assess_transporter_ddi — fda_recommendation
 # ---------------------------------------------------------------------------
+
 
 class TestFDARecommendation:
     def test_fda_recommendation_non_empty(self):
@@ -173,14 +189,16 @@ class TestFDARecommendation:
         assert len(result.fda_recommendation) > 0
 
     def test_fda_recommendation_non_empty_for_contraindicated(self):
-        result = assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=0.5,
-                                        inhibitor_conc_uM=5.0)
+        result = assess_transporter_ddi(
+            "drug_v", "drug_p", "P-gp", ki_uM=0.5, inhibitor_conc_uM=5.0
+        )
         assert len(result.fda_recommendation) > 0
 
 
 # ---------------------------------------------------------------------------
 # assess_transporter_ddi — ValueError conditions
 # ---------------------------------------------------------------------------
+
 
 class TestValueErrors:
     def test_ki_zero_raises_value_error(self):
@@ -193,25 +211,27 @@ class TestValueErrors:
 
     def test_inhibitor_conc_negative_raises_value_error(self):
         with pytest.raises(ValueError):
-            assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1.0,
-                                   inhibitor_conc_uM=-0.1)
+            assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1.0, inhibitor_conc_uM=-0.1)
 
     def test_ki_very_small_positive_does_not_raise(self):
         """ki_uM=1e-9 should not raise; it is positive."""
-        result = assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1e-9,
-                                        inhibitor_conc_uM=0.0)
+        result = assess_transporter_ddi(
+            "drug_v", "drug_p", "P-gp", ki_uM=1e-9, inhibitor_conc_uM=0.0
+        )
         assert result.r_value >= 1.0
 
     def test_inhibitor_conc_zero_does_not_raise(self):
         """inhibitor_conc_uM=0.0 is valid (no inhibitor present)."""
-        result = assess_transporter_ddi("drug_v", "drug_p", "P-gp", ki_uM=1.0,
-                                        inhibitor_conc_uM=0.0)
+        result = assess_transporter_ddi(
+            "drug_v", "drug_p", "P-gp", ki_uM=1.0, inhibitor_conc_uM=0.0
+        )
         assert result.r_value == pytest.approx(1.0)
 
 
 # ---------------------------------------------------------------------------
 # batch_transporter_screen
 # ---------------------------------------------------------------------------
+
 
 class TestBatchTransporterScreen:
     def setup_method(self):

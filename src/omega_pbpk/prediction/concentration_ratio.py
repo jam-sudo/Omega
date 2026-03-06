@@ -1,9 +1,11 @@
-"""Tissue-to-plasma concentration ratio prediction (Kp) using simplified Rodgers-Rowland approach."""
+"""Tissue-to-plasma concentration ratio prediction (Kp).
+
+Uses simplified Rodgers-Rowland approach.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 __all__ = [
     "ConcentrationRatioResult",
@@ -26,7 +28,7 @@ class ConcentrationRatioResult:
     kp_predicted: float
     kp_method: str
     tissue_conc_free_uM: float
-    plasma_conc_total_mg_L: Optional[float]
+    plasma_conc_total_mg_L: float | None
     tissue_binding_factor: float
 
 
@@ -55,7 +57,7 @@ def predict_kp(
     tissue: str,
     pka: float = 7.0,
     drug_type: str = "neutral",
-    plasma_conc_total_mg_L: Optional[float] = None,
+    plasma_conc_total_mg_L: float | None = None,
 ) -> ConcentrationRatioResult:
     if fup <= 0 or fup > 1:
         raise ValueError(f"fup must be in (0, 1], got {fup}")
@@ -107,10 +109,10 @@ def predict_kp_panel(
     drug_name: str,
     logP: float,
     fup: float,
-    tissues: Optional[list[str]] = None,
+    tissues: list[str] | None = None,
     pka: float = 7.0,
     drug_type: str = "neutral",
-    plasma_conc_total_mg_L: Optional[float] = None,
+    plasma_conc_total_mg_L: float | None = None,
 ) -> list[ConcentrationRatioResult]:
     if tissues is None:
         tissues = _DEFAULT_TISSUES

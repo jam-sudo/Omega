@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -23,8 +22,8 @@ class DissolutionResult:
     model_params: dict
     times_h: list
     pct_dissolved: list
-    t80_h: Optional[float]
-    t90_h: Optional[float]
+    t80_h: float | None
+    t90_h: float | None
     dissolution_rate_pct_per_h: float
     sink_conditions: bool
 
@@ -45,7 +44,7 @@ def _noyes_whitney(
     return D_cm2_per_s * surface_area_cm2 * driving_force / h_cm
 
 
-def _interpolate_time_at_pct(times: np.ndarray, pcts: np.ndarray, target: float) -> Optional[float]:
+def _interpolate_time_at_pct(times: np.ndarray, pcts: np.ndarray, target: float) -> float | None:
     """Linear interpolation to find time when pct_dissolved crosses target."""
     for i in range(1, len(pcts)):
         if pcts[i - 1] <= target <= pcts[i]:
@@ -76,7 +75,7 @@ def simulate_noyes_whitney(
     # Initial particle properties
     # Volume of one sphere: (4/3)*pi*r^3 cm^3
     # density in g/cm^3 -> mass per particle in g -> convert to mg
-    volume_per_particle_cm3 = (4.0 / 3.0) * math.pi * particle_radius_cm ** 3
+    volume_per_particle_cm3 = (4.0 / 3.0) * math.pi * particle_radius_cm**3
     mass_per_particle_mg = volume_per_particle_cm3 * density_g_cm3 * 1000.0  # g->mg
 
     # Number of particles
@@ -90,8 +89,6 @@ def simulate_noyes_whitney(
 
     remaining_mass_mg = dose_mg
     dissolved_mass_mg = 0.0
-    sink = solubility_mg_mL * dissolution_volume_mL  # total sink capacity mg
-
     initial_rate_sum = 0.0
     initial_rate_count = 0
 
@@ -110,16 +107,13 @@ def simulate_noyes_whitney(
         # Current concentration in dissolution medium
         c_t = dissolved_mass_mg / dissolution_volume_mL  # mg/mL
 
-        # Sink condition: concentration << solubility (< 10% of Cs)
-        sink_cond = c_t < 0.1 * solubility_mg_mL
-
         # Current radius from remaining mass
         # remaining mass = n_particles * density * (4/3)*pi*r^3 * 1000
         r_current_cm3 = remaining_mass_mg / (n_particles * density_g_cm3 * 1000.0)
         r_current_cm = (r_current_cm3 / ((4.0 / 3.0) * math.pi)) ** (1.0 / 3.0)
 
         # Surface area of all particles
-        surface_area_cm2 = n_particles * 4.0 * math.pi * r_current_cm ** 2
+        surface_area_cm2 = n_particles * 4.0 * math.pi * r_current_cm**2
 
         # Dissolution rate
         rate_mg_per_s = _noyes_whitney(
@@ -195,8 +189,8 @@ def simulate_weibull(
     t90 = td_h * ((-math.log(0.1)) ** (1.0 / beta))
 
     # Only report if within simulation range
-    t80_out: Optional[float] = t80 if t80 <= t_end_h else None
-    t90_out: Optional[float] = t90 if t90 <= t_end_h else None
+    t80_out: float | None = t80 if t80 <= t_end_h else None
+    t90_out: float | None = t90 if t90 <= t_end_h else None
 
     # Initial rate: derivative at t->0+ for beta>=1 or numeric for beta<1
     # d(F)/dt = 100 * (beta/td) * (t/td)^(beta-1) * exp(-(t/td)^beta)

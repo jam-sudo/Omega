@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omega_pbpk.prediction.volume_prediction import (
     VolumePredictionResult,
     predict_vd_tissue,
@@ -60,8 +58,10 @@ class TestPredictVdTissue:
 
 class TestScreenVd:
     def test_returns_list(self):
-        compounds = [{"drug_name": "A", "logP": 2.0, "fup": 0.5},
-                     {"drug_name": "B", "logP": 4.0, "fup": 0.2}]
+        compounds = [
+            {"drug_name": "A", "logP": 2.0, "fup": 0.5},
+            {"drug_name": "B", "logP": 4.0, "fup": 0.2},
+        ]
         results = screen_vd(compounds)
         assert len(results) == 2
 

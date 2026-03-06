@@ -1,6 +1,7 @@
 """Tests for omega_pbpk.clinical.trial_simulation."""
 
 import pytest
+
 from omega_pbpk.clinical.trial_simulation import (
     TrialSimResult,
     dose_response_simulation,
@@ -10,6 +11,7 @@ from omega_pbpk.clinical.trial_simulation import (
 VALID_RECOMMENDATIONS = {"proceed", "enrich", "stop_futility", "stop_efficacy"}
 
 # --- Fixtures ---
+
 
 @pytest.fixture
 def base_result():
@@ -66,11 +68,13 @@ def dose_response_results():
 
 # --- 1. Return type is TrialSimResult ---
 
+
 def test_simulate_trial_returns_trialsimresult(base_result):
     assert isinstance(base_result, TrialSimResult)
 
 
 # --- 2. responder_rate in [0, 1] ---
+
 
 def test_responder_rate_bounds_low(base_result):
     assert base_result.responder_rate >= 0.0
@@ -82,6 +86,7 @@ def test_responder_rate_bounds_high(base_result):
 
 # --- 3. p_value in [0, 1] ---
 
+
 def test_p_value_lower_bound(base_result):
     assert base_result.p_value >= 0.0
 
@@ -91,6 +96,7 @@ def test_p_value_upper_bound(base_result):
 
 
 # --- 4. confidence_interval_95 is tuple of 2 floats with ci[0] < ci[1] ---
+
 
 def test_ci_is_tuple(base_result):
     assert isinstance(base_result.confidence_interval_95, tuple)
@@ -113,6 +119,7 @@ def test_ci_lower_less_than_upper(base_result):
 
 # --- 5. is_significant == (p_value < 0.05) ---
 
+
 def test_is_significant_matches_p_value(base_result):
     assert base_result.is_significant == (base_result.p_value < 0.05)
 
@@ -123,6 +130,7 @@ def test_is_significant_across_multiple_doses(dose_response_results):
 
 
 # --- 6. trial_recommendation is valid string ---
+
 
 def test_trial_recommendation_valid(base_result):
     assert base_result.trial_recommendation in VALID_RECOMMENDATIONS
@@ -139,11 +147,13 @@ def test_trial_recommendation_across_doses(dose_response_results):
 
 # --- 7. High dose -> higher responder_rate than low dose (same ec50) ---
 
+
 def test_high_dose_higher_responder_rate(low_dose_result, high_dose_result):
     assert high_dose_result.responder_rate >= low_dose_result.responder_rate
 
 
 # --- 8. dose_response list length == len(doses) ---
+
 
 def test_dose_response_list_length(dose_response_results):
     assert len(dose_response_results) == 5
@@ -163,6 +173,7 @@ def test_dose_response_list_length_single():
 
 
 # --- 9. dose_response sorted by dose_mg ascending ---
+
 
 def test_dose_response_sorted_ascending(dose_response_results):
     doses = [r.dose_mg for r in dose_response_results]
@@ -186,6 +197,7 @@ def test_dose_response_sorted_when_input_unsorted():
 
 # --- 10. n_subjects preserved ---
 
+
 def test_n_subjects_preserved(base_result):
     assert base_result.n_subjects == 100
 
@@ -205,6 +217,7 @@ def test_n_subjects_preserved_varied():
 
 # --- 11. drug_name preserved ---
 
+
 def test_drug_name_preserved(base_result):
     assert base_result.drug_name == "DrugA"
 
@@ -215,6 +228,7 @@ def test_drug_name_preserved_in_dose_response(dose_response_results):
 
 
 # --- 12. seed reproducible (same result twice) ---
+
 
 def test_seed_reproducibility():
     kwargs = dict(
@@ -259,6 +273,7 @@ def test_different_seeds_may_differ():
 
 # --- 13. mean_response in [0, emax] ---
 
+
 def test_mean_response_lower_bound(base_result):
     assert base_result.mean_response >= 0.0
 
@@ -284,6 +299,7 @@ def test_mean_response_upper_bound_custom_emax():
 
 # --- 14. dose_mg preserved ---
 
+
 def test_dose_mg_preserved():
     result = simulate_trial(
         drug_name="DrugJ",
@@ -298,6 +314,7 @@ def test_dose_mg_preserved():
 
 
 # --- 15. primary_endpoint preserved ---
+
 
 def test_primary_endpoint_default(base_result):
     assert base_result.primary_endpoint == "response_rate"
@@ -318,6 +335,7 @@ def test_primary_endpoint_custom():
 
 
 # --- 16. Hill coefficient and placebo effect parameters accepted ---
+
 
 def test_hill_coefficient_parameter():
     result = simulate_trial(
@@ -351,6 +369,7 @@ def test_placebo_effect_parameter():
 
 # --- 17. dose_response returns list of TrialSimResult ---
 
+
 def test_dose_response_returns_list(dose_response_results):
     assert isinstance(dose_response_results, list)
 
@@ -362,6 +381,7 @@ def test_dose_response_elements_are_trialsimresult(dose_response_results):
 
 # --- 18. power field exists and is in [0, 1] ---
 
+
 def test_power_in_range(base_result):
     assert 0.0 <= base_result.power <= 1.0
 
@@ -372,6 +392,7 @@ def test_power_across_doses(dose_response_results):
 
 
 # --- 19. Very low dose -> low responder_rate ---
+
 
 def test_very_low_dose_low_responder_rate():
     result = simulate_trial(
@@ -389,6 +410,7 @@ def test_very_low_dose_low_responder_rate():
 
 # --- 20. responder_threshold parameter accepted ---
 
+
 def test_responder_threshold_parameter():
     result = simulate_trial(
         drug_name="DrugO",
@@ -405,6 +427,7 @@ def test_responder_threshold_parameter():
 
 
 # --- 21. TrialSimResult dataclass fields ---
+
 
 def test_trialsimresult_has_all_fields(base_result):
     assert hasattr(base_result, "n_subjects")

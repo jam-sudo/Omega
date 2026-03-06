@@ -7,30 +7,28 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from omega_pbpk._compat import np_trapz
-
 
 @dataclass(frozen=True)
 class EffectCompartmentResult:
     drug_name: str
     times_h: list[float]
-    cp_mg_L: list[float]      # plasma concentration
-    ce_mg_L: list[float]      # effect compartment concentration
-    effect: list[float]       # pharmacodynamic effect (0–1)
-    ke0_per_h: float          # equilibration rate constant
+    cp_mg_L: list[float]  # plasma concentration
+    ce_mg_L: list[float]  # effect compartment concentration
+    effect: list[float]  # pharmacodynamic effect (0–1)
+    ke0_per_h: float  # equilibration rate constant
     emax: float
     ec50_mg_L: float
     hill: float
-    tmax_effect_h: float      # time of peak effect
-    emax_observed: float      # peak effect achieved
-    hysteresis_area: float    # area of CE-E loop (hysteresis index)
+    tmax_effect_h: float  # time of peak effect
+    emax_observed: float  # peak effect achieved
+    hysteresis_area: float  # area of CE-E loop (hysteresis index)
 
 
 def _emax_effect(ce: float, ec50: float, emax: float, hill: float) -> float:
     """Hill equation: E = Emax * Ce^hill / (EC50^hill + Ce^hill)."""
     if ce <= 0:
         return 0.0
-    ceh = ce ** hill
+    ceh = ce**hill
     ec50h = max(ec50, 1e-9) ** hill
     return float(emax * ceh / (ec50h + ceh))
 

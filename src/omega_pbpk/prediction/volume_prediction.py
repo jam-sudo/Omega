@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
-
 
 # Tissue volumes (L/70 kg human) and blood flows (L/h)
 # From ICRP 2002 reference human
@@ -29,10 +27,10 @@ _BLOOD_PLASMA_RATIO = 1.0  # simplified: assume BP ratio = 1
 @dataclass(frozen=True)
 class VolumePredictionResult:
     drug_name: str
-    vd_L: float               # Vd at steady-state (L/70 kg)
-    vd_per_kg_L: float        # Vd (L/kg)
-    kp_tissue: dict           # tissue:Kp values
-    classification: str       # low (<0.6 L/kg) / moderate (0.6–20) / high (>20)
+    vd_L: float  # Vd at steady-state (L/70 kg)
+    vd_per_kg_L: float  # Vd (L/kg)
+    kp_tissue: dict  # tissue:Kp values
+    classification: str  # low (<0.6 L/kg) / moderate (0.6–20) / high (>20)
     fup: float
     logP: float
     method: str
@@ -57,7 +55,7 @@ def _kp_regression(
     fp_t = td["frac_protein"]
 
     fw_p = _PLASMA_WATER
-    P = 10 ** logP  # octanol:water partition coefficient
+    P = 10**logP  # octanol:water partition coefficient
 
     # Neutral drug (Kp):
     # Kp = fup * (fw_t/fw_p + P*flp_t/flp_p + fp_t*fp_factor/fw_p)

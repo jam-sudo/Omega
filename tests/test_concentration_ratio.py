@@ -1,13 +1,13 @@
 """Tests for omega_pbpk.prediction.concentration_ratio module."""
 
 import pytest
+
 from omega_pbpk.prediction.concentration_ratio import (
     ConcentrationRatioResult,
+    _estimate_fut,
     predict_kp,
     predict_kp_panel,
-    _estimate_fut,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

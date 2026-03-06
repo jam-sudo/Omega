@@ -173,7 +173,7 @@ def vd_population_range(
 
     # CV → sigma for lognormal: sigma² = ln(1 + CV²)
     cv = cv_pct / 100.0
-    sigma = math.sqrt(math.log(1.0 + cv ** 2))
+    sigma = math.sqrt(math.log(1.0 + cv**2))
     mu = math.log(p50)
 
     # z-scores for 5th and 95th percentiles ≈ ±1.645

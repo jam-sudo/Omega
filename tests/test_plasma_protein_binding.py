@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omega_pbpk.prediction.plasma_protein_binding import (
     PPBResult,
-    predict_ppb,
     ppb_sensitivity,
+    predict_ppb,
 )
 
 

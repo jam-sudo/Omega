@@ -4,35 +4,54 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 # Metabolizer phenotype activity scores
 _PHENOTYPE_ACTIVITY = {
-    "UM": 2.0,   # Ultra-rapid metabolizer
-    "EM": 1.0,   # Extensive (normal) metabolizer
-    "IM": 0.5,   # Intermediate metabolizer
-    "PM": 0.1,   # Poor metabolizer
+    "UM": 2.0,  # Ultra-rapid metabolizer
+    "EM": 1.0,  # Extensive (normal) metabolizer
+    "IM": 0.5,  # Intermediate metabolizer
+    "PM": 0.1,  # Poor metabolizer
 }
 
 # CYP allele → activity score mapping (simplified)
 _ALLELE_ACTIVITY: dict[str, dict[str, float]] = {
     "CYP2D6": {
-        "*1": 1.0, "*2": 1.0, "*3": 0.0, "*4": 0.0,
-        "*5": 0.0, "*6": 0.0, "*9": 0.5, "*10": 0.25,
-        "*17": 0.5, "*41": 0.5, "*1xN": 2.0, "*2xN": 2.0,
+        "*1": 1.0,
+        "*2": 1.0,
+        "*3": 0.0,
+        "*4": 0.0,
+        "*5": 0.0,
+        "*6": 0.0,
+        "*9": 0.5,
+        "*10": 0.25,
+        "*17": 0.5,
+        "*41": 0.5,
+        "*1xN": 2.0,
+        "*2xN": 2.0,
     },
     "CYP2C19": {
-        "*1": 1.0, "*2": 0.0, "*3": 0.0, "*17": 1.5,
+        "*1": 1.0,
+        "*2": 0.0,
+        "*3": 0.0,
+        "*17": 1.5,
         "*1xN": 2.0,
     },
     "CYP2C9": {
-        "*1": 1.0, "*2": 0.5, "*3": 0.25, "*5": 0.0,
+        "*1": 1.0,
+        "*2": 0.5,
+        "*3": 0.25,
+        "*5": 0.0,
         "*6": 0.0,
     },
     "CYP3A4": {
-        "*1": 1.0, "*22": 0.5, "*1G": 1.0,
+        "*1": 1.0,
+        "*22": 0.5,
+        "*1G": 1.0,
     },
     "CYP3A5": {
-        "*1": 1.0, "*3": 0.0, "*6": 0.0, "*7": 0.0,
+        "*1": 1.0,
+        "*3": 0.0,
+        "*6": 0.0,
+        "*7": 0.0,
     },
 }
 
@@ -44,12 +63,12 @@ class PGxResult:
     allele1: str
     allele2: str
     activity_score: float
-    phenotype: str           # UM / EM / IM / PM
-    cl_scaling_factor: float # relative to EM (1.0)
+    phenotype: str  # UM / EM / IM / PM
+    cl_scaling_factor: float  # relative to EM (1.0)
     recommended_dose_mg: float
     standard_dose_mg: float
     dose_adjustment_pct: float  # relative to standard dose
-    fm: float                   # fraction metabolized by this CYP
+    fm: float  # fraction metabolized by this CYP
     clinical_note: str
 
 
@@ -121,10 +140,15 @@ def predict_pgx_dose(
 
     # Clinical note
     notes = {
-        "PM": f"Poor metabolizer: reduce dose by ~{abs(adjustment_pct):.0f}% or consider alternative drug",
+        "PM": (
+            f"Poor metabolizer: reduce dose by ~{abs(adjustment_pct):.0f}%"
+            " or consider alternative drug"
+        ),
         "IM": f"Intermediate metabolizer: consider {abs(adjustment_pct):.0f}% dose reduction",
         "EM": "Normal metabolizer: standard dose appropriate",
-        "UM": f"Ultra-rapid metabolizer: consider {adjustment_pct:.0f}% dose increase or alternative",
+        "UM": (
+            f"Ultra-rapid metabolizer: consider {adjustment_pct:.0f}% dose increase or alternative"
+        ),
     }
     note = notes.get(phenotype, "Monitor drug levels closely")
 

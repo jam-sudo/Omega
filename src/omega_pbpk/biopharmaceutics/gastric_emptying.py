@@ -6,21 +6,19 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from omega_pbpk._compat import np_trapz
-
 
 @dataclass(frozen=True)
 class GastricEmptyingResult:
-    state: str                    # fasted / fed
-    t_lag_h: float                # gastric lag time
-    t_emptying_h: float           # time for 50% gastric emptying
-    ka_effective_per_h: float     # effective absorption rate (after transit)
+    state: str  # fasted / fed
+    t_lag_h: float  # gastric lag time
+    t_emptying_h: float  # time for 50% gastric emptying
+    ka_effective_per_h: float  # effective absorption rate (after transit)
     fraction_absorbed_1h: float
     fraction_absorbed_4h: float
     times_h: list[float]
     fraction_remaining_gut: list[float]
     fraction_absorbed: list[float]
-    transit_time_h: float         # total small intestine transit time
+    transit_time_h: float  # total small intestine transit time
     note: str
 
 
@@ -78,15 +76,14 @@ def simulate_gastric_emptying(
     t = np.linspace(0.0, t_end_h, n + 1)
 
     m_stomach = dose_mg  # drug in stomach
-    m_intestine = 0.0    # drug in small intestine
-    m_absorbed = 0.0     # drug absorbed
+    m_intestine = 0.0  # drug in small intestine
+    m_absorbed = 0.0  # drug absorbed
 
     frac_remaining = np.zeros(n + 1)
     frac_absorbed = np.zeros(n + 1)
     frac_remaining[0] = 1.0
 
-    # Effective ka accounting for transit: if drug passes ileocecal valve, not absorbed
-    # Simplified: ka_eff = ka_absorption if transit_time >> 1/ka else ka_eff = min(ka, 1/transit_time)
+    # Effective ka: min(ka_absorption, 3/transit_time) to account for absorption window
     ka_eff = min(ka_absorption_per_h, 1.0 / max(transit_time_h, 0.1) * 3.0)
 
     for i in range(n):

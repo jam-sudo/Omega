@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from omega_pbpk.prediction.logp_predictor import (
     LogPResult,
     predict_logp,

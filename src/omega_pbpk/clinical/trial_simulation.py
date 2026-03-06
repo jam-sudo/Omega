@@ -58,8 +58,8 @@ def _simulate_pk_response(
     css = (dose_mg * 24.0) / cl_ind  # mg/L  (dose in mg, cl in L/h -> mg/L)
 
     # Emax model
-    css_n = css ** n_hill
-    ec50_n = ec50_mg_L ** n_hill
+    css_n = css**n_hill
+    ec50_n = ec50_mg_L**n_hill
     effect = emax * css_n / (ec50_n + css_n)
 
     return effect

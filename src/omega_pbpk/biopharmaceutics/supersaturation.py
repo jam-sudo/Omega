@@ -14,15 +14,15 @@ from omega_pbpk._compat import np_trapz
 class SupersaturationResult:
     drug_name: str
     solubility_crystalline_mg_mL: float
-    solubility_amorphous_mg_mL: float   # typically 10-1000x crystalline
-    supersaturation_ratio: float         # C_aq / C_equilibrium
+    solubility_amorphous_mg_mL: float  # typically 10-1000x crystalline
+    supersaturation_ratio: float  # C_aq / C_equilibrium
     times_h: list[float]
-    conc_dissolved_mg_mL: list[float]   # dissolved concentration over time
-    conc_precipitate_mg_mL: list[float] # precipitated drug
-    t_onset_precipitation_h: float      # time supersaturation begins to fall
-    t50_precipitation_h: float          # time to 50% precipitation
-    auc_dissolved: float                # AUC of dissolved drug (mg·h/mL)
-    spring_and_parachute_auc: float     # AUC with polymer parachute (10% bonus)
+    conc_dissolved_mg_mL: list[float]  # dissolved concentration over time
+    conc_precipitate_mg_mL: list[float]  # precipitated drug
+    t_onset_precipitation_h: float  # time supersaturation begins to fall
+    t50_precipitation_h: float  # time to 50% precipitation
+    auc_dissolved: float  # AUC of dissolved drug (mg·h/mL)
+    spring_and_parachute_auc: float  # AUC with polymer parachute (10% bonus)
     precipitation_complete: bool
 
 

@@ -1,13 +1,13 @@
 """Tests for omega_pbpk.clinical.interaction_score module."""
 
 import pytest
+
 from omega_pbpk.clinical.interaction_score import (
     InteractionScoreResult,
+    calculate_interaction_score,
     score_cyp_perpetrator,
     score_cyp_victim,
-    calculate_interaction_score,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper constants
@@ -119,8 +119,13 @@ class TestScoreCypVictim:
         assert score < 5.0
 
     def test_score_clamped_to_10(self):
-        score = score_cyp_victim("extreme_victim", fm_cyp3a4=1.0, fm_cyp2d6=1.0,
-                                  fm_cyp2c9=1.0, narrow_therapeutic_index=True)
+        score = score_cyp_victim(
+            "extreme_victim",
+            fm_cyp3a4=1.0,
+            fm_cyp2d6=1.0,
+            fm_cyp2c9=1.0,
+            narrow_therapeutic_index=True,
+        )
         assert score <= 10.0
 
     def test_score_clamped_to_0(self):

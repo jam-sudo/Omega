@@ -17,14 +17,14 @@ class InfusionResult:
     infusion_duration_h: float
     times_h: list[float]
     conc_mg_L: list[float]
-    css_mg_L: float             # steady-state concentration (theoretical)
-    css_90pct_h: float          # time to reach 90% of Css
+    css_mg_L: float  # steady-state concentration (theoretical)
+    css_90pct_h: float  # time to reach 90% of Css
     auc_0_t: float
     auc_0_inf: float
     cmax: float
     tmax_h: float
     t_half_h: float
-    post_infusion_auc: float    # AUC after infusion stops
+    post_infusion_auc: float  # AUC after infusion stops
 
 
 def simulate_constant_infusion(
@@ -151,15 +151,18 @@ def simulate_loading_then_maintenance(
             # Maintenance (superpose on post-loading decay)
             c_at_Tload = css_load * (1.0 - math.exp(-ke * T_load))
             t_since = ti - T_load
-            conc[i] = c_at_Tload * math.exp(-ke * t_since) + css_maint * (1.0 - math.exp(-ke * t_since))
+            conc[i] = c_at_Tload * math.exp(-ke * t_since) + css_maint * (
+                1.0 - math.exp(-ke * t_since)
+            )
         else:
             # Post-maintenance
             c_at_Tmaint = 0.0
             if T_maint_end > 0:
                 c_at_Tload = css_load * (1.0 - math.exp(-ke * T_load))
                 t_maint = T_maint_end - T_load
-                c_at_Tmaint = (c_at_Tload * math.exp(-ke * t_maint)
-                               + css_maint * (1.0 - math.exp(-ke * t_maint)))
+                c_at_Tmaint = c_at_Tload * math.exp(-ke * t_maint) + css_maint * (
+                    1.0 - math.exp(-ke * t_maint)
+                )
             conc[i] = c_at_Tmaint * math.exp(-ke * (ti - T_maint_end))
 
     auc = float(np_trapz(conc, t))
@@ -200,9 +203,13 @@ def compare_bolus_vs_infusion(
 
     results = {}
     # Bolus: treat as 5-min infusion
-    results["bolus_5min"] = simulate_constant_infusion(drug_name, dose_mg, 5.0 / 60.0, cl_L_per_h, vd_L)
+    results["bolus_5min"] = simulate_constant_infusion(
+        drug_name, dose_mg, 5.0 / 60.0, cl_L_per_h, vd_L
+    )
     for dur in infusion_durations_h:
-        results[f"{dur}h_infusion"] = simulate_constant_infusion(drug_name, dose_mg, dur, cl_L_per_h, vd_L)
+        results[f"{dur}h_infusion"] = simulate_constant_infusion(
+            drug_name, dose_mg, dur, cl_L_per_h, vd_L
+        )
 
     return results
 

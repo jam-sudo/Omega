@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from omega_pbpk.core.compartmental_analysis import (
     CompartmentResult,
@@ -22,7 +21,9 @@ def _one_cpt_data(n=25):
 
 def _two_cpt_data(n=25):
     t = np.linspace(0.1, 24, n).tolist()
-    c = (8.0 * np.exp(-1.5 * np.linspace(0.1, 24, n)) + 4.0 * np.exp(-0.1 * np.linspace(0.1, 24, n))).tolist()
+    c = (
+        8.0 * np.exp(-1.5 * np.linspace(0.1, 24, n)) + 4.0 * np.exp(-0.1 * np.linspace(0.1, 24, n))
+    ).tolist()
     return t, c
 
 

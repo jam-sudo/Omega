@@ -56,7 +56,10 @@ def _fit_two_compartment(times: np.ndarray, conc: np.ndarray) -> tuple[dict, lis
 
     predicted = (A * np.exp(-alpha * times) + B * np.exp(-beta * times)).tolist()
     params = {
-        "A": A, "alpha": alpha, "B": B, "beta": beta,
+        "A": A,
+        "alpha": alpha,
+        "B": B,
+        "beta": beta,
         "thalf_alpha": math.log(2) / alpha,
         "thalf_beta": math.log(2) / beta,
     }

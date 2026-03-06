@@ -71,5 +71,7 @@ class TestTMDDResult:
         assert r.total_target_nmol_L > 0.0
 
     def test_oral_route_tmax_after_t0(self):
-        r = simulate_tmdd_qss("Drug", 10.0, 5.0, 0.01, 0.1, 0.02, route="oral", ka_per_h=0.5, t_end_h=168.0, dt_h=1.0)
+        r = simulate_tmdd_qss(
+            "Drug", 10.0, 5.0, 0.01, 0.1, 0.02, route="oral", ka_per_h=0.5, t_end_h=168.0, dt_h=1.0
+        )
         assert r.tmax_h > 0.0

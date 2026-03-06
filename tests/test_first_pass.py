@@ -1,18 +1,19 @@
 """Tests for omega_pbpk.core.first_pass module."""
 
 import pytest
+
 from omega_pbpk.core.first_pass import (
     FirstPassResult,
+    _gut_availability,
+    _hepatic_extraction,
     calculate_first_pass,
     first_pass_sensitivity,
-    _hepatic_extraction,
-    _gut_availability,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def default_result():
@@ -48,6 +49,7 @@ def zero_extraction_result():
 # 1. Return type is FirstPassResult
 # ---------------------------------------------------------------------------
 
+
 def test_returns_first_pass_result_type(default_result):
     assert isinstance(default_result, FirstPassResult)
 
@@ -55,6 +57,7 @@ def test_returns_first_pass_result_type(default_result):
 # ---------------------------------------------------------------------------
 # 2. e_hepatic in [0, 0.999]
 # ---------------------------------------------------------------------------
+
 
 def test_e_hepatic_lower_bound(zero_extraction_result):
     assert zero_extraction_result.e_hepatic >= 0.0
@@ -78,6 +81,7 @@ def test_e_hepatic_in_range_various():
 # 3. f_hepatic == 1 - e_hepatic (approximately)
 # ---------------------------------------------------------------------------
 
+
 def test_f_hepatic_equals_one_minus_e_hepatic(default_result):
     assert default_result.f_hepatic == pytest.approx(1.0 - default_result.e_hepatic, rel=1e-6)
 
@@ -91,6 +95,7 @@ def test_f_hepatic_equals_one_minus_e_hepatic_high(high_extraction_result):
 # ---------------------------------------------------------------------------
 # 4. f_oral in [0, 1]
 # ---------------------------------------------------------------------------
+
 
 def test_f_oral_in_range_default(default_result):
     assert 0.0 <= default_result.f_oral <= 1.0
@@ -108,6 +113,7 @@ def test_f_oral_in_range_zero_extraction(zero_extraction_result):
 # 5. High cl_int -> high extraction
 # ---------------------------------------------------------------------------
 
+
 def test_high_cl_int_gives_high_extraction():
     result = calculate_first_pass("D", 100.0, 0.9, 10000.0)
     assert result.e_hepatic > 0.9
@@ -123,6 +129,7 @@ def test_high_extraction_relative_ordering():
 # 6. Zero cl_int -> extraction ~ 0
 # ---------------------------------------------------------------------------
 
+
 def test_zero_cl_int_extraction_near_zero(zero_extraction_result):
     assert zero_extraction_result.e_hepatic == pytest.approx(0.0, abs=1e-9)
 
@@ -134,6 +141,7 @@ def test_zero_cl_int_f_hepatic_near_one(zero_extraction_result):
 # ---------------------------------------------------------------------------
 # 7. IV route -> f_oral == 1.0
 # ---------------------------------------------------------------------------
+
 
 def test_iv_route_f_oral_is_one():
     result = calculate_first_pass(
@@ -155,6 +163,7 @@ def test_iv_route_stored_in_result():
 # 8. ValueError for dose_mg <= 0
 # ---------------------------------------------------------------------------
 
+
 def test_raises_on_zero_dose():
     with pytest.raises(ValueError):
         calculate_first_pass("D", 0.0, 0.1, 10.0)
@@ -168,6 +177,7 @@ def test_raises_on_negative_dose():
 # ---------------------------------------------------------------------------
 # 9. ValueError for fup <= 0
 # ---------------------------------------------------------------------------
+
 
 def test_raises_on_zero_fup():
     with pytest.raises(ValueError):
@@ -183,6 +193,7 @@ def test_raises_on_negative_fup():
 # 10. ValueError for cl_int < 0
 # ---------------------------------------------------------------------------
 
+
 def test_raises_on_negative_cl_int():
     with pytest.raises(ValueError):
         calculate_first_pass("D", 100.0, 0.1, -1.0)
@@ -191,6 +202,7 @@ def test_raises_on_negative_cl_int():
 # ---------------------------------------------------------------------------
 # 11. hepatic_cl_L_per_h == e_hepatic * q_hepatic (approximately)
 # ---------------------------------------------------------------------------
+
 
 def test_hepatic_cl_equals_e_times_q(default_result):
     expected = default_result.e_hepatic * default_result.q_hepatic_L_per_h
@@ -207,6 +219,7 @@ def test_hepatic_cl_custom_q():
 # 12. well_stirred_model == 'well_stirred'
 # ---------------------------------------------------------------------------
 
+
 def test_well_stirred_model_label(default_result):
     assert default_result.well_stirred_model == "well_stirred"
 
@@ -214,6 +227,7 @@ def test_well_stirred_model_label(default_result):
 # ---------------------------------------------------------------------------
 # 13. sensitivity list length == len(cl_int_range)
 # ---------------------------------------------------------------------------
+
 
 def test_sensitivity_list_length():
     cl_int_range = [1.0, 10.0, 50.0, 100.0, 500.0]
@@ -237,6 +251,7 @@ def test_sensitivity_returns_first_pass_results():
 # 14. Higher cl_int -> higher e_hepatic (monotonicity in sensitivity)
 # ---------------------------------------------------------------------------
 
+
 def test_sensitivity_monotone_extraction():
     cl_int_range = [0.1, 1.0, 10.0, 100.0, 1000.0]
     results = first_pass_sensitivity("D", 100.0, 0.3, cl_int_range)
@@ -247,6 +262,7 @@ def test_sensitivity_monotone_extraction():
 # ---------------------------------------------------------------------------
 # 15. fa=1 and low logP -> f_oral close to f_hepatic
 # ---------------------------------------------------------------------------
+
 
 def test_fa1_low_logP_f_oral_close_to_fh():
     """With fa=1 and low logP (high peff, fg~1), f_oral ≈ f_hepatic."""
@@ -265,6 +281,7 @@ def test_fa1_low_logP_f_oral_close_to_fh():
 # ---------------------------------------------------------------------------
 # 16. _hepatic_extraction private function
 # ---------------------------------------------------------------------------
+
 
 def test_hepatic_extraction_zero_clint():
     e = _hepatic_extraction(0.0, 90.0, 0.5)
@@ -286,6 +303,7 @@ def test_hepatic_extraction_formula():
 # ---------------------------------------------------------------------------
 # 17. _gut_availability private function
 # ---------------------------------------------------------------------------
+
 
 def test_gut_availability_in_range():
     fa, logP = 1.0, 2.0
@@ -309,6 +327,7 @@ def test_gut_availability_upper_bound():
 # ---------------------------------------------------------------------------
 # 18. Dataclass field correctness
 # ---------------------------------------------------------------------------
+
 
 def test_result_stores_drug_name(default_result):
     assert default_result.drug_name == "TestDrug"

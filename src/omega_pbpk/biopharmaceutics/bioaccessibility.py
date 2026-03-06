@@ -7,30 +7,28 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from omega_pbpk._compat import np_trapz
-
 
 @dataclass(frozen=True)
 class BioaccessibilityResult:
     drug_name: str
     pka: float | None
-    drug_type: str          # 'acid', 'base', or 'neutral'
+    drug_type: str  # 'acid', 'base', or 'neutral'
     dose_mg: float
     # Solubility at GI pH values
-    solubility_stomach_mg_mL: float     # pH 1.5
-    solubility_duodenum_mg_mL: float    # pH 6.3
-    solubility_jejunum_mg_mL: float     # pH 6.8
-    solubility_ileum_mg_mL: float       # pH 7.5
-    solubility_colon_mg_mL: float       # pH 7.8
+    solubility_stomach_mg_mL: float  # pH 1.5
+    solubility_duodenum_mg_mL: float  # pH 6.3
+    solubility_jejunum_mg_mL: float  # pH 6.8
+    solubility_ileum_mg_mL: float  # pH 7.5
+    solubility_colon_mg_mL: float  # pH 7.8
     # Precipitation risk
-    precipitation_risk: str             # none / low / moderate / high
+    precipitation_risk: str  # none / low / moderate / high
     # Dissolved fraction at each segment
     fa_stomach: float
     fa_intestine: float
     fa_total: float
     # Dose number
-    dose_number: float      # Do = Dose / (Solubility_SIF * 250 mL); Do > 1 = absorption limited
-    dose_limited: bool      # True if Do > 1
+    dose_number: float  # Do = Dose / (Solubility_SIF * 250 mL); Do > 1 = absorption limited
+    dose_limited: bool  # True if Do > 1
 
 
 def _henderson_hasselbalch(

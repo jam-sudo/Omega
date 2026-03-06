@@ -88,19 +88,22 @@ class TestSimulateEffectCompartment:
 
 class TestSimulatePKPD:
     def test_returns_result_type(self):
-        r = simulate_pkpd_iv("Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=20.0,
-                              ke0_per_h=0.3, ec50_mg_L=2.0)
+        r = simulate_pkpd_iv(
+            "Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=20.0, ke0_per_h=0.3, ec50_mg_L=2.0
+        )
         assert isinstance(r, EffectCompartmentResult)
 
     def test_effect_positive(self):
-        r = simulate_pkpd_iv("Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=20.0,
-                              ke0_per_h=0.3, ec50_mg_L=2.0)
+        r = simulate_pkpd_iv(
+            "Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=20.0, ke0_per_h=0.3, ec50_mg_L=2.0
+        )
         assert max(r.effect) > 0.0
 
     def test_invalid_dose_raises(self):
         with pytest.raises(ValueError):
-            simulate_pkpd_iv("Drug", dose_mg=0.0, cl_L_per_h=5.0, vd_L=20.0,
-                              ke0_per_h=0.5, ec50_mg_L=2.0)
+            simulate_pkpd_iv(
+                "Drug", dose_mg=0.0, cl_L_per_h=5.0, vd_L=20.0, ke0_per_h=0.5, ec50_mg_L=2.0
+            )
 
     def test_slow_ke0_delays_tmax(self):
         r_fast = simulate_pkpd_iv("Drug", 100.0, 5.0, 20.0, ke0_per_h=5.0, ec50_mg_L=1.0)

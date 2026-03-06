@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -28,7 +27,7 @@ class MassBalanceResult:
     remaining_mg: float
     is_balanced: bool
     tolerance_pct: float
-    error_message: Optional[str]
+    error_message: str | None
 
 
 def check_mass_balance(
@@ -53,11 +52,9 @@ def check_mass_balance(
     mass_balance_pct = total_recovered / dose_mg * 100.0
     is_balanced = abs(mass_balance_pct - 100.0) < tolerance_pct
 
-    error_message: Optional[str] = None
+    error_message: str | None = None
     if not is_balanced:
-        error_message = (
-            f"Mass balance error: {mass_balance_pct:.2f}% recovered (expected 100%)"
-        )
+        error_message = f"Mass balance error: {mass_balance_pct:.2f}% recovered (expected 100%)"
 
     return MassBalanceResult(
         drug_name=drug_name,
