@@ -8025,3 +8025,52 @@ def screen_ph_solubility_endpoint(body: dict):
             for r in results
         ]
     }
+
+
+# ── Phase 127: Nonlinear Plasma Protein Binding (Saturable) ──────────────────
+from omega_pbpk.prediction.ppb_saturation import (
+    fup_at_concentration,
+    predict_ppb_saturation,
+)
+
+
+@app.post("/predict/ppb_saturation")
+def ppb_saturation_endpoint(body: dict):
+    """Predict nonlinear (saturable) plasma protein binding profile."""
+    try:
+        result = predict_ppb_saturation(
+            drug_name=body.get("drug_name", "Drug"),
+            kd_mg_L=float(body["kd_mg_L"]),
+            bmax_mg_L=float(body["bmax_mg_L"]),
+            protein=body.get("protein", "albumin"),
+            n_binding_sites=float(body.get("n_binding_sites", 1.0)),
+            conc_range_mg_L=tuple(body.get("conc_range_mg_L", [0.001, 100.0])),
+            n_points=int(body.get("n_points", 50)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "protein": result.protein,
+        "fup_linear": result.fup_linear,
+        "saturation_conc_mg_L": result.saturation_conc_mg_L,
+        "kd_mg_L": result.kd_mg_L,
+        "bmax_mg_L": result.bmax_mg_L,
+        "total_conc_mg_L": result.total_conc_mg_L,
+        "free_conc_mg_L": result.free_conc_mg_L,
+        "fup": result.fup,
+    }
+
+
+@app.post("/predict/ppb_saturation/fup_at_conc")
+def fup_at_conc_endpoint(body: dict):
+    """Compute free fraction at a specific total plasma concentration."""
+    try:
+        fup = fup_at_concentration(
+            total_conc_mg_L=float(body["total_conc_mg_L"]),
+            kd_mg_L=float(body["kd_mg_L"]),
+            bmax_mg_L=float(body["bmax_mg_L"]),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"fup": fup, "total_conc_mg_L": body["total_conc_mg_L"]}
