@@ -8499,3 +8499,419 @@ def api_lung_compare_devices(body: dict):
             for r in results
         ]
     }
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/ocular_pk  (Phase 135)
+# POST /simulate/ocular_pk/compare_routes
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.ocular_pbpk import (  # noqa: E402
+    compare_routes as _compare_ocular_routes,
+)
+from omega_pbpk.core.ocular_pbpk import (
+    simulate_ocular_pk as _simulate_ocular_pk,
+)
+
+
+@app.post("/simulate/ocular_pk")
+def api_ocular_pk(body: dict):
+    """Simulate ocular drug PK (topical eye drops or intravitreal injection).
+
+    5-compartment model: tear film → cornea → aqueous humor →
+    vitreous humor → retina/choroid → systemic.
+    """
+    try:
+        r = _simulate_ocular_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            route=body.get("route", "topical"),
+            corneal_perm_cm_h=float(body.get("corneal_perm_cm_h", 1.5e-3)),
+            cl_sys_L_per_h=float(body.get("cl_sys_L_per_h", 1.0)),
+            vd_sys_L=float(body.get("vd_sys_L", 50.0)),
+            kp_melanin=float(body.get("kp_melanin", 1.0)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+            dt_h=float(body.get("dt_h", 0.02)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "route": r.route,
+        "dose_mg": r.dose_mg,
+        "cmax_aqueous": r.cmax_aqueous,
+        "tmax_aqueous_h": r.tmax_aqueous_h,
+        "auc_aqueous": r.auc_aqueous,
+        "cmax_vitreous": r.cmax_vitreous,
+        "tmax_vitreous_h": r.tmax_vitreous_h,
+        "auc_vitreous": r.auc_vitreous,
+        "cmax_systemic": r.cmax_systemic,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "c_aqueous_mg_L": r.c_aqueous_mg_L,
+        "c_vitreous_mg_L": r.c_vitreous_mg_L,
+        "cp_mg_L": r.cp_mg_L,
+    }
+
+
+@app.post("/simulate/ocular_pk/compare_routes")
+def api_ocular_compare_routes(body: dict):
+    """Compare topical vs intravitreal PK for the same dose."""
+    try:
+        results = _compare_ocular_routes(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_sys_L_per_h=float(body.get("cl_sys_L_per_h", 1.0)),
+            vd_sys_L=float(body.get("vd_sys_L", 50.0)),
+            corneal_perm_cm_h=float(body.get("corneal_perm_cm_h", 1.5e-3)),
+            kp_melanin=float(body.get("kp_melanin", 1.0)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "route": r.route,
+                "cmax_aqueous": r.cmax_aqueous,
+                "auc_aqueous": r.auc_aqueous,
+                "cmax_vitreous": r.cmax_vitreous,
+                "auc_vitreous": r.auc_vitreous,
+                "cmax_systemic": r.cmax_systemic,
+                "notes": r.notes,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /safety/off_target   (Phase 136)
+# POST /safety/off_target/batch
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.docking.off_target import SafetyPanel as _SafetyPanel  # noqa: E402
+
+_safety_panel = _SafetyPanel()
+
+
+@app.post("/safety/off_target")
+def api_off_target(body: dict):
+    """Off-target safety panel: 11 FDA safety targets + 5 CYP IC50s.
+
+    Requires: compound_name, logP, mw.
+    Optional: tpsa (50), pka (7), cmax_uM (1), fup (0.5).
+    """
+    try:
+        report = _safety_panel.assess(
+            compound_name=body.get("compound_name", "Compound"),
+            logP=float(body["logP"]),
+            mw=float(body["mw"]),
+            tpsa=float(body.get("tpsa", 50.0)),
+            pka=float(body.get("pka", 7.0)),
+            cmax_uM=float(body.get("cmax_uM", 1.0)),
+            fup=float(body.get("fup", 0.5)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "compound_name": report.compound_name,
+        "cmax_total_uM": report.cmax_total_uM,
+        "cmax_unbound_uM": report.cmax_unbound_uM,
+        "overall_risk": report.overall_risk,
+        "flags": report.flags,
+        "target_results": [
+            {
+                "target": t.target,
+                "predicted_ic50_uM": t.predicted_ic50_uM,
+                "margin": t.margin,
+                "flag": t.flag,
+                "threshold_margin": t.threshold_margin,
+            }
+            for t in report.target_results
+        ],
+        "cyp_results": [
+            {
+                "enzyme": c.enzyme,
+                "predicted_ic50_uM": c.predicted_ic50_uM,
+                "ddi_risk": c.ddi_risk,
+            }
+            for c in report.cyp_results
+        ],
+    }
+
+
+@app.post("/safety/off_target/batch")
+def api_off_target_batch(body: dict):
+    """Batch off-target safety screening for multiple compounds.
+
+    Body: {"compounds": [{"compound_name": ..., "logP": ..., "mw": ...}, ...]}
+    """
+    compounds = body.get("compounds", [])
+    if not isinstance(compounds, list) or len(compounds) == 0:
+        raise HTTPException(status_code=400, detail="compounds must be a non-empty list")
+    results = []
+    for cmp in compounds:
+        try:
+            report = _safety_panel.assess(
+                compound_name=cmp.get("compound_name", "Compound"),
+                logP=float(cmp["logP"]),
+                mw=float(cmp["mw"]),
+                tpsa=float(cmp.get("tpsa", 50.0)),
+                pka=float(cmp.get("pka", 7.0)),
+                cmax_uM=float(cmp.get("cmax_uM", 1.0)),
+                fup=float(cmp.get("fup", 0.5)),
+            )
+            results.append(
+                {
+                    "compound_name": report.compound_name,
+                    "overall_risk": report.overall_risk,
+                    "n_flags": len(report.flags),
+                    "flags": report.flags,
+                }
+            )
+        except Exception as exc:
+            results.append({"compound_name": cmp.get("compound_name", "?"), "error": str(exc)})
+    return {"results": results, "n_compounds": len(results)}
+
+
+# ---------------------------------------------------------------------------
+# POST /pgx/polymorphism   (Phase 137)
+# POST /pgx/dose_adjustment
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.pharmacogenomics.cyp_polymorphism import (  # noqa: E402
+    ALLELE_DB as _CYP_ALLELE_DB,
+)
+from omega_pbpk.pharmacogenomics.cyp_polymorphism import (
+    PGxAnalyzer as _PGxAnalyzer,
+)
+
+_pgx_analyzer = _PGxAnalyzer()
+
+
+@app.post("/pgx/polymorphism")
+def api_pgx_polymorphism(body: dict):
+    """CYP genotype→phenotype analysis.
+
+    Body: {"gene": "CYP2D6", "population": "Global"}
+    Returns phenotype distribution and diplotype frequencies.
+    """
+    try:
+        gene = body["gene"]
+        population = body.get("population", "Global")
+        results = _pgx_analyzer.analyze_gene(gene, population)
+        summary = _pgx_analyzer.population_summary(gene, population)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "gene": gene,
+        "population": population,
+        "phenotype_distribution": summary["phenotype_distribution"],
+        "n_diplotypes": summary["n_diplotypes"],
+        "diplotypes": [
+            {
+                "diplotype": r.diplotype,
+                "phenotype": r.phenotype,
+                "activity_score": r.activity_score,
+                "clint_scaling_factor": r.clint_scaling_factor,
+                "population_frequency": r.population_frequency,
+            }
+            for r in results[:20]
+        ],
+    }
+
+
+@app.post("/pgx/dose_adjustment")
+def api_pgx_dose_adjustment(body: dict):
+    """Get CLint scaling factor for a specific CYP diplotype.
+
+    Body: {"gene": "CYP2D6", "diplotype": "*1/*4"}
+    """
+    try:
+        gene = body["gene"]
+        diplotype = body["diplotype"]
+        scaling = _pgx_analyzer.clint_scaling(gene, diplotype)
+        alleles = diplotype.split("/")
+        allele_db = {a.allele: a for a in _CYP_ALLELE_DB.get(gene, [])}
+        score = sum(allele_db[a].activity_score for a in alleles if a in allele_db)
+        phenotype = _pgx_analyzer._score_to_phenotype(score)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "gene": gene,
+        "diplotype": diplotype,
+        "phenotype": phenotype,
+        "activity_score": score,
+        "clint_scaling_factor": scaling,
+        "interpretation": (
+            "Ultra-rapid metabolizer: may need higher dose"
+            if phenotype == "UM"
+            else "Poor metabolizer: consider dose reduction or alternative drug"
+            if phenotype == "PM"
+            else "Intermediate metabolizer: monitor response"
+            if phenotype == "IM"
+            else "Normal metabolizer: standard dosing"
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/antibody_pk  (Phase 138)
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.antibody_pbpk import (
+    simulate_antibody_pk as _simulate_antibody_pk,
+)
+
+
+@app.post("/simulate/antibody_pk")
+def api_antibody_pk(body: dict):
+    """Simulate mAb/biologic PBPK with FcRn recycling and optional TMDD.
+
+    Routes: 'iv' (intravenous bolus) or 'sc' (subcutaneous).
+    """
+    try:
+        r = _simulate_antibody_pk(
+            drug_name=body.get("drug_name", "mAb"),
+            dose_mg=float(body["dose_mg"]),
+            route=body.get("route", "iv"),
+            mw_kDa=float(body.get("mw_kDa", 150.0)),
+            cl_L_per_day=float(body.get("cl_L_per_day", 0.2)),
+            vd_central_L=float(body.get("vd_central_L", 3.0)),
+            vd_tissue_L=float(body.get("vd_tissue_L", 5.0)),
+            k12_per_day=float(body.get("k12_per_day", 0.5)),
+            k21_per_day=float(body.get("k21_per_day", 0.3)),
+            ka_sc_per_day=float(body.get("ka_sc_per_day", 0.5)),
+            f_sc=float(body.get("f_sc", 0.7)),
+            fcrn_recycling=float(body.get("fcrn_recycling", 0.7)),
+            tmdd=bool(body.get("tmdd", False)),
+            r0_nM=float(body.get("r0_nM", 10.0)),
+            kon_per_nM_per_day=float(body.get("kon_per_nM_per_day", 0.1)),
+            koff_per_day=float(body.get("koff_per_day", 1.0)),
+            kint_per_day=float(body.get("kint_per_day", 0.1)),
+            t_end_day=float(body.get("t_end_day", 28.0)),
+            dt_day=float(body.get("dt_day", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "route": r.route,
+        "dose_mg": r.dose_mg,
+        "mw_kDa": r.mw_kDa,
+        "cmax_mg_L": r.cmax_mg_L,
+        "tmax_day": r.tmax_day,
+        "auc_0_t": r.auc_0_t,
+        "t_half_day": r.t_half_day,
+        "sc_bioavailability": r.sc_bioavailability,
+        "tmdd_enabled": r.tmdd_enabled,
+        "fcrn_recycling": r.fcrn_recycling,
+        "notes": r.notes,
+        "times_day": r.times_day,
+        "cc_mg_L": r.cc_mg_L,
+        "ct_mg_L": r.ct_mg_L,
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /scale/geriatric   (Phase 139)
+# POST /dose/geriatric
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.geriatric import (  # noqa: E402
+    adjust_dose_geriatric as _adjust_dose_geriatric,
+)
+from omega_pbpk.clinical.geriatric import (
+    geriatric_scaling as _geriatric_scaling,
+)
+
+
+@app.post("/scale/geriatric")
+def api_geriatric_scaling(body: dict):
+    """Compute physiological scaling factors for geriatric patients.
+
+    Returns GFR, hepatic/CYP/cardiac decline factors, body composition,
+    albumin, P-gp, and polypharmacy DDI risk.
+    """
+    try:
+        sf = _geriatric_scaling(
+            age_years=float(body["age_years"]),
+            weight_kg=float(body["weight_kg"]),
+            sex=body["sex"],
+            height_cm=float(body.get("height_cm", 170.0)),
+            n_comedications=int(body.get("n_comedications", 0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "age_years": sf.age_years,
+        "weight_kg": sf.weight_kg,
+        "sex": sf.sex,
+        "height_cm": sf.height_cm,
+        "gfr_mL_per_min": sf.gfr_mL_per_min,
+        "hepatic_flow_factor": sf.hepatic_flow_factor,
+        "cyp_activity_factor": sf.cyp_activity_factor,
+        "cardiac_output_factor": sf.cardiac_output_factor,
+        "lean_body_mass_kg": sf.lean_body_mass_kg,
+        "body_fat_fraction": sf.body_fat_fraction,
+        "albumin_factor": sf.albumin_factor,
+        "pgp_intestinal_factor": sf.pgp_intestinal_factor,
+        "polypharmacy_ddi_risk": sf.polypharmacy_ddi_risk,
+    }
+
+
+@app.post("/dose/geriatric")
+def api_geriatric_dose(body: dict):
+    """Geriatric dose adjustment for hepatic/renal/mixed elimination drugs."""
+    try:
+        adj = _adjust_dose_geriatric(
+            base_dose_mg=float(body["base_dose_mg"]),
+            drug_cl_L_per_h=float(body["drug_cl_L_per_h"]),
+            drug_vd_L=float(body["drug_vd_L"]),
+            age_years=float(body["age_years"]),
+            weight_kg=float(body["weight_kg"]),
+            sex=body["sex"],
+            height_cm=float(body.get("height_cm", 170.0)),
+            elimination=body.get("elimination", "hepatic"),
+            protein_binding=float(body.get("protein_binding", 0.9)),
+            n_comedications=int(body.get("n_comedications", 0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "age_years": adj.age_years,
+        "sex": adj.sex,
+        "base_dose_mg": adj.base_dose_mg,
+        "adjusted_dose_mg": adj.adjusted_dose_mg,
+        "dose_reduction_pct": adj.dose_reduction_pct,
+        "cl_scaling_factor": adj.cl_scaling_factor,
+        "vd_scaling_factor": adj.vd_scaling_factor,
+        "predicted_t_half_h": adj.predicted_t_half_h,
+        "rationale": adj.rationale,
+        "cautions": adj.cautions,
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /validate/adme_benchmark   (Phase 140)
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.validation.adme_benchmark import (
+    benchmark_adme_predictor as _benchmark_adme,  # noqa: E402
+)
+
+
+@app.get("/validate/adme_benchmark")
+def api_adme_benchmark():
+    """Run ADME predictor benchmark against reference dataset.
+
+    Returns AAFE for logP, logS, and fup. Target: AAFE < 3 for logP/logS,
+    < 5 for fup. Returns NaN values if reference dataset not found.
+    """
+    try:
+        result = _benchmark_adme()
+    except Exception as exc:
+        logger.exception("ADME benchmark error")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return result
