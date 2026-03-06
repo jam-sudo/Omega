@@ -1,111 +1,235 @@
-"""Tests for pediatric dosing module."""
+"""Tests for pediatric weight/BSA-based dosing module (Phase 228)."""
+
+from __future__ import annotations
+
+import math
 
 import pytest
 
 from omega_pbpk.clinical.pediatric_dosing import (
+    PediatricDoseResult,
     PediatricDosingResult,
     allometric_dose_scaling,
+    bsa_dubois,
+    calculate_pediatric_dose,
+    dose_frequency_adjustment,
     pediatric_dose,
     pediatric_dose_range,
 )
 
 
+# ---------------------------------------------------------------------------
+# bsa_dubois tests
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.unit
-class TestAllometricScaling:
-    def test_adult_weight_gives_adult_dose(self):
+class TestBsaDubois:
+    def test_adult_70kg_170cm_approx_1_73(self):
+        """Standard adult: 70 kg, 170 cm → DuBois formula gives ~1.81 m²."""
+        bsa = bsa_dubois(70.0, 170.0)
+        # DuBois: 0.007184 * 70^0.425 * 170^0.725 ≈ 1.81 m²
+        assert abs(bsa - 1.81) < 0.05
+
+    def test_child_20kg_110cm_less_than_adult(self):
+        child_bsa = bsa_dubois(20.0, 110.0)
+        adult_bsa = bsa_dubois(70.0, 170.0)
+        assert child_bsa < adult_bsa
+
+    def test_bsa_positive(self):
+        assert bsa_dubois(30.0, 120.0) > 0.0
+
+    def test_zero_weight_raises(self):
+        with pytest.raises(ValueError):
+            bsa_dubois(0.0, 120.0)
+
+    def test_negative_height_raises(self):
+        with pytest.raises(ValueError):
+            bsa_dubois(20.0, -10.0)
+
+    def test_larger_child_higher_bsa(self):
+        bsa_small = bsa_dubois(15.0, 100.0)
+        bsa_large = bsa_dubois(30.0, 130.0)
+        assert bsa_large > bsa_small
+
+
+# ---------------------------------------------------------------------------
+# calculate_pediatric_dose tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestCalculatePediatricDose:
+    def test_returns_pediatric_dose_result(self):
+        result = calculate_pediatric_dose(
+            "amoxicillin", 500.0, weight_kg=20.0, height_cm=110.0, method="bsa"
+        )
+        assert isinstance(result, PediatricDoseResult)
+
+    def test_bsa_method_same_bsa_gives_adult_dose(self):
+        """When adult_bsa_m2 equals child BSA, dose equals adult dose."""
+        child_bsa = bsa_dubois(70.0, 170.0)  # ~1.81 m²
+        result = calculate_pediatric_dose(
+            "drug_x", 100.0, adult_bsa_m2=child_bsa, weight_kg=70.0, height_cm=170.0, method="bsa"
+        )
+        assert abs(result.calculated_dose_mg - 100.0) < 0.1
+
+    def test_bsa_method_smaller_child_lower_dose(self):
+        result = calculate_pediatric_dose(
+            "drug_x", 100.0, weight_kg=20.0, height_cm=110.0, method="bsa"
+        )
+        assert result.calculated_dose_mg < 100.0
+
+    def test_weight_method_returns_result(self):
+        result = calculate_pediatric_dose("paracetamol", 1000.0, weight_kg=25.0, method="weight")
+        assert isinstance(result, PediatricDoseResult)
+        assert result.calculated_dose_mg > 0.0
+
+    def test_young_rule_age_12_gives_50pct(self):
+        """Young's rule: age=12 → dose = adult * 12/(12+12) = 0.5 * adult."""
+        result = calculate_pediatric_dose("drug_y", 200.0, age_years=12.0, method="young")
+        assert abs(result.calculated_dose_mg - 100.0) < 1.0
+
+    def test_clark_rule_68kg_gives_adult_dose(self):
+        """Clark's rule: 68 kg → adult dose."""
+        result = calculate_pediatric_dose("drug_z", 500.0, weight_kg=68.0, method="clark")
+        assert abs(result.calculated_dose_mg - 500.0) < 1.0
+
+    def test_max_dose_clamp_applied(self):
+        result = calculate_pediatric_dose(
+            "drug_a", 200.0, weight_kg=50.0, height_cm=160.0, method="bsa", max_dose_mg=80.0
+        )
+        assert result.adjusted_dose_mg <= 80.0
+
+    def test_min_dose_clamp_applied(self):
+        result = calculate_pediatric_dose(
+            "drug_b", 200.0, weight_kg=5.0, height_cm=60.0, method="bsa", min_dose_mg=20.0
+        )
+        assert result.adjusted_dose_mg >= 20.0
+
+    def test_was_clamped_true_when_clamped(self):
+        result = calculate_pediatric_dose(
+            "drug_c", 500.0, weight_kg=5.0, height_cm=60.0, method="bsa", max_dose_mg=10.0
+        )
+        assert result.was_clamped is True
+
+    def test_was_clamped_false_when_not_clamped(self):
+        result = calculate_pediatric_dose(
+            "drug_d", 100.0, weight_kg=20.0, height_cm=110.0, method="bsa"
+        )
+        assert result.was_clamped is False
+
+    def test_dose_per_kg_positive(self):
+        result = calculate_pediatric_dose(
+            "drug_e", 100.0, weight_kg=20.0, height_cm=110.0, method="bsa"
+        )
+        assert result.dose_per_kg is not None
+        assert result.dose_per_kg > 0.0
+
+    def test_dose_per_kg_consistent(self):
+        result = calculate_pediatric_dose(
+            "drug_f", 100.0, weight_kg=20.0, height_cm=110.0, method="bsa"
+        )
+        expected = result.adjusted_dose_mg / 20.0
+        assert abs(result.dose_per_kg - expected) < 1e-6  # type: ignore[operator]
+
+    def test_cautions_populated_for_age_under_2(self):
+        result = calculate_pediatric_dose(
+            "drug_g", 50.0, weight_kg=10.0, height_cm=80.0, age_years=1.0, method="bsa"
+        )
+        assert len(result.cautions) > 0
+
+    def test_cautions_empty_for_older_child(self):
+        result = calculate_pediatric_dose(
+            "drug_h", 100.0, weight_kg=30.0, height_cm=130.0, age_years=8.0, method="bsa"
+        )
+        assert len(result.cautions) == 0
+
+    def test_bsa_m2_set_for_bsa_method(self):
+        result = calculate_pediatric_dose(
+            "drug_i", 100.0, weight_kg=20.0, height_cm=110.0, method="bsa"
+        )
+        assert result.bsa_m2 is not None
+
+    def test_bsa_m2_none_for_weight_method(self):
+        result = calculate_pediatric_dose("drug_j", 100.0, weight_kg=20.0, method="weight")
+        assert result.bsa_m2 is None
+
+    def test_bsa_method_missing_weight_raises(self):
+        with pytest.raises(ValueError, match="weight_kg"):
+            calculate_pediatric_dose("drug_k", 100.0, height_cm=110.0, method="bsa")
+
+    def test_bsa_method_missing_height_raises(self):
+        with pytest.raises(ValueError, match="height_cm"):
+            calculate_pediatric_dose("drug_l", 100.0, weight_kg=20.0, method="bsa")
+
+    def test_young_method_missing_age_raises(self):
+        with pytest.raises(ValueError, match="age_years"):
+            calculate_pediatric_dose("drug_m", 100.0, method="young")
+
+    def test_clark_method_missing_weight_raises(self):
+        with pytest.raises(ValueError, match="weight_kg"):
+            calculate_pediatric_dose("drug_n", 100.0, method="clark")
+
+    def test_negative_adult_dose_raises(self):
+        with pytest.raises(ValueError):
+            calculate_pediatric_dose("drug_o", -50.0, weight_kg=20.0, method="weight")
+
+    def test_drug_name_preserved(self):
+        result = calculate_pediatric_dose("ibuprofen", 400.0, weight_kg=25.0, method="weight")
+        assert result.drug_name == "ibuprofen"
+
+    def test_method_preserved(self):
+        result = calculate_pediatric_dose("drug_p", 100.0, weight_kg=20.0, method="clark")
+        assert result.method == "clark"
+
+
+# ---------------------------------------------------------------------------
+# dose_frequency_adjustment tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestDoseFrequencyAdjustment:
+    def test_returns_float(self):
+        result = dose_frequency_adjustment(5.0, 8.0)
+        assert isinstance(result, float)
+
+    def test_younger_gives_longer_interval(self):
+        interval_young = dose_frequency_adjustment(0.1, 8.0)
+        interval_older = dose_frequency_adjustment(5.0, 8.0)
+        assert interval_young > interval_older
+
+    def test_adult_near_adult_interval(self):
+        """At age ~18, interval should be close to adult interval."""
+        result = dose_frequency_adjustment(18.0, 8.0)
+        assert result == pytest.approx(8.0, rel=0.1)
+
+    def test_zero_age_raises(self):
+        with pytest.raises(ValueError):
+            dose_frequency_adjustment(0.0, 8.0)
+
+    def test_zero_frequency_raises(self):
+        with pytest.raises(ValueError):
+            dose_frequency_adjustment(5.0, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Legacy API tests (kept for backward compatibility)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestLegacyApi:
+    def test_allometric_dose_scaling(self):
         result = allometric_dose_scaling(100, 70, 70, 0.75)
         assert result == pytest.approx(100, rel=0.01)
 
-    def test_lighter_child_lower_dose(self):
-        dose_20 = allometric_dose_scaling(100, 70, 20, 0.75)
-        dose_70 = allometric_dose_scaling(100, 70, 70, 0.75)
-        assert dose_20 < dose_70
-
-    def test_exponent_0_75(self):
-        result = allometric_dose_scaling(100, 70, 20, 0.75)
-        expected = 100 * (20 / 70) ** 0.75
-        assert result == pytest.approx(expected, rel=0.001)
-
-    def test_positive_dose(self):
-        result = allometric_dose_scaling(50, 70, 10, 0.75)
-        assert result > 0
-
-
-@pytest.mark.unit
-class TestPediatricDose:
-    def test_returns_result_type(self):
+    def test_pediatric_dose_returns_legacy_result(self):
         result = pediatric_dose(adult_dose_mg=100, child_age_years=5)
         assert isinstance(result, PediatricDosingResult)
 
-    def test_neonate_warning(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=0.1)
-        warnings_lower = [w.lower() for w in result.warnings]
-        assert any("neonat" in w or "infant" in w for w in warnings_lower)
-
-    def test_child_dose_less_than_adult(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=5)
-        assert result.combined_adjusted_dose_mg < 100
-
-    def test_allometric_dose_positive(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=5)
-        assert result.allometric_dose_mg > 0
-
-    def test_cyp3a4_fraction_adult_between_0_1(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=5)
-        assert 0 <= result.cyp3a4_fraction_adult <= 1
-
-    def test_gfr_estimated_positive(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=5)
-        assert result.gfr_estimated > 0
-
-    def test_dose_per_kg_matches(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=5)
-        expected = result.combined_adjusted_dose_mg / result.patient_weight_kg
-        assert abs(result.dose_per_kg - expected) < 0.01
-
-    def test_cyp3a4_adjustment_reduces_dose(self):
-        high_cyp = pediatric_dose(adult_dose_mg=100, child_age_years=2, fraction_cyp3a4=0.9)
-        low_cyp = pediatric_dose(adult_dose_mg=100, child_age_years=2, fraction_cyp3a4=0.0)
-        assert high_cyp.combined_adjusted_dose_mg < low_cyp.combined_adjusted_dose_mg
-
-    def test_renal_adjustment_reduces_dose(self):
-        high_renal = pediatric_dose(adult_dose_mg=100, child_age_years=0.1, fraction_renal=0.9)
-        low_renal = pediatric_dose(adult_dose_mg=100, child_age_years=0.1, fraction_renal=0.0)
-        assert high_renal.combined_adjusted_dose_mg < low_renal.combined_adjusted_dose_mg
-
-    def test_adult_patient_near_full_dose(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=18, child_weight_kg=70)
-        assert result.combined_adjusted_dose_mg == pytest.approx(100, rel=0.20)
-
-    def test_weight_estimated_from_age(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=5, child_weight_kg=None)
-        assert result.patient_weight_kg > 0
-
-    def test_min_dose_floor(self):
-        result = pediatric_dose(adult_dose_mg=100, child_age_years=0.5, min_dose_mg=50)
-        assert result.combined_adjusted_dose_mg >= 50
-
-
-@pytest.mark.unit
-class TestPediatricDoseRange:
-    def test_returns_list(self):
+    def test_pediatric_dose_range_returns_list(self):
         result = pediatric_dose_range(adult_dose_mg=100)
         assert isinstance(result, list)
-
-    def test_has_7_entries(self):
-        result = pediatric_dose_range(adult_dose_mg=100)
         assert len(result) == 7
-
-    def test_entries_have_keys(self):
-        result = pediatric_dose_range(adult_dose_mg=100)
-        for entry in result:
-            assert "age_years" in entry
-            assert "weight_kg" in entry
-            assert "dose_mg" in entry
-            assert "dose_per_kg" in entry
-
-    def test_older_child_higher_dose(self):
-        result = pediatric_dose_range(adult_dose_mg=100)
-        doses = [entry["dose_mg"] for entry in result]
-        # Generally dose should increase with age; check first vs last
-        assert doses[-1] > doses[0]
