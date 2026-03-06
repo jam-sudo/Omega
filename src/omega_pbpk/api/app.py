@@ -9400,3 +9400,488 @@ def api_admet_screen(body: dict):
         ],
         "n_compounds": len(profiles),
     }
+
+
+# ---------------------------------------------------------------------------
+# POST /risk/phototoxicity   (Phase 147)
+# POST /risk/phototoxicity/screen
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.risk.phototoxicity import (  # noqa: E402
+    assess_phototoxicity as _assess_phototoxicity,
+)
+from omega_pbpk.risk.phototoxicity import (
+    screen_phototoxicity as _screen_phototoxicity,
+)
+
+
+@app.post("/risk/phototoxicity")
+def api_phototoxicity(body: dict):
+    """Phototoxicity assessment: structural alerts, ICH S10, skin/eye risk, Photo DRI."""
+    try:
+        result = _assess_phototoxicity(
+            compound_name=body.get("compound_name", "Compound"),
+            smiles=body["smiles"],
+            mw=float(body["mw"]),
+            logP=float(body["logP"]),
+            tpsa=float(body.get("tpsa", 50.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "compound_name": result.compound_name,
+        "phototoxicity_prediction": result.phototoxicity_prediction,
+        "phototoxicity_probability": result.phototoxicity_probability,
+        "skin_risk": result.skin_risk,
+        "eye_risk": result.eye_risk,
+        "ich_s10_flag": result.ich_s10_flag,
+        "photo_dri": result.photo_dri,
+        "n_alerts": result.n_alerts,
+        "alert_score": result.alert_score,
+        "molar_absorptivity_proxy": result.molar_absorptivity_proxy,
+        "alerts": [
+            {"name": a.name, "weight": a.weight, "description": a.description}
+            for a in result.alerts
+            if a.triggered
+        ],
+        "notes": result.notes,
+    }
+
+
+@app.post("/risk/phototoxicity/screen")
+def api_phototoxicity_screen(body: dict):
+    """Screen compound library for phototoxicity risk, sorted by Photo DRI."""
+    compounds = body.get("compounds", [])
+    if not isinstance(compounds, list) or not compounds:
+        raise HTTPException(status_code=400, detail="compounds must be a non-empty list")
+    try:
+        results = _screen_phototoxicity(compounds)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "results": [
+            {
+                "compound_name": r.compound_name,
+                "phototoxicity_prediction": r.phototoxicity_prediction,
+                "photo_dri": r.photo_dri,
+                "alert_score": r.alert_score,
+                "skin_risk": r.skin_risk,
+                "eye_risk": r.eye_risk,
+                "ich_s10_flag": r.ich_s10_flag,
+            }
+            for r in results
+        ],
+        "n_compounds": len(results),
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/cns_target_engagement   (Phase 148)
+# POST /simulate/cns_target_engagement/dose_response
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.cns_target_engagement import (  # noqa: E402
+    occupancy_dose_response as _occupancy_dose_response,
+)
+from omega_pbpk.clinical.cns_target_engagement import (
+    simulate_cns_target_engagement as _simulate_cns_target,
+)
+
+
+@app.post("/simulate/cns_target_engagement")
+def api_cns_target(body: dict):
+    """CNS receptor target engagement: BBB transport + receptor binding kinetics."""
+    try:
+        r = _simulate_cns_target(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            mw_g_mol=float(body.get("mw_g_mol", 300.0)),
+            route=body.get("route", "iv"),
+            ka_per_h=float(body.get("ka_per_h", 1.0)),
+            f_oral=float(body.get("f_oral", 1.0)),
+            cl_plasma_L_per_h=float(body.get("cl_plasma_L_per_h", 1.0)),
+            vd_plasma_L=float(body.get("vd_plasma_L", 5.0)),
+            k_bbb_in_per_h=float(body.get("k_bbb_in_per_h", 0.1)),
+            k_bbb_out_per_h=float(body.get("k_bbb_out_per_h", 0.5)),
+            bmax_nM=float(body.get("bmax_nM", 100.0)),
+            kon_per_nM_per_h=float(body.get("kon_per_nM_per_h", 0.01)),
+            koff_per_h=float(body.get("koff_per_h", 1.0)),
+            kint_per_h=float(body.get("kint_per_h", 0.1)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+            dt_h=float(body.get("dt_h", 0.02)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "route": r.route,
+        "dose_mg": r.dose_mg,
+        "peak_occupancy_pct": r.peak_occupancy_pct,
+        "tmax_occupancy_h": r.tmax_occupancy_h,
+        "auc_occupancy": r.auc_occupancy,
+        "time_above_50pct_h": r.time_above_50pct_h,
+        "kd_nM": r.kd_nM,
+        "brain_plasma_ratio": r.brain_plasma_ratio,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "receptor_occupancy": r.receptor_occupancy,
+        "c_brain_nM": r.c_brain_nM,
+    }
+
+
+@app.post("/simulate/cns_target_engagement/dose_response")
+def api_cns_dose_response(body: dict):
+    """CNS receptor occupancy across multiple doses."""
+    try:
+        doses = body.get("doses_mg", [])
+        if not doses:
+            raise ValueError("doses_mg list required")
+        results = _occupancy_dose_response(
+            drug_name=body.get("drug_name", "Drug"),
+            doses_mg=[float(d) for d in doses],
+            mw_g_mol=float(body.get("mw_g_mol", 300.0)),
+            cl_plasma_L_per_h=float(body.get("cl_plasma_L_per_h", 1.0)),
+            vd_plasma_L=float(body.get("vd_plasma_L", 5.0)),
+            bmax_nM=float(body.get("bmax_nM", 100.0)),
+            kon_per_nM_per_h=float(body.get("kon_per_nM_per_h", 0.01)),
+            koff_per_h=float(body.get("koff_per_h", 1.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "dose_mg": r.dose_mg,
+                "peak_occupancy_pct": r.peak_occupancy_pct,
+                "time_above_50pct_h": r.time_above_50pct_h,
+                "auc_occupancy": r.auc_occupancy,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/gi_transit   (Phase 149)
+# POST /simulate/gi_transit/compare_food
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.gi_transit import (  # noqa: E402
+    compare_food_states as _compare_gi_food_states,
+)
+from omega_pbpk.core.gi_transit import (
+    simulate_gi_transit as _simulate_gi_transit,
+)
+
+
+@app.post("/simulate/gi_transit")
+def api_gi_transit(body: dict):
+    """GI transit model: 7-segment absorption with pH-dependent ionization."""
+    try:
+        r = _simulate_gi_transit(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            logP=float(body["logP"]),
+            pka=float(body.get("pka", 7.0)),
+            solubility_mg_mL=float(body.get("solubility_mg_mL", 1.0)),
+            mw=float(body.get("mw", 300.0)),
+            food_state=body.get("food_state", "fasted"),
+            cl_L_per_h=float(body.get("cl_L_per_h", 1.0)),
+            vd_L=float(body.get("vd_L", 30.0)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+            dt_h=float(body.get("dt_h", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "dose_mg": r.dose_mg,
+        "food_state": r.food_state,
+        "cmax_mg_L": r.cmax_mg_L,
+        "tmax_h": r.tmax_h,
+        "auc_0_t": r.auc_0_t,
+        "fa_total": r.fa_total,
+        "f_abs_small_intestine": r.f_abs_small_intestine,
+        "rate_limiting": r.rate_limiting,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "cp_mg_L": r.cp_mg_L,
+        "fa_cumulative": r.fa_cumulative,
+    }
+
+
+@app.post("/simulate/gi_transit/compare_food")
+def api_gi_compare_food(body: dict):
+    """Compare fasted vs fed GI absorption for the same drug."""
+    try:
+        fasted, fed = _compare_gi_food_states(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            logP=float(body["logP"]),
+            pka=float(body.get("pka", 7.0)),
+            solubility_mg_mL=float(body.get("solubility_mg_mL", 1.0)),
+            mw=float(body.get("mw", 300.0)),
+            cl_L_per_h=float(body.get("cl_L_per_h", 1.0)),
+            vd_L=float(body.get("vd_L", 30.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "fasted": {
+            "food_state": fasted.food_state,
+            "cmax_mg_L": fasted.cmax_mg_L,
+            "tmax_h": fasted.tmax_h,
+            "auc_0_t": fasted.auc_0_t,
+            "fa_total": fasted.fa_total,
+        },
+        "fed": {
+            "food_state": fed.food_state,
+            "cmax_mg_L": fed.cmax_mg_L,
+            "tmax_h": fed.tmax_h,
+            "auc_0_t": fed.auc_0_t,
+            "fa_total": fed.fa_total,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /risk/protein_aggregation   (Phase 150)
+# POST /risk/protein_aggregation/optimize
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.risk.protein_aggregation import (  # noqa: E402
+    assess_protein_aggregation as _assess_protein_aggregation,
+)
+from omega_pbpk.risk.protein_aggregation import (
+    optimize_formulation as _optimize_protein_formulation,
+)
+
+
+@app.post("/risk/protein_aggregation")
+def api_protein_aggregation(body: dict):
+    """Biologic/mAb protein aggregation risk: propensity score, shelf life, formulation advice."""
+    try:
+        result = _assess_protein_aggregation(
+            protein_name=body.get("protein_name", "mAb"),
+            mw_kDa=float(body["mw_kDa"]),
+            ph=float(body.get("ph", 7.0)),
+            temperature_C=float(body.get("temperature_C", 25.0)),
+            ionic_strength_mM=float(body.get("ionic_strength_mM", 150.0)),
+            concentration_mg_mL=float(body.get("concentration_mg_mL", 10.0)),
+            excipients=body.get("excipients", []),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "protein_name": result.protein_name,
+        "aggregation_propensity_score": result.aggregation_propensity_score,
+        "aggregation_risk": result.aggregation_risk,
+        "thermal_stability_proxy": result.thermal_stability_proxy,
+        "solubility_proxy_mg_mL": result.solubility_proxy_mg_mL,
+        "iep_proxy": result.iep_proxy,
+        "recommended_ph_range": list(result.recommended_ph_range),
+        "shelf_life_months_at_4C": result.shelf_life_months_at_4C,
+        "shelf_life_months_at_25C": result.shelf_life_months_at_25C,
+        "formulation_recommendation": result.formulation_recommendation,
+        "notes": result.notes,
+    }
+
+
+@app.post("/risk/protein_aggregation/optimize")
+def api_protein_formulation_optimize(body: dict):
+    """Screen formulation pH range to minimize aggregation propensity."""
+    try:
+        results = _optimize_protein_formulation(
+            protein_name=body.get("protein_name", "mAb"),
+            mw_kDa=float(body["mw_kDa"]),
+            concentration_mg_mL=float(body.get("concentration_mg_mL", 10.0)),
+            excipients=body.get("excipients", []),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "ph": r.ph,
+                "aggregation_propensity_score": r.aggregation_propensity_score,
+                "aggregation_risk": r.aggregation_risk,
+                "shelf_life_months_at_4C": r.shelf_life_months_at_4C,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /simulate/biofilm_pk   (Phase 151)
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.pk_biofilm import (  # noqa: E402
+    compare_dosing_regimens as _compare_biofilm_regimens,
+)
+from omega_pbpk.clinical.pk_biofilm import (
+    simulate_biofilm_pk as _simulate_biofilm_pk,
+)
+
+
+@app.post("/simulate/biofilm_pk")
+def api_biofilm_pk(body: dict):
+    """Antibiotic PK/PD in biofilm infections: plasma + biofilm compartments, PK/PD indices."""
+    try:
+        r = _simulate_biofilm_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            route=body.get("route", "iv"),
+            ka_per_h=float(body.get("ka_per_h", 1.0)),
+            f_oral=float(body.get("f_oral", 1.0)),
+            mic_mg_L=float(body.get("mic_mg_L", 1.0)),
+            mbec_mg_L=float(body.get("mbec_mg_L", 100.0)),
+            biofilm_penetration=float(body.get("biofilm_penetration", 0.05)),
+            biofilm_volume_L=float(body.get("biofilm_volume_L", 0.001)),
+            dosing_interval_h=float(body.get("dosing_interval_h", 8.0)),
+            n_doses=int(body.get("n_doses", 3)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+            dt_h=float(body.get("dt_h", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "dose_mg": r.dose_mg,
+        "mic_mg_L": r.mic_mg_L,
+        "mbec_mg_L": r.mbec_mg_L,
+        "biofilm_penetration": r.biofilm_penetration,
+        "cmax_plasma": r.cmax_plasma,
+        "cmax_biofilm": r.cmax_biofilm,
+        "auc_24h_plasma": r.auc_24h_plasma,
+        "auc_24h_biofilm": r.auc_24h_biofilm,
+        "ft_above_mic_pct": r.ft_above_mic_pct,
+        "auc_mic_ratio": r.auc_mic_ratio,
+        "auc_mbec_ratio": r.auc_mbec_ratio,
+        "cmax_mic_ratio": r.cmax_mic_ratio,
+        "planktonic_kill_expected": r.planktonic_kill_expected,
+        "biofilm_eradication_expected": r.biofilm_eradication_expected,
+        "notes": r.notes,
+        "times_h": r.times_h,
+        "c_plasma_mg_L": r.c_plasma_mg_L,
+        "c_biofilm_mg_L": r.c_biofilm_mg_L,
+    }
+
+
+@app.post("/simulate/biofilm_pk/compare_regimens")
+def api_biofilm_compare_regimens(body: dict):
+    """Compare antibiotic dosing regimens for biofilm eradication."""
+    try:
+        regimens = body.get("regimens", [])
+        if not regimens:
+            raise ValueError("regimens list required")
+        results = _compare_biofilm_regimens(
+            drug_name=body.get("drug_name", "Drug"),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            regimens=regimens,
+            mic_mg_L=float(body.get("mic_mg_L", 1.0)),
+            mbec_mg_L=float(body.get("mbec_mg_L", 100.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "dose_mg": r.dose_mg,
+                "n_doses": r.n_doses,
+                "auc_mic_ratio": r.auc_mic_ratio,
+                "auc_mbec_ratio": r.auc_mbec_ratio,
+                "ft_above_mic_pct": r.ft_above_mic_pct,
+                "planktonic_kill_expected": r.planktonic_kill_expected,
+                "biofilm_eradication_expected": r.biofilm_eradication_expected,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /predict/drug_repurposing   (Phase 152)
+# POST /predict/drug_repurposing/screen
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.prediction.drug_repurposing import (  # noqa: E402
+    create_target as _create_repurposing_target,
+)
+from omega_pbpk.prediction.drug_repurposing import (
+    score_repurposing as _score_repurposing,
+)
+from omega_pbpk.prediction.drug_repurposing import (
+    screen_library_repurposing as _screen_repurposing_library,
+)
+
+
+@app.post("/predict/drug_repurposing")
+def api_drug_repurposing(body: dict):
+    """Score a single drug profile for repurposing suitability to a target indication."""
+    try:
+        from omega_pbpk.prediction.drug_repurposing import DrugProfile
+
+        drug = DrugProfile(
+            name=body.get("drug_name", "Drug"),
+            mw=float(body["mw"]),
+            logP=float(body["logP"]),
+            fup=float(body.get("fup", 0.5)),
+            t_half_h=float(body["t_half_h"]),
+            f_oral=float(body.get("f_oral", 0.5)),
+            cmax_mg_L=float(body.get("cmax_mg_L", 1.0)),
+            herg_ic50_uM=float(body.get("herg_ic50_uM", 30.0)),
+            target_indication=body.get("current_indication", "unknown"),
+        )
+        target = _create_repurposing_target(
+            indication=body.get("target_indication", "general"),
+            required_t_half_range_h=tuple(body.get("required_t_half_range_h", [4, 24])),
+            required_f_oral=float(body.get("required_f_oral", 0.5)),
+            target_cmax_mg_L=float(body.get("target_cmax_mg_L", 1.0)),
+        )
+        result = _score_repurposing(drug, target)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": result.drug_name,
+        "target_indication": result.target_indication,
+        "composite_score": result.composite_score,
+        "pk_match_score": result.pk_match_score,
+        "safety_score": result.safety_score,
+        "similarity_score": result.similarity_score,
+        "recommendation": result.recommendation,
+        "pk_gaps": result.pk_gaps,
+        "notes": result.notes,
+    }
+
+
+@app.post("/predict/drug_repurposing/screen")
+def api_drug_repurposing_screen(body: dict):
+    """Screen default drug library for repurposing suitability to a target indication."""
+    try:
+        target = _create_repurposing_target(
+            indication=body.get("target_indication", "general"),
+            required_t_half_range_h=tuple(body.get("required_t_half_range_h", [4, 24])),
+            required_f_oral=float(body.get("required_f_oral", 0.5)),
+            target_cmax_mg_L=float(body.get("target_cmax_mg_L", 1.0)),
+        )
+        results = _screen_repurposing_library(target)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "drug_name": r.drug_name,
+                "current_indication": r.current_indication,
+                "composite_score": r.composite_score,
+                "recommendation": r.recommendation,
+                "pk_match_score": r.pk_match_score,
+                "safety_score": r.safety_score,
+            }
+            for r in results
+        ],
+        "n_candidates": len(results),
+    }
