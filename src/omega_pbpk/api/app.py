@@ -10289,3 +10289,422 @@ def api_formulation_viscosity_screen(body: dict):
         ],
         "protein_name": body.get("protein_name", "mAb"),
     }
+
+
+# ===========================================================================
+# Phase 159-164 API endpoints
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Phase 159 — Cerebral Blood Flow PBPK
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.cbf_pbpk import (  # noqa: E402
+    compare_cbf_conditions as _compare_cbf_conditions,
+)
+from omega_pbpk.core.cbf_pbpk import (
+    simulate_cbf_pk as _simulate_cbf_pk,
+)
+
+
+@app.post("/simulate/cbf_pk")
+def api_cbf_pk(body: dict):
+    """Simulate cerebral blood flow PBPK (plasma + brain vascular + brain tissue)."""
+    try:
+        r = _simulate_cbf_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            cbf_factor=float(body.get("cbf_factor", 1.0)),
+            base_k_brain=float(body.get("base_k_brain", 0.3)),
+            k_brain_out=float(body.get("k_brain_out", 0.15)),
+            k_tissue_in=float(body.get("k_tissue_in", 0.1)),
+            k_tissue_out=float(body.get("k_tissue_out", 0.05)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+            dt_h=float(body.get("dt_h", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "cbf_factor": r.cbf_factor,
+        "cmax_plasma": r.cmax_plasma,
+        "cmax_brain_vasc": r.cmax_brain_vasc,
+        "cmax_brain_tissue": r.cmax_brain_tissue,
+        "auc_plasma": r.auc_plasma,
+        "auc_brain_tissue": r.auc_brain_tissue,
+        "brain_to_plasma_ratio": r.brain_to_plasma_ratio,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/cbf_pk/compare_conditions")
+def api_cbf_compare_conditions(body: dict):
+    """Compare brain drug exposure across different CBF conditions."""
+    try:
+        results = _compare_cbf_conditions(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cbf_factors=[float(f) for f in body["cbf_factors"]],
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "cbf_factor": r.cbf_factor,
+                "cmax_brain_tissue": r.cmax_brain_tissue,
+                "auc_brain_tissue": r.auc_brain_tissue,
+                "brain_to_plasma_ratio": r.brain_to_plasma_ratio,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 160 — DILI Scoring
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.risk.dili_score import (  # noqa: E402
+    score_dili as _score_dili,
+)
+from omega_pbpk.risk.dili_score import (
+    screen_dili as _screen_dili,
+)
+
+
+@app.post("/risk/dili")
+def api_dili_score(body: dict):
+    """Score a compound for drug-induced liver injury (DILI) risk."""
+    try:
+        r = _score_dili(
+            compound_name=body.get("compound_name", "Compound"),
+            smiles=body["smiles"],
+            mw=float(body["mw"]),
+            logP=float(body["logP"]),
+            daily_dose_mg=float(body["daily_dose_mg"]),
+            clint_uL_per_min_per_mg=float(body.get("clint_uL_per_min_per_mg", 10.0)),
+            fup=float(body.get("fup", 0.1)),
+            is_mitochondrial_toxin=bool(body.get("is_mitochondrial_toxin", False)),
+            bile_salt_export_inhibitor=bool(body.get("bile_salt_export_inhibitor", False)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "compound_name": r.compound_name,
+        "dili_score": r.dili_score,
+        "dili_category": r.dili_category,
+        "dose_dependency": r.dose_dependency,
+        "reactive_metabolite_risk": r.reactive_metabolite_risk,
+        "mitochondrial_liability": r.mitochondrial_liability,
+        "bile_salt_inhibition": r.bile_salt_inhibition,
+        "physicochemical_risk_factors": r.physicochemical_risk_factors,
+        "notes": r.notes,
+    }
+
+
+@app.post("/risk/dili/screen")
+def api_dili_screen(body: dict):
+    """Screen a compound library for DILI risk."""
+    try:
+        results = _screen_dili(compounds=body["compounds"])
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "compound_name": r.compound_name,
+                "dili_score": r.dili_score,
+                "dili_category": r.dili_category,
+                "reactive_metabolite_risk": r.reactive_metabolite_risk,
+            }
+            for r in results
+        ],
+        "n_compounds": len(results),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 161 — Pulmonary Drug Delivery
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.pulmonary_pk import (  # noqa: E402
+    compare_particle_sizes as _compare_particle_sizes,
+)
+from omega_pbpk.core.pulmonary_pk import (
+    simulate_pulmonary_pk as _simulate_pulmonary_pk,
+)
+
+
+@app.post("/simulate/pulmonary_pk")
+def api_pulmonary_pk(body: dict):
+    """Simulate inhaled drug PK (airway depot → lung tissue → plasma)."""
+    try:
+        r = _simulate_pulmonary_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            route=body.get("route", "inhaled"),
+            particle_size_um=float(body.get("particle_size_um", 3.0)),
+            lung_deposition_fraction=float(body.get("lung_deposition_fraction", 0.3)),
+            mucociliary_clearance_per_h=float(body.get("mucociliary_clearance_per_h", 0.5)),
+            k_lung_abs_per_h=float(body.get("k_lung_abs_per_h", 1.0)),
+            cl_sys_L_per_h=float(body.get("cl_sys_L_per_h", 1.0)),
+            vd_sys_L=float(body.get("vd_sys_L", 50.0)),
+            t_end_h=float(body.get("t_end_h", 12.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "particle_size_um": r.particle_size_um,
+        "cmax_airway": r.cmax_airway,
+        "cmax_lung_tissue": r.cmax_lung_tissue,
+        "cmax_plasma": r.cmax_plasma,
+        "auc_lung_tissue": r.auc_lung_tissue,
+        "auc_plasma": r.auc_plasma,
+        "lung_to_plasma_ratio": r.lung_to_plasma_ratio,
+        "pulmonary_bioavailability": r.pulmonary_bioavailability,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/pulmonary_pk/compare_particles")
+def api_pulmonary_compare_particles(body: dict):
+    """Compare inhaled PK across different particle sizes."""
+    try:
+        results = _compare_particle_sizes(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            particle_sizes_um=[float(s) for s in body["particle_sizes_um"]],
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "particle_size_um": r.particle_size_um,
+                "cmax_lung_tissue": r.cmax_lung_tissue,
+                "cmax_plasma": r.cmax_plasma,
+                "auc_lung_tissue": r.auc_lung_tissue,
+                "pulmonary_bioavailability": r.pulmonary_bioavailability,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 162 — Bioequivalence Statistical Analysis
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.be_analysis import (  # noqa: E402
+    analyze_be as _analyze_be,
+)
+from omega_pbpk.clinical.be_analysis import (
+    calculate_power_curve as _calculate_power_curve,
+)
+from omega_pbpk.clinical.be_analysis import (
+    sample_size_for_power as _sample_size_for_power,
+)
+
+
+@app.post("/be/analyze")
+def api_be_analyze(body: dict):
+    """Perform TOST bioequivalence analysis on AUC or Cmax data."""
+    try:
+        r = _analyze_be(
+            reference_aucs=[float(x) for x in body["reference_aucs"]],
+            test_aucs=[float(x) for x in body["test_aucs"]],
+            metric=body.get("metric", "AUC"),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "metric": r.metric,
+        "gm_ratio": r.gm_ratio,
+        "ci_lower_90": r.ci_lower_90,
+        "ci_upper_90": r.ci_upper_90,
+        "is_bioequivalent": r.is_bioequivalent,
+        "power_at_observed_n": r.power_at_observed_n,
+        "cv_pct": r.cv_pct,
+        "n_reference": r.n_reference,
+        "n_test": r.n_test,
+        "notes": r.notes,
+    }
+
+
+@app.post("/be/power_curve")
+def api_be_power_curve(body: dict):
+    """Calculate BE power curve across sample sizes for a given CV."""
+    try:
+        r = _calculate_power_curve(
+            n_range=[int(n) for n in body["n_range"]],
+            cv_pct=float(body["cv_pct"]),
+            ratio=float(body.get("ratio", 1.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "n_values": r.n_values,
+        "powers": r.powers,
+        "cv_pct": r.cv_pct,
+        "ratio": r.ratio,
+    }
+
+
+@app.post("/be/sample_size")
+def api_be_sample_size(body: dict):
+    """Calculate sample size needed for BE study at target power."""
+    try:
+        n = _sample_size_for_power(
+            cv_pct=float(body["cv_pct"]),
+            power_target=float(body.get("power_target", 0.80)),
+            ratio=float(body.get("ratio", 1.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"sample_size_per_arm": n, "cv_pct": body["cv_pct"]}
+
+
+# ---------------------------------------------------------------------------
+# Phase 163 — Lymph Node PK
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.core.lymph_node_pk import (  # noqa: E402
+    compare_formulation_lymph as _compare_formulation_lymph,
+)
+from omega_pbpk.core.lymph_node_pk import (
+    simulate_lymph_node_pk as _simulate_lymph_node_pk,
+)
+
+
+@app.post("/simulate/lymph_node_pk")
+def api_lymph_node_pk(body: dict):
+    """Simulate drug accumulation in lymph nodes (plasma + lymph compartments)."""
+    try:
+        r = _simulate_lymph_node_pk(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_systemic_L=float(body["vd_systemic_L"]),
+            k_lymph_in_per_h=float(body.get("k_lymph_in_per_h", 0.05)),
+            k_lymph_out_per_h=float(body.get("k_lymph_out_per_h", 0.02)),
+            lymph_volume_L=float(body.get("lymph_volume_L", 2.0)),
+            f_lymph_uptake=float(body.get("f_lymph_uptake", 0.1)),
+            t_end_h=float(body.get("t_end_h", 48.0)),
+            dt_h=float(body.get("dt_h", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "cmax_plasma": r.cmax_plasma,
+        "cmax_lymph": r.cmax_lymph,
+        "auc_plasma": r.auc_plasma,
+        "auc_lymph": r.auc_lymph,
+        "lymph_to_plasma_ratio": r.lymph_to_plasma_ratio,
+        "lymph_enrichment_factor": r.lymph_enrichment_factor,
+        "t_half_lymph_h": r.t_half_lymph_h,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/lymph_node_pk/compare_formulations")
+def api_lymph_compare_formulations(body: dict):
+    """Compare lymph node PK for different drug formulations."""
+    try:
+        results = _compare_formulation_lymph(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            formulations=body["formulations"],
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "drug_name": r.drug_name,
+                "cmax_lymph": r.cmax_lymph,
+                "auc_lymph": r.auc_lymph,
+                "lymph_enrichment_factor": r.lymph_enrichment_factor,
+            }
+            for r in results
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 164 — Antiviral PK/PD
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.clinical.antiviral_pkpd import (  # noqa: E402
+    dose_response_antiviral as _dose_response_antiviral,
+)
+from omega_pbpk.clinical.antiviral_pkpd import (
+    simulate_antiviral_pkpd as _simulate_antiviral_pkpd,
+)
+
+
+@app.post("/simulate/antiviral_pkpd")
+def api_antiviral_pkpd(body: dict):
+    """Simulate antiviral drug PK/PD with viral kinetics model."""
+    try:
+        r = _simulate_antiviral_pkpd(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            route=body.get("route", "iv"),
+            ka_per_h=float(body.get("ka_per_h", 1.0)),
+            f_oral=float(body.get("f_oral", 1.0)),
+            ec50_mg_L=float(body.get("ec50_mg_L", 0.5)),
+            emax_antiviral=float(body.get("emax_antiviral", 0.99)),
+            hill_n=float(body.get("hill_n", 1.0)),
+            viral_growth_rate_per_h=float(body.get("viral_growth_rate_per_h", 0.1)),
+            viral_clearance_per_h_baseline=float(body.get("viral_clearance_per_h_baseline", 0.05)),
+            baseline_viral_load_log10=float(body.get("baseline_viral_load_log10", 6.0)),
+            t_end_h=float(body.get("t_end_h", 168.0)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "cmax_mg_L": r.cmax_mg_L,
+        "auc_mg_h_L": r.auc_mg_h_L,
+        "baseline_viral_load_log10": r.baseline_viral_load_log10,
+        "min_viral_load_log10": r.min_viral_load_log10,
+        "max_viral_reduction_log10": r.max_viral_reduction_log10,
+        "time_to_1_log_reduction_h": r.time_to_1_log_reduction_h,
+        "viral_eradication": r.viral_eradication,
+        "notes": r.notes,
+    }
+
+
+@app.post("/simulate/antiviral_pkpd/dose_response")
+def api_antiviral_dose_response(body: dict):
+    """Run antiviral PK/PD simulation across a dose range."""
+    try:
+        results = _dose_response_antiviral(
+            drug_name=body.get("drug_name", "Drug"),
+            doses_mg=[float(d) for d in body["doses_mg"]],
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "results": [
+            {
+                "dose_mg": r.dose_mg,
+                "max_viral_reduction_log10": r.max_viral_reduction_log10,
+                "min_viral_load_log10": r.min_viral_load_log10,
+                "viral_eradication": r.viral_eradication,
+                "time_to_1_log_reduction_h": r.time_to_1_log_reduction_h,
+            }
+            for r in results
+        ]
+    }
