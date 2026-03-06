@@ -7559,3 +7559,200 @@ def api_ph_sol_profile(req: _BioaccessReq):
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ── Phase 119: Drug Interaction Network ──────────────────────────────────────
+from omega_pbpk.clinical.drug_interaction_network import analyze_drug_network, ddi_matrix
+
+
+@app.post("/ddi/network")
+def ddi_network(body: dict):
+    """Analyze polypharmacy DDI network for a list of drugs."""
+    drugs = body.get("drugs", [])
+    if not drugs:
+        raise HTTPException(status_code=400, detail="drugs list required")
+    try:
+        result = analyze_drug_network(drugs)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drugs": result.drugs,
+        "n_interactions": result.n_interactions,
+        "n_severe": result.n_severe,
+        "n_moderate": result.n_moderate,
+        "high_risk_drugs": result.high_risk_drugs,
+        "summary": result.summary,
+        "edges": [
+            {
+                "drug_a": e.drug_a,
+                "drug_b": e.drug_b,
+                "mechanism": e.mechanism,
+                "aucr": e.aucr,
+                "severity": e.severity,
+            }
+            for e in result.edges
+        ],
+    }
+
+
+@app.post("/ddi/matrix")
+def ddi_matrix_endpoint(body: dict):
+    """Return AUCR matrix for all drug pairs."""
+    drugs = body.get("drugs", [])
+    if not drugs:
+        raise HTTPException(status_code=400, detail="drugs list required")
+    return {"matrix": ddi_matrix(drugs)}
+
+
+# ── Phase 120: Absorption Predictor ──────────────────────────────────────────
+from omega_pbpk.prediction.absorption_predictor import predict_absorption, screen_absorption
+
+
+@app.post("/predict/absorption")
+def predict_absorption_endpoint(body: dict):
+    """Predict oral fraction absorbed from Peff, solubility, dose."""
+    try:
+        result = predict_absorption(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            peff_cm_s=float(body["peff_cm_s"]),
+            solubility_mg_mL=float(body["solubility_mg_mL"]),
+            transit_h=float(body.get("transit_h", 3.5)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "fa": result.fa,
+        "fa_dissolution": result.fa_dissolution,
+        "fa_permeability": result.fa_permeability,
+        "limiting_factor": result.limiting_factor,
+        "dose_number": result.dose_number,
+        "absorption_number": result.absorption_number,
+        "bcs_like": result.bcs_like,
+        "t_abs_h": result.t_abs_h,
+        "confidence": result.confidence,
+    }
+
+
+@app.post("/predict/absorption/screen")
+def screen_absorption_endpoint(body: dict):
+    """Screen multiple compounds for oral absorption."""
+    compounds = body.get("compounds", [])
+    results = screen_absorption(compounds)
+    return {
+        "results": [
+            {
+                "drug_name": r.drug_name,
+                "fa": r.fa,
+                "bcs_like": r.bcs_like,
+                "limiting_factor": r.limiting_factor,
+            }
+            for r in results
+        ]
+    }
+
+
+# ── Phase 121: Two-Compartment IV Infusion ────────────────────────────────────
+from omega_pbpk.core.two_compartment_infusion import simulate_2cpt_infusion
+
+
+@app.post("/simulate/2cpt_infusion")
+def simulate_2cpt_infusion_endpoint(body: dict):
+    """Simulate 2-compartment PK during and after constant-rate IV infusion."""
+    try:
+        result = simulate_2cpt_infusion(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            infusion_duration_h=float(body["infusion_duration_h"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_central_L=float(body["vd_central_L"]),
+            vd_peripheral_L=float(body["vd_peripheral_L"]),
+            q_L_per_h=float(body.get("q_L_per_h", 2.0)),
+            t_end_h=body.get("t_end_h"),
+            dt_h=float(body.get("dt_h", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "infusion_rate_mg_h": result.infusion_rate_mg_h,
+        "infusion_duration_h": result.infusion_duration_h,
+        "css_central": result.css_central,
+        "cmax": result.cmax,
+        "tmax_h": result.tmax_h,
+        "auc_0_t": result.auc_0_t,
+        "auc_0_inf": result.auc_0_inf,
+        "thalf_alpha_h": result.thalf_alpha_h,
+        "thalf_beta_h": result.thalf_beta_h,
+        "post_infusion_auc": result.post_infusion_auc,
+        "times_h": result.times_h,
+        "cp_central": result.cp_central,
+    }
+
+
+# ── Phase 122: Modified-Release Formulation ───────────────────────────────────
+from omega_pbpk.biopharmaceutics.modified_release import (
+    MRType,
+    compare_mr_types,
+    simulate_modified_release,
+)
+
+
+@app.post("/simulate/modified_release")
+def simulate_modified_release_endpoint(body: dict):
+    """Simulate PK of a modified-release formulation (OROS, matrix, osmotic, etc.)."""
+    try:
+        mr_type = MRType(body.get("mr_type", "osmotic"))
+        result = simulate_modified_release(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            mr_type=mr_type,
+            release_duration_h=float(body.get("release_duration_h", 12.0)),
+            k_release=float(body.get("k_release", 0.1)),
+            ka_absorption_per_h=float(body.get("ka_absorption_per_h", 1.5)),
+            t_end_h=float(body.get("t_end_h", 24.0)),
+            dt_h=float(body.get("dt_h", 0.1)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "drug_name": result.drug_name,
+        "mr_type": result.mr_type,
+        "dose_mg": result.dose_mg,
+        "cmax_mg_L": result.cmax_mg_L,
+        "tmax_h": result.tmax_h,
+        "auc_mg_h_L": result.auc_mg_h_L,
+        "t_plateau_h": result.t_plateau_h,
+        "fluctuation_pct": result.fluctuation_pct,
+        "comparison_vs_ir": result.comparison_vs_ir,
+        "times_h": result.times_h,
+        "release_fraction": result.release_fraction,
+        "plasma_conc": result.plasma_conc,
+    }
+
+
+@app.post("/simulate/modified_release/compare")
+def compare_mr_types_endpoint(body: dict):
+    """Compare all MR formulation types for the same drug."""
+    try:
+        results = compare_mr_types(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        mr_type: {
+            "cmax_mg_L": r.cmax_mg_L,
+            "tmax_h": r.tmax_h,
+            "auc_mg_h_L": r.auc_mg_h_L,
+            "fluctuation_pct": r.fluctuation_pct,
+            "comparison_vs_ir": r.comparison_vs_ir,
+        }
+        for mr_type, r in results.items()
+    }

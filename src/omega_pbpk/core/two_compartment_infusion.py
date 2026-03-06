@@ -77,12 +77,11 @@ def simulate_2cpt_infusion(
         t_end_h = infusion_duration_h + 5.0 * thalf_beta
 
     # Macro constants for 2-cpt infusion
-    # Cp(t) during infusion = R/Vc * [1/(alpha*beta*...) ...]
-    # Simplified using rate-of-rise formula:
-    # Cp(t) = R * [(k21-alpha)/(Vc*(alpha-beta)) * (1-exp(-alpha*t))/alpha
-    #              + (k21-beta)/(Vc*(beta-alpha)) * (1-exp(-beta*t))/beta]
-    A_coef = (k21 - alpha) / (vd_central_L * (alpha - beta)) / alpha
-    B_coef = (k21 - beta) / (vd_central_L * (beta - alpha)) / beta
+    # Standard biexponential rising formula during infusion:
+    # Cp(t) = R * [(alpha-k21)/(Vc*(alpha-beta)*alpha) * (1-exp(-alpha*t))
+    #              + (k21-beta)/(Vc*(alpha-beta)*beta) * (1-exp(-beta*t))]
+    A_coef = (alpha - k21) / (vd_central_L * (alpha - beta)) / alpha
+    B_coef = (k21 - beta) / (vd_central_L * (alpha - beta)) / beta
 
     T = infusion_duration_h
 
