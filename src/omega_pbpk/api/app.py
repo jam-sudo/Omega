@@ -8289,3 +8289,59 @@ def api_fih_dose_v2(body: dict):
         "fih_dose_mg": r.fih_dose_mg,
         "body_weight_kg": r.body_weight_kg,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 132 — Pediatric Ontogeny API
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.ontogeny import (
+    cyp1a2_ontogeny as _cyp1a2_ontogeny,
+)
+from omega_pbpk.clinical.ontogeny import (
+    cyp2d6_ontogeny as _cyp2d6_ontogeny,
+)
+from omega_pbpk.clinical.ontogeny import (  # noqa: E402
+    cyp3a4_ontogeny as _cyp3a4_ontogeny,
+)
+from omega_pbpk.clinical.ontogeny import (
+    get_pediatric_scaling as _get_pediatric_scaling,
+)
+from omega_pbpk.clinical.ontogeny import (
+    gfr_ontogeny as _gfr_ontogeny,
+)
+
+
+@app.post("/predict/ontogeny")
+def api_ontogeny(body: dict):
+    """Get all pediatric ontogeny scaling factors for a given age and weight."""
+    try:
+        age = float(body["age_years"])
+        weight = float(body["weight_kg"])
+        factors = _get_pediatric_scaling(age, weight)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"age_years": age, "weight_kg": weight, **factors}
+
+
+@app.get("/predict/ontogeny/cyp3a4")
+def api_cyp3a4_ontogeny(age_years: float):
+    """CYP3A4 maturation fraction at given postnatal age."""
+    return {"age_years": age_years, "cyp3a4_fraction": _cyp3a4_ontogeny(age_years)}
+
+
+@app.get("/predict/ontogeny/cyp2d6")
+def api_cyp2d6_ontogeny(age_years: float):
+    """CYP2D6 maturation fraction at given postnatal age."""
+    return {"age_years": age_years, "cyp2d6_fraction": _cyp2d6_ontogeny(age_years)}
+
+
+@app.get("/predict/ontogeny/cyp1a2")
+def api_cyp1a2_ontogeny(age_years: float):
+    """CYP1A2 maturation fraction at given postnatal age."""
+    return {"age_years": age_years, "cyp1a2_fraction": _cyp1a2_ontogeny(age_years)}
+
+
+@app.get("/predict/ontogeny/gfr")
+def api_gfr_ontogeny(age_years: float):
+    """GFR maturation fraction at given postnatal age."""
+    return {"age_years": age_years, "gfr_fraction": _gfr_ontogeny(age_years)}
