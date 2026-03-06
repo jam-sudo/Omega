@@ -6345,3 +6345,126 @@ def api_drug_product(req: _DrugProductReq):
         import dataclasses; return dataclasses.asdict(r)
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 99: Compartmental Analysis ===
+from omega_pbpk.core.compartmental_analysis import select_compartment_model, compare_subjects
+
+class _CompartmentalReq(BaseModel):
+    drug_name: str = "Drug"
+    times: list[float]
+    conc: list[float]
+
+class _CompareSbjReq(BaseModel):
+    subjects: list[dict]
+
+@app.post("/analyze/compartmental")
+def api_compartmental(req: _CompartmentalReq):
+    try:
+        r = select_compartment_model(req.drug_name, req.times, req.conc)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/analyze/compartmental/compare")
+def api_compartmental_compare(req: _CompareSbjReq):
+    try:
+        result = compare_subjects(req.subjects)
+        import dataclasses
+        result["results"] = [dataclasses.asdict(r) for r in result["results"]]
+        return result
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 100: Dose Escalation ===
+from omega_pbpk.clinical.dose_escalation import simulate_3plus3, simulate_accelerated_titration
+
+class _DoseEscReq(BaseModel):
+    drug_name: str = "Drug"
+    starting_dose_mg: float = 10.0
+    dose_levels: list[float]
+    ed50_mg: float
+    emax: float = 0.9
+    hill: float = 2.0
+    seed: int = 42
+
+@app.post("/simulate/dose_escalation")
+def api_dose_escalation(req: _DoseEscReq):
+    try:
+        r = simulate_3plus3(req.drug_name, req.starting_dose_mg, req.dose_levels, req.ed50_mg, req.emax, req.hill, req.seed)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/simulate/dose_escalation/accelerated")
+def api_dose_escalation_accel(req: _DoseEscReq):
+    try:
+        r = simulate_accelerated_titration(req.drug_name, req.dose_levels, req.ed50_mg, req.emax, req.hill, req.seed)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 101: PK Interaction Predictor ===
+from omega_pbpk.prediction.pk_interaction_predictor import predict_pk_interaction, screen_interaction_pairs
+
+class _PKInteractionReq(BaseModel):
+    perpetrator: str
+    victim: str
+    ki_uM: float | None = None
+    emax: float | None = None
+    ec50_uM: float | None = None
+    inhibitor_conc_uM: float = 1.0
+    inducer_conc_uM: float = 1.0
+    fm: float = 0.8
+
+class _PKInteractionScreenReq(BaseModel):
+    pairs: list[dict]
+
+@app.post("/predict/pk_interaction")
+def api_pk_interaction(req: _PKInteractionReq):
+    try:
+        r = predict_pk_interaction(req.perpetrator, req.victim, req.ki_uM, req.emax, req.ec50_uM, req.inhibitor_conc_uM, req.inducer_conc_uM, req.fm)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/predict/pk_interaction/screen")
+def api_pk_interaction_screen(req: _PKInteractionScreenReq):
+    try:
+        results = screen_interaction_pairs(req.pairs)
+        import dataclasses; return [dataclasses.asdict(r) for r in results]
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 102: Particle Dissolution ===
+from omega_pbpk.biopharmaceutics.particle_dissolution import simulate_particle_dissolution, compare_particle_sizes
+
+class _ParticleReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    particle_radius_um: float = 10.0
+    solubility_mg_mL: float = 0.5
+    diffusivity_cm2_s: float = 5e-6
+    density_g_cm3: float = 1.2
+    t_end_h: float = 6.0
+
+class _ParticleSizesReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    radii_um: list[float]
+    solubility_mg_mL: float = 0.5
+
+@app.post("/simulate/particle_dissolution")
+def api_particle_dissolution(req: _ParticleReq):
+    try:
+        r = simulate_particle_dissolution(req.drug_name, req.dose_mg, req.particle_radius_um, req.solubility_mg_mL, req.diffusivity_cm2_s, req.density_g_cm3, req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/simulate/particle_dissolution/compare")
+def api_particle_dissolution_compare(req: _ParticleSizesReq):
+    try:
+        results = compare_particle_sizes(req.drug_name, req.dose_mg, req.radii_um, req.solubility_mg_mL)
+        import dataclasses; return [dataclasses.asdict(r) for r in results]
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
