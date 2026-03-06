@@ -5970,3 +5970,90 @@ def api_organ_impairment(req: _OrganImpairmentReq):
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 83 — Drug Interaction Scoring
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.interaction_score import calculate_interaction_score, score_cyp_perpetrator, score_cyp_victim
+
+class _InteractionScoreReq(BaseModel):
+    drug_a: str
+    drug_b: str
+    perpetrator_score: float
+    victim_score: float
+    transporter_score: float = 0.0
+
+@app.post("/ddi/interaction_score")
+def api_interaction_score(req: _InteractionScoreReq):
+    try:
+        r = calculate_interaction_score(req.drug_a, req.drug_b,
+                                        req.perpetrator_score, req.victim_score,
+                                        req.transporter_score)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 84 — Volume of Distribution Prediction
+# ---------------------------------------------------------------------------
+from omega_pbpk.prediction.vd_predictor import predict_vd, vd_population_range
+
+class _VdPredictReq(BaseModel):
+    drug_name: str
+    logP: float
+    MW: float
+    fup: float
+    pka: float = 7.0
+    PSA: float = 60.0
+
+@app.post("/predict/vd")
+def api_vd_predict(req: _VdPredictReq):
+    try:
+        r = predict_vd(req.drug_name, req.logP, req.MW, req.fup, req.pka, req.PSA)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 85 — Local Sensitivity Analysis
+# ---------------------------------------------------------------------------
+# (No REST endpoint — sensitivity analysis requires custom simulate_fn callback)
+# Documented as a Python library function
+
+
+# ---------------------------------------------------------------------------
+# Phase 86 — Dissolution Modeling
+# ---------------------------------------------------------------------------
+from omega_pbpk.biopharmaceutics.dissolution import simulate_weibull, compare_dissolution_models
+
+class _WeibullReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    td_h: float = 0.5
+    beta: float = 1.5
+    t_end_h: float = 4.0
+
+@app.post("/simulate/dissolution/weibull")
+def api_dissolution_weibull(req: _WeibullReq):
+    try:
+        r = simulate_weibull(req.drug_name, req.dose_mg, req.td_h, req.beta, req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+class _DissolutionCompareReq(BaseModel):
+    drug_name: str
+    dose_mg: float
+    solubility_mg_mL: float = 0.1
+
+@app.post("/simulate/dissolution/compare")
+def api_dissolution_compare(req: _DissolutionCompareReq):
+    try:
+        results = compare_dissolution_models(req.drug_name, req.dose_mg, req.solubility_mg_mL)
+        import dataclasses
+        return {k: dataclasses.asdict(v) for k, v in results.items()}
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
