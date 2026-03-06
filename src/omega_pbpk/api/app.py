@@ -6850,3 +6850,120 @@ def api_dissolution_rpm(req: _InVitroDissReq):
         import dataclasses; return [dataclasses.asdict(r) for r in results]
     except HTTPException: raise
     except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 115: Adherence Model ===
+from omega_pbpk.clinical.adherence_model import simulate_adherence, compare_adherence_levels
+
+class _AdherenceReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    cl_L_per_h: float = 5.0
+    vd_L: float = 20.0
+    dosing_interval_h: float = 24.0
+    n_doses: int = 14
+    adherence_rate: float = 0.8
+    ka_per_h: float = 0.0
+    route: str = "iv"
+    mec_mg_L: float | None = None
+    seed: int = 42
+
+@app.post("/simulate/adherence")
+def api_adherence(req: _AdherenceReq):
+    try:
+        r = simulate_adherence(req.drug_name, req.dose_mg, req.cl_L_per_h, req.vd_L, req.dosing_interval_h, req.n_doses, req.adherence_rate, req.ka_per_h, req.route, req.mec_mg_L, seed=req.seed)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 116: Volume Prediction ===
+from omega_pbpk.prediction.volume_prediction import predict_vd_tissue, screen_vd
+
+class _VdReq(BaseModel):
+    drug_name: str = "Drug"
+    logP: float = 2.0
+    fup: float = 0.5
+    pka_acid: float | None = None
+    pka_basic: float | None = None
+    drug_type: str = "neutral"
+    body_weight_kg: float = 70.0
+
+class _VdScreenReq(BaseModel):
+    compounds: list[dict]
+
+@app.post("/predict/volume_distribution")
+def api_vd(req: _VdReq):
+    try:
+        r = predict_vd_tissue(req.drug_name, req.logP, req.fup, req.pka_acid, req.pka_basic, req.drug_type, req.body_weight_kg)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/predict/volume_distribution/screen")
+def api_vd_screen(req: _VdScreenReq):
+    try:
+        results = screen_vd(req.compounds)
+        import dataclasses; return [dataclasses.asdict(r) for r in results]
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 117: IV Infusion ===
+from omega_pbpk.core.iv_infusion import simulate_constant_infusion, simulate_loading_then_maintenance
+
+class _InfusionReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    infusion_duration_h: float = 1.0
+    cl_L_per_h: float = 5.0
+    vd_L: float = 20.0
+    t_end_h: float | None = None
+
+class _LoadingReq(BaseModel):
+    drug_name: str = "Drug"
+    loading_dose_mg: float = 200.0
+    maintenance_dose_mg: float = 50.0
+    maintenance_duration_h: float = 4.0
+    cl_L_per_h: float = 5.0
+    vd_L: float = 20.0
+    loading_duration_h: float = 0.5
+
+@app.post("/simulate/iv_infusion")
+def api_iv_infusion(req: _InfusionReq):
+    try:
+        r = simulate_constant_infusion(req.drug_name, req.dose_mg, req.infusion_duration_h, req.cl_L_per_h, req.vd_L, req.t_end_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/simulate/iv_infusion/loading")
+def api_loading_infusion(req: _LoadingReq):
+    try:
+        r = simulate_loading_then_maintenance(req.drug_name, req.loading_dose_mg, req.maintenance_dose_mg, req.maintenance_duration_h, req.cl_L_per_h, req.vd_L, req.loading_duration_h)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+# === Phase 118: Bioaccessibility ===
+from omega_pbpk.biopharmaceutics.bioaccessibility import simulate_bioaccessibility, pH_solubility_profile
+
+class _BioaccessReq(BaseModel):
+    drug_name: str = "Drug"
+    dose_mg: float = 100.0
+    intrinsic_solubility_mg_mL: float = 1.0
+    pka: float | None = None
+    drug_type: str = "neutral"
+    peff_cm_s: float = 1e-4
+
+@app.post("/predict/bioaccessibility")
+def api_bioaccessibility(req: _BioaccessReq):
+    try:
+        r = simulate_bioaccessibility(req.drug_name, req.dose_mg, req.intrinsic_solubility_mg_mL, req.pka, req.drug_type, req.peff_cm_s)
+        import dataclasses; return dataclasses.asdict(r)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+@app.post("/predict/pH_solubility_profile")
+def api_ph_sol_profile(req: _BioaccessReq):
+    try:
+        return pH_solubility_profile(req.drug_name, req.intrinsic_solubility_mg_mL, req.pka, req.drug_type)
+    except HTTPException: raise
+    except Exception as exc: raise HTTPException(status_code=500, detail=str(exc)) from exc
