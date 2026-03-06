@@ -8097,7 +8097,7 @@ def fih_dose_endpoint(body: dict):
             human_bw_kg=float(body.get("human_bw_kg", 60.0)),
         )
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "drug_name": result.drug_name,
         "species": result.species,
@@ -8125,7 +8125,7 @@ def fih_compare_species_endpoint(body: dict):
         )
         best = most_conservative_mrsd(results)
     except (KeyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "by_species": {
             sp: {"hed_mg": r.hed_mg, "mrsd_mg": r.mrsd_mg, "safety_factor": r.safety_factor}
@@ -8137,4 +8137,71 @@ def fih_compare_species_endpoint(body: dict):
             "hed_mg": best.hed_mg,
             "notes": best.notes,
         },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase 129 — Multiple-Dose PK & Accumulation Index
+# ---------------------------------------------------------------------------
+from omega_pbpk.clinical.accumulation import (
+    accumulation_index_analytical as _accumulation_index_analytical_ph129,
+)
+from omega_pbpk.clinical.accumulation import (  # noqa: E402
+    simulate_multiple_dose as _simulate_multiple_dose_ph129,
+)
+
+
+@app.post("/simulate/multiple_dose")
+def api_multiple_dose(body: dict):
+    """Simulate multiple-dose PK and compute accumulation metrics."""
+    try:
+        r = _simulate_multiple_dose_ph129(
+            drug_name=body.get("drug_name", "Drug"),
+            dose_mg=float(body["dose_mg"]),
+            cl_L_per_h=float(body["cl_L_per_h"]),
+            vd_L=float(body["vd_L"]),
+            dosing_interval_h=float(body.get("dosing_interval_h", 24.0)),
+            n_doses=int(body.get("n_doses", 10)),
+            route=body.get("route", "iv"),
+            ka_per_h=float(body.get("ka_per_h", 1.5)),
+            f=float(body.get("f", 1.0)),
+            dt_h=float(body.get("dt_h", 0.05)),
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "drug_name": r.drug_name,
+        "dose_mg": r.dose_mg,
+        "dosing_interval_h": r.dosing_interval_h,
+        "n_doses": r.n_doses,
+        "route": r.route,
+        "cmax_ss": r.cmax_ss,
+        "cmin_ss": r.cmin_ss,
+        "cavg_ss": r.cavg_ss,
+        "auc_ss": r.auc_ss,
+        "accumulation_index": r.accumulation_index,
+        "analytical_r": r.analytical_r,
+        "fluctuation_pct": r.fluctuation_pct,
+        "t_ss_90pct_h": r.t_ss_90pct_h,
+        "n_doses_to_ss": r.n_doses_to_ss,
+        "thalf_effective_h": r.thalf_effective_h,
+        "times_h": r.times_h,
+        "cp_profile": r.cp_profile,
+    }
+
+
+@app.post("/predict/accumulation_index")
+def api_accumulation_index(body: dict):
+    """Compute analytical accumulation index R = 1/(1-exp(-ke*tau))."""
+    try:
+        ke = float(body["ke_per_h"])
+        tau = float(body["tau_h"])
+        r = _accumulation_index_analytical_ph129(ke, tau)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "ke_per_h": ke,
+        "tau_h": tau,
+        "accumulation_index_r": r,
+        "thalf_h": 0.693 / ke,
     }
