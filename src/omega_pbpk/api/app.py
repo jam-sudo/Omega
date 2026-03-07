@@ -9106,7 +9106,7 @@ from omega_pbpk.risk.genotoxicity import (  # noqa: E402
     assess_genotoxicity as _assess_genotoxicity,
 )
 from omega_pbpk.risk.genotoxicity import (
-    screen_library as _screen_geno_library,
+    screen_genotoxicity as _screen_geno_library,
 )
 
 

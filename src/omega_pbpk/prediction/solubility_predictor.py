@@ -139,3 +139,28 @@ def classify_solubility(s_mg_mL: float) -> str:
         return "moderate"
     else:
         return "high"
+
+
+def screen_solubility(compounds: list[dict]) -> list:
+    """Screen a list of compounds for solubility, sorted ascending by solubility_mg_mL.
+
+    Each dict must contain keys accepted by predict_solubility.
+    """
+    results = []
+    for c in compounds:
+        r = predict_solubility(
+            compound_name=c.get("compound_name", "Compound"),
+            smiles=c.get("smiles", ""),
+            mw=float(c["mw"]),
+            logP=float(c["logP"]),
+            mp_C=float(c.get("mp_C", 150.0)),
+            n_rotatable_bonds=int(c.get("n_rotatable_bonds", 5)),
+            n_hbd=int(c.get("n_hbd", 2)),
+            n_hba=int(c.get("n_hba", 4)),
+            n_aromatic_rings=int(c.get("n_aromatic_rings", 1)),
+            pka_acid=float(c["pka_acid"]) if "pka_acid" in c else None,
+            ph=float(c.get("ph", 7.4)),
+        )
+        results.append(r)
+    results.sort(key=lambda r: r.solubility_mg_mL)
+    return results
