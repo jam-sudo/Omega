@@ -2,7 +2,7 @@
 
 import pytest
 
-from omega_pbpk.core.synovial_fluid_pk import (
+from omega_pbpk.core.synovial_fluid_pk_p1029 import (
     SynovialFluidPKResult,
     simulate_synovial_fluid_pk,
 )
