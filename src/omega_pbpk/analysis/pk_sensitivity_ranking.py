@@ -85,7 +85,9 @@ def compute_sensitivity_index(
         )
 
     delta_y = outcome_high - outcome_low
-    delta_x_normalized = (high_value - low_value) / (2.0 * nominal_value)
+    # Normalized perturbation: ΔX/X = (high - low) / nominal
+    # This gives the standard elasticity S = (ΔY/Y) / (ΔX/X)
+    delta_x_normalized = (high_value - low_value) / nominal_value
 
     if outcome_nominal != 0.0 and delta_x_normalized != 0.0:
         s = (delta_y / outcome_nominal) / delta_x_normalized
