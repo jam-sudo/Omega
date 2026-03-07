@@ -161,7 +161,11 @@ def test_reactive_metabolite_risk_true_when_alerts_present():
 
 
 def test_rapid_clearance_risk_true_when_er_high():
-    """Very high CLint → ER > 0.7 → rapid_clearance_risk."""
+    """Very high CLint (>1458 µL/min/mg) → ER > 0.7 → rapid_clearance_risk.
+
+    Threshold: clint_body = clint * 0.06 * 40 = clint * 2.4
+    ER > 0.7 requires clint_body > 3500 mL/min → clint > 1458 µL/min/mg
+    """
     r = score_metabolic_liability(
         compound_name="HighCLint",
         logP=6.0,
@@ -169,7 +173,7 @@ def test_rapid_clearance_risk_true_when_er_high():
         psa=10.0,
         n_unshielded_positions=8,
         n_aromatic_rings=5,
-        measured_clint=400.0,
+        measured_clint=2000.0,
     )
     assert r.rapid_clearance_risk is True
 
