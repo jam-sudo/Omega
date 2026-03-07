@@ -2,7 +2,6 @@
 Tests for Phase 584: prediction/in_silico_metabolism.py
 """
 
-
 from omega_pbpk.prediction.in_silico_metabolism import (
     clint_from_structure,
     cyp_substrate_probability,

@@ -2,7 +2,6 @@
 Tests for Phase 583: analysis/sensitivity_one_at_a_time.py
 """
 
-
 from omega_pbpk.analysis.sensitivity_one_at_a_time import (
     local_elasticity,
     oat_sensitivity,
