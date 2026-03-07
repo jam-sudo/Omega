@@ -1,4 +1,5 @@
 """Tests for prediction/plasma_protein_affinity.py — Phase 658."""
+
 import pytest
 
 from omega_pbpk.prediction.plasma_protein_affinity import (
@@ -7,8 +8,8 @@ from omega_pbpk.prediction.plasma_protein_affinity import (
     screen_protein_affinity,
 )
 
-
 # --- Basic return type and structure ---
+
 
 def test_returns_result_type():
     result = predict_plasma_protein_affinity("Warfarin", logP=2.7, mw=308.3, psa=63.6)
@@ -57,6 +58,7 @@ def test_notes_nonempty():
 
 # --- Pharmacological sensitivity ---
 
+
 def test_high_logp_lower_kd_albumin():
     """Higher logP → stronger albumin binding (lower Kd)."""
     r_low = predict_plasma_protein_affinity("LipophilicLow", logP=1.0, mw=300.0, psa=60.0)
@@ -67,9 +69,7 @@ def test_high_logp_lower_kd_albumin():
 def test_acidic_drug_lower_kd_albumin():
     """Acidic drug (pKa<5) → albumin site I bonus → lower Kd."""
     r_neutral = predict_plasma_protein_affinity("Neutral", logP=2.0, mw=300.0, psa=60.0)
-    r_acid = predict_plasma_protein_affinity(
-        "Acid", logP=2.0, mw=300.0, psa=60.0, pka_acid=3.5
-    )
+    r_acid = predict_plasma_protein_affinity("Acid", logP=2.0, mw=300.0, psa=60.0, pka_acid=3.5)
     assert r_acid.predicted_kd_mg_L < r_neutral.predicted_kd_mg_L
 
 
@@ -109,6 +109,7 @@ def test_saturable_binding_flag():
 
 # --- Screen function ---
 
+
 def test_screen_returns_list_of_three():
     results = screen_protein_affinity("Ibuprofen", logP=3.5, mw=206.3, psa=37.3)
     assert len(results) == 3
@@ -128,6 +129,7 @@ def test_screen_all_three_proteins_covered():
 
 # --- Validation ---
 
+
 def test_validation_mw_zero_raises():
     with pytest.raises(ValueError):
         predict_plasma_protein_affinity("Drug", logP=2.0, mw=0.0, psa=50.0)
@@ -140,9 +142,7 @@ def test_validation_unknown_protein_raises():
 
 def test_validation_negative_n_hbd_raises():
     with pytest.raises(ValueError):
-        predict_plasma_protein_affinity(
-            "Drug", logP=2.0, mw=300.0, psa=50.0, n_hbd=-1
-        )
+        predict_plasma_protein_affinity("Drug", logP=2.0, mw=300.0, psa=50.0, n_hbd=-1)
 
 
 def test_validation_negative_psa_raises():

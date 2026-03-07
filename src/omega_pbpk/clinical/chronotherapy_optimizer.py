@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-
 # Disease peak activity hours (clock hour, 0-24)
 _DISEASE_PEAKS: dict[str, float] = {
     "hypertension": 9.0,
@@ -38,13 +37,13 @@ def _circular_distance(a: float, b: float, period: float = 24.0) -> float:
 
 def _efficacy_score(phase_alignment_h: float) -> float:
     """Gaussian efficacy score; max 100 at perfect alignment."""
-    return 100.0 * math.exp(-(phase_alignment_h ** 2) / 18.0)
+    return 100.0 * math.exp(-(phase_alignment_h**2) / 18.0)
 
 
 def _toxicity_score(drug_peak_hour: float) -> float:
     """Score based on alignment with normal tissue peak."""
     tox_alignment = _circular_distance(drug_peak_hour, _NORMAL_TISSUE_PEAK_H)
-    return 100.0 * math.exp(-(tox_alignment ** 2) / 18.0)
+    return 100.0 * math.exp(-(tox_alignment**2) / 18.0)
 
 
 def _recommended_schedule(optimal_hour: float) -> str:
@@ -66,7 +65,7 @@ def optimize_dosing_time(
     tmax_h: float = 2.0,
     dosing_interval_h: float = 24.0,
     effect_duration_h: float | None = None,
-) -> "ChronotherapyResult":
+) -> ChronotherapyResult:
     """Optimize dosing time for a given indication based on circadian disease patterns."""
     if t_half_h <= 0:
         raise ValueError("t_half_h must be > 0")
@@ -121,7 +120,7 @@ def compare_dosing_times(
     t_half_h: float = 8.0,
     tmax_h: float = 2.0,
     dosing_times_h: list[float] | None = None,
-) -> list["ChronotherapyResult"]:
+) -> list[ChronotherapyResult]:
     """Evaluate multiple dosing times, return sorted by benefit_risk_ratio descending."""
     if dosing_times_h is None:
         dosing_times_h = [0.0, 6.0, 12.0, 18.0]
