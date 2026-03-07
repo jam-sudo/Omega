@@ -226,8 +226,67 @@ def assess_lymph_targeting(result: LymphNodePKResult) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class LymphFormulationResult:
+    """Result for a single formulation in compare_formulation_lymph."""
+
+    drug_name: str
+    formulation_name: str
+    dose_mg: float
+    cmax_lymph: float
+    auc_lymph: float
+    lymph_enrichment_factor: float
+
+
+def compare_formulation_lymph(
+    drug_name: str,
+    dose_mg: float,
+    formulations: list,
+) -> list:
+    """Compare lymph node PK across different formulations.
+
+    Parameters
+    ----------
+    drug_name : Name of the drug.
+    dose_mg : Dose in mg.
+    formulations : List of dicts, each with optional keys:
+        ``name`` (str), ``f_lymph`` (float), ``k_rel_per_h`` (float).
+
+    Returns
+    -------
+    list[LymphFormulationResult] sorted by auc_lymph descending.
+    """
+    results = []
+    for form in formulations:
+        name = form.get("name", "unknown")
+        f_lymph = float(form.get("f_lymph", 0.1))
+        k_rel = float(form.get("k_rel_per_h", 0.3))
+
+        r = simulate_lymph_node_pk(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            f_lymph=f_lymph,
+            k_rel_per_h=k_rel,
+        )
+        enrichment = r.cumulative_node_exposure_mg_h / dose_mg if dose_mg > 0 else 0.0
+        results.append(
+            LymphFormulationResult(
+                drug_name=drug_name,
+                formulation_name=name,
+                dose_mg=dose_mg,
+                cmax_lymph=r.cmax_node_mg,
+                auc_lymph=r.cumulative_node_exposure_mg_h,
+                lymph_enrichment_factor=enrichment,
+            )
+        )
+    results.sort(key=lambda x: x.auc_lymph, reverse=True)
+    return results
+
+
 __all__ = [
+    "LymphFormulationResult",
     "LymphNodePKResult",
-    "simulate_lymph_node_pk",
     "assess_lymph_targeting",
+    "compare_formulation_lymph",
+    "simulate_lymph_node_pk",
 ]
