@@ -398,3 +398,202 @@ def screen_permeability(
         for c in compounds
     ]
     return sorted(results, key=lambda r: r.papp_cm_s)
+
+
+# ---------------------------------------------------------------------------
+# Phase 623 — Advanced permeability prediction with efflux ratio / Peff / fa
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PermeabilityResult623:
+    """Permeability prediction result for Phase 623.
+
+    Attributes
+    ----------
+    drug_name : str
+    logP : float
+    mw : float
+    psa : float
+    papp_ab_cm_s : float
+        Apparent permeability A→B (absorptive direction) in cm/s.
+    papp_ba_cm_s : float
+        Apparent permeability B→A (secretory direction) in cm/s.
+    efflux_ratio : float
+        papp_ba / papp_ab.
+    peff_cm_s : float
+        Effective intestinal permeability in cm/s.
+    log_papp : float
+        log10(papp_ab).
+    permeability_class : str
+        One of "high", "moderate", "low", "very_low".
+    pgp_substrate_risk : bool
+        True when efflux_ratio > 2.0.
+    bbb_penetration : bool
+        True when psa < 60 and logP > 0 and mw < 450.
+    fraction_absorbed : float
+        Predicted fraction absorbed (0–1).
+    notes : str
+    """
+
+    drug_name: str
+    logP: float
+    mw: float
+    psa: float
+    papp_ab_cm_s: float
+    papp_ba_cm_s: float
+    efflux_ratio: float
+    peff_cm_s: float
+    log_papp: float
+    permeability_class: str
+    pgp_substrate_risk: bool
+    bbb_penetration: bool
+    fraction_absorbed: float
+    notes: str
+
+
+def predict_permeability_623(
+    drug_name: str,
+    logP: float,
+    mw: float,
+    psa: float,
+    n_hbd: int = 2,
+    pka: float | None = None,
+    pgp_affinity: float = 0.0,
+    assay_type: str = "caco2",
+) -> PermeabilityResult623:
+    """Predict membrane permeability from physicochemical descriptors (Phase 623).
+
+    Parameters
+    ----------
+    drug_name : str
+    logP : float
+        Octanol-water partition coefficient.
+    mw : float
+        Molecular weight (Da). Must be > 0.
+    psa : float
+        Polar surface area (Å²). Must be ≥ 0.
+    n_hbd : int
+        Number of H-bond donors.
+    pka : float or None
+        pKa for ionisation correction at pH 6.5 (acid). None = not ionisable.
+    pgp_affinity : float
+        P-glycoprotein interaction score in [0, 1]. 0 = none, 1 = full substrate.
+    assay_type : str
+        One of "caco2", "mdck", "pampa".
+
+    Returns
+    -------
+    PermeabilityResult623
+    """
+    if mw <= 0:
+        raise ValueError("mw must be > 0")
+    if psa < 0:
+        raise ValueError("psa must be >= 0")
+    if not (0.0 <= pgp_affinity <= 1.0):
+        raise ValueError("pgp_affinity must be in [0, 1]")
+    if assay_type not in {"caco2", "mdck", "pampa"}:
+        raise ValueError("assay_type must be 'caco2', 'mdck', or 'pampa'")
+
+    # --- QSAR model ---
+    log_papp = 0.3 * logP - 0.01 * psa - 0.002 * mw - 0.15 * n_hbd - 5.0
+
+    # Assay correction
+    if assay_type == "mdck":
+        log_papp += math.log10(1.5)  # MDCK ~1.5× higher than Caco-2
+    # PAMPA: passive only (no correction to Papp itself, but efflux = 1 later)
+
+    papp_ab = max(1e-8, min(5e-5, 10.0**log_papp))
+    # recompute log_papp from clamped papp_ab for consistency
+    log_papp = math.log10(papp_ab)
+
+    # --- Efflux ratio ---
+    if assay_type == "pampa":
+        efflux_ratio = 1.0
+    else:
+        mw_contribution = max(0.0, 0.5 * (mw - 400.0) / 100.0) if mw > 400 else 0.0
+        efflux_ratio = 1.0 + 2.0 * pgp_affinity + mw_contribution
+        efflux_ratio = max(1.0, min(10.0, efflux_ratio))
+
+    papp_ba = papp_ab * efflux_ratio
+
+    # --- Peff (Lennernäs scaling) ---
+    peff = papp_ab * 0.4
+    if pka is not None and pka < 7.0:
+        # Acid ionization at pH 6.5
+        ionized_fraction = 1.0 / (1.0 + 10.0 ** (pka - 6.5))
+        peff *= 1.0 - ionized_fraction
+
+    # --- Classification ---
+    if log_papp > -5.0:
+        permeability_class = "high"
+    elif log_papp > -6.0:
+        permeability_class = "moderate"
+    elif log_papp > -7.0:
+        permeability_class = "low"
+    else:
+        permeability_class = "very_low"
+
+    # --- Flags ---
+    pgp_substrate_risk = efflux_ratio > 2.0
+    bbb_penetration = psa < 60.0 and logP > 0.0 and mw < 450.0
+
+    # --- Fraction absorbed (logistic) ---
+    fa = 1.0 / (1.0 + math.exp(-(log_papp + 6.0) * 2.0))
+    fa = max(0.0, min(1.0, fa))
+
+    # --- Notes ---
+    note_parts: list[str] = []
+    if pgp_substrate_risk:
+        note_parts.append("P-gp substrate risk (efflux_ratio > 2)")
+    if permeability_class == "very_low":
+        note_parts.append("Very low permeability — absorption limited")
+    if not bbb_penetration:
+        note_parts.append("Limited CNS penetration predicted")
+    notes = "; ".join(note_parts) if note_parts else "Acceptable permeability"
+
+    return PermeabilityResult623(
+        drug_name=drug_name,
+        logP=logP,
+        mw=mw,
+        psa=psa,
+        papp_ab_cm_s=papp_ab,
+        papp_ba_cm_s=papp_ba,
+        efflux_ratio=efflux_ratio,
+        peff_cm_s=peff,
+        log_papp=log_papp,
+        permeability_class=permeability_class,
+        pgp_substrate_risk=pgp_substrate_risk,
+        bbb_penetration=bbb_penetration,
+        fraction_absorbed=fa,
+        notes=notes,
+    )
+
+
+def screen_permeability_623(compounds: list) -> list:
+    """Screen compounds for permeability (Phase 623).
+
+    Parameters
+    ----------
+    compounds : list[dict]
+        Each dict must have keys: name, logP, mw, psa.
+        Optional: n_hbd, pka, pgp_affinity, assay_type.
+
+    Returns
+    -------
+    list[PermeabilityResult623] sorted by papp_ab_cm_s descending.
+    """
+    results = [
+        predict_permeability_623(
+            drug_name=c["name"],
+            logP=float(c["logP"]),
+            mw=float(c["mw"]),
+            psa=float(c["psa"]),
+            n_hbd=int(c.get("n_hbd", 2)),
+            pka=c.get("pka", None),
+            pgp_affinity=float(c.get("pgp_affinity", 0.0)),
+            assay_type=str(c.get("assay_type", "caco2")),
+        )
+        for c in compounds
+    ]
+    return sorted(results, key=lambda r: r.papp_ab_cm_s, reverse=True)

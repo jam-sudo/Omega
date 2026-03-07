@@ -7,7 +7,7 @@ import math
 import pytest
 
 from omega_pbpk.clinical.obesity_pk import (
-    ObesityPKResult,
+    ObesityPKScalingResult,
     compute_lean_body_weight,
     obesity_pk_scaling,
 )
@@ -87,7 +87,7 @@ def _default_result(
     weight_kg: float = 100.0,
     sex: str = "male",
     distribution_type: str = "hydrophilic",
-) -> ObesityPKResult:
+) -> ObesityPKScalingResult:
     """Helper to produce a result with sensible defaults."""
     return obesity_pk_scaling(
         drug_name="TestDrug",
@@ -104,7 +104,7 @@ def _default_result(
 class TestObesityPKScaling:
     def test_returns_dataclass(self):
         result = _default_result()
-        assert isinstance(result, ObesityPKResult)
+        assert isinstance(result, ObesityPKScalingResult)
 
     def test_drug_name_preserved(self):
         result = _default_result()
