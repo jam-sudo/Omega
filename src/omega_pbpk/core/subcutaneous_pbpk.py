@@ -20,6 +20,10 @@ __all__ = [
     "SubcutaneousPKResult",
     "simulate_sc_pk",
     "compare_sc_to_iv",
+    # Phase 855
+    "SubcutaneousPKResult855",
+    "simulate_sc_absorption",
+    "compare_sc_iv",
 ]
 
 
@@ -325,3 +329,240 @@ def compare_sc_to_iv(
         "auc_ratio": auc_ratio,
         "tmax_ratio": tmax_ratio,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 855 — SC absorption PBPK with lymphatic pathway
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SubcutaneousPKResult855:
+    """Phase 855 result of SC absorption PBPK simulation (plain dataclass, list fields)."""
+
+    drug_name: str
+    dose_mg: float
+    mw_kDa: float
+    route: str
+
+    times_h: list
+    c_plasma_mg_L: list
+    a_sc_depot_mg: list
+    a_lymph_mg: list
+
+    cmax_mg_L: float
+    tmax_h: float
+    auc_mg_h_per_L: float
+
+    f_via_lymph: float
+    t_lag_h: float
+    notes: str
+
+
+def _apply_mw_effect_855(
+    mw_kDa: float,
+    ka_direct_per_h: float,
+    ka_lymph_per_h: float,
+) -> tuple:
+    """Adjust absorption rate constants based on molecular weight (Phase 855)."""
+    ka_direct = ka_direct_per_h
+    ka_lymph = ka_lymph_per_h
+
+    if mw_kDa > 5.0:
+        scale = (mw_kDa / 5.0) * 0.5
+        ka_lymph = ka_lymph_per_h * scale
+        default_ka_lymph_cap = 3.0 * ka_lymph_per_h
+        if ka_lymph > default_ka_lymph_cap:
+            ka_lymph = default_ka_lymph_cap
+
+    if mw_kDa > 50.0:
+        ka_direct = ka_direct_per_h * 0.1
+
+    return ka_direct, ka_lymph
+
+
+def simulate_sc_absorption(
+    drug_name: str,
+    dose_mg: float,
+    mw_kDa: float = 1.0,
+    ka_direct_per_h: float = 0.3,
+    ka_lymph_per_h: float = 0.05,
+    ka_lym_to_plasma_per_h: float = 0.1,
+    vd_L: float = 10.0,
+    cl_L_per_h: float = 1.0,
+    f_bioavail: float = 0.8,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.1,
+) -> SubcutaneousPKResult855:
+    """Simulate subcutaneous drug absorption via 3-compartment Forward Euler model.
+
+    Phase 855 implementation: SC depot -> lymph -> plasma.
+
+    Compartments:
+      SC depot (mg): injection site
+      Lymph (mg): lymphatic absorption route
+      Plasma (mg/L): systemic
+
+    ODEs:
+      d(sc_depot)/dt = -(ka_direct + ka_lymph) * sc_depot
+      d(lymph)/dt = ka_lymph * sc_depot - ka_lym_to_plasma * lymph
+      d(C_plasma)/dt = ka_direct * sc_depot / Vd + ka_lym_to_plasma * lymph / Vd - ke * C_plasma
+    """
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
+    if mw_kDa <= 0:
+        raise ValueError("mw_kDa must be > 0")
+    if vd_L <= 0:
+        raise ValueError("vd_L must be > 0")
+    if cl_L_per_h <= 0:
+        raise ValueError("cl_L_per_h must be > 0")
+    if not (0 < f_bioavail <= 1.0):
+        raise ValueError("f_bioavail must be in (0, 1]")
+
+    ka_direct, ka_lymph = _apply_mw_effect_855(mw_kDa, ka_direct_per_h, ka_lymph_per_h)
+    ke = cl_L_per_h / vd_L
+
+    sc_depot = dose_mg * f_bioavail
+    a_lymph = 0.0
+    c_plasma = 0.0
+
+    times_h_out: list = []
+    c_plasma_list: list = []
+    a_sc_depot_list: list = []
+    a_lymph_list: list = []
+
+    t = 0.0
+    n_steps = int(math.ceil(t_end_h / dt_h)) + 1
+
+    total_via_direct = 0.0
+    total_via_lymph = 0.0
+
+    for _ in range(n_steps):
+        times_h_out.append(t)
+        c_plasma_list.append(c_plasma)
+        a_sc_depot_list.append(sc_depot)
+        a_lymph_list.append(a_lymph)
+
+        if t >= t_end_h:
+            break
+
+        d_sc_depot = -(ka_direct + ka_lymph) * sc_depot
+        d_lymph = ka_lymph * sc_depot - ka_lym_to_plasma_per_h * a_lymph
+        d_c_plasma = (
+            ka_direct * sc_depot / vd_L + ka_lym_to_plasma_per_h * a_lymph / vd_L - ke * c_plasma
+        )
+
+        total_via_direct += ka_direct * sc_depot * dt_h
+        total_via_lymph += ka_lym_to_plasma_per_h * a_lymph * dt_h
+
+        sc_depot = sc_depot + d_sc_depot * dt_h
+        a_lymph = a_lymph + d_lymph * dt_h
+        c_plasma = c_plasma + d_c_plasma * dt_h
+
+        if sc_depot < 0.0:
+            sc_depot = 0.0
+        if a_lymph < 0.0:
+            a_lymph = 0.0
+        if c_plasma < 0.0:
+            c_plasma = 0.0
+
+        t = round(t + dt_h, 10)
+
+    cmax_mg_L = max(c_plasma_list)
+    tmax_h = times_h_out[c_plasma_list.index(cmax_mg_L)]
+
+    auc = 0.0
+    for i in range(1, len(times_h_out)):
+        auc += (
+            0.5 * (c_plasma_list[i] + c_plasma_list[i - 1]) * (times_h_out[i] - times_h_out[i - 1])
+        )
+
+    total_absorbed = total_via_direct + total_via_lymph
+    if total_absorbed > 0:
+        f_via_lymph = total_via_lymph / total_absorbed
+    else:
+        f_via_lymph = 0.0
+    f_via_lymph = max(0.0, min(1.0, f_via_lymph))
+
+    threshold = 0.1 * cmax_mg_L
+    t_lag_h = 0.0
+    for i, c in enumerate(c_plasma_list):
+        if c >= threshold:
+            t_lag_h = times_h_out[i]
+            break
+
+    notes_parts = [
+        f"MW={mw_kDa:.1f} kDa",
+        f"ka_direct={ka_direct:.4f}/h",
+        f"ka_lymph={ka_lymph:.4f}/h",
+        f"ke={ke:.4f}/h",
+        f"F={f_bioavail:.2f}",
+    ]
+    if mw_kDa > 50:
+        notes_parts.append("large protein: primarily lymphatic absorption")
+    elif mw_kDa > 5:
+        notes_parts.append("moderate MW: enhanced lymphatic fraction")
+
+    notes = "; ".join(notes_parts)
+
+    return SubcutaneousPKResult855(
+        drug_name=drug_name,
+        dose_mg=dose_mg,
+        mw_kDa=mw_kDa,
+        route="subcutaneous",
+        times_h=times_h_out,
+        c_plasma_mg_L=c_plasma_list,
+        a_sc_depot_mg=a_sc_depot_list,
+        a_lymph_mg=a_lymph_list,
+        cmax_mg_L=cmax_mg_L,
+        tmax_h=tmax_h,
+        auc_mg_h_per_L=auc,
+        f_via_lymph=f_via_lymph,
+        t_lag_h=t_lag_h,
+        notes=notes,
+    )
+
+
+def compare_sc_iv(
+    drug_name: str,
+    dose_mg: float,
+    mw_kDa: float = 1.0,
+    vd_L: float = 10.0,
+    cl_L_per_h: float = 1.0,
+    t_end_h: float = 24.0,
+) -> dict:
+    """Compare SC and IV administration for the same drug and dose (Phase 855).
+
+    For IV: ka_direct=100/h, ka_lymph=0, f_bioavail=1.0.
+
+    Returns
+    -------
+    dict with keys "sc" and "iv", each a SubcutaneousPKResult855.
+    """
+    sc_result = simulate_sc_absorption(
+        drug_name=drug_name,
+        dose_mg=dose_mg,
+        mw_kDa=mw_kDa,
+        ka_direct_per_h=0.3,
+        ka_lymph_per_h=0.05,
+        ka_lym_to_plasma_per_h=0.1,
+        vd_L=vd_L,
+        cl_L_per_h=cl_L_per_h,
+        f_bioavail=0.8,
+        t_end_h=t_end_h,
+    )
+
+    iv_result = simulate_sc_absorption(
+        drug_name=drug_name,
+        dose_mg=dose_mg,
+        mw_kDa=mw_kDa,
+        ka_direct_per_h=100.0,
+        ka_lymph_per_h=0.0,
+        ka_lym_to_plasma_per_h=0.1,
+        vd_L=vd_L,
+        cl_L_per_h=cl_L_per_h,
+        f_bioavail=1.0,
+        t_end_h=t_end_h,
+    )
+
+    return {"sc": sc_result, "iv": iv_result}
