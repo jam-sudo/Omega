@@ -1,290 +1,186 @@
-"""Tests for renal excretion predictor (Phase 396)."""
-
-from __future__ import annotations
-
-import math
+"""Tests for Phase 581 — predict_excretion_route functions."""
 
 import pytest
 
 from omega_pbpk.prediction.excretion_predictor import (
-    RenalExcretionResult,
-    predict_renal_excretion,
-    urine_pH_sensitivity,
+    biliary_excretion_likelihood,
+    predict_excretion_route,
+    renal_excretion_mechanism,
+    urine_ph_effect_on_excretion,
 )
 
 # ---------------------------------------------------------------------------
-# Helpers
+# predict_excretion_route
 # ---------------------------------------------------------------------------
 
 
-def _predict(**kwargs) -> RenalExcretionResult:
-    defaults = dict(
-        mw=250.0,
-        logP=1.0,
-        pka=7.4,
-        molecule_type="neutral",
-        fu_plasma=0.5,
-        gfr_mL_per_min=120.0,
-    )
-    defaults.update(kwargs)
-    return predict_renal_excretion(**defaults)
+class TestPredictExcretionRoute:
+    def test_fe_sums_to_one(self):
+        r = predict_excretion_route(300.0, 1.0, 0.5, 5.0, 3.0)
+        assert abs(r["fe_renal"] + r["fe_biliary"] - 1.0) < 1e-9
+
+    def test_primary_route_renal_when_high_cl_renal(self):
+        r = predict_excretion_route(200.0, 0.5, 0.8, 10.0, 1.0)
+        assert r["primary_route"] == "renal"
+
+    def test_primary_route_hepatic_when_high_cl_hepatic(self):
+        r = predict_excretion_route(450.0, 2.5, 0.3, 1.0, 15.0)
+        assert r["primary_route"] == "hepatic"
+
+    def test_primary_route_mixed_equal_clearances(self):
+        r = predict_excretion_route(300.0, 1.0, 0.5, 5.0, 5.0)
+        assert r["primary_route"] == "mixed"
+
+    def test_total_cl_is_sum(self):
+        r = predict_excretion_route(300.0, 1.0, 0.5, 4.0, 6.0)
+        assert abs(r["total_cl_L_per_h"] - 10.0) < 1e-9
+
+    def test_zero_total_cl_returns_undetermined(self):
+        r = predict_excretion_route(300.0, 1.0, 0.5, 0.0, 0.0)
+        assert r["primary_route"] == "undetermined"
+        assert r["fe_renal"] == 0.0
+        assert r["fe_biliary"] == 0.0
+
+    def test_negative_cl_renal_raises(self):
+        with pytest.raises(ValueError):
+            predict_excretion_route(300.0, 1.0, 0.5, -1.0, 5.0)
+
+    def test_negative_cl_hepatic_raises(self):
+        with pytest.raises(ValueError):
+            predict_excretion_route(300.0, 1.0, 0.5, 5.0, -1.0)
+
+    def test_invalid_fu_raises(self):
+        with pytest.raises(ValueError):
+            predict_excretion_route(300.0, 1.0, 1.5, 5.0, 5.0)
+
+    def test_notes_returned(self):
+        r = predict_excretion_route(300.0, 1.0, 0.5, 5.0, 5.0)
+        assert isinstance(r["notes"], str)
+
+    def test_high_mw_note_present_when_biliary(self):
+        r = predict_excretion_route(600.0, 3.0, 0.5, 2.0, 8.0)
+        assert "MW" in r["notes"]
 
 
 # ---------------------------------------------------------------------------
-# Basic structure
+# renal_excretion_mechanism
 # ---------------------------------------------------------------------------
 
 
-class TestRenalExcretionResultStructure:
-    def test_returns_correct_type(self):
-        result = _predict()
-        assert isinstance(result, RenalExcretionResult)
+class TestRenalExcretionMechanism:
+    def test_high_logP_high_reabsorption(self):
+        _r = predict_excretion_route(300.0, 1.0, 0.5, 5.0, 5.0)
+        rem = renal_excretion_mechanism(0.5, 4.0, 350.0)
+        assert rem["reabsorption_fraction"] > 0.3
 
-    def test_frozen_dataclass(self):
-        result = _predict()
-        with pytest.raises((AttributeError, TypeError)):
-            result.mw = 999.0  # type: ignore[misc]
+    def test_cl_renal_net_positive(self):
+        rem = renal_excretion_mechanism(0.8, 0.5, 300.0)
+        assert rem["cl_renal_net_L_per_h"] > 0
 
-    def test_fields_preserved(self):
-        result = _predict(
-            mw=300.0, logP=2.0, pka=8.0, molecule_type="base", fu_plasma=0.3, gfr_mL_per_min=90.0
-        )
-        assert result.mw == 300.0
-        assert result.logP == 2.0
-        assert result.pka == 8.0
-        assert result.molecule_type == "base"
-        assert result.fu_plasma == 0.3
-        assert result.gfr_mL_per_min == 90.0
+    def test_negative_logP_zero_reabsorption(self):
+        rem = renal_excretion_mechanism(0.8, -1.0, 300.0)
+        assert rem["reabsorption_fraction"] == 0.0
 
-    def test_notes_is_string(self):
-        result = _predict()
-        assert isinstance(result.notes, str)
-        assert len(result.notes) > 0
+    def test_active_secretion_triggered(self):
+        rem = renal_excretion_mechanism(0.8, 0.5, 200.0)
+        assert rem["active_secretion_bonus"] > 0
 
+    def test_no_active_secretion_high_mw(self):
+        rem = renal_excretion_mechanism(0.8, 0.5, 600.0)
+        assert rem["active_secretion_bonus"] == 0.0
 
-# ---------------------------------------------------------------------------
-# Filtration clearance
-# ---------------------------------------------------------------------------
+    def test_cl_filtration_proportional_to_fu(self):
+        rem1 = renal_excretion_mechanism(0.2, -0.5, 300.0)
+        rem2 = renal_excretion_mechanism(0.4, -0.5, 300.0)
+        assert abs(rem2["cl_filtration"] / rem1["cl_filtration"] - 2.0) < 1e-6
 
+    def test_invalid_fu_raises(self):
+        with pytest.raises(ValueError):
+            renal_excretion_mechanism(-0.1, 1.0, 300.0)
 
-class TestFiltrationClearance:
-    def test_cl_filtration_equals_gfr_times_fup(self):
-        result = _predict(fu_plasma=0.4, gfr_mL_per_min=120.0)
-        expected = 120.0 * 0.4
-        assert abs(result.cl_filtration_mL_per_min - expected) < 1e-9
-
-    def test_cl_filtration_proportional_to_gfr(self):
-        r1 = _predict(gfr_mL_per_min=60.0)
-        r2 = _predict(gfr_mL_per_min=120.0)
-        assert abs(r2.cl_filtration_mL_per_min / r1.cl_filtration_mL_per_min - 2.0) < 1e-9
-
-    def test_cl_filtration_proportional_to_fup(self):
-        r1 = _predict(fu_plasma=0.2)
-        r2 = _predict(fu_plasma=0.8)
-        assert abs(r2.cl_filtration_mL_per_min / r1.cl_filtration_mL_per_min - 4.0) < 1e-9
+    def test_reabsorption_capped_at_0p9(self):
+        rem = renal_excretion_mechanism(0.8, 8.0, 300.0)
+        assert rem["reabsorption_fraction"] <= 0.9
 
 
 # ---------------------------------------------------------------------------
-# Reabsorption
+# biliary_excretion_likelihood
 # ---------------------------------------------------------------------------
 
 
-class TestReabsorption:
-    def test_reabsorption_between_0_and_1(self):
-        result = _predict()
-        assert 0.0 <= result.f_reabsorption <= 1.0
+class TestBiliaryExcretionLikelihood:
+    def test_high_mw_high_logP_high_hba_gives_high(self):
+        r = biliary_excretion_likelihood(mw=600.0, logP=3.0, n_hba=6)
+        assert r["likelihood"] == "high"
 
-    def test_high_logp_high_reabsorption(self):
-        result = _predict(logP=4.0, molecule_type="neutral")
-        assert result.f_reabsorption > 0.7
+    def test_score_3_for_all_criteria(self):
+        r = biliary_excretion_likelihood(mw=600.0, logP=3.0, n_hba=6)
+        assert r["score"] == 3
 
-    def test_low_logp_low_reabsorption(self):
-        result = _predict(logP=-3.0, molecule_type="neutral")
-        assert result.f_reabsorption < 0.3
+    def test_low_mw_low_logP_low_hba_gives_low(self):
+        r = biliary_excretion_likelihood(mw=150.0, logP=-1.0, n_hba=1)
+        assert r["likelihood"] == "low"
+        assert r["score"] == 0
 
-    def test_reabsorption_increases_with_logP_neutral(self):
-        r_low = _predict(logP=-2.0, molecule_type="neutral")
-        r_high = _predict(logP=3.0, molecule_type="neutral")
-        assert r_high.f_reabsorption > r_low.f_reabsorption
+    def test_moderate_mw_range_and_criteria(self):
+        r = biliary_excretion_likelihood(mw=400.0, logP=2.0, n_hba=3)
+        # MW=400 (not >500, score 0); logP=2 (not >2, score 0); HBA=3 (not >4, score 0)
+        # but mw>=300, logP>=1 and <=4 — only if score>=1; score=0 so stays low
+        assert r["likelihood"] == "low"
 
-
-# ---------------------------------------------------------------------------
-# Renal clearance
-# ---------------------------------------------------------------------------
-
-
-class TestRenalClearance:
-    def test_cl_renal_nonnegative(self):
-        result = _predict()
-        assert result.cl_renal_mL_per_min >= 0.0
-
-    def test_cl_renal_leq_filtration(self):
-        result = _predict()
-        assert result.cl_renal_mL_per_min <= result.cl_filtration_mL_per_min + 1e-9
-
-    def test_cl_renal_L_per_h_conversion(self):
-        result = _predict()
-        expected = result.cl_renal_mL_per_min * 60.0 / 1000.0
-        assert abs(result.cl_renal_L_per_h - expected) < 1e-9
-
-    def test_high_logp_lower_cl_renal(self):
-        r_low = _predict(logP=-2.0, molecule_type="neutral")
-        r_high = _predict(logP=4.0, molecule_type="neutral")
-        assert r_high.cl_renal_mL_per_min < r_low.cl_renal_mL_per_min
-
-
-# ---------------------------------------------------------------------------
-# Ionization effects
-# ---------------------------------------------------------------------------
-
-
-class TestIonizationEffects:
-    def test_neutral_ionization_zero(self):
-        result = _predict(molecule_type="neutral")
-        assert result.ionization_fraction_at_urine_pH == 0.0
-
-    def test_zwitterion_ionization_zero(self):
-        result = _predict(molecule_type="zwitterion")
-        assert result.ionization_fraction_at_urine_pH == 0.0
-
-    def test_weak_acid_partial_ionization_at_urine_ph(self):
-        # pKa = 6.0, urine pH = 6.0 → fi = 0.5
-        result = _predict(pka=6.0, molecule_type="acid")
-        assert abs(result.ionization_fraction_at_urine_pH - 0.5) < 1e-6
-
-    def test_strong_acid_mostly_ionized(self):
-        # pKa = 3.0, urine pH 6.0 → nearly fully ionized
-        result = _predict(pka=3.0, molecule_type="acid")
-        assert result.ionization_fraction_at_urine_pH > 0.99
-
-    def test_weak_base_partial_ionization(self):
-        # pKa = 6.0, urine pH = 6.0 → fi = 0.5
-        result = _predict(pka=6.0, molecule_type="base")
-        assert abs(result.ionization_fraction_at_urine_pH - 0.5) < 1e-6
-
-    def test_ionization_reduces_reabsorption_acid(self):
-        # At pKa=4, acid is very ionized at urine pH → lower reabsorption
-        r_neutral = _predict(logP=3.0, molecule_type="neutral")
-        r_acid = _predict(logP=3.0, pka=4.0, molecule_type="acid")
-        assert r_acid.f_reabsorption < r_neutral.f_reabsorption
-
-
-# ---------------------------------------------------------------------------
-# Input validation
-# ---------------------------------------------------------------------------
-
-
-class TestPredictValidation:
     def test_negative_mw_raises(self):
-        with pytest.raises(ValueError, match="mw"):
-            _predict(mw=-100.0)
+        with pytest.raises(ValueError):
+            biliary_excretion_likelihood(-100.0, 1.0, 3)
 
-    def test_zero_mw_raises(self):
-        with pytest.raises(ValueError, match="mw"):
-            _predict(mw=0.0)
+    def test_negative_hba_raises(self):
+        with pytest.raises(ValueError):
+            biliary_excretion_likelihood(400.0, 1.0, -1)
 
-    def test_invalid_molecule_type_raises(self):
-        with pytest.raises(ValueError, match="molecule_type"):
-            _predict(molecule_type="amine")
-
-    def test_zero_fu_plasma_raises(self):
-        with pytest.raises(ValueError, match="fu_plasma"):
-            _predict(fu_plasma=0.0)
-
-    def test_fu_plasma_above_1_raises(self):
-        with pytest.raises(ValueError, match="fu_plasma"):
-            _predict(fu_plasma=1.5)
-
-    def test_zero_gfr_raises(self):
-        with pytest.raises(ValueError, match="gfr_mL_per_min"):
-            _predict(gfr_mL_per_min=0.0)
-
-    def test_negative_gfr_raises(self):
-        with pytest.raises(ValueError, match="gfr_mL_per_min"):
-            _predict(gfr_mL_per_min=-10.0)
-
-    def test_logp_out_of_range_raises(self):
-        with pytest.raises(ValueError, match="logP"):
-            _predict(logP=20.0)
-
-    def test_non_finite_pka_raises(self):
-        with pytest.raises(ValueError, match="pka"):
-            _predict(pka=math.nan)
+    def test_notes_contain_mw_when_high(self):
+        r = biliary_excretion_likelihood(mw=600.0, logP=3.0, n_hba=6)
+        assert "MW" in r["notes"]
 
 
 # ---------------------------------------------------------------------------
-# urine_pH_sensitivity
+# urine_ph_effect_on_excretion
 # ---------------------------------------------------------------------------
 
 
-class TestUrinePHSensitivity:
-    def _sweep(self, **kwargs):
-        defaults = dict(
-            mw=250.0,
-            logP=1.0,
-            pka=5.0,
-            molecule_type="acid",
-            fu_plasma=0.5,
-            gfr_mL_per_min=120.0,
-            urine_pH_values=[4.5, 5.0, 6.0, 7.0, 8.0],
-        )
-        defaults.update(kwargs)
-        return urine_pH_sensitivity(**defaults)
+class TestUrinePHEffect:
+    def test_acidic_urine_decreases_cl_for_acid_drug(self):
+        # Acid pKa=5, acidic urine pH=4.5 → less ionized → more reabsorption → lower CL
+        r_acid = urine_ph_effect_on_excretion(5.0, "acid", 4.5, 2.0)
+        r_base_ph = urine_ph_effect_on_excretion(5.0, "acid", 8.0, 2.0)
+        assert r_acid["cl_renal_adjusted_L_per_h"] < r_base_ph["cl_renal_adjusted_L_per_h"]
 
-    def test_returns_list_of_dicts(self):
-        result = self._sweep()
-        assert isinstance(result, list)
-        assert all(isinstance(r, dict) for r in result)
+    def test_effect_direction_for_acid_in_basic_urine(self):
+        r = urine_ph_effect_on_excretion(5.0, "acid", 8.0, 2.0)
+        assert r["effect_direction"] == "increased"
 
-    def test_length_matches_ph_values(self):
-        result = self._sweep(urine_pH_values=[5.0, 6.0, 7.0])
-        assert len(result) == 3
+    def test_effect_direction_for_acid_in_acidic_urine(self):
+        r = urine_ph_effect_on_excretion(5.0, "acid", 4.0, 2.0)
+        assert r["effect_direction"] == "decreased"
 
-    def test_result_keys_present(self):
-        result = self._sweep()
-        expected_keys = {
-            "urine_pH",
-            "cl_filtration_mL_per_min",
-            "f_reabsorption",
-            "cl_renal_mL_per_min",
-            "cl_renal_L_per_h",
-            "ionization_fraction",
-        }
-        for r in result:
-            assert expected_keys <= set(r.keys())
+    def test_effect_direction_for_base_in_acidic_urine(self):
+        r = urine_ph_effect_on_excretion(9.0, "base", 4.5, 2.0)
+        assert r["effect_direction"] == "increased"
 
-    def test_acid_higher_clr_at_high_ph(self):
-        # Acid more ionized at higher pH → less reabsorption → higher CLr
-        result = self._sweep(pka=5.0, molecule_type="acid")
-        cl_low_ph = next(r["cl_renal_mL_per_min"] for r in result if r["urine_pH"] == 4.5)
-        cl_high_ph = next(r["cl_renal_mL_per_min"] for r in result if r["urine_pH"] == 8.0)
-        assert cl_high_ph > cl_low_ph
+    def test_fi_urine_in_0_1_range(self):
+        r = urine_ph_effect_on_excretion(7.0, "acid", 6.0, 3.0)
+        assert 0.0 <= r["fi_urine"] <= 1.0
 
-    def test_neutral_drug_ph_insensitive(self):
-        result = self._sweep(molecule_type="neutral", pka=5.0)
-        cl_values = [r["cl_renal_mL_per_min"] for r in result]
-        assert max(cl_values) - min(cl_values) < 1e-9
+    def test_cl_adjusted_positive(self):
+        r = urine_ph_effect_on_excretion(5.0, "acid", 6.0, 2.0)
+        assert r["cl_renal_adjusted_L_per_h"] > 0
 
-    def test_empty_ph_list_raises(self):
-        with pytest.raises(ValueError, match="urine_pH_values"):
-            urine_pH_sensitivity(
-                mw=250.0,
-                logP=1.0,
-                pka=5.0,
-                molecule_type="acid",
-                fu_plasma=0.5,
-                gfr_mL_per_min=120.0,
-                urine_pH_values=[],
-            )
+    def test_invalid_drug_type_raises(self):
+        with pytest.raises(ValueError):
+            urine_ph_effect_on_excretion(5.0, "neutral", 6.0, 2.0)
 
-    def test_zero_gfr_raises(self):
-        with pytest.raises(ValueError, match="gfr_mL_per_min"):
-            urine_pH_sensitivity(
-                mw=250.0,
-                logP=1.0,
-                pka=5.0,
-                molecule_type="acid",
-                fu_plasma=0.5,
-                gfr_mL_per_min=0.0,
-                urine_pH_values=[6.0],
-            )
+    def test_invalid_urine_ph_raises(self):
+        with pytest.raises(ValueError):
+            urine_ph_effect_on_excretion(5.0, "acid", 15.0, 2.0)
+
+    def test_negative_cl_baseline_raises(self):
+        with pytest.raises(ValueError):
+            urine_ph_effect_on_excretion(5.0, "acid", 6.0, -1.0)
