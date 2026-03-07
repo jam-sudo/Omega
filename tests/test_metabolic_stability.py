@@ -146,3 +146,146 @@ class TestInVitroClearanceFromDepletion:
             times_min=times_slow, concentrations=concs_slow, drug_name="Slow"
         )
         assert result_fast["t_half_min"] < result_slow["t_half_min"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 442: predict_microsomal_stability (prediction module)
+# ---------------------------------------------------------------------------
+
+from omega_pbpk.prediction.metabolic_stability import (  # noqa: E402
+    MicrosomalStabilityResult,
+    predict_microsomal_stability,
+)
+
+_DEFAULT_MS = dict(
+    drug_name="TestDrug",
+    mw=350.0,
+    logP=2.0,
+    n_aromatic_rings=2,
+    n_rot_bonds=4,
+    molecular_formula_atoms={"C": 20, "H": 25, "N": 2, "O": 3},
+)
+
+
+def _ms(**overrides):
+    return predict_microsomal_stability(**{**_DEFAULT_MS, **overrides})
+
+
+class TestPredictMicrosomalStability:
+    def test_returns_correct_type(self):
+        assert isinstance(_ms(), MicrosomalStabilityResult)
+
+    def test_clint_positive(self):
+        assert _ms().clint_uL_per_min_per_mg > 0
+
+    def test_t_half_positive(self):
+        assert _ms().t_half_microsomal_min > 0
+
+    def test_f_unmetabolized_between_0_and_1(self):
+        r = _ms()
+        assert 0.0 <= r.predicted_f_unmetabolized <= 1.0
+
+    def test_low_logP_low_clint(self):
+        # Low logP → low base CLint; fewer aromatic rings → less correction
+        r_low = _ms(logP=-2.0, n_aromatic_rings=0)
+        r_high = _ms(logP=5.0, n_aromatic_rings=5)
+        assert r_low.clint_uL_per_min_per_mg < r_high.clint_uL_per_min_per_mg
+
+    def test_unstable_class_for_high_logP_many_rings(self):
+        r = _ms(logP=5.0, n_aromatic_rings=6, n_rot_bonds=2)
+        assert r.stability_class == "unstable"
+
+    def test_more_aromatic_rings_higher_clint(self):
+        r_few = _ms(n_aromatic_rings=0)
+        r_many = _ms(n_aromatic_rings=5)
+        assert r_many.clint_uL_per_min_per_mg > r_few.clint_uL_per_min_per_mg
+
+    def test_more_rot_bonds_lower_clint(self):
+        # Formula: factor = 1 - 0.05 * min(n_rot_bonds, 10)
+        # More rot_bonds → smaller factor → lower CLint (more metabolically stable)
+        r_rigid = _ms(n_rot_bonds=0)
+        r_flex = _ms(n_rot_bonds=10)
+        assert r_flex.clint_uL_per_min_per_mg < r_rigid.clint_uL_per_min_per_mg
+
+    def test_large_mw_lower_clint(self):
+        r_small = _ms(mw=200.0)
+        r_large = _ms(mw=800.0)
+        assert r_large.clint_uL_per_min_per_mg < r_small.clint_uL_per_min_per_mg
+
+    def test_high_logP_higher_clint(self):
+        r_low = _ms(logP=0.0)
+        r_high = _ms(logP=4.0)
+        assert r_high.clint_uL_per_min_per_mg > r_low.clint_uL_per_min_per_mg
+
+    def test_drug_name_preserved(self):
+        r = _ms(drug_name="Aspirin")
+        assert r.drug_name == "Aspirin"
+
+    def test_mw_preserved(self):
+        r = _ms(mw=450.0)
+        assert r.mw == 450.0
+
+    def test_logP_preserved(self):
+        r = _ms(logP=3.5)
+        assert r.logP == 3.5
+
+    def test_n_aromatic_rings_preserved(self):
+        r = _ms(n_aromatic_rings=3)
+        assert r.n_aromatic_rings == 3
+
+    def test_n_rot_bonds_preserved(self):
+        r = _ms(n_rot_bonds=6)
+        assert r.n_rot_bonds == 6
+
+    def test_notes_nonempty_string(self):
+        r = _ms()
+        assert isinstance(r.notes, str) and len(r.notes) > 0
+
+    def test_no_atoms_provided_works(self):
+        r = predict_microsomal_stability(
+            "Drug", mw=300.0, logP=2.0, n_aromatic_rings=2, n_rot_bonds=3
+        )
+        assert isinstance(r, MicrosomalStabilityResult)
+
+    def test_stability_class_moderate_boundary(self):
+        # Find a logP that gives moderate stability (30–60 min)
+        r = _ms(logP=1.5, n_aromatic_rings=1, n_rot_bonds=2)
+        assert r.stability_class in ("stable", "moderate", "unstable")
+
+    def test_result_is_frozen(self):
+        r = _ms()
+        with pytest.raises((AttributeError, TypeError)):
+            r.drug_name = "Other"  # type: ignore[misc]
+
+    def test_n_rot_bonds_capped_at_10(self):
+        r10 = _ms(n_rot_bonds=10)
+        r15 = _ms(n_rot_bonds=15)
+        # Both should give same CLint (rot_bonds capped at 10)
+        assert abs(r10.clint_uL_per_min_per_mg - r15.clint_uL_per_min_per_mg) < 1e-9
+
+    def test_mw_correction_floor_at_0_3(self):
+        # Very large MW → f_mw = max(0.3, ...) = 0.3
+        r = _ms(mw=10000.0)
+        assert r.clint_uL_per_min_per_mg > 0
+
+
+class TestPredictMicrosomalStabilityValidation:
+    def test_empty_drug_name_raises(self):
+        with pytest.raises(ValueError, match="drug_name"):
+            _ms(drug_name="")
+
+    def test_zero_mw_raises(self):
+        with pytest.raises(ValueError, match="mw"):
+            _ms(mw=0.0)
+
+    def test_negative_mw_raises(self):
+        with pytest.raises(ValueError, match="mw"):
+            _ms(mw=-100.0)
+
+    def test_negative_aromatic_rings_raises(self):
+        with pytest.raises(ValueError, match="n_aromatic_rings"):
+            _ms(n_aromatic_rings=-1)
+
+    def test_negative_rot_bonds_raises(self):
+        with pytest.raises(ValueError, match="n_rot_bonds"):
+            _ms(n_rot_bonds=-1)
