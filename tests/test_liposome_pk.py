@@ -1,189 +1,254 @@
-"""Tests for Phase 199: liposome_pk module."""
+"""Tests for liposomal PK simulation module (Phase 385)."""
 
 from __future__ import annotations
 
 import math
+
 import pytest
 
-from omega_pbpk.core.liposome_pk import (
+from omega_pbpk.biopharmaceutics.liposome_pk import (
     LiposomePKResult,
-    compare_liposome_sizes,
+    compare_liposome_types,
     simulate_liposome_pk,
 )
 
+# Shared parameter set for convenience
+BASE_PARAMS = dict(
+    drug_name="DoxorubicinLipo",
+    dose_mg=50.0,
+    cl_free_L_per_h=5.0,
+    vd_free_L=30.0,
+    k_release_per_h=0.1,
+    cl_liposome_L_per_h=2.0,
+    vd_liposome_L=5.0,
+    t_end_h=48.0,
+    dt_h=0.1,
+)
 
-# ---------------------------------------------------------------------------
-# Basic smoke test
-# ---------------------------------------------------------------------------
 
-def test_simulate_returns_result_type():
-    result = simulate_liposome_pk("TestLipo", dose_mg_lipid=100.0, size_nm=100.0)
+# ── Basic smoke tests ──────────────────────────────────────────────────────────
+
+def test_simulate_conventional_returns_result():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
     assert isinstance(result, LiposomePKResult)
 
 
-def test_result_fields_present():
-    r = simulate_liposome_pk("TestLipo", dose_mg_lipid=50.0, size_nm=80.0)
-    assert r.formulation_name == "TestLipo"
-    assert r.dose_mg_lipid == 50.0
-    assert r.size_nm == 80.0
-    assert len(r.times_h) > 0
-    assert len(r.c_liposome_mg_L) == len(r.times_h)
-    assert len(r.c_free_drug_mg_L) == len(r.times_h)
-    assert len(r.c_encapsulated_mg_L) == len(r.times_h)
+def test_simulate_pegylated_returns_result():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="pegylated")
+    assert isinstance(result, LiposomePKResult)
 
 
-# ---------------------------------------------------------------------------
-# PEGylation effect: longer t_half with more PEG
-# ---------------------------------------------------------------------------
+def test_simulate_targeted_returns_result():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="targeted")
+    assert isinstance(result, LiposomePKResult)
 
-def test_pegylated_has_longer_thalf_than_unpegylated():
-    r_pegged = simulate_liposome_pk(
-        "PEGylated", dose_mg_lipid=100.0, size_nm=100.0, peg_fraction=0.1
+
+def test_result_fields_populated():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.drug_name == "DoxorubicinLipo"
+    assert result.dose_mg == 50.0
+    assert result.liposome_type == "conventional"
+    assert len(result.times_h) > 0
+    assert len(result.c_liposome_mg_L) == len(result.times_h)
+    assert len(result.c_free_mg_L) == len(result.times_h)
+
+
+# ── PEGylated liposome has longer circulation (higher AUC_liposome) ───────────
+
+def test_pegylated_has_higher_liposome_auc_than_conventional():
+    conv = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    peg = simulate_liposome_pk(**BASE_PARAMS, liposome_type="pegylated")
+    assert peg.auc_liposome > conv.auc_liposome
+
+
+def test_pegylated_longer_liposome_half_life():
+    conv = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    peg = simulate_liposome_pk(**BASE_PARAMS, liposome_type="pegylated")
+    assert peg.t_half_liposome_h > conv.t_half_liposome_h
+
+
+# ── Targeted liposome has faster release ──────────────────────────────────────
+
+def test_targeted_has_higher_k_release():
+    targeted = simulate_liposome_pk(**BASE_PARAMS, liposome_type="targeted")
+    assert math.isclose(targeted.k_release_per_h, BASE_PARAMS["k_release_per_h"] * 2.0)
+
+
+def test_targeted_faster_tmax_than_conventional():
+    """Targeted with 2x release rate should reach Cmax_free earlier or equal."""
+    conv = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    targeted = simulate_liposome_pk(**BASE_PARAMS, liposome_type="targeted")
+    assert targeted.tmax_free_h <= conv.tmax_free_h + 1.0  # allow 1h tolerance for dt artifacts
+
+
+# ── Free drug concentration starts at 0 ──────────────────────────────────────
+
+def test_free_drug_starts_at_zero():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.c_free_mg_L[0] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_liposome_concentration_starts_at_dose_over_vd():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    expected_c0 = BASE_PARAMS["dose_mg"] / BASE_PARAMS["vd_liposome_L"]
+    assert result.c_liposome_mg_L[0] == pytest.approx(expected_c0, rel=1e-4)
+
+
+# ── Liposome concentration decreases monotonically ───────────────────────────
+
+def test_liposome_concentration_decreases():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    for i in range(1, len(result.c_liposome_mg_L)):
+        assert result.c_liposome_mg_L[i] <= result.c_liposome_mg_L[i - 1] + 1e-9
+
+
+# ── f_released approaches 1 at large t ───────────────────────────────────────
+
+def test_f_released_approaches_1_at_large_t():
+    long_params = {**BASE_PARAMS, "t_end_h": 200.0}
+    result = simulate_liposome_pk(**long_params, liposome_type="conventional")
+    assert result.f_released > 0.9
+
+
+def test_f_released_between_0_and_1():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert 0.0 <= result.f_released <= 1.0
+
+
+# ── AUC is positive ───────────────────────────────────────────────────────────
+
+def test_auc_free_positive():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.auc_free > 0.0
+
+
+def test_auc_liposome_positive():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.auc_liposome > 0.0
+
+
+# ── Cmax and tmax are within simulation range ──────────────────────────────────
+
+def test_cmax_free_positive():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.cmax_free > 0.0
+
+
+def test_tmax_free_within_simulation_range():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert 0.0 <= result.tmax_free_h <= BASE_PARAMS["t_end_h"]
+
+
+# ── compare_liposome_types returns 3 keys ────────────────────────────────────
+
+def test_compare_returns_three_keys():
+    results = compare_liposome_types(
+        drug_name="TestDrug",
+        dose_mg=100.0,
+        cl_free_L_per_h=5.0,
+        vd_free_L=30.0,
+        k_release_per_h=0.1,
     )
-    r_bare = simulate_liposome_pk(
-        "Bare", dose_mg_lipid=100.0, size_nm=100.0, peg_fraction=0.0
+    assert set(results.keys()) == {"conventional", "pegylated", "targeted"}
+
+
+def test_compare_all_results_are_liposome_pk_result():
+    results = compare_liposome_types(
+        drug_name="TestDrug",
+        dose_mg=100.0,
+        cl_free_L_per_h=5.0,
+        vd_free_L=30.0,
+        k_release_per_h=0.1,
     )
-    assert r_pegged.t_half_liposome_h > r_bare.t_half_liposome_h
+    for key, val in results.items():
+        assert isinstance(val, LiposomePKResult), f"{key} is not LiposomePKResult"
 
 
-def test_peg_fraction_zero_vs_max():
-    r0 = simulate_liposome_pk("NoPEG", dose_mg_lipid=100.0, size_nm=100.0, peg_fraction=0.0)
-    r1 = simulate_liposome_pk("MaxPEG", dose_mg_lipid=100.0, size_nm=100.0, peg_fraction=0.09)
-    assert r1.t_half_liposome_h > r0.t_half_liposome_h
-
-
-# ---------------------------------------------------------------------------
-# Size effect: larger liposomes → faster MPS clearance
-# ---------------------------------------------------------------------------
-
-def test_larger_size_faster_clearance():
-    r_small = simulate_liposome_pk("Small", dose_mg_lipid=100.0, size_nm=80.0)
-    r_large = simulate_liposome_pk("Large", dose_mg_lipid=100.0, size_nm=300.0)
-    # Larger → higher k_cl_lipo → shorter t_half
-    assert r_large.t_half_liposome_h < r_small.t_half_liposome_h
-
-
-def test_larger_liposome_higher_liver_uptake():
-    r_small = simulate_liposome_pk("Small", dose_mg_lipid=100.0, size_nm=80.0, t_end_h=240.0)
-    r_large = simulate_liposome_pk("Large", dose_mg_lipid=100.0, size_nm=400.0, t_end_h=240.0)
-    assert r_large.liver_uptake_pct > r_small.liver_uptake_pct
-
-
-# ---------------------------------------------------------------------------
-# Drug loading linearity
-# ---------------------------------------------------------------------------
-
-def test_drug_loading_linearly_affects_cmax_free():
-    r_lo = simulate_liposome_pk(
-        "Low", dose_mg_lipid=100.0, size_nm=100.0, drug_loading_pct=5.0, t_end_h=48.0
+def test_compare_pegylated_auc_liposome_greatest():
+    results = compare_liposome_types(
+        drug_name="TestDrug",
+        dose_mg=100.0,
+        cl_free_L_per_h=5.0,
+        vd_free_L=30.0,
+        k_release_per_h=0.1,
     )
-    r_hi = simulate_liposome_pk(
-        "High", dose_mg_lipid=100.0, size_nm=100.0, drug_loading_pct=20.0, t_end_h=48.0
-    )
-    # 4× more drug should produce ≈4× higher Cmax (linear ODE)
-    ratio = r_hi.cmax_free_drug / r_lo.cmax_free_drug
-    assert 3.5 < ratio < 4.5
+    assert results["pegylated"].auc_liposome > results["conventional"].auc_liposome
 
 
-def test_auc_free_drug_proportional_to_loading():
-    r_lo = simulate_liposome_pk(
-        "Low", dose_mg_lipid=100.0, size_nm=100.0, drug_loading_pct=10.0
-    )
-    r_hi = simulate_liposome_pk(
-        "High", dose_mg_lipid=100.0, size_nm=100.0, drug_loading_pct=20.0
-    )
-    ratio = r_hi.auc_free_drug / r_lo.auc_free_drug
-    assert 1.8 < ratio < 2.2
+# ── Validation errors ─────────────────────────────────────────────────────────
+
+def test_invalid_liposome_type_raises():
+    with pytest.raises(ValueError, match="liposome_type"):
+        simulate_liposome_pk(**BASE_PARAMS, liposome_type="stealth")
 
 
-# ---------------------------------------------------------------------------
-# Release rate effect
-# ---------------------------------------------------------------------------
-
-def test_faster_release_higher_early_cmax():
-    r_slow = simulate_liposome_pk(
-        "Slow", dose_mg_lipid=100.0, size_nm=100.0, k_release_per_h=0.01, t_end_h=48.0
-    )
-    r_fast = simulate_liposome_pk(
-        "Fast", dose_mg_lipid=100.0, size_nm=100.0, k_release_per_h=0.2, t_end_h=48.0
-    )
-    assert r_fast.cmax_free_drug > r_slow.cmax_free_drug
+def test_negative_dose_raises():
+    params = {**BASE_PARAMS, "dose_mg": -10.0}
+    with pytest.raises(ValueError, match="dose_mg"):
+        simulate_liposome_pk(**params, liposome_type="conventional")
 
 
-def test_release_thalf_from_k_release():
-    k = 0.1
-    r = simulate_liposome_pk("Test", dose_mg_lipid=100.0, size_nm=100.0, k_release_per_h=k)
-    expected = math.log(2) / k
-    assert abs(r.release_t_half_h - expected) < 0.01
+def test_zero_cl_free_raises():
+    params = {**BASE_PARAMS, "cl_free_L_per_h": 0.0}
+    with pytest.raises(ValueError, match="cl_free_L_per_h"):
+        simulate_liposome_pk(**params, liposome_type="conventional")
 
 
-# ---------------------------------------------------------------------------
-# compare_liposome_sizes
-# ---------------------------------------------------------------------------
-
-def test_compare_returns_sorted_desc():
-    results = compare_liposome_sizes(
-        "LipoSeries",
-        dose_mg_lipid=100.0,
-        sizes_nm=[50.0, 100.0, 200.0, 400.0],
-    )
-    assert len(results) == 4
-    aucs = [r.auc_free_drug for r in results]
-    assert aucs == sorted(aucs, reverse=True)
+def test_empty_drug_name_raises():
+    params = {**BASE_PARAMS, "drug_name": ""}
+    with pytest.raises(ValueError, match="drug_name"):
+        simulate_liposome_pk(**params, liposome_type="conventional")
 
 
-def test_compare_formulation_names_contain_size():
-    results = compare_liposome_sizes(
-        "Lipo", dose_mg_lipid=100.0, sizes_nm=[100.0, 200.0]
-    )
-    names = {r.formulation_name for r in results}
-    assert any("100" in n for n in names)
-    assert any("200" in n for n in names)
+def test_negative_t_end_raises():
+    params = {**BASE_PARAMS, "t_end_h": -1.0}
+    with pytest.raises(ValueError, match="t_end_h"):
+        simulate_liposome_pk(**params, liposome_type="conventional")
 
 
-# ---------------------------------------------------------------------------
-# Validation errors
-# ---------------------------------------------------------------------------
-
-def test_invalid_peg_fraction_above_one_raises():
-    with pytest.raises(ValueError, match="peg_fraction"):
-        simulate_liposome_pk("Bad", dose_mg_lipid=100.0, size_nm=100.0, peg_fraction=1.5)
+def test_negative_vd_liposome_raises():
+    params = {**BASE_PARAMS, "vd_liposome_L": -5.0}
+    with pytest.raises(ValueError, match="vd_liposome_L"):
+        simulate_liposome_pk(**params, liposome_type="conventional")
 
 
-def test_invalid_dose_zero_raises():
-    with pytest.raises(ValueError, match="dose_mg_lipid"):
-        simulate_liposome_pk("Bad", dose_mg_lipid=0.0, size_nm=100.0)
+# ── Notes field populated ─────────────────────────────────────────────────────
+
+def test_notes_mention_pegylation():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="pegylated")
+    assert "PEG" in result.notes or "pegylated" in result.notes.lower()
 
 
-def test_invalid_size_zero_raises():
-    with pytest.raises(ValueError, match="size_nm"):
-        simulate_liposome_pk("Bad", dose_mg_lipid=100.0, size_nm=0.0)
+def test_notes_not_empty():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert len(result.notes) > 0
 
 
-def test_invalid_drug_loading_raises():
-    with pytest.raises(ValueError, match="drug_loading_pct"):
-        simulate_liposome_pk("Bad", dose_mg_lipid=100.0, size_nm=100.0, drug_loading_pct=0.0)
-    with pytest.raises(ValueError, match="drug_loading_pct"):
-        simulate_liposome_pk("Bad", dose_mg_lipid=100.0, size_nm=100.0, drug_loading_pct=100.0)
+# ── Time array consistency ────────────────────────────────────────────────────
+
+def test_time_array_starts_at_zero():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.times_h[0] == pytest.approx(0.0)
 
 
-# ---------------------------------------------------------------------------
-# Physical plausibility
-# ---------------------------------------------------------------------------
-
-def test_liposome_concentration_decreases_monotonically():
-    r = simulate_liposome_pk("Test", dose_mg_lipid=100.0, size_nm=100.0)
-    # c_lipo starts at peak and should generally decrease
-    assert r.c_liposome_mg_L[0] >= r.c_liposome_mg_L[-1]
+def test_time_array_ends_at_or_near_t_end():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.times_h[-1] == pytest.approx(BASE_PARAMS["t_end_h"], rel=0.05)
 
 
-def test_liver_uptake_bounded():
-    r = simulate_liposome_pk("Test", dose_mg_lipid=100.0, size_nm=100.0)
-    assert 0.0 < r.liver_uptake_pct < 100.0
+# ── Dose proportionality ──────────────────────────────────────────────────────
+
+def test_doubled_dose_doubles_auc_free():
+    params_lo = {**BASE_PARAMS, "dose_mg": 50.0}
+    params_hi = {**BASE_PARAMS, "dose_mg": 100.0}
+    r_lo = simulate_liposome_pk(**params_lo, liposome_type="conventional")
+    r_hi = simulate_liposome_pk(**params_hi, liposome_type="conventional")
+    ratio = r_hi.auc_free / r_lo.auc_free
+    assert 1.9 < ratio < 2.1
 
 
-def test_initial_concentration_matches_dose():
-    dose = 100.0
-    V_lipo = 3.0
-    r = simulate_liposome_pk("Test", dose_mg_lipid=dose, size_nm=100.0)
-    assert abs(r.c_liposome_mg_L[0] - dose / V_lipo) < 1e-6
+# ── Half-life plausibility ────────────────────────────────────────────────────
+
+def test_liposome_half_life_positive():
+    result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
+    assert result.t_half_liposome_h > 0.0
