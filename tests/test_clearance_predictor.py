@@ -14,6 +14,7 @@ from omega_pbpk.prediction.clearance_predictor import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _pred(**kw) -> ClearancePredictionResult:
     defaults = dict(
         clint_uL_per_min_per_mg_protein=10.0,
@@ -29,6 +30,7 @@ def _pred(**kw) -> ClearancePredictionResult:
 # ---------------------------------------------------------------------------
 # Return type and basic fields
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_clearance_prediction_result(self):
@@ -71,6 +73,7 @@ class TestReturnType:
 # Well-stirred model physics
 # ---------------------------------------------------------------------------
 
+
 class TestPhysics:
     def test_higher_clint_gives_higher_cl(self):
         r_high = _pred(clint_uL_per_min_per_mg_protein=100.0)
@@ -109,6 +112,7 @@ class TestPhysics:
 # Classification
 # ---------------------------------------------------------------------------
 
+
 class TestClassification:
     def test_high_extraction(self):
         r = _pred(clint_uL_per_min_per_mg_protein=1e5, fu_mic=1.0)
@@ -134,6 +138,7 @@ class TestClassification:
 # ---------------------------------------------------------------------------
 # Validation / error handling
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_zero_clint_raises(self):
@@ -172,6 +177,7 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 # rank_clearance_compounds
 # ---------------------------------------------------------------------------
+
 
 class TestRankClearanceCompounds:
     _compounds = [

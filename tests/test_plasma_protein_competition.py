@@ -3,11 +3,9 @@
 import pytest
 
 from omega_pbpk.core.plasma_protein_competition import (
-    PPBCompetitionResult,
     assess_ppb_competition,
     batch_ppb_screen,
 )
-
 
 # ---------------------------------------------------------------------------
 # assess_ppb_competition — input validation
@@ -116,9 +114,7 @@ def test_clinical_significance_valid_value():
 
 def test_high_displacement_significant():
     """Extreme concentrations of a highly bound drug should produce significant displacement."""
-    result = assess_ppb_competition(
-        "DrugA", 0.01, "DrugB", 0.01, 5000.0, c_protein_g_dL=4.0
-    )
+    result = assess_ppb_competition("DrugA", 0.01, "DrugB", 0.01, 5000.0, c_protein_g_dL=4.0)
     assert result.clinical_significance in {"moderate", "major"}
 
 
@@ -160,8 +156,7 @@ def test_batch_empty_returns_empty():
 
 def test_batch_returns_correct_count():
     perpetrators = [
-        {"name": f"Drug{i}", "fu_b": 0.1, "c_b_total_mg_L": 10.0 * (i + 1)}
-        for i in range(5)
+        {"name": f"Drug{i}", "fu_b": 0.1, "c_b_total_mg_L": 10.0 * (i + 1)} for i in range(5)
     ]
     results = batch_ppb_screen("DrugA", 0.05, perpetrators)
     assert len(results) == 5

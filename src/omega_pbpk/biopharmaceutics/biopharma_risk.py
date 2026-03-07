@@ -18,7 +18,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 # Permeability thresholds (cm/s) — based on Caco-2 Papp
-_PAPP_HIGH_THRESHOLD = 2e-5   # > 2e-5 → high permeability / low risk
+_PAPP_HIGH_THRESHOLD = 2e-5  # > 2e-5 → high permeability / low risk
 _PAPP_MOD_THRESHOLD = 0.5e-5  # 0.5e-5 – 2e-5 → moderate risk
 
 # Dose-number thresholds
@@ -223,8 +223,7 @@ def formulation_strategy_from_risk(
         if not high_perm:
             return "Permeation enhancers or tight-junction modulators; consider prodrug approach"
         return (
-            "Optimise particle size (micronisation); "
-            "controlled-release to extend absorption window"
+            "Optimise particle size (micronisation); controlled-release to extend absorption window"
         )
 
     if risk_score < _RISK_HIGH_MAX:
@@ -235,8 +234,7 @@ def formulation_strategy_from_risk(
             )
         if low_sol:
             return (
-                "Salt selection; co-crystal engineering; "
-                "nanosuspension or nanocrystal technology"
+                "Salt selection; co-crystal engineering; nanosuspension or nanocrystal technology"
             )
         return "Absorption enhancement; consider bioadhesive or mucoadhesive delivery system"
 

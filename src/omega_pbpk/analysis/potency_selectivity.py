@@ -371,11 +371,7 @@ def potency_optimization_score(
         psa_score = max(0.0, psa_score)
 
     composite = (
-        0.30 * le_score
-        + 0.20 * lipe_score
-        + 0.20 * mw_score
-        + 0.15 * hbd_score
-        + 0.15 * psa_score
+        0.30 * le_score + 0.20 * lipe_score + 0.20 * mw_score + 0.15 * hbd_score + 0.15 * psa_score
     )
 
     return float(min(1.0, max(0.0, composite)))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.core.biliary_clearance import (
@@ -12,7 +13,6 @@ from omega_pbpk.core.biliary_clearance import (
     fe_vs_fm_sensitivity,
     simulate_biliary_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # biliary_extraction_ratio tests

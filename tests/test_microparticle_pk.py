@@ -11,7 +11,6 @@ from omega_pbpk.core.microparticle_pk import (
     simulate_microparticle_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -98,12 +97,10 @@ def test_burst_fraction_compute_helper() -> None:
 
 def test_plga_50_50_faster_than_pla() -> None:
     r_plga = simulate_microparticle_pk(
-        drug_name="X", dose_mg=100.0, polymer="PLGA_50_50", particle_size_um=50.0,
-        t_end_days=30.0
+        drug_name="X", dose_mg=100.0, polymer="PLGA_50_50", particle_size_um=50.0, t_end_days=30.0
     )
     r_pla = simulate_microparticle_pk(
-        drug_name="X", dose_mg=100.0, polymer="PLA", particle_size_um=50.0,
-        t_end_days=60.0
+        drug_name="X", dose_mg=100.0, polymer="PLA", particle_size_um=50.0, t_end_days=60.0
     )
     # PLGA_50_50 has higher k_deg → faster t90
     assert r_plga.degradation_rate_per_day > r_pla.degradation_rate_per_day
@@ -111,8 +108,7 @@ def test_plga_50_50_faster_than_pla() -> None:
 
 def test_pcl_slowest_degradation() -> None:
     pcl = simulate_microparticle_pk(
-        drug_name="X", dose_mg=100.0, polymer="PCL", particle_size_um=50.0,
-        t_end_days=90.0
+        drug_name="X", dose_mg=100.0, polymer="PCL", particle_size_um=50.0, t_end_days=90.0
     )
     assert pcl.degradation_rate_per_day == pytest.approx(0.005, rel=1e-6)
 
@@ -171,16 +167,14 @@ def test_f_depot_value(plga_result: MicroparticlePKResult) -> None:
 
 def test_compare_polymers_returns_four_results() -> None:
     results = compare_polymers(
-        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0,
-        particle_size_um=50.0
+        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0, particle_size_um=50.0
     )
     assert len(results) == 4
 
 
 def test_compare_polymers_sorted_t90_descending() -> None:
     results = compare_polymers(
-        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0,
-        particle_size_um=50.0
+        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0, particle_size_um=50.0
     )
     t90s = [r.t90_pct_days for r in results]
     assert t90s == sorted(t90s, reverse=True)
@@ -188,8 +182,7 @@ def test_compare_polymers_sorted_t90_descending() -> None:
 
 def test_compare_polymers_all_four_polymers_present() -> None:
     results = compare_polymers(
-        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0,
-        particle_size_um=50.0
+        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0, particle_size_um=50.0
     )
     polymers = {r.polymer for r in results}
     assert polymers == {"PLGA_50_50", "PLGA_75_25", "PLA", "PCL"}
@@ -198,8 +191,7 @@ def test_compare_polymers_all_four_polymers_present() -> None:
 def test_compare_polymers_plga_50_50_fastest() -> None:
     """PLGA_50_50 has highest k_deg so t90 should be smallest (last in descending sort)."""
     results = compare_polymers(
-        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0,
-        particle_size_um=50.0
+        drug_name="Drug", dose_mg=100.0, cl_L_per_day=2.0, vd_L=50.0, particle_size_um=50.0
     )
     # PLGA_50_50 has the shortest t90 so it should sort last
     plga_t90 = next(r.t90_pct_days for r in results if r.polymer == "PLGA_50_50")

@@ -217,11 +217,7 @@ def simulate_transporter_kinetics(
     for _ in range(n_steps + 1):
         # Compute fluxes at current state
         u = transport_rate(initial_conc_uM, vmax_uptake, km_uptake)
-        e = (
-            transport_rate(c, vmax_efflux, _km_efflux)
-            if vmax_efflux > 0
-            else 0.0
-        )
+        e = transport_rate(c, vmax_efflux, _km_efflux) if vmax_efflux > 0 else 0.0
         p = cl_passive_per_h * c  # passive efflux proportional to intracellular conc
 
         times.append(t)

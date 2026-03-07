@@ -10,7 +10,6 @@ from omega_pbpk.clinical.placebo_pd import (
     simulate_placebo_pd,
 )
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 

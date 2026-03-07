@@ -14,15 +14,15 @@ from omega_pbpk.biopharmaceutics.bioavailability_enhancement import (
     nanosizing_enhancement,
 )
 
-
 # ---------------------------------------------------------------------------
 # nanosizing_enhancement
 # ---------------------------------------------------------------------------
 
+
 class TestNanosingEnhancement:
     def test_basic_fold_increase(self):
         # 100 µm → 200 nm: (100*1000/200)^0.3 = 500^0.3
-        expected = 500 ** 0.3
+        expected = 500**0.3
         result = nanosizing_enhancement(0.01, 100.0)
         assert abs(result - expected) < 1e-6
 
@@ -73,6 +73,7 @@ class TestNanosingEnhancement:
 # amorphous_enhancement
 # ---------------------------------------------------------------------------
 
+
 class TestAmorphousEnhancement:
     def test_basic_fold(self):
         # fold = exp(0.005 * (180 - 80)) = exp(0.5)
@@ -117,13 +118,16 @@ class TestAmorphousEnhancement:
 # lipid_formulation_enhancement
 # ---------------------------------------------------------------------------
 
+
 class TestLipidFormulationEnhancement:
     def test_sedds_default(self):
         logP = 3.0
         meal_fat_g = 20.0
         ff = 2.0  # SEDDS
         expected = math.exp(0.3 * logP) * (meal_fat_g / 10.0) ** 0.5 * ff
-        result = lipid_formulation_enhancement(logP=logP, meal_fat_g=meal_fat_g, formulation_type="SEDDS")
+        result = lipid_formulation_enhancement(
+            logP=logP, meal_fat_g=meal_fat_g, formulation_type="SEDDS"
+        )
         assert abs(result - min(max(expected, 1.0), 20.0)) < 1e-6
 
     def test_smedds_higher_than_sedds(self):
@@ -141,7 +145,9 @@ class TestLipidFormulationEnhancement:
         assert result >= 1.0
 
     def test_high_logP_clamped_at_20(self):
-        result = lipid_formulation_enhancement(logP=10.0, meal_fat_g=40.0, formulation_type="SNEDDS")
+        result = lipid_formulation_enhancement(
+            logP=10.0, meal_fat_g=40.0, formulation_type="SNEDDS"
+        )
         assert result == pytest.approx(20.0)
 
     def test_zero_meal_fat_gives_fold_1(self):
@@ -172,6 +178,7 @@ class TestLipidFormulationEnhancement:
 # ---------------------------------------------------------------------------
 # compare_enhancement_strategies_ba
 # ---------------------------------------------------------------------------
+
 
 class TestCompareEnhancementStrategies:
     def _default_result(self) -> BioavailEnhancementResult:
@@ -220,14 +227,22 @@ class TestCompareEnhancementStrategies:
         result = compare_enhancement_strategies_ba(
             "DrugD", bcs_class=1, logP=5.0, solubility_bulk_mg_mL=0.001, tm_C=300.0, tg_C=100.0
         )
-        for val in (result.predicted_f_nanosized, result.predicted_f_asd,
-                    result.predicted_f_sedds, result.predicted_f_smedds):
+        for val in (
+            result.predicted_f_nanosized,
+            result.predicted_f_asd,
+            result.predicted_f_sedds,
+            result.predicted_f_smedds,
+        ):
             assert val <= 1.0 + 1e-9
 
     def test_predicted_f_geq_base_f(self):
         result = self._default_result()
-        for val in (result.predicted_f_nanosized, result.predicted_f_asd,
-                    result.predicted_f_sedds, result.predicted_f_smedds):
+        for val in (
+            result.predicted_f_nanosized,
+            result.predicted_f_asd,
+            result.predicted_f_sedds,
+            result.predicted_f_smedds,
+        ):
             assert val >= result.base_f_estimated - 1e-9
 
     def test_recommended_strategy_is_best(self):

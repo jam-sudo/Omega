@@ -15,6 +15,7 @@ from omega_pbpk.analysis.pk_parameter_sensitivity import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _default_result(**kwargs) -> PKSensitivityResult:
     defaults = dict(
         drug_name="TestDrug",
@@ -33,6 +34,7 @@ def _default_result(**kwargs) -> PKSensitivityResult:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_dose_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -93,6 +95,7 @@ def test_invalid_route_raises():
 # Structural tests
 # ---------------------------------------------------------------------------
 
+
 def test_coefficient_count():
     result = _default_result()
     # 4 parameters × 3 metrics = 12
@@ -142,6 +145,7 @@ def test_notes_contains_drug_name():
 # ---------------------------------------------------------------------------
 # Analytical sensitivity correctness
 # ---------------------------------------------------------------------------
+
 
 def test_cl_sensitivity_for_auc_negative():
     """AUC = F*D/CL → CL sensitivity must be negative (AUC decreases as CL increases)."""
@@ -241,6 +245,7 @@ def test_cl_sensitivity_auc_iv_route_approx_neg_one():
 # Perturbation size tests
 # ---------------------------------------------------------------------------
 
+
 def test_small_perturbation_works():
     result = compute_pk_sensitivity("Drug", 100.0, 5.0, 50.0, perturbation_pct=1.0)
     assert len(result.coefficients) == 12
@@ -254,6 +259,7 @@ def test_large_perturbation_works():
 # ---------------------------------------------------------------------------
 # Ranks
 # ---------------------------------------------------------------------------
+
 
 def test_ranks_per_metric_are_1_to_4():
     result = _default_result()

@@ -9,8 +9,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-import numpy as np
-
 from omega_pbpk._compat import np_trapz
 
 
@@ -126,7 +124,7 @@ def perform_nca(
     # MRT = AUMC / AUC
     tc = [t[i] * c[i] for i in range(len(t))]
     aumc = float(np_trapz(tc, t))
-    aumc_extrap = c_last * t[-1] / lambda_z + c_last / (lambda_z ** 2)
+    aumc_extrap = c_last * t[-1] / lambda_z + c_last / (lambda_z**2)
     aumc_inf = aumc + aumc_extrap
     mrt = aumc_inf / auc_0_inf if auc_0_inf > 0 else 0.0
 

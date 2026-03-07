@@ -15,7 +15,6 @@ from omega_pbpk.biopharmaceutics.drug_stability import (
     simulate_degradation,
 )
 
-
 # ---------------------------------------------------------------------------
 # arrhenius_rate tests
 # ---------------------------------------------------------------------------

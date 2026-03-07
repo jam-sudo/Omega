@@ -29,6 +29,7 @@ class PKEstimateResult:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _clamp(value: float, lo: float, hi: float) -> float:
     """Clamp value to [lo, hi]."""
     return max(lo, min(hi, value))
@@ -44,6 +45,7 @@ def _validate_inputs(mw: float, psa_A2: float) -> None:
 # ---------------------------------------------------------------------------
 # QSPKR model functions
 # ---------------------------------------------------------------------------
+
 
 def estimate_cl_human(
     logP: float,
@@ -136,11 +138,7 @@ def estimate_vd_human(
         raise ValueError(f"fu_plasma must be in [0, 1], got {fu_plasma}")
 
     log_vd = (
-        0.5 * logP
-        - 0.01 * psa_A2
-        + 0.3 * math.log10(mw)
-        - 0.3 * math.log10(fu_plasma + 0.01)
-        + 1.2
+        0.5 * logP - 0.01 * psa_A2 + 0.3 * math.log10(mw) - 0.3 * math.log10(fu_plasma + 0.01) + 1.2
     )
     vd = 10.0**log_vd
     return _clamp(vd, 1.0, 1000.0)

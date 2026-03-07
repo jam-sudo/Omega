@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.analysis.pk_parameter_sensitivity import (
@@ -12,7 +13,6 @@ from omega_pbpk.analysis.pk_parameter_sensitivity import (
     plot_sensitivity_table,
     rank_parameters_by_sensitivity,
 )
-
 
 # ---------------------------------------------------------------------------
 # normalized_sensitivity_index

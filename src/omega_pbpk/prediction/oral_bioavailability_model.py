@@ -68,7 +68,7 @@ def _peff_from_properties(logP: float, psa: float) -> float:
     Clamped to realistic range [1e-6, 1e-3] cm/s.
     """
     log_peff = -5.5 + 0.4 * logP - 0.01 * psa
-    peff = 10.0 ** log_peff
+    peff = 10.0**log_peff
     return float(max(1e-6, min(1e-3, peff)))
 
 
@@ -374,8 +374,7 @@ def food_effect_on_f(
         )
     elif food_effect_ratio >= 1.3:
         recommendation = (
-            f"Take {drug_name} with food — moderate food benefit "
-            f"(ratio={food_effect_ratio:.1f}x)"
+            f"Take {drug_name} with food — moderate food benefit (ratio={food_effect_ratio:.1f}x)"
         )
     elif food_effect_ratio <= 0.8:
         recommendation = (

@@ -19,6 +19,7 @@ from omega_pbpk._compat import np_trapz
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BonePKResult:
     """Result of bone PK simulation."""
@@ -40,6 +41,7 @@ class BonePKResult:
 # ---------------------------------------------------------------------------
 # Simulation function
 # ---------------------------------------------------------------------------
+
 
 def simulate_bone_pk(
     drug_name: str,
@@ -191,6 +193,7 @@ def simulate_bone_pk(
 # ---------------------------------------------------------------------------
 # Antibiotic bone penetration screening
 # ---------------------------------------------------------------------------
+
 
 def antibiotic_bone_penetration(
     drug_name: str,

@@ -76,9 +76,7 @@ def assess_polymorph_impact(
         raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
     bcs_class = bcs_class.upper()
     if bcs_class not in ("I", "II", "III", "IV"):
-        raise ValueError(
-            f"bcs_class must be one of 'I','II','III','IV', got '{bcs_class}'"
-        )
+        raise ValueError(f"bcs_class must be one of 'I','II','III','IV', got '{bcs_class}'")
 
     # Absolute solubility
     solubility = reference_solubility_mg_mL * crystal_form.relative_solubility

@@ -5,18 +5,17 @@ from __future__ import annotations
 import pytest
 
 from omega_pbpk.biopharmaceutics.biopharma_risk import (
-    BiopharmRiskResult,
-    assess_biopharmaceutics_risk,
-    solubility_risk_score,
-    permeability_risk_score,
     absorption_risk_index,
+    assess_biopharmaceutics_risk,
     formulation_strategy_from_risk,
+    permeability_risk_score,
+    solubility_risk_score,
 )
-
 
 # ---------------------------------------------------------------------------
 # solubility_risk_score
 # ---------------------------------------------------------------------------
+
 
 class TestSolubilityRiskScore:
     def test_dn_less_than_1_low_risk(self):
@@ -66,6 +65,7 @@ class TestSolubilityRiskScore:
 # permeability_risk_score
 # ---------------------------------------------------------------------------
 
+
 class TestPermeabilityRiskScore:
     def test_high_papp_low_score(self):
         """Papp > 2e-5 → low risk score."""
@@ -100,6 +100,7 @@ class TestPermeabilityRiskScore:
 # absorption_risk_index
 # ---------------------------------------------------------------------------
 
+
 class TestAbsorptionRiskIndex:
     def test_weighted_average(self):
         """Weighted average: 0.6*40 + 0.4*60 = 48."""
@@ -122,6 +123,7 @@ class TestAbsorptionRiskIndex:
 # formulation_strategy_from_risk
 # ---------------------------------------------------------------------------
 
+
 class TestFormulationStrategyFromRisk:
     def test_low_risk_standard_formulation(self):
         strategy = formulation_strategy_from_risk(15.0, 1.0, 3e-5, 2.0)
@@ -142,6 +144,7 @@ class TestFormulationStrategyFromRisk:
 # assess_biopharmaceutics_risk (integration tests)
 # ---------------------------------------------------------------------------
 
+
 class TestAssessBiopharmaceuticsRisk:
     def test_bcs_i_low_risk(self):
         """BCS I drug (high sol, high perm) → low overall risk."""
@@ -149,8 +152,8 @@ class TestAssessBiopharmaceuticsRisk:
             drug_name="Caffeine",
             logP=-0.1,
             mw=194.0,
-            solubility_mg_mL=20.0,   # Dn << 1
-            papp_cm_s=5e-5,           # high perm
+            solubility_mg_mL=20.0,  # Dn << 1
+            papp_cm_s=5e-5,  # high perm
             dose_mg=100.0,
         )
         assert result.bcs_class == "I"
@@ -163,7 +166,7 @@ class TestAssessBiopharmaceuticsRisk:
             logP=5.0,
             mw=500.0,
             solubility_mg_mL=0.001,  # extremely low
-            papp_cm_s=0.1e-5,         # very low perm
+            papp_cm_s=0.1e-5,  # very low perm
             dose_mg=500.0,
         )
         assert result.bcs_class == "IV"
@@ -176,7 +179,7 @@ class TestAssessBiopharmaceuticsRisk:
             logP=3.0,
             mw=300.0,
             solubility_mg_mL=0.05,  # Dn >> 1
-            papp_cm_s=4e-5,          # high perm
+            papp_cm_s=4e-5,  # high perm
             dose_mg=200.0,
         )
         assert result.bcs_class == "II"
@@ -188,7 +191,7 @@ class TestAssessBiopharmaceuticsRisk:
             logP=-1.0,
             mw=150.0,
             solubility_mg_mL=50.0,  # Dn << 1
-            papp_cm_s=0.3e-5,         # low perm
+            papp_cm_s=0.3e-5,  # low perm
             dose_mg=100.0,
         )
         assert result.bcs_class == "III"
@@ -207,8 +210,7 @@ class TestAssessBiopharmaceuticsRisk:
 
     def test_result_fields_populated(self):
         result = assess_biopharmaceutics_risk(
-            "Drug", logP=2.0, mw=300.0, solubility_mg_mL=1.0,
-            papp_cm_s=2e-5, dose_mg=100.0
+            "Drug", logP=2.0, mw=300.0, solubility_mg_mL=1.0, papp_cm_s=2e-5, dose_mg=100.0
         )
         assert result.drug_name == "Drug"
         assert result.bcs_class in ("I", "II", "III", "IV")
@@ -222,8 +224,14 @@ class TestAssessBiopharmaceuticsRisk:
 
     def test_pka_included_in_notes(self):
         result = assess_biopharmaceutics_risk(
-            "Drug", logP=1.5, mw=250.0, pka=7.4, drug_type="base",
-            solubility_mg_mL=1.0, papp_cm_s=2e-5, dose_mg=100.0
+            "Drug",
+            logP=1.5,
+            mw=250.0,
+            pka=7.4,
+            drug_type="base",
+            solubility_mg_mL=1.0,
+            papp_cm_s=2e-5,
+            dose_mg=100.0,
         )
         assert "pKa" in result.notes
 
@@ -246,8 +254,7 @@ class TestAssessBiopharmaceuticsRisk:
     def test_result_is_frozen(self):
         """BiopharmRiskResult is a frozen dataclass."""
         result = assess_biopharmaceutics_risk(
-            "Drug", logP=1.0, mw=200.0, solubility_mg_mL=1.0,
-            papp_cm_s=2e-5, dose_mg=100.0
+            "Drug", logP=1.0, mw=200.0, solubility_mg_mL=1.0, papp_cm_s=2e-5, dose_mg=100.0
         )
         with pytest.raises((AttributeError, TypeError)):
             result.bcs_class = "X"  # type: ignore[misc]
@@ -255,7 +262,9 @@ class TestAssessBiopharmaceuticsRisk:
     def test_high_dn_triggers_threshold_note(self):
         """When Dn > target threshold, notes mention solubility enhancement."""
         result = assess_biopharmaceutics_risk(
-            "Drug", logP=3.0, mw=400.0,
+            "Drug",
+            logP=3.0,
+            mw=400.0,
             solubility_mg_mL=0.01,  # Dn will be >> 1
             papp_cm_s=4e-5,
             dose_mg=500.0,
@@ -266,7 +275,9 @@ class TestAssessBiopharmaceuticsRisk:
     def test_bcs_ii_formulation_mentions_dissolution(self):
         """BCS II strategy should address dissolution/solubility."""
         result = assess_biopharmaceutics_risk(
-            "BCS_II", logP=4.0, mw=380.0,
+            "BCS_II",
+            logP=4.0,
+            mw=380.0,
             solubility_mg_mL=0.002,
             papp_cm_s=5e-5,
             dose_mg=400.0,

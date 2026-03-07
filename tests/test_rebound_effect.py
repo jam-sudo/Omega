@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import pytest
-from omega_pbpk.clinical.rebound_effect import ReboundResult, simulate_rebound
 
+from omega_pbpk.clinical.rebound_effect import ReboundResult, simulate_rebound
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def default_rebound(**kwargs) -> ReboundResult:
     defaults = dict(
@@ -35,6 +36,7 @@ def default_rebound(**kwargs) -> ReboundResult:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_dose_zero():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -119,6 +121,7 @@ def test_invalid_f_oral_zero():
 # ---------------------------------------------------------------------------
 # Basic output structure
 # ---------------------------------------------------------------------------
+
 
 def test_c_plasma_has_positive_values():
     result = default_rebound()

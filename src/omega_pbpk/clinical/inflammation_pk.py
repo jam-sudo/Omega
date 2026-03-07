@@ -46,7 +46,7 @@ _SEVERITY_FACTORS: dict[str, dict[str, float]] = {
         "cl_factor": 0.70,
         "vd_factor": 1.20,
         "albumin_fu_factor": 0.90,  # albumin down → fu down for albumin-bound
-        "aag_fu_factor": 1.20,      # AAG up → fu down for basic drugs
+        "aag_fu_factor": 1.20,  # AAG up → fu down for basic drugs
     },
     "severe": {
         "cl_factor": 0.50,
@@ -68,7 +68,7 @@ _CYP_SEVERE_ACTIVITY: dict[str, float] = {
     "CYP3A4": 0.40,  # 60% reduction
     "CYP1A2": 0.30,  # 70% reduction
     "CYP2C9": 0.55,  # 45% reduction
-    "CYP2C19": 0.60, # 40% reduction
+    "CYP2C19": 0.60,  # 40% reduction
     "CYP2D6": 0.75,  # 25% reduction
     "CYP2E1": 0.70,  # 30% reduction
 }
@@ -77,9 +77,7 @@ _CYP_DEFAULT_SEVERE_ACTIVITY = 0.75  # default for unlisted CYPs
 
 def _validate_severity(severity: str) -> None:
     if severity not in _VALID_SEVERITIES:
-        raise ValueError(
-            f"severity must be one of {_VALID_SEVERITIES}, got {severity!r}"
-        )
+        raise ValueError(f"severity must be one of {_VALID_SEVERITIES}, got {severity!r}")
 
 
 @dataclass(frozen=True)

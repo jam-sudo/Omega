@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.risk.qt_prolongation import (
@@ -11,10 +10,10 @@ from omega_pbpk.risk.qt_prolongation import (
     screen_cardiac_safety,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper factories
 # ---------------------------------------------------------------------------
+
 
 def _base_result(**kwargs) -> QTProlongationResult:
     """Return a result with sensible defaults, overriding via kwargs."""
@@ -33,6 +32,7 @@ def _base_result(**kwargs) -> QTProlongationResult:
 # ---------------------------------------------------------------------------
 # Basic structural tests
 # ---------------------------------------------------------------------------
+
 
 class TestQTProlongationResultStructure:
     def test_returns_correct_type(self):
@@ -68,6 +68,7 @@ class TestQTProlongationResultStructure:
 # hERG inhibition calculation
 # ---------------------------------------------------------------------------
 
+
 class TestHERGInhibition:
     def test_very_high_ic50_weak_inhibition(self):
         """IC50 >> Cmax → near 0% inhibition."""
@@ -95,9 +96,7 @@ class TestHERGInhibition:
 
     def test_herg_inhibition_between_0_and_100(self):
         for ic50 in [0.001, 1.0, 100.0, 10_000.0]:
-            r = predict_qt_prolongation(
-                "X", 100.0, 300.0, 2.0, ic50, c_plasma_mg_L=1.0
-            )
+            r = predict_qt_prolongation("X", 100.0, 300.0, 2.0, ic50, c_plasma_mg_L=1.0)
             assert 0.0 <= r.herg_inhibition_pct <= 100.0
 
     def test_higher_concentration_increases_inhibition(self):
@@ -110,17 +109,14 @@ class TestHERGInhibition:
 # delta QTc calculation
 # ---------------------------------------------------------------------------
 
+
 class TestDeltaQTc:
     def test_weak_inhibitor_near_zero_delta_qtc(self):
-        r = predict_qt_prolongation(
-            "Weak", 50.0, 300.0, 1.0, 10_000.0, c_plasma_mg_L=0.001
-        )
+        r = predict_qt_prolongation("Weak", 50.0, 300.0, 1.0, 10_000.0, c_plasma_mg_L=0.001)
         assert r.delta_qtc_ms < 2.0
 
     def test_strong_inhibitor_large_delta_qtc(self):
-        r = predict_qt_prolongation(
-            "Strong", 200.0, 300.0, 3.0, 0.01, c_plasma_mg_L=10.0
-        )
+        r = predict_qt_prolongation("Strong", 200.0, 300.0, 3.0, 0.01, c_plasma_mg_L=10.0)
         assert r.delta_qtc_ms > 10.0
 
     def test_predicted_qtc_equals_baseline_plus_delta(self):
@@ -133,9 +129,7 @@ class TestDeltaQTc:
         ic50_uM = 1.0
         # c_plasma_mg_L to give 1 µM for mw=300: 1 µM * 300 g/mol / 1000 = 0.3 mg/L
         c_mg_L = ic50_uM * 300.0 / 1000.0
-        r = predict_qt_prolongation(
-            "FiftyPct", 100.0, 300.0, 2.0, ic50_uM, c_plasma_mg_L=c_mg_L
-        )
+        r = predict_qt_prolongation("FiftyPct", 100.0, 300.0, 2.0, ic50_uM, c_plasma_mg_L=c_mg_L)
         assert abs(r.herg_inhibition_pct - 50.0) < 1.0
         # delta_qtc_base = 50 * 0.4 = 20 ms (no risk factors)
         assert abs(r.delta_qtc_ms - 20.0) < 1.0
@@ -144,6 +138,7 @@ class TestDeltaQTc:
 # ---------------------------------------------------------------------------
 # Risk factors
 # ---------------------------------------------------------------------------
+
 
 class TestRiskFactors:
     def test_no_risk_factors_by_default(self):
@@ -169,9 +164,7 @@ class TestRiskFactors:
         assert abs(r_female.delta_qtc_ms - r_male.delta_qtc_ms - 5.0) < 1e-6
 
     def test_hypokalemia_increases_delta_qtc_by_10(self):
-        r_base = predict_qt_prolongation(
-            "X", 100.0, 300.0, 2.0, 5.0, c_plasma_mg_L=1.0
-        )
+        r_base = predict_qt_prolongation("X", 100.0, 300.0, 2.0, 5.0, c_plasma_mg_L=1.0)
         r_hypo = predict_qt_prolongation(
             "X", 100.0, 300.0, 2.0, 5.0, c_plasma_mg_L=1.0, hypokalemia=True
         )
@@ -184,9 +177,7 @@ class TestRiskFactors:
         assert any("hypokalemia" in rf.lower() for rf in r.risk_factors)
 
     def test_concomitant_qt_drug_multiplies_delta_qtc(self):
-        r_base = predict_qt_prolongation(
-            "X", 100.0, 300.0, 2.0, 1.0, c_plasma_mg_L=1.0
-        )
+        r_base = predict_qt_prolongation("X", 100.0, 300.0, 2.0, 1.0, c_plasma_mg_L=1.0)
         r_combo = predict_qt_prolongation(
             "X", 100.0, 300.0, 2.0, 1.0, c_plasma_mg_L=1.0, concomitant_qt_drug=True
         )
@@ -195,15 +186,21 @@ class TestRiskFactors:
 
     def test_all_risk_factors_combined(self):
         r = predict_qt_prolongation(
-            "X", 100.0, 300.0, 2.0, 1.0, c_plasma_mg_L=1.0,
-            patient_female=True, hypokalemia=True, concomitant_qt_drug=True
+            "X",
+            100.0,
+            300.0,
+            2.0,
+            1.0,
+            c_plasma_mg_L=1.0,
+            patient_female=True,
+            hypokalemia=True,
+            concomitant_qt_drug=True,
         )
         assert r.risk_factors_count == 3
 
     def test_risk_factors_count_matches_list_length(self):
         r = predict_qt_prolongation(
-            "X", 100.0, 300.0, 2.0, 1.0, c_plasma_mg_L=1.0,
-            patient_female=True, hypokalemia=True
+            "X", 100.0, 300.0, 2.0, 1.0, c_plasma_mg_L=1.0, patient_female=True, hypokalemia=True
         )
         assert r.risk_factors_count == len(r.risk_factors)
 
@@ -211,6 +208,7 @@ class TestRiskFactors:
 # ---------------------------------------------------------------------------
 # QTc prolongation category
 # ---------------------------------------------------------------------------
+
 
 class TestQTcCategory:
     def test_none_category_below_5ms(self):
@@ -228,14 +226,12 @@ class TestQTcCategory:
         assert r.qtc_prolongation_category in ("none", "mild")
 
     def test_severe_category_above_20ms(self):
-        r = predict_qt_prolongation(
-            "X", 200.0, 300.0, 3.0, 0.001, c_plasma_mg_L=10.0
-        )
+        r = predict_qt_prolongation("X", 200.0, 300.0, 3.0, 0.001, c_plasma_mg_L=10.0)
         assert r.qtc_prolongation_category == "severe"
 
     def test_category_thresholds_consistent_with_delta(self):
         for trial in range(5):
-            c = 0.001 * (10 ** trial)
+            c = 0.001 * (10**trial)
             r = predict_qt_prolongation("X", 100.0, 300.0, 2.0, 1.0, c_plasma_mg_L=c)
             if r.delta_qtc_ms < 5:
                 assert r.qtc_prolongation_category == "none"
@@ -251,15 +247,14 @@ class TestQTcCategory:
 # TdP risk category
 # ---------------------------------------------------------------------------
 
+
 class TestTdPRiskCategory:
     def test_low_risk_weak_inhibitor(self):
         r = predict_qt_prolongation("X", 50.0, 300.0, 1.0, 10_000.0, c_plasma_mg_L=0.001)
         assert r.tdp_risk_category == "low"
 
     def test_known_risk_very_strong_inhibitor(self):
-        r = predict_qt_prolongation(
-            "X", 200.0, 300.0, 3.0, 0.001, c_plasma_mg_L=10.0
-        )
+        r = predict_qt_prolongation("X", 200.0, 300.0, 3.0, 0.001, c_plasma_mg_L=10.0)
         assert r.tdp_risk_category == "known_risk"
 
     def test_conditional_risk_moderate_inhibitor(self):
@@ -285,6 +280,7 @@ class TestTdPRiskCategory:
 # Cmax estimation (no c_plasma_mg_L provided)
 # ---------------------------------------------------------------------------
 
+
 class TestCmaxEstimation:
     def test_auto_cmax_gives_positive_concentration(self):
         r = predict_qt_prolongation(
@@ -306,6 +302,7 @@ class TestCmaxEstimation:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_negative_dose_raises(self):
@@ -329,15 +326,34 @@ class TestInputValidation:
 # screen_cardiac_safety
 # ---------------------------------------------------------------------------
 
+
 class TestScreenCardiacSafety:
     def _compounds(self):
         return [
-            {"name": "DrugA", "dose_mg": 100.0, "mw": 300.0, "logP": 2.0,
-             "herg_ic50_uM": 10_000.0, "c_plasma_mg_L": 0.001},  # very safe
-            {"name": "DrugB", "dose_mg": 200.0, "mw": 300.0, "logP": 3.0,
-             "herg_ic50_uM": 0.1, "c_plasma_mg_L": 5.0},  # risky
-            {"name": "DrugC", "dose_mg": 50.0, "mw": 300.0, "logP": 1.5,
-             "herg_ic50_uM": 10.0, "c_plasma_mg_L": 0.5},  # moderate
+            {
+                "name": "DrugA",
+                "dose_mg": 100.0,
+                "mw": 300.0,
+                "logP": 2.0,
+                "herg_ic50_uM": 10_000.0,
+                "c_plasma_mg_L": 0.001,
+            },  # very safe
+            {
+                "name": "DrugB",
+                "dose_mg": 200.0,
+                "mw": 300.0,
+                "logP": 3.0,
+                "herg_ic50_uM": 0.1,
+                "c_plasma_mg_L": 5.0,
+            },  # risky
+            {
+                "name": "DrugC",
+                "dose_mg": 50.0,
+                "mw": 300.0,
+                "logP": 1.5,
+                "herg_ic50_uM": 10.0,
+                "c_plasma_mg_L": 0.5,
+            },  # moderate
         ]
 
     def test_returns_list(self):
@@ -358,8 +374,16 @@ class TestScreenCardiacSafety:
         assert screen_cardiac_safety([]) == []
 
     def test_single_compound_returns_single(self):
-        cmpd = [{"name": "Solo", "dose_mg": 100.0, "mw": 300.0,
-                 "logP": 2.0, "herg_ic50_uM": 5.0, "c_plasma_mg_L": 1.0}]
+        cmpd = [
+            {
+                "name": "Solo",
+                "dose_mg": 100.0,
+                "mw": 300.0,
+                "logP": 2.0,
+                "herg_ic50_uM": 5.0,
+                "c_plasma_mg_L": 1.0,
+            }
+        ]
         results = screen_cardiac_safety(cmpd)
         assert len(results) == 1
         assert results[0].drug_name == "Solo"

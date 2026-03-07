@@ -112,7 +112,6 @@ class TestGFRClamping:
 
 
 class TestAlbuminAndPgp:
-
     def test_albumin_below_1_at_80(self):
         sf = geriatric_scaling(80, 70, "male")
         assert sf.albumin_factor < 1.0
@@ -123,7 +122,6 @@ class TestAlbuminAndPgp:
 
 
 class TestPolypharmacy:
-
     def test_low_risk(self):
         sf = geriatric_scaling(75, 70, "male", n_comedications=0)
         assert sf.polypharmacy_ddi_risk == "low"
@@ -141,27 +139,20 @@ class TestPolypharmacy:
 
 
 class TestDoseAdjustment:
-
     def test_elderly_dose_lte_base(self):
         result = adjust_dose_geriatric(100, 5.0, 50.0, 75, 70, "male")
         assert result.adjusted_dose_mg <= result.base_dose_mg
 
     def test_renal_lower_for_low_gfr(self):
-        result = adjust_dose_geriatric(
-            100, 5.0, 50.0, 80, 60, "female", elimination="renal"
-        )
+        result = adjust_dose_geriatric(100, 5.0, 50.0, 80, 60, "female", elimination="renal")
         assert result.adjusted_dose_mg < 100
 
     def test_hepatic_lower_for_high_age(self):
-        result = adjust_dose_geriatric(
-            100, 5.0, 50.0, 80, 70, "male", elimination="hepatic"
-        )
+        result = adjust_dose_geriatric(100, 5.0, 50.0, 80, 70, "male", elimination="hepatic")
         assert result.adjusted_dose_mg < 100
 
     def test_high_protein_binding_vd_factor_gt_1(self):
-        result = adjust_dose_geriatric(
-            100, 5.0, 50.0, 75, 70, "male", protein_binding=0.95
-        )
+        result = adjust_dose_geriatric(100, 5.0, 50.0, 75, 70, "male", protein_binding=0.95)
         assert result.vd_scaling_factor > 1.0
 
     def test_t_half_increased_in_elderly(self):
@@ -178,9 +169,7 @@ class TestDoseAdjustment:
         assert result.dose_reduction_pct == 0.0
 
     def test_cautions_nonempty_frail_elderly(self):
-        result = adjust_dose_geriatric(
-            100, 5.0, 50.0, 85, 50, "female", n_comedications=8
-        )
+        result = adjust_dose_geriatric(100, 5.0, 50.0, 85, 50, "female", n_comedications=8)
         assert len(result.cautions) > 0
 
     def test_returns_dataclass(self):
@@ -188,9 +177,7 @@ class TestDoseAdjustment:
         assert isinstance(result, GeriatricDoseAdjustment)
 
     def test_mixed_elimination(self):
-        result = adjust_dose_geriatric(
-            100, 5.0, 50.0, 75, 70, "male", elimination="mixed"
-        )
+        result = adjust_dose_geriatric(100, 5.0, 50.0, 75, 70, "male", elimination="mixed")
         assert result.adjusted_dose_mg < 100
 
 
@@ -198,7 +185,6 @@ class TestDoseAdjustment:
 
 
 class TestAgeNormalizedGFR:
-
     def test_returns_positive_float(self):
         gfr = age_normalized_gfr(70, 70, "male")
         assert isinstance(gfr, float)
@@ -214,7 +200,6 @@ class TestAgeNormalizedGFR:
 
 
 class TestValidation:
-
     def test_invalid_age(self):
         with pytest.raises(ValueError, match="age_years"):
             geriatric_scaling(0, 70, "male")

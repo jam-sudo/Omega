@@ -168,8 +168,7 @@ def predict_logD(
         raise ValueError(f"pka must be a finite float, got {pka!r}")
     if molecule_type not in _VALID_MOLECULE_TYPES:
         raise ValueError(
-            f"molecule_type must be one of {sorted(_VALID_MOLECULE_TYPES)}, "
-            f"got {molecule_type!r}"
+            f"molecule_type must be one of {sorted(_VALID_MOLECULE_TYPES)}, got {molecule_type!r}"
         )
     if not (0.0 <= pH <= 14.0):
         raise ValueError(f"pH must be in range [0, 14], got {pH}")
@@ -183,9 +182,7 @@ def predict_logD(
     if molecule_type == "amphoteric":
         notes_parts.append("Amphoteric: correction averaged from acid and base models.")
     if abs(pH - pka) < 0.5:
-        notes_parts.append(
-            f"pH ({pH:.2f}) is close to pKa ({pka:.2f}); ~50% ionization expected."
-        )
+        notes_parts.append(f"pH ({pH:.2f}) is close to pKa ({pka:.2f}); ~50% ionization expected.")
     notes = " ".join(notes_parts) if notes_parts else "Standard Henderson-Hasselbalch prediction."
 
     return LogDResult(
@@ -230,8 +227,7 @@ def logD_profile(
         raise ValueError(f"pka must be a finite float, got {pka!r}")
     if molecule_type not in _VALID_MOLECULE_TYPES:
         raise ValueError(
-            f"molecule_type must be one of {sorted(_VALID_MOLECULE_TYPES)}, "
-            f"got {molecule_type!r}"
+            f"molecule_type must be one of {sorted(_VALID_MOLECULE_TYPES)}, got {molecule_type!r}"
         )
     if not pH_range:
         raise ValueError("pH_range must be a non-empty list of pH values.")

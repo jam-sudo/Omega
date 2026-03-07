@@ -36,6 +36,7 @@ def default_result(**overrides) -> BuccalPKResult:
 # Return type and dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestReturnType:
     def test_returns_buccal_pk_result(self):
         result = default_result()
@@ -64,6 +65,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_dose_zero_raises(self):
@@ -115,6 +117,7 @@ class TestValidation:
 # Route validation
 # ---------------------------------------------------------------------------
 
+
 class TestRoutes:
     def test_sublingual_route_stored(self):
         result = default_result(route="sublingual")
@@ -134,6 +137,7 @@ class TestRoutes:
 # ---------------------------------------------------------------------------
 # Basic physics
 # ---------------------------------------------------------------------------
+
 
 class TestBasicPhysics:
     def test_plasma_starts_at_zero(self):
@@ -185,6 +189,7 @@ class TestBasicPhysics:
 # f_absorbed
 # ---------------------------------------------------------------------------
 
+
 class TestFAbsorbed:
     def test_f_absorbed_in_range(self):
         result = default_result()
@@ -210,6 +215,7 @@ class TestFAbsorbed:
 # Sublingual vs Buccal comparison (surface area effect)
 # ---------------------------------------------------------------------------
 
+
 class TestSublingualVsBuccal:
     def test_buccal_higher_auc_due_to_larger_area(self):
         """Buccal has 50 cm² vs 1.2 cm² sublingual → much higher absorption."""
@@ -227,6 +233,7 @@ class TestSublingualVsBuccal:
 # ---------------------------------------------------------------------------
 # Parameter effects
 # ---------------------------------------------------------------------------
+
 
 class TestParameterEffects:
     def test_larger_dose_scales_cmax_proportionally(self):
@@ -257,6 +264,7 @@ class TestParameterEffects:
 # ---------------------------------------------------------------------------
 # compare_buccal_routes
 # ---------------------------------------------------------------------------
+
 
 class TestCompareBuccalRoutes:
     def test_returns_dict(self):

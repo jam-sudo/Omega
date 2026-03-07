@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.biopharmaceutics.crystallization_risk import (
@@ -12,7 +13,6 @@ from omega_pbpk.biopharmaceutics.crystallization_risk import (
     crystallization_tendency,
     induction_time,
 )
-
 
 # ---------------------------------------------------------------------------
 # crystallization_tendency tests

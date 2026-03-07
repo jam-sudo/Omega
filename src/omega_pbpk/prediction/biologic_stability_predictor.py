@@ -39,6 +39,7 @@ class ColloidalStabilityResult:
 # Thermal stability
 # ---------------------------------------------------------------------------
 
+
 def predict_thermal_stability(
     mw_kDa: float,
     isoelectric_point: float,
@@ -70,13 +71,9 @@ def predict_thermal_stability(
     if mw_kDa <= 0:
         raise ValueError(f"mw_kDa must be > 0, got {mw_kDa}")
     if not (1.0 <= isoelectric_point <= 14.0):
-        raise ValueError(
-            f"isoelectric_point must be in [1, 14], got {isoelectric_point}"
-        )
+        raise ValueError(f"isoelectric_point must be in [1, 14], got {isoelectric_point}")
     if n_disulfide_bonds < 0:
-        raise ValueError(
-            f"n_disulfide_bonds must be >= 0, got {n_disulfide_bonds}"
-        )
+        raise ValueError(f"n_disulfide_bonds must be >= 0, got {n_disulfide_bonds}")
 
     tm = 60.0  # base Tm °C
 
@@ -110,9 +107,7 @@ def predict_thermal_stability(
     if glycosylated:
         notes_parts.append("Glycosylation contributes +3.0 °C.")
     if isoelectric_point < 5.0 or isoelectric_point > 9.0:
-        notes_parts.append(
-            f"Extreme pI ({isoelectric_point:.1f}) reduces Tm by 4.0 °C."
-        )
+        notes_parts.append(f"Extreme pI ({isoelectric_point:.1f}) reduces Tm by 4.0 °C.")
 
     return ThermalStabilityResult(
         tm_C_predicted=round(tm, 2),
@@ -237,6 +232,7 @@ def predict_chemical_stability(
 # Colloidal stability
 # ---------------------------------------------------------------------------
 
+
 def predict_colloidal_stability(
     mw_kDa: float,
     isoelectric_point: float,
@@ -270,15 +266,11 @@ def predict_colloidal_stability(
     if mw_kDa <= 0:
         raise ValueError(f"mw_kDa must be > 0, got {mw_kDa}")
     if not (1.0 <= isoelectric_point <= 14.0):
-        raise ValueError(
-            f"isoelectric_point must be in [1, 14], got {isoelectric_point}"
-        )
+        raise ValueError(f"isoelectric_point must be in [1, 14], got {isoelectric_point}")
     if not (0.0 <= pH <= 14.0):
         raise ValueError(f"pH must be in [0, 14], got {pH}")
     if ionic_strength_mM < 0:
-        raise ValueError(
-            f"ionic_strength_mM must be >= 0, got {ionic_strength_mM}"
-        )
+        raise ValueError(f"ionic_strength_mM must be >= 0, got {ionic_strength_mM}")
 
     # Convention: below pI → positive charge; above pI → negative charge.
     # Zeta is proportional to (pI - pH): positive when pH < pI, negative when pH > pI.
@@ -317,6 +309,7 @@ def predict_colloidal_stability(
 # ---------------------------------------------------------------------------
 # Overall stability assessment
 # ---------------------------------------------------------------------------
+
 
 def assess_overall_stability(
     mw_kDa: float,

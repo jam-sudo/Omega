@@ -113,7 +113,7 @@ def amorphous_solubility_advantage(
     )
     notes = (
         f"ΔHfus={delta_hfus:.0f} J/mol; ln(Sa/Sc)={ln_ratio:.3f}; "
-        f"Tg/Tm={((tg_C+273.15)/Tm):.3f}; Tm-Tg={tg_margin:.1f}°C; "
+        f"Tg/Tm={((tg_C + 273.15) / Tm):.3f}; Tm-Tg={tg_margin:.1f}°C; "
         f"logP={logP:.2f}; {stability_note}"
     )
 

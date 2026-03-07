@@ -99,9 +99,7 @@ def calculate_crystal_habit_dissolution(
     """
     # --- Input validation ---
     if habit not in VALID_HABITS:
-        raise ValueError(
-            f"habit must be one of {VALID_HABITS}, got {habit!r}"
-        )
+        raise ValueError(f"habit must be one of {VALID_HABITS}, got {habit!r}")
     if particle_size_um <= 0:
         raise ValueError(f"particle_size_um must be > 0, got {particle_size_um}")
     if dose_mg <= 0:
@@ -129,7 +127,7 @@ def calculate_crystal_habit_dissolution(
     f_dissolved_2h = 0.0
     f_dissolved_4h = 0.0
 
-    for i, t in enumerate(times[:-1]):
+    for i, _t in enumerate(times[:-1]):
         # Dissolution rate (mg/h) – Noyes-Whitney saturated limit
         saturation_factor = max(0.0, 1.0 - c_dissolved / solubility_mg_mL)
         rate = 0.0

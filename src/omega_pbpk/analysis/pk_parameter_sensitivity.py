@@ -79,8 +79,10 @@ def _compute_1cpt_metrics(
         # Oral 1-cpt analytical
         auc = f * dose_mg / cl_L_per_h
         if ka_per_h > ke:
-            cmax = (f * dose_mg / vd_L) * (ka_per_h / (ka_per_h - ke)) * (
-                (ke / ka_per_h) ** (ke / (ka_per_h - ke))
+            cmax = (
+                (f * dose_mg / vd_L)
+                * (ka_per_h / (ka_per_h - ke))
+                * ((ke / ka_per_h) ** (ke / (ka_per_h - ke)))
             )
         else:
             # Flip-flop: approximate
@@ -441,9 +443,7 @@ def rank_parameters_by_sensitivity(oat_result: OATSensitivityResult) -> list[dic
         Each dict has keys 'parameter', 'sensitivity_index', 'rank'.
         Sorted by |sensitivity_index| descending.
     """
-    pairs = list(
-        zip(oat_result.parameter_names, oat_result.sensitivity_indices, strict=True)
-    )
+    pairs = list(zip(oat_result.parameter_names, oat_result.sensitivity_indices, strict=True))
     pairs_sorted = sorted(pairs, key=lambda x: abs(x[1]), reverse=True)
     return [
         {"parameter": name, "sensitivity_index": si, "rank": rank + 1}
@@ -484,8 +484,6 @@ def plot_sensitivity_table(oat_result: OATSensitivityResult) -> str:
         bar_len = int(abs(si) / max_abs * bar_width)
         bar = "#" * bar_len
         direction = "+" if si >= 0 else "-"
-        lines.append(
-            f"{r['rank']:<5} {r['parameter']:<12} {si:>8.3f}   [{direction}] {bar}"
-        )
+        lines.append(f"{r['rank']:<5} {r['parameter']:<12} {si:>8.3f}   [{direction}] {bar}")
     lines.append("-" * 60)
     return "\n".join(lines)

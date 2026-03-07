@@ -24,11 +24,11 @@ class TwoSiteBindingResult:
 
     drug_name: str
     concentrations: list[float]
-    site1_occupancy: list[float]   # Primary site occupancy (0-1)
-    site2_occupancy: list[float]   # Secondary site occupancy (0-1)
-    total_effect: list[float]      # Combined pharmacological effect
-    ec50_apparent: float           # Apparent EC50 for total effect
-    hill_apparent: float           # Apparent Hill coefficient
+    site1_occupancy: list[float]  # Primary site occupancy (0-1)
+    site2_occupancy: list[float]  # Secondary site occupancy (0-1)
+    total_effect: list[float]  # Combined pharmacological effect
+    ec50_apparent: float  # Apparent EC50 for total effect
+    hill_apparent: float  # Apparent Hill coefficient
     notes: str
 
 

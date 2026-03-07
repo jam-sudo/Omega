@@ -51,9 +51,9 @@ def _single_dose_conc(
         if abs(ka - ke) < 1e-9:
             # Avoid division by zero: use limiting form
             return (f_oral * dose_mg * ke / vd_L) * t * math.exp(-ke * t)
-        return (
-            (f_oral * dose_mg * ka) / (vd_L * (ka - ke))
-        ) * (math.exp(-ke * t) - math.exp(-ka * t))
+        return ((f_oral * dose_mg * ka) / (vd_L * (ka - ke))) * (
+            math.exp(-ke * t) - math.exp(-ka * t)
+        )
 
 
 def predict_concentration(

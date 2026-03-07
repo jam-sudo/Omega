@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.clinical.pk_biomarker_analyzer import (
@@ -13,10 +12,10 @@ from omega_pbpk.clinical.pk_biomarker_analyzer import (
     exposure_response_summary,
 )
 
-
 # ---------------------------------------------------------------------------
 # correlate_pk_biomarker
 # ---------------------------------------------------------------------------
+
 
 class TestCorrelatePkBiomarker:
     def test_perfect_positive_correlation(self):
@@ -88,6 +87,7 @@ class TestCorrelatePkBiomarker:
 # calculate_pkpd_index
 # ---------------------------------------------------------------------------
 
+
 class TestCalculatePkpdIndex:
     def test_auc_mic_single_mic(self):
         aucs = [100.0, 200.0, 300.0]
@@ -145,6 +145,7 @@ class TestCalculatePkpdIndex:
 # classify_responders
 # ---------------------------------------------------------------------------
 
+
 class TestClassifyResponders:
     def test_all_above_threshold(self):
         values = [10.0, 20.0, 30.0]
@@ -192,6 +193,7 @@ class TestClassifyResponders:
 # ---------------------------------------------------------------------------
 # exposure_response_summary
 # ---------------------------------------------------------------------------
+
 
 class TestExposureResponseSummary:
     def _make_perfect_data(self, n=20):

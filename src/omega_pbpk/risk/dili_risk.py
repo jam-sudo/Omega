@@ -14,7 +14,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-
 # ---------------------------------------------------------------------------
 # Structural alert definitions: (description, weight, list_of_substrings)
 # ---------------------------------------------------------------------------

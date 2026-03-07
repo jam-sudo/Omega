@@ -84,9 +84,7 @@ def calculate_skin_permeation(
     if concentration_mg_mL <= 0:
         raise ValueError(f"concentration_mg_mL must be > 0, got {concentration_mg_mL}")
     if vehicle not in VEHICLE_EF:
-        raise ValueError(
-            f"Invalid vehicle '{vehicle}'. Must be one of: {sorted(VEHICLE_EF)}"
-        )
+        raise ValueError(f"Invalid vehicle '{vehicle}'. Must be one of: {sorted(VEHICLE_EF)}")
     if skin_condition not in CONDITION_MOD:
         raise ValueError(
             f"Invalid skin_condition '{skin_condition}'. Must be one of: {sorted(CONDITION_MOD)}"
@@ -94,7 +92,7 @@ def calculate_skin_permeation(
 
     # Potts-Guy equation: log(Kp) = -2.72 + 0.71*logP - 0.0061*MW  (Kp in cm/s)
     log_kp_cm_s = -2.72 + 0.71 * logP - 0.0061 * mw
-    kp_cm_s = 10.0 ** log_kp_cm_s
+    kp_cm_s = 10.0**log_kp_cm_s
     kp_cm_h = kp_cm_s * 3600.0
 
     # Apply vehicle and condition modifiers
@@ -173,7 +171,6 @@ def compare_vehicles(
         Results for each vehicle, sorted by kp_cm_per_h descending.
     """
     results = [
-        calculate_skin_permeation(drug_name, logP, mw, vehicle=v, **kwargs)
-        for v in VEHICLE_EF
+        calculate_skin_permeation(drug_name, logP, mw, vehicle=v, **kwargs) for v in VEHICLE_EF
     ]
     return sorted(results, key=lambda r: r.kp_cm_per_h, reverse=True)

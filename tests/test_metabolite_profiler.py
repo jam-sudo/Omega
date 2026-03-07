@@ -11,7 +11,6 @@ from omega_pbpk.prediction.metabolite_profiler import (
     profile_metabolites,
 )
 
-
 # ---------------------------------------------------------------------------
 # predict_metabolite_mw
 # ---------------------------------------------------------------------------
@@ -90,10 +89,16 @@ class TestProfileMetabolites:
 
     def test_n_pathways_excludes_zero_fm(self):
         result = profile_metabolites(
-            "X", "C", 200.0, 1.0,
-            fm_cyp3a4=0.8, fm_cyp2d6=0.2,
-            fm_cyp1a2=0.0, fm_cyp2c9=0.0,
-            fm_ugt=0.0, fm_other=0.0,
+            "X",
+            "C",
+            200.0,
+            1.0,
+            fm_cyp3a4=0.8,
+            fm_cyp2d6=0.2,
+            fm_cyp1a2=0.0,
+            fm_cyp2c9=0.0,
+            fm_ugt=0.0,
+            fm_other=0.0,
         )
         assert result.n_pathways == 2
 
@@ -104,10 +109,16 @@ class TestProfileMetabolites:
 
     def test_metabolite_mw_hydroxylation(self):
         result = profile_metabolites(
-            "TestDrug", "C", 300.0, 1.0,
+            "TestDrug",
+            "C",
+            300.0,
+            1.0,
             fm_cyp3a4=1.0,
-            fm_cyp2d6=0.0, fm_cyp1a2=0.0, fm_cyp2c9=0.0,
-            fm_ugt=0.0, fm_other=0.0,
+            fm_cyp2d6=0.0,
+            fm_cyp1a2=0.0,
+            fm_cyp2c9=0.0,
+            fm_ugt=0.0,
+            fm_other=0.0,
         )
         hw_pathway = result.pathways[0]
         assert hw_pathway["enzyme"] == "CYP3A4"
@@ -122,10 +133,16 @@ class TestProfileMetabolites:
 
     def test_soft_spots_excludes_low_fm(self):
         result = profile_metabolites(
-            "Y", "C", 300.0, 1.0,
-            fm_cyp3a4=0.9, fm_cyp2d6=0.05,
-            fm_cyp1a2=0.0, fm_cyp2c9=0.0,
-            fm_ugt=0.0, fm_other=0.05,
+            "Y",
+            "C",
+            300.0,
+            1.0,
+            fm_cyp3a4=0.9,
+            fm_cyp2d6=0.05,
+            fm_cyp1a2=0.0,
+            fm_cyp2c9=0.0,
+            fm_ugt=0.0,
+            fm_other=0.05,
         )
         assert "CYP3A4" in result.metabolic_soft_spots
         # fm_cyp2d6=0.05 < 0.1 threshold
@@ -133,19 +150,31 @@ class TestProfileMetabolites:
 
     def test_active_metabolite_risk_cyp2d6_major(self):
         result = profile_metabolites(
-            "CodeineAnalog", "C", 300.0, 2.0,
-            fm_cyp2d6=0.8, fm_cyp3a4=0.1,
-            fm_cyp1a2=0.0, fm_cyp2c9=0.0,
-            fm_ugt=0.1, fm_other=0.0,
+            "CodeineAnalog",
+            "C",
+            300.0,
+            2.0,
+            fm_cyp2d6=0.8,
+            fm_cyp3a4=0.1,
+            fm_cyp1a2=0.0,
+            fm_cyp2c9=0.0,
+            fm_ugt=0.1,
+            fm_other=0.0,
         )
         assert result.active_metabolite_risk == "moderate"
 
     def test_active_metabolite_risk_non_cyp2d6_is_low(self):
         result = profile_metabolites(
-            "DrugZ", "C", 300.0, 2.0,
-            fm_cyp3a4=0.9, fm_cyp2d6=0.0,
-            fm_cyp1a2=0.0, fm_cyp2c9=0.1,
-            fm_ugt=0.0, fm_other=0.0,
+            "DrugZ",
+            "C",
+            300.0,
+            2.0,
+            fm_cyp3a4=0.9,
+            fm_cyp2d6=0.0,
+            fm_cyp1a2=0.0,
+            fm_cyp2c9=0.1,
+            fm_ugt=0.0,
+            fm_other=0.0,
         )
         assert result.active_metabolite_risk == "low"
 
@@ -167,10 +196,16 @@ class TestProfileMetabolites:
 
     def test_ugt_note_appears_when_high_fm_ugt(self):
         result = profile_metabolites(
-            "Drug", "C", 300.0, 2.0,
-            fm_cyp3a4=0.4, fm_cyp2d6=0.1,
-            fm_cyp1a2=0.1, fm_cyp2c9=0.1,
-            fm_ugt=0.2, fm_other=0.1,
+            "Drug",
+            "C",
+            300.0,
+            2.0,
+            fm_cyp3a4=0.4,
+            fm_cyp2d6=0.1,
+            fm_cyp1a2=0.1,
+            fm_cyp2c9=0.1,
+            fm_ugt=0.2,
+            fm_other=0.1,
         )
         assert "glucuronidation" in result.notes.lower() or "UGT" in result.notes
 
@@ -188,10 +223,16 @@ class TestProfileMetabolitesValidation:
     def test_fm_sum_gt_1_raises(self):
         with pytest.raises(ValueError, match="Sum of all fm"):
             profile_metabolites(
-                "X", "C", 300.0, 1.0,
-                fm_cyp3a4=0.5, fm_cyp2d6=0.5,
-                fm_cyp1a2=0.2, fm_cyp2c9=0.0,
-                fm_ugt=0.0, fm_other=0.0,
+                "X",
+                "C",
+                300.0,
+                1.0,
+                fm_cyp3a4=0.5,
+                fm_cyp2d6=0.5,
+                fm_cyp1a2=0.2,
+                fm_cyp2c9=0.0,
+                fm_ugt=0.0,
+                fm_other=0.0,
             )
 
     def test_negative_fm_raises(self):

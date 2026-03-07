@@ -99,8 +99,7 @@ def _cumulative_excreted_pct(
     times = np.arange(0.0, t_end_h + dt_h, dt_h)
     rates = np.array(
         [
-            cl_renal_L_per_h
-            * _plasma_concentration(dose_mg, f_oral, ka_per_h, ke_per_h, vd_L, t)
+            cl_renal_L_per_h * _plasma_concentration(dose_mg, f_oral, ka_per_h, ke_per_h, vd_L, t)
             for t in times
         ]
     )
@@ -212,9 +211,7 @@ def predict_urine_concentration(
     urine_flow_L_per_h = urine_flow_mL_per_h / 1000.0
 
     # Plasma concentration at time t
-    c_plasma_mg_L = _plasma_concentration(
-        dose_mg, f_oral, ka_per_h, ke, vd_L, time_since_dose_h
-    )
+    c_plasma_mg_L = _plasma_concentration(dose_mg, f_oral, ka_per_h, ke, vd_L, time_since_dose_h)
 
     # pH-dependent ionization correction
     ratio_correction = _ionization_ratio_correction(urine_ph, pka_acid, pka_base)

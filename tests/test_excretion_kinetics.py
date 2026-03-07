@@ -1,6 +1,7 @@
 """Tests for Phase 487 — Drug Excretion Kinetics."""
 
 import math
+
 import pytest
 
 from omega_pbpk.core.excretion_kinetics import (
@@ -12,10 +13,10 @@ from omega_pbpk.core.excretion_kinetics import (
     simulate_excretion,
 )
 
-
 # ---------------------------------------------------------------------------
 # renal_excretion_rate
 # ---------------------------------------------------------------------------
+
 
 class TestRenalExcretionRate:
     def test_basic_returns_float(self):
@@ -73,6 +74,7 @@ class TestRenalExcretionRate:
 # biliary_excretion_rate
 # ---------------------------------------------------------------------------
 
+
 class TestBiliaryExcretionRate:
     def test_basic_returns_float(self):
         rate = biliary_excretion_rate(5.0, 0.1, mw=300.0, logP=2.0)
@@ -115,6 +117,7 @@ class TestBiliaryExcretionRate:
 # calculate_fe
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateFe:
     def test_fe_full_renal(self):
         fe = calculate_fe(10.0, 10.0)
@@ -144,6 +147,7 @@ class TestCalculateFe:
 # ---------------------------------------------------------------------------
 # clearance_from_excretion
 # ---------------------------------------------------------------------------
+
 
 class TestClearanceFromExcretion:
     def test_basic_returns_positive(self):
@@ -176,6 +180,7 @@ class TestClearanceFromExcretion:
 # ---------------------------------------------------------------------------
 # simulate_excretion
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateExcretion:
     def _default_result(self, dose_mg=100.0):
@@ -247,12 +252,8 @@ class TestSimulateExcretion:
         assert result.t_half_h == pytest.approx(expected_t_half, rel=1e-6)
 
     def test_higher_renal_cl_higher_fe_renal(self):
-        res_low = simulate_excretion(
-            "Drug", 100.0, 0.5, 0.5, 1.5, t_end_h=48.0
-        )
-        res_high = simulate_excretion(
-            "Drug", 100.0, 3.0, 0.5, 1.5, t_end_h=48.0
-        )
+        res_low = simulate_excretion("Drug", 100.0, 0.5, 0.5, 1.5, t_end_h=48.0)
+        res_high = simulate_excretion("Drug", 100.0, 3.0, 0.5, 1.5, t_end_h=48.0)
         assert res_high.fe_renal > res_low.fe_renal
 
     def test_drug_name_preserved(self):

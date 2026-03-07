@@ -76,7 +76,7 @@ class TestPolymorphSolubilityRatio:
         tm_b = 423.15
         delta_hfus = 56.5 * tm_b
         log10_ratio = -(delta_hfus / 8.314) * (1.0 / tm_a - 1.0 / tm_b) / 2.303
-        expected = 10 ** log10_ratio
+        expected = 10**log10_ratio
         result = polymorph_solubility_ratio(100.0, 150.0)
         assert math.isclose(result, expected, rel_tol=1e-4)
 
@@ -195,9 +195,7 @@ class TestAssessPolymorphRisk:
 
     def test_bcs_ii_bioavailability_ratio_reflects_solubility(self):
         """BCS II: bioavailability_ratio depends on solubility_ratio (>1 → ratio >= 1)."""
-        result = assess_polymorph_risk(
-            "Drug_B", 200.0, 50.0, bcs_class=2, daily_dose_mg=500.0
-        )
+        result = assess_polymorph_risk("Drug_B", 200.0, 50.0, bcs_class=2, daily_dose_mg=500.0)
         # Large Tm difference → solubility_ratio >> 1
         assert result.solubility_ratio > 1.0
         # BCS II: Form A has higher ka, so bioavailability_ratio >= 1
@@ -215,21 +213,15 @@ class TestAssessPolymorphRisk:
 
     def test_drug_name_in_result(self):
         """drug_name attribute is set correctly."""
-        result = assess_polymorph_risk(
-            "Aspirin", 135.0, 135.0, bcs_class=2, daily_dose_mg=325.0
-        )
+        result = assess_polymorph_risk("Aspirin", 135.0, 135.0, bcs_class=2, daily_dose_mg=325.0)
         assert result.drug_name == "Aspirin"
 
     def test_identical_melting_points_give_ratio_one(self):
         """Same Tm → solubility_ratio ≈ 1.0."""
-        result = assess_polymorph_risk(
-            "Drug_C", 150.0, 150.0, bcs_class=2, daily_dose_mg=100.0
-        )
+        result = assess_polymorph_risk("Drug_C", 150.0, 150.0, bcs_class=2, daily_dose_mg=100.0)
         assert math.isclose(result.solubility_ratio, 1.0, rel_tol=1e-5)
 
     def test_result_frozen(self):
-        result = assess_polymorph_risk(
-            "Drug_D", 100.0, 150.0, bcs_class=3, daily_dose_mg=50.0
-        )
+        result = assess_polymorph_risk("Drug_D", 100.0, 150.0, bcs_class=3, daily_dose_mg=50.0)
         with pytest.raises((AttributeError, TypeError)):
             result.risk_category = "extreme"  # type: ignore[misc]

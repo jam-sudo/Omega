@@ -190,9 +190,7 @@ def simulate_lymphatic_pk(
 
     # Actual fraction that arrived via lymph
     total_input = cumulative_lymph_input + cumulative_portal_input
-    f_via_lymph_actual = (
-        cumulative_lymph_input / total_input if total_input > 0 else f_lymph
-    )
+    f_via_lymph_actual = cumulative_lymph_input / total_input if total_input > 0 else f_lymph
 
     cmax_sys = max(c_sys_arr)
 
@@ -327,21 +325,13 @@ def food_effect_on_lymph(
 
     notes: list[str] = []
     if auc_ratio > 2.0:
-        notes.append(
-            f"Significant positive food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}"
-        )
+        notes.append(f"Significant positive food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}")
     elif auc_ratio > 1.25:
-        notes.append(
-            f"Moderate positive food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}"
-        )
+        notes.append(f"Moderate positive food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}")
     elif auc_ratio < 0.8:
-        notes.append(
-            f"Negative food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}"
-        )
+        notes.append(f"Negative food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}")
     else:
-        notes.append(
-            f"Minimal food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}"
-        )
+        notes.append(f"Minimal food effect: AUC_fed/AUC_fasted = {auc_ratio:.2f}")
 
     return {
         "fasted": fasted_result,

@@ -143,7 +143,9 @@ def simulate_gi_precipitation(
         flow_precip_mg = min(flow_precip_mg, m_precip_stomach)
 
         # ── Stomach precipitation / redissolution ────────────────────────
-        precip_stom = k_precip_per_h * max(0.0, c_stomach - solubility_stomach_mg_mL) * gastric_volume_mL
+        precip_stom = (
+            k_precip_per_h * max(0.0, c_stomach - solubility_stomach_mg_mL) * gastric_volume_mL
+        )
         rediss_stom = k_redissolve_per_h * m_precip_stomach
 
         # ── Intestinal processes ─────────────────────────────────────────
@@ -156,16 +158,8 @@ def simulate_gi_precipitation(
         rediss_int = k_redissolve_per_h * m_precip_intestine
 
         # ── Update stomach ───────────────────────────────────────────────
-        dm_stom_dissolved = (
-            -flow_dissolved_mg
-            - precip_stom * dt_h
-            + rediss_stom * dt_h
-        )
-        dm_precip_stom = (
-            precip_stom * dt_h
-            - rediss_stom * dt_h
-            - flow_precip_mg
-        )
+        dm_stom_dissolved = -flow_dissolved_mg - precip_stom * dt_h + rediss_stom * dt_h
+        dm_precip_stom = precip_stom * dt_h - rediss_stom * dt_h - flow_precip_mg
 
         m_stom_dissolved = max(0.0, c_stomach * gastric_volume_mL + dm_stom_dissolved)
         m_precip_stomach = max(0.0, m_precip_stomach + dm_precip_stom)
@@ -177,16 +171,9 @@ def simulate_gi_precipitation(
         incoming_precip_mg = flow_precip_mg
 
         dm_int_dissolved = (
-            incoming_dissolved_mg
-            - absorption_mg_h * dt_h
-            - precip_int * dt_h
-            + rediss_int * dt_h
+            incoming_dissolved_mg - absorption_mg_h * dt_h - precip_int * dt_h + rediss_int * dt_h
         )
-        dm_precip_int = (
-            precip_int * dt_h
-            - rediss_int * dt_h
-            + incoming_precip_mg
-        )
+        dm_precip_int = precip_int * dt_h - rediss_int * dt_h + incoming_precip_mg
         dm_absorbed = absorption_mg_h * dt_h
 
         m_int_dissolved = max(0.0, c_intestine * intestinal_volume_mL + dm_int_dissolved)

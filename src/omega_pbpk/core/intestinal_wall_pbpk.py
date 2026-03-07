@@ -140,16 +140,9 @@ def simulate_intestinal_wall_pk(
         # Derivatives (forward Euler)
         da_lumen = -ka * a_lumen
 
-        dc_gut = (
-            ka * a_lumen / vd_gut_L
-            - k_gut_meta * c_gut
-            - k_transfer * c_gut
-        )
+        dc_gut = ka * a_lumen / vd_gut_L - k_gut_meta * c_gut - k_transfer * c_gut
 
-        dc_portal = (
-            k_transfer * c_gut * vd_gut_L / vd_portal_L
-            - ke_portal * c_portal
-        )
+        dc_portal = k_transfer * c_gut * vd_gut_L / vd_portal_L - ke_portal * c_portal
 
         # Update state
         a_lumen = max(a_lumen + da_lumen * dt_h, 0.0)

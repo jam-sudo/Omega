@@ -10,10 +10,10 @@ from omega_pbpk.clinical.prodrug_pkpd import (
     simulate_prodrug_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def default_result() -> ProdrugPKResult:
@@ -23,6 +23,7 @@ def default_result() -> ProdrugPKResult:
 # ---------------------------------------------------------------------------
 # Return-type and structure tests
 # ---------------------------------------------------------------------------
+
 
 def test_returns_prodrug_pk_result(default_result):
     assert isinstance(default_result, ProdrugPKResult)
@@ -58,6 +59,7 @@ def test_times_end_at_t_end():
 # ---------------------------------------------------------------------------
 # Mass balance / physical plausibility
 # ---------------------------------------------------------------------------
+
 
 def test_concentrations_nonnegative(default_result):
     assert all(c >= 0.0 for c in default_result.c_prodrug)
@@ -96,11 +98,17 @@ def test_tmax_active_within_range(default_result):
 # Active drug Cmax appears AFTER prodrug Cmax (conversion lag)
 # ---------------------------------------------------------------------------
 
+
 def test_tmax_ordering():
     """Active drug peak should generally follow prodrug peak."""
     result = simulate_prodrug_pk(
-        "Pro", "Act", 100.0, ka_per_h=1.5, k_conversion_per_h=0.5,
-        cl_prodrug_L_per_h=10.0, t_end_h=48.0
+        "Pro",
+        "Act",
+        100.0,
+        ka_per_h=1.5,
+        k_conversion_per_h=0.5,
+        cl_prodrug_L_per_h=10.0,
+        t_end_h=48.0,
     )
     # Prodrug should peak first or same time as active
     # With slow conversion the active drug Tmax is delayed
@@ -110,6 +118,7 @@ def test_tmax_ordering():
 # ---------------------------------------------------------------------------
 # Higher dose → higher Cmax and AUC (linearity)
 # ---------------------------------------------------------------------------
+
 
 def test_higher_dose_higher_auc():
     r100 = simulate_prodrug_pk("P", "A", 100.0)
@@ -127,6 +136,7 @@ def test_higher_dose_higher_cmax():
 # Higher k_conversion → faster / higher active drug exposure
 # ---------------------------------------------------------------------------
 
+
 def test_faster_conversion_higher_early_cmax():
     r_slow = simulate_prodrug_pk("P", "A", 100.0, k_conversion_per_h=0.1, t_end_h=48.0)
     r_fast = simulate_prodrug_pk("P", "A", 100.0, k_conversion_per_h=5.0, t_end_h=48.0)
@@ -136,6 +146,7 @@ def test_faster_conversion_higher_early_cmax():
 # ---------------------------------------------------------------------------
 # Effect at Cmax should equal Emax*Cmax/(EC50+Cmax)
 # ---------------------------------------------------------------------------
+
 
 def test_peak_effect_matches_emax_formula():
     ec50 = 0.1
@@ -148,6 +159,7 @@ def test_peak_effect_matches_emax_formula():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_dose_zero():
     with pytest.raises(ValueError, match="prodrug_dose_mg"):
@@ -197,6 +209,7 @@ def test_invalid_ec50():
 # ---------------------------------------------------------------------------
 # compare_prodrug_strategies
 # ---------------------------------------------------------------------------
+
 
 def test_compare_returns_dict():
     result = compare_prodrug_strategies("Pro", "Act", 100.0)

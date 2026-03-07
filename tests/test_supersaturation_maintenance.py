@@ -10,14 +10,13 @@ from omega_pbpk.biopharmaceutics.supersaturation_maintenance import (
     simulate_supersaturation_maintenance,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 DRUG = "TestDrug"
-CS = 0.1    # crystalline solubility (mg/mL)
-AS = 1.0    # amorphous solubility (mg/mL)
+CS = 0.1  # crystalline solubility (mg/mL)
+AS = 1.0  # amorphous solubility (mg/mL)
 DOSE = 50.0  # mg
 
 
@@ -36,6 +35,7 @@ def make_result(polymer="HPMC", **kwargs):
 # ---------------------------------------------------------------------------
 # Return type and frozen dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_dataclass(self):
@@ -63,6 +63,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # Profile shape tests
 # ---------------------------------------------------------------------------
+
 
 class TestProfileShape:
     def test_times_increasing(self):
@@ -95,6 +96,7 @@ class TestProfileShape:
 # Supersaturation metric tests
 # ---------------------------------------------------------------------------
 
+
 class TestSupersaturationMetrics:
     def test_max_supersaturation_geq_1(self):
         result = make_result()
@@ -112,6 +114,7 @@ class TestSupersaturationMetrics:
 # ---------------------------------------------------------------------------
 # Absorption metrics
 # ---------------------------------------------------------------------------
+
 
 class TestAbsorptionMetrics:
     def test_f_absorbed_leq_1(self):
@@ -149,6 +152,7 @@ class TestAbsorptionMetrics:
 # Polymer comparison
 # ---------------------------------------------------------------------------
 
+
 class TestPolymerComparison:
     def test_hpmc_slower_precipitation_than_pvp(self):
         """HPMC (k_precip factor 0.15) should outperform PVP (0.25)."""
@@ -180,6 +184,7 @@ class TestPolymerComparison:
 # compare_polymers tests
 # ---------------------------------------------------------------------------
 
+
 class TestComparePolymers:
     def test_returns_4_results(self):
         results = compare_polymers(DRUG, DOSE, CS, AS)
@@ -204,6 +209,7 @@ class TestComparePolymers:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_dose_zero(self):
@@ -239,7 +245,8 @@ class TestInputValidation:
     def test_polymer_effective_when_long_maintenance(self):
         """With low k_precip and high amorphous solubility, HPMC should maintain > 2 h."""
         result = simulate_supersaturation_maintenance(
-            DRUG, DOSE,
+            DRUG,
+            DOSE,
             crystalline_solubility_mg_mL=0.01,
             amorphous_solubility_mg_mL=0.5,
             polymer_name="HPMC",

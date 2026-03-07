@@ -15,15 +15,16 @@ from dataclasses import dataclass
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MetabolicPathwayResult:
     """Result of a sequential metabolic pathway simulation."""
 
     n_steps: int
-    step_names: list[str]          # ['parent', 'M1', 'M2', ...]
+    step_names: list[str]  # ['parent', 'M1', 'M2', ...]
     times_h: list[float]
     concentrations: list[list[float]]  # one list per species (parent first)
-    auc_values: list[float]            # AUC for parent + each metabolite
+    auc_values: list[float]  # AUC for parent + each metabolite
     metabolite_exposure_ratios: list[float]  # metabolite AUC / parent AUC
     notes: str
 
@@ -31,6 +32,7 @@ class MetabolicPathwayResult:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _trapz(y: list[float], x: list[float]) -> float:
     """Pure-Python trapezoidal integration."""
@@ -45,6 +47,7 @@ def _trapz(y: list[float], x: list[float]) -> float:
 # ---------------------------------------------------------------------------
 # Public functions
 # ---------------------------------------------------------------------------
+
 
 def simulate_sequential_metabolism(
     parent_dose_mg: float,
@@ -165,8 +168,7 @@ def simulate_sequential_metabolism(
 
     parent_auc = auc_values[0]
     metabolite_exposure_ratios = [
-        auc_values[k] / parent_auc if parent_auc > 0 else 0.0
-        for k in range(1, n_species_total)
+        auc_values[k] / parent_auc if parent_auc > 0 else 0.0 for k in range(1, n_species_total)
     ]
 
     notes = (
@@ -276,9 +278,7 @@ def predict_active_metabolite_contribution(
     parent_activity = auc_parent * 1.0  # relative potency = 1
     metabolite_activity = auc_metabolite * metabolite_potency_ratio
     total_activity = parent_activity + metabolite_activity
-    effective_contribution = (
-        metabolite_activity / total_activity if total_activity > 0 else 0.0
-    )
+    effective_contribution = metabolite_activity / total_activity if total_activity > 0 else 0.0
 
     dominant_species = "metabolite" if effective_contribution > 0.5 else "parent"
 

@@ -25,7 +25,7 @@ _VALID_DISEASES = {"hypoalbuminemia", "renal_failure", "hepatic_failure"}
 # Disease effect multipliers on fu
 _DISEASE_FU_MULTIPLIER: dict[str, float] = {
     "hypoalbuminemia": 2.0,  # reduced albumin → less binding → higher fu
-    "renal_failure": 1.5,    # uremic compounds displace drugs
+    "renal_failure": 1.5,  # uremic compounds displace drugs
     "hepatic_failure": 1.8,  # reduced albumin synthesis
 }
 
@@ -48,7 +48,7 @@ class ProteinBindingPredResult:
     fu_plasma: float
     primary_protein: str
     protein_binding_pct: float
-    binding_class: str          # "low", "moderate", "high"
+    binding_class: str  # "low", "moderate", "high"
     notes: str
 
 
@@ -199,9 +199,7 @@ def disease_effect_on_binding(
     _validate_inputs(mw, logP, psa, pka, molecule_type, logD_pH74)
     disease_key = disease.lower()
     if disease_key not in _VALID_DISEASES:
-        raise ValueError(
-            f"disease must be one of {_VALID_DISEASES}; got '{disease}'."
-        )
+        raise ValueError(f"disease must be one of {_VALID_DISEASES}; got '{disease}'.")
 
     normal_result = predict_protein_binding(mw, logP, psa, pka, molecule_type, logD_pH74)
     normal_fu = normal_result.fu_plasma

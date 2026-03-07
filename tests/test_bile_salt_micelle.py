@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.bile_salt_micelle import (
@@ -11,7 +9,6 @@ from omega_pbpk.core.bile_salt_micelle import (
     calculate_micelle_solubility,
     compare_fed_fasted,
 )
-
 
 # ── Input validation ──────────────────────────────────────────────────────────
 
@@ -147,8 +144,12 @@ def test_linear_scaling_with_bile_salt():
     s_aq = 0.5
     logP = 3.0
     mw = 300.0
-    r1 = calculate_micelle_solubility("Drug", logP=logP, mw=mw, solubility_aqueous_mg_mL=s_aq, bile_salt_conc_mM=3.0)
-    r2 = calculate_micelle_solubility("Drug", logP=logP, mw=mw, solubility_aqueous_mg_mL=s_aq, bile_salt_conc_mM=6.0)
+    r1 = calculate_micelle_solubility(
+        "Drug", logP=logP, mw=mw, solubility_aqueous_mg_mL=s_aq, bile_salt_conc_mM=3.0
+    )
+    r2 = calculate_micelle_solubility(
+        "Drug", logP=logP, mw=mw, solubility_aqueous_mg_mL=s_aq, bile_salt_conc_mM=6.0
+    )
     # S_eff = S_aq*(1 + Km*phi), so (S2-S_aq)/(S1-S_aq) should ≈ 2
     ratio = (r2.solubility_micellar_mg_mL - s_aq) / (r1.solubility_micellar_mg_mL - s_aq)
     assert ratio == pytest.approx(2.0, rel=1e-6)
@@ -204,13 +205,15 @@ def test_enhancement_ratio_computed_correctly():
 
 def test_temperature_parameter_accepted():
     """temperature_C is accepted without affecting results."""
-    r1 = calculate_micelle_solubility("Drug", logP=2.0, mw=300.0, solubility_aqueous_mg_mL=1.0, temperature_C=25.0)
-    r2 = calculate_micelle_solubility("Drug", logP=2.0, mw=300.0, solubility_aqueous_mg_mL=1.0, temperature_C=37.0)
+    r1 = calculate_micelle_solubility(
+        "Drug", logP=2.0, mw=300.0, solubility_aqueous_mg_mL=1.0, temperature_C=25.0
+    )
+    r2 = calculate_micelle_solubility(
+        "Drug", logP=2.0, mw=300.0, solubility_aqueous_mg_mL=1.0, temperature_C=37.0
+    )
     assert r1.enhancement_ratio == pytest.approx(r2.enhancement_ratio, rel=1e-9)
 
 
 def test_fa_increase_positive_for_high_logP():
-    result = calculate_micelle_solubility(
-        "Drug", logP=4.0, mw=400.0, solubility_aqueous_mg_mL=0.01
-    )
+    result = calculate_micelle_solubility("Drug", logP=4.0, mw=400.0, solubility_aqueous_mg_mL=0.01)
     assert result.absorption_fraction_increase_pct > 0.0

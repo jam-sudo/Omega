@@ -2,6 +2,7 @@
 
 Predict major metabolic pathways and metabolites from structural alerts.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -70,10 +71,10 @@ _METABOLITE_RULES: list[tuple[str, str, str, str, str]] = [
 # Reactive metabolite risk sources
 _REACTIVE_RISK_GROUPS: dict[str, str] = {
     "aromatic": "moderate",  # aromatic → arene oxide → reactive
-    "alkene": "moderate",    # alkene → epoxide → reactive
-    "amine": "moderate",     # aromatic amine → hydroxylamine → nitrenium ion
-    "nitro": "high",         # nitro → hydroxylamine → very reactive
-    "aldehyde": "high",      # aldehyde is inherently electrophilic
+    "alkene": "moderate",  # alkene → epoxide → reactive
+    "amine": "moderate",  # aromatic amine → hydroxylamine → nitrenium ion
+    "nitro": "high",  # nitro → hydroxylamine → very reactive
+    "aldehyde": "high",  # aldehyde is inherently electrophilic
 }
 
 
@@ -218,9 +219,7 @@ def predict_metabolites(
     if mw > 500:
         notes.append("High MW (>500 Da) may limit oral absorption and CYP access.")
     if logP > 5:
-        notes.append(
-            "High logP (>5): extensive tissue distribution; CYP3A4 metabolism likely."
-        )
+        notes.append("High logP (>5): extensive tissue distribution; CYP3A4 metabolism likely.")
     if logP < 0:
         notes.append("Low logP (<0): hydrophilic; renal excretion may dominate over metabolism.")
 

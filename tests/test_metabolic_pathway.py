@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.metabolic_pathway import (
@@ -12,10 +11,10 @@ from omega_pbpk.core.metabolic_pathway import (
     simulate_sequential_metabolism,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _simple_steps(n_metabolites: int = 1) -> list[dict]:
     """Return steps for parent + n_metabolites (all CL=1, Vd=10, fm=1)."""
@@ -28,6 +27,7 @@ def _simple_steps(n_metabolites: int = 1) -> list[dict]:
 # ---------------------------------------------------------------------------
 # simulate_sequential_metabolism
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateSequentialMetabolism:
     def test_returns_result_instance(self):
@@ -69,8 +69,10 @@ class TestSimulateSequentialMetabolism:
     def test_parent_starts_at_c0(self):
         dose = 100.0
         vd = 10.0
-        steps = [{"name": "pk", "cl_L_per_h": 1.0, "vd_L": vd, "fm": 1.0},
-                 {"name": "M1", "cl_L_per_h": 2.0, "vd_L": 10.0, "fm": 1.0}]
+        steps = [
+            {"name": "pk", "cl_L_per_h": 1.0, "vd_L": vd, "fm": 1.0},
+            {"name": "M1", "cl_L_per_h": 2.0, "vd_L": 10.0, "fm": 1.0},
+        ]
         res = simulate_sequential_metabolism(dose, steps)
         assert res.concentrations[0][0] == pytest.approx(dose / vd, rel=1e-6)
 
@@ -110,8 +112,10 @@ class TestSimulateSequentialMetabolism:
         # Dose conservation: parent amount metabolised = formation of M1
         # AUC_parent * ke_parent * fm * Vd_parent ≈ AUC_M1 * ke_M1 * Vd_M1
         # Simplified: AUC_parent * CL_parent * fm ≈ AUC_M1 * CL_M1
-        steps = [{"name": "pk", "cl_L_per_h": 1.0, "vd_L": 10.0, "fm": 1.0},
-                 {"name": "M1", "cl_L_per_h": 2.0, "vd_L": 10.0, "fm": 0.0}]
+        steps = [
+            {"name": "pk", "cl_L_per_h": 1.0, "vd_L": 10.0, "fm": 1.0},
+            {"name": "M1", "cl_L_per_h": 2.0, "vd_L": 10.0, "fm": 0.0},
+        ]
         res = simulate_sequential_metabolism(100.0, steps, t_end_h=72.0, dt_h=0.05)
         # Amount metabolised from parent = AUC_parent * CL_parent * fm = AUC_parent * 1.0
         # Amount entering M1 = AUC_M1 * CL_M1 = AUC_M1 * 2.0
@@ -122,8 +126,10 @@ class TestSimulateSequentialMetabolism:
 
     def test_metabolite_cmax_after_parent_cmax(self):
         """Flip-flop: metabolite Cmax should occur after parent Cmax."""
-        steps = [{"name": "pk", "cl_L_per_h": 2.0, "vd_L": 10.0, "fm": 1.0},
-                 {"name": "M1", "cl_L_per_h": 0.5, "vd_L": 10.0, "fm": 0.0}]
+        steps = [
+            {"name": "pk", "cl_L_per_h": 2.0, "vd_L": 10.0, "fm": 1.0},
+            {"name": "M1", "cl_L_per_h": 0.5, "vd_L": 10.0, "fm": 0.0},
+        ]
         res = simulate_sequential_metabolism(100.0, steps, t_end_h=24.0, dt_h=0.05)
         parent = res.concentrations[0]
         m1 = res.concentrations[1]
@@ -172,20 +178,25 @@ class TestSimulateSequentialMetabolism:
 
     def test_higher_fm_increases_metabolite_exposure(self):
         """Increasing fm should increase metabolite AUC."""
+
         def run(fm_val):
             steps = [
                 {"name": "pk", "cl_L_per_h": 1.0, "vd_L": 10.0, "fm": fm_val},
                 {"name": "M1", "cl_L_per_h": 1.0, "vd_L": 10.0, "fm": 0.0},
             ]
-            return simulate_sequential_metabolism(100.0, steps, t_end_h=48.0, dt_h=0.1).auc_values[1]
+            return simulate_sequential_metabolism(100.0, steps, t_end_h=48.0, dt_h=0.1).auc_values[
+                1
+            ]
 
         auc_low = run(0.3)
         auc_high = run(0.9)
         assert auc_high > auc_low
 
     def test_invalid_cl_raises(self):
-        steps = [{"name": "pk", "cl_L_per_h": 0.0, "vd_L": 10.0, "fm": 1.0},
-                 {"name": "M1", "cl_L_per_h": 1.0, "vd_L": 10.0, "fm": 0.0}]
+        steps = [
+            {"name": "pk", "cl_L_per_h": 0.0, "vd_L": 10.0, "fm": 1.0},
+            {"name": "M1", "cl_L_per_h": 1.0, "vd_L": 10.0, "fm": 0.0},
+        ]
         with pytest.raises(ValueError):
             simulate_sequential_metabolism(100.0, steps)
 
@@ -193,6 +204,7 @@ class TestSimulateSequentialMetabolism:
 # ---------------------------------------------------------------------------
 # calculate_metabolite_exposure_ratio
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateMetaboliteExposureRatio:
     def test_equal_aucs(self):
@@ -219,6 +231,7 @@ class TestCalculateMetaboliteExposureRatio:
 # ---------------------------------------------------------------------------
 # predict_active_metabolite_contribution
 # ---------------------------------------------------------------------------
+
 
 class TestPredictActiveMetaboliteContribution:
     def _run(self, fm=0.5, potency=1.0, met_cl=1.0, par_cl=1.0):

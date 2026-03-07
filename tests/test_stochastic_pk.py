@@ -199,6 +199,7 @@ def test_different_seed_different_result():
 def test_p50_close_to_typical():
     """c_p50 should be within factor 2 of a typical-parameter simulation."""
     import numpy as np
+
     from omega_pbpk._compat import np_trapz
     from omega_pbpk.analysis.stochastic_pk import _simulate_1cpt
 

@@ -16,9 +16,10 @@ from omega_pbpk.analysis.interspecies_scaling_analysis import (
 # Perfect b=0.75 data: CL = 0.1 * BW^0.75
 # ---------------------------------------------------------------------------
 
+
 def _cl_075(bw: float) -> float:
     """Perfect CL with b=0.75."""
-    return 0.1 * (bw ** 0.75)
+    return 0.1 * (bw**0.75)
 
 
 def _vd_10(bw: float) -> float:
@@ -32,6 +33,7 @@ SPECIES_BW = [0.02, 0.25, 3.5, 10.0, 30.0]
 # ---------------------------------------------------------------------------
 # Input validation tests — analyze_allometric_scaling
 # ---------------------------------------------------------------------------
+
 
 class TestAnalyzeAllometricScalingValidation:
     def test_empty_param_name(self):
@@ -78,6 +80,7 @@ class TestAnalyzeAllometricScalingValidation:
 # ---------------------------------------------------------------------------
 # Regression quality tests
 # ---------------------------------------------------------------------------
+
 
 class TestAllometricRegressionQuality:
     def test_perfect_075_exponent(self):
@@ -141,6 +144,7 @@ class TestAllometricRegressionQuality:
 # Expected exponent inference tests
 # ---------------------------------------------------------------------------
 
+
 class TestExpectedExponent:
     def test_cl_expected_exponent(self):
         result = analyze_allometric_scaling([0.25, 10.0], [0.05, 0.8], "CL")
@@ -177,6 +181,7 @@ class TestExpectedExponent:
 # ---------------------------------------------------------------------------
 # predict_human_from_animals tests
 # ---------------------------------------------------------------------------
+
 
 class TestPredictHumanFromAnimals:
     def _make_species_data(self, bw_list, cl_list):
@@ -221,9 +226,18 @@ class TestPredictHumanFromAnimals:
         cl = [_cl_075(w) for w in bw]
         data = self._make_species_data(bw, cl)
         result = predict_human_from_animals(data, "cl_L_per_h")
-        for key in ("predicted_value", "param_name", "a_coefficient", "b_exponent",
-                    "r_squared", "ci_lower", "ci_upper", "n_species",
-                    "exponent_assessment", "notes"):
+        for key in (
+            "predicted_value",
+            "param_name",
+            "a_coefficient",
+            "b_exponent",
+            "r_squared",
+            "ci_lower",
+            "ci_upper",
+            "n_species",
+            "exponent_assessment",
+            "notes",
+        ):
             assert key in result
 
     def test_predicted_value_positive(self):
@@ -267,9 +281,7 @@ class TestPredictHumanFromAnimals:
         """Test Vd prediction with b~1.0 data."""
         bw = [0.25, 3.5, 10.0]
         vd = [_vd_10(w) for w in bw]
-        data = [
-            {"bw_kg": bw[i], "vd_L": vd[i]} for i in range(len(bw))
-        ]
+        data = [{"bw_kg": bw[i], "vd_L": vd[i]} for i in range(len(bw))]
         result = predict_human_from_animals(data, "vd_L")
         true_human = _vd_10(70.0)
         assert result["predicted_value"] == pytest.approx(true_human, rel=0.1)
@@ -277,10 +289,8 @@ class TestPredictHumanFromAnimals:
     def test_thalf_prediction(self):
         """Test t_half prediction."""
         bw = [0.25, 3.5, 10.0]
-        t_half = [0.5 * (w ** 0.25) for w in bw]
-        data = [
-            {"bw_kg": bw[i], "t_half_h": t_half[i]} for i in range(len(bw))
-        ]
+        t_half = [0.5 * (w**0.25) for w in bw]
+        data = [{"bw_kg": bw[i], "t_half_h": t_half[i]} for i in range(len(bw))]
         result = predict_human_from_animals(data, "t_half_h")
         assert result["predicted_value"] > 0
 

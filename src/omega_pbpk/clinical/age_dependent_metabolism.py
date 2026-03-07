@@ -46,8 +46,8 @@ _CYP_PARAMS: dict[str, tuple[float, float]] = {
 _WEIGHT_BY_AGE: list[tuple[float, float]] = [
     (0.0, 3.3),
     (0.083, 3.5),  # 1 month
-    (0.25, 5.5),   # 3 months
-    (0.5, 7.0),    # 6 months
+    (0.25, 5.5),  # 3 months
+    (0.5, 7.0),  # 6 months
     (1.0, 10.0),
     (2.0, 12.5),
     (5.0, 18.0),
@@ -148,9 +148,7 @@ def cyp_activity_by_age(enzyme: str, age_years: float) -> float:
 
     enzyme_upper = enzyme.upper()
     if enzyme_upper not in _CYP_PARAMS:
-        raise ValueError(
-            f"Unsupported enzyme {enzyme!r}. Supported: {sorted(_CYP_PARAMS)}"
-        )
+        raise ValueError(f"Unsupported enzyme {enzyme!r}. Supported: {sorted(_CYP_PARAMS)}")
 
     neonatal_factor, decline_at_80 = _CYP_PARAMS[enzyme_upper]
 

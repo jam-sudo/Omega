@@ -108,8 +108,11 @@ def simulate_bbb_efflux(
         influx = k_bbb_in_per_h * cp
         efflux = (k_bbb_out_per_h + effective_pgp) * cb
 
-        dcp = (-ke * cp - k_bbb_in_per_h * cp * (v_brain_L / vd_plasma_L)
-               + efflux * (v_brain_L / vd_plasma_L)) * dt_h
+        dcp = (
+            -ke * cp
+            - k_bbb_in_per_h * cp * (v_brain_L / vd_plasma_L)
+            + efflux * (v_brain_L / vd_plasma_L)
+        ) * dt_h
         dcb = (influx - efflux) * dt_h
 
         cp = max(cp + dcp, 0.0)
@@ -134,8 +137,11 @@ def simulate_bbb_efflux(
         influx_ref = k_bbb_in_per_h * cp_ref
         efflux_ref = k_bbb_out_per_h * cb_ref
 
-        dcp_ref = (-ke * cp_ref - k_bbb_in_per_h * cp_ref * (v_brain_L / vd_plasma_L)
-                   + efflux_ref * (v_brain_L / vd_plasma_L)) * dt_h
+        dcp_ref = (
+            -ke * cp_ref
+            - k_bbb_in_per_h * cp_ref * (v_brain_L / vd_plasma_L)
+            + efflux_ref * (v_brain_L / vd_plasma_L)
+        ) * dt_h
         dcb_ref = (influx_ref - efflux_ref) * dt_h
 
         cp_ref = max(cp_ref + dcp_ref, 0.0)

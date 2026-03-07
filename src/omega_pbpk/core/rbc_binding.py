@@ -333,10 +333,7 @@ def simulate_rbc_pk(
     auc_plasma = float(np_trapz(c_plasma_arr, times_arr))
     auc_blood = float(np_trapz(c_blood_arr, times_arr))
 
-    notes = (
-        f"B/P={bp_ratio:.3f}; C_blood = C_plasma x B/P. "
-        f"Route={route}; ke={ke:.4f} h⁻¹."
-    )
+    notes = f"B/P={bp_ratio:.3f}; C_blood = C_plasma x B/P. Route={route}; ke={ke:.4f} h⁻¹."
     if bp_ratio > 1.5:
         notes += " High RBC sequestration: plasma may underestimate blood exposure."
     elif bp_ratio < 0.7:

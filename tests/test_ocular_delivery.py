@@ -199,8 +199,9 @@ def test_ivt_peak_at_time_zero():
 
 def test_ivt_initial_concentration_correct():
     # C0 = dose / Vd
-    r = simulate_intravitreal_injection(dose_mg=1.25, vd_vitreous_mL=4.0,
-                                         drug_name="Test", ke_vitreous_per_day=0.3)
+    r = simulate_intravitreal_injection(
+        dose_mg=1.25, vd_vitreous_mL=4.0, drug_name="Test", ke_vitreous_per_day=0.3
+    )
     assert r.peak_c == pytest.approx(1.25 / 4.0, rel=1e-4)
 
 

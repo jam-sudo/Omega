@@ -32,7 +32,10 @@ F_ORAL = 1.0
 DOSE_ORAL = 200.0  # mg
 T_ORAL = list(np.linspace(0.05, 48.0, 100))
 C_ORAL = [
-    F_ORAL * DOSE_ORAL * KA_ORAL / (VD_ORAL * (KA_ORAL - KE_ORAL))
+    F_ORAL
+    * DOSE_ORAL
+    * KA_ORAL
+    / (VD_ORAL * (KA_ORAL - KE_ORAL))
     * (math.exp(-KE_ORAL * t) - math.exp(-KA_ORAL * t))
     for t in T_ORAL
 ]

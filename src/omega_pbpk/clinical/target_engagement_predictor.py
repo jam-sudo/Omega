@@ -228,9 +228,7 @@ def minimum_effective_conc(
     if not (0 < fu_plasma <= 1.0):
         raise ValueError(f"fu_plasma must be in (0, 1], got {fu_plasma}")
     if not (0 < target_occupancy_pct < 100):
-        raise ValueError(
-            f"target_occupancy_pct must be in (0, 100), got {target_occupancy_pct}"
-        )
+        raise ValueError(f"target_occupancy_pct must be in (0, 100), got {target_occupancy_pct}")
     if mw_g_mol <= 0:
         raise ValueError(f"mw_g_mol must be > 0, got {mw_g_mol}")
 

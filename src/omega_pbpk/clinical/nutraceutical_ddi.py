@@ -78,6 +78,7 @@ _VALID_MINERALS = frozenset(_MINERAL_MW)
 # Result dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class NutraDDIResult:
     """Result of a nutraceutical-drug interaction simulation.
@@ -148,6 +149,7 @@ class ChelationResult:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _validate_pk(cl: float, vd: float, dose: float) -> None:
     if cl <= 0:
@@ -225,6 +227,7 @@ def _cmax(conc: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 # Public functions
 # ---------------------------------------------------------------------------
+
 
 def grapefruit_juice_interaction(
     drug_name: str,
@@ -384,9 +387,7 @@ def st_johns_wort_interaction(
     t_norm, c_norm = _simulate_1cpt_oral(
         dose_mg, ka_per_h, cl_normal_L_per_h, vd_L, fg_normal, fh, t_end_h, dt_h
     )
-    t_sjw, c_sjw = _simulate_1cpt_oral(
-        dose_mg, ka_per_h, cl_sjw, vd_L, fg_sjw, fh, t_end_h, dt_h
-    )
+    t_sjw, c_sjw = _simulate_1cpt_oral(dose_mg, ka_per_h, cl_sjw, vd_L, fg_sjw, fh, t_end_h, dt_h)
 
     auc_norm = _auc_trapz(t_norm, c_norm)
     auc_sjw = _auc_trapz(t_sjw, c_sjw)
@@ -455,9 +456,7 @@ def mineral_chelation(
     if mineral_dose_mg <= 0:
         raise ValueError("mineral_dose_mg must be > 0")
     if mineral not in _VALID_MINERALS:
-        raise ValueError(
-            f"mineral must be one of {sorted(_VALID_MINERALS)}, got '{mineral}'"
-        )
+        raise ValueError(f"mineral must be one of {sorted(_VALID_MINERALS)}, got '{mineral}'")
 
     # Normalize drug_class to known keys
     drug_class_key = drug_class.lower() if drug_class.lower() in _K_CHELATION else "other"
@@ -471,9 +470,7 @@ def mineral_chelation(
     effective_dose_mg = drug_dose_mg * (1.0 - fraction_chelated)
 
     severity = (
-        "high" if fraction_chelated > 0.5
-        else "moderate" if fraction_chelated > 0.2
-        else "low"
+        "high" if fraction_chelated > 0.5 else "moderate" if fraction_chelated > 0.2 else "low"
     )
 
     notes = (

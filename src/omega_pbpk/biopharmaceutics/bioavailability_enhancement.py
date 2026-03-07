@@ -9,6 +9,7 @@ from dataclasses import dataclass
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class BioavailEnhancementResult:
     """Results from comparing bioavailability enhancement strategies."""
@@ -32,6 +33,7 @@ class BioavailEnhancementResult:
 # ---------------------------------------------------------------------------
 # Individual strategy functions
 # ---------------------------------------------------------------------------
+
 
 def nanosizing_enhancement(
     solubility_bulk_mg_mL: float,
@@ -152,9 +154,7 @@ def lipid_formulation_enhancement(
     ft = formulation_type.upper()
     if ft not in _factors:
         valid = ["solution", "SEDDS", "SMEDDS", "SNEDDS"]
-        raise ValueError(
-            f"formulation_type must be one of {valid}, got '{formulation_type}'"
-        )
+        raise ValueError(f"formulation_type must be one of {valid}, got '{formulation_type}'")
 
     ff = _factors[ft]
     fat_factor = (meal_fat_g / 10.0) ** 0.5 if meal_fat_g > 0 else 0.0

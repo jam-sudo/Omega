@@ -1,6 +1,5 @@
 """Tests for signal_transduction_pd module (Phase 206)."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.signal_transduction_pd import (
@@ -8,7 +7,6 @@ from omega_pbpk.clinical.signal_transduction_pd import (
     compare_signal_drugs,
     simulate_signal_cascade,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

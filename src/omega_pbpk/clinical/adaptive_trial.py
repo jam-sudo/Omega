@@ -133,7 +133,10 @@ def _pocock_boundary(alpha: float, info_fraction: float) -> float:
 
 
 def _conditional_power(
-    z_current: float, info_current: float, info_final: float, effect_size: float,
+    z_current: float,
+    info_current: float,
+    info_final: float,
+    effect_size: float,
     n_per_arm_final: int,
 ) -> float:
     """Estimate conditional power given current z and remaining information."""
@@ -233,7 +236,11 @@ def design_adaptive_trial(
         beta_boundary = beta / total_looks
 
         cp = _conditional_power(
-            z_stat, info_fraction, 1.0, effect_size / sigma, n_per_arm_total,
+            z_stat,
+            info_fraction,
+            1.0,
+            effect_size / sigma,
+            n_per_arm_total,
         )
 
         # Determine decision
@@ -365,7 +372,11 @@ def compare_stopping_rules(
     """
     return [
         design_adaptive_trial(
-            trial_name, n_total, effect_size, stopping_rule=rule, **kwargs,
+            trial_name,
+            n_total,
+            effect_size,
+            stopping_rule=rule,
+            **kwargs,
         )
         for rule in ("obf", "pocock", "none")
     ]
@@ -496,10 +507,9 @@ def conditional_power(
     z_alpha = float(norm.ppf(1.0 - alpha))
     drift = effect_size * math.sqrt(n_total)
 
-    numerator = (
-        -(z_alpha - z_interim * math.sqrt(frac)) / math.sqrt(remaining_frac)
-        + drift * math.sqrt(remaining_frac)
-    )
+    numerator = -(z_alpha - z_interim * math.sqrt(frac)) / math.sqrt(
+        remaining_frac
+    ) + drift * math.sqrt(remaining_frac)
     cp = float(norm.cdf(numerator))
     return float(np.clip(cp, 0.0, 1.0))
 

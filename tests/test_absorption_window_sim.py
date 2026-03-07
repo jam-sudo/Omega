@@ -284,7 +284,7 @@ def test_calculate_window_width_zero_if_all_zero():
 
 def test_calculate_window_width_positive():
     fa = [0.0, 0.1, 0.3, 0.6, 0.8, 0.9, 0.95]
-    t  = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    t = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
     w = calculate_window_width(fa, t)
     assert w > 0.0
 
@@ -292,7 +292,7 @@ def test_calculate_window_width_positive():
 def test_calculate_window_width_at_threshold():
     # Linear ramp: 0..1 over 10 h
     fa = [i / 10.0 for i in range(11)]
-    t  = [float(i) for i in range(11)]
+    t = [float(i) for i in range(11)]
     # onset at fa=0.05*1.0=0.05 → t≈0.5, close at fa=0.9*1.0=0.9 → t=9.0
     w = calculate_window_width(fa, t, threshold=0.9)
     assert w == pytest.approx(8.5, abs=1.0)
@@ -314,7 +314,7 @@ def test_estimate_lag_time_zero_if_all_zero():
 def test_estimate_lag_time_positive():
     # No absorption for first 2 steps, then rises
     fa = [0.0, 0.0, 0.0, 0.0, 0.05, 0.3, 0.6]
-    t  = [0.0, 0.5, 1.0, 1.5, 2.0,  2.5, 3.0]
+    t = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
     lag = estimate_lag_time(fa, t)
     assert lag >= 0.0
 

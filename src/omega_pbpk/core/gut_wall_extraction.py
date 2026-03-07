@@ -20,9 +20,9 @@ class GutExtractionResult:
     """Result of gut wall extraction calculation."""
 
     peff_cm_s: float
-    fg: float          # gut availability (1 - EG)
-    eg: float          # gut extraction ratio
-    fa: float          # absorption fraction (from permeability)
+    fg: float  # gut availability (1 - EG)
+    eg: float  # gut extraction ratio
+    fa: float  # absorption fraction (from permeability)
     f_combined: float  # fa * fg
     qgut_L_per_h: float
     notes: str
@@ -172,7 +172,7 @@ def predict_oral_f(
         "limiting_step": limiting_step,
         "notes": (
             f"F = fa ({fa:.3f}) x fg ({fg:.3f}) x fh ({fh:.3f}) = {F:.4f} "
-            f"({100*F:.1f}%); {bioavailability_class}"
+            f"({100 * F:.1f}%); {bioavailability_class}"
         ),
     }
 

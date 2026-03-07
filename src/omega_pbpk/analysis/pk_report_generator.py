@@ -54,9 +54,7 @@ class PKReportResult:
 # ---------------------------------------------------------------------------
 
 
-def _ols_slope_intercept(
-    x: list[float], y: list[float]
-) -> tuple[float, float, float]:
+def _ols_slope_intercept(x: list[float], y: list[float]) -> tuple[float, float, float]:
     """Return (slope, intercept, r_squared) from OLS regression of y on x."""
     n = len(x)
     if n < 2:
@@ -104,9 +102,7 @@ def _trapezoid_aumc(times: list[float], concs: list[float]) -> float:
     return aumc
 
 
-def _fit_terminal_slope(
-    times: list[float], concs: list[float]
-) -> tuple[float, float, float]:
+def _fit_terminal_slope(times: list[float], concs: list[float]) -> tuple[float, float, float]:
     """Fit log-linear terminal slope using last ≥3 positive-concentration points.
 
     Returns (lambda_z, c0_terminal, r_squared).
@@ -135,7 +131,7 @@ def _fit_terminal_slope(
             continue
         if r2 > best_r2:
             best_r2 = r2
-            best_lz = -slope   # positive lambda_z
+            best_lz = -slope  # positive lambda_z
             best_intercept = intercept
 
     if best_lz <= 0:
@@ -197,8 +193,7 @@ def generate_pk_report(
         )
     if len(times_h) < _MIN_TERMINAL_POINTS:
         raise ValueError(
-            f"At least {_MIN_TERMINAL_POINTS} data points required; "
-            f"got {len(times_h)}."
+            f"At least {_MIN_TERMINAL_POINTS} data points required; got {len(times_h)}."
         )
     if any(c < 0 for c in concentrations_mg_L):
         raise ValueError("concentrations_mg_L must all be non-negative.")
@@ -229,15 +224,11 @@ def generate_pk_report(
     # Terminal slope (lambda_z), R², AUC_inf
     # ------------------------------------------------------------------
     try:
-        lambda_z, _intercept, r_sq = _fit_terminal_slope(
-            times_h, concentrations_mg_L
-        )
+        lambda_z, _intercept, r_sq = _fit_terminal_slope(times_h, concentrations_mg_L)
     except ValueError as exc:
         notes_parts.append(f"Terminal fit warning: {exc}")
         # Fallback: use last two positive points
-        pos_pairs = [
-            (t, c) for t, c in zip(times_h, concentrations_mg_L, strict=True) if c > 0
-        ]
+        pos_pairs = [(t, c) for t, c in zip(times_h, concentrations_mg_L, strict=True) if c > 0]
         if len(pos_pairs) >= 2:
             t0, c0 = pos_pairs[-2]
             t1, c1 = pos_pairs[-1]
@@ -288,7 +279,7 @@ def generate_pk_report(
     # ------------------------------------------------------------------
     aumc_last = _trapezoid_aumc(times_h, concentrations_mg_L)
     t_last = times_h[-1]
-    aumc_tail = c_last_positive * t_last / lambda_z + c_last_positive / (lambda_z ** 2)
+    aumc_tail = c_last_positive * t_last / lambda_z + c_last_positive / (lambda_z**2)
     aumc_inf = aumc_last + aumc_tail
     mrt = aumc_inf / auc_inf if auc_inf > 0 else 0.0
 
@@ -395,8 +386,7 @@ def assess_pk_quality(pk_report: PKReportResult) -> dict:
     # Number of timepoints
     if pk_report.n_timepoints < 6:
         flags.append(
-            f"Sparse data: only {pk_report.n_timepoints} timepoints "
-            f"(recommend ≥ 6 for robust NCA)."
+            f"Sparse data: only {pk_report.n_timepoints} timepoints (recommend ≥ 6 for robust NCA)."
         )
 
     # % extrapolation check (inferred from AUC comparison)
@@ -459,17 +449,12 @@ def compare_studies(reports: list[PKReportResult]) -> dict:
     if not isinstance(reports, list):
         raise TypeError("reports must be a list of PKReportResult instances.")
     if len(reports) < 2:
-        raise ValueError(
-            f"At least 2 reports required for comparison; got {len(reports)}."
-        )
+        raise ValueError(f"At least 2 reports required for comparison; got {len(reports)}.")
     for i, r in enumerate(reports):
         if not isinstance(r, PKReportResult):
             raise TypeError(f"reports[{i}] must be a PKReportResult instance.")
         if r.cmax_mg_L <= 0 or r.auc_inf_mg_h_L <= 0:
-            raise ValueError(
-                f"reports[{i}] has non-positive Cmax or AUC_inf; "
-                f"cannot compute GMR."
-            )
+            raise ValueError(f"reports[{i}] has non-positive Cmax or AUC_inf; cannot compute GMR.")
 
     n = len(reports)
     cmax_vals = [r.cmax_mg_L for r in reports]

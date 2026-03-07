@@ -10,10 +10,10 @@ from omega_pbpk.prediction.formulation_stability_predictor import (
     predict_photodegradation,
 )
 
-
 # ---------------------------------------------------------------------------
 # predict_hydrolysis_rate
 # ---------------------------------------------------------------------------
+
 
 class TestPredictHydrolysisRate:
     def test_basic_returns_float(self):
@@ -70,6 +70,7 @@ class TestPredictHydrolysisRate:
 # predict_oxidation_risk
 # ---------------------------------------------------------------------------
 
+
 class TestPredictOxidationRisk:
     def test_low_risk_profile(self):
         risk = predict_oxidation_risk(logP=0.5, n_double_bonds=0)
@@ -108,6 +109,7 @@ class TestPredictOxidationRisk:
 # predict_photodegradation
 # ---------------------------------------------------------------------------
 
+
 class TestPredictPhotodegradation:
     def test_zero_chromophores_zero_degradation(self):
         frac = predict_photodegradation(0, uv_exposure_h=100.0)
@@ -144,6 +146,7 @@ class TestPredictPhotodegradation:
 # assess_formulation_stability
 # ---------------------------------------------------------------------------
 
+
 class TestAssessFormulationStability:
     def _stable_result(self):
         return assess_formulation_stability(
@@ -167,27 +170,20 @@ class TestAssessFormulationStability:
         assert result.overall_stability in ("excellent", "good")
 
     def test_high_humidity_high_humidity_risk(self):
-        result = assess_formulation_stability(
-            "Drug", ph=7.0, temperature_C=25.0, humidity_pct=80.0
-        )
+        result = assess_formulation_stability("Drug", ph=7.0, temperature_C=25.0, humidity_pct=80.0)
         assert result.humidity_risk == "high"
 
     def test_low_humidity_low_humidity_risk(self):
-        result = assess_formulation_stability(
-            "Drug", ph=7.0, temperature_C=25.0, humidity_pct=20.0
-        )
+        result = assess_formulation_stability("Drug", ph=7.0, temperature_C=25.0, humidity_pct=20.0)
         assert result.humidity_risk == "low"
 
     def test_extreme_ph_high_hydrolysis_risk(self):
-        result = assess_formulation_stability(
-            "Drug", ph=1.0, temperature_C=25.0, humidity_pct=40.0
-        )
+        result = assess_formulation_stability("Drug", ph=1.0, temperature_C=25.0, humidity_pct=40.0)
         assert result.hydrolysis_risk == "high"
 
     def test_high_logP_sulfur_high_oxidation(self):
         result = assess_formulation_stability(
-            "Drug", ph=7.0, temperature_C=25.0, humidity_pct=40.0,
-            logP=4.0, has_sulfur=True
+            "Drug", ph=7.0, temperature_C=25.0, humidity_pct=40.0, logP=4.0, has_sulfur=True
         )
         assert result.oxidation_risk == "high"
 

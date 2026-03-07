@@ -6,7 +6,6 @@ import pytest
 
 from omega_pbpk.prediction.ka_predictor import KaPredictionResult, bcs_class_ka, predict_ka
 
-
 # ---------------------------------------------------------------------------
 # bcs_class_ka
 # ---------------------------------------------------------------------------

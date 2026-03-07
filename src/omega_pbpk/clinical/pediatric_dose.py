@@ -113,14 +113,12 @@ def calculate_pediatric_dose(
     if vd_adult_L <= 0:
         raise ValueError(f"vd_adult_L must be > 0, got {vd_adult_L}")
     if elimination not in _VALID_ELIMINATION:
-        raise ValueError(
-            f"elimination must be one of {_VALID_ELIMINATION}, got '{elimination}'"
-        )
+        raise ValueError(f"elimination must be one of {_VALID_ELIMINATION}, got '{elimination}'")
 
     bw_ratio = child_weight_kg / adult_weight_kg
 
     # Allometric CL scaling
-    cl_child = cl_adult_L_per_h * (bw_ratio ** allometric_exponent)
+    cl_child = cl_adult_L_per_h * (bw_ratio**allometric_exponent)
 
     # Maturation factor
     notes_parts: list[str] = []
@@ -141,7 +139,7 @@ def calculate_pediatric_dose(
         notes_parts.append("Mixed hepatic/renal maturation applied")
 
     # Allometric Vd scaling (exponent = 1.0)
-    vd_child = vd_adult_L * (bw_ratio ** 1.0)
+    vd_child = vd_adult_L * (bw_ratio**1.0)
 
     # Dose proportional to CL ratio
     ped_dose = adult_dose_mg * (cl_child / cl_adult_L_per_h)

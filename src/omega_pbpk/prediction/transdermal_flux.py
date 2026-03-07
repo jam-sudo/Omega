@@ -18,18 +18,18 @@ class TransdermalFluxResult:
     mw: float
 
     # Flux predictions
-    log_kp_potts_guy: float      # log10(Kp) from Potts-Guy (cm/h)
-    kp_cm_per_h: float           # Permeability coefficient (cm/h)
+    log_kp_potts_guy: float  # log10(Kp) from Potts-Guy (cm/h)
+    kp_cm_per_h: float  # Permeability coefficient (cm/h)
 
-    log_kp_johnson: float        # Johnson 1995 (alternative model)
+    log_kp_johnson: float  # Johnson 1995 (alternative model)
     kp_johnson_cm_per_h: float
 
     # Flux at unit concentration
-    flux_ug_per_cm2_per_h: float   # At 1 mg/mL donor concentration
+    flux_ug_per_cm2_per_h: float  # At 1 mg/mL donor concentration
 
     # Feasibility
     flux_therapeutic_ug_per_cm2_per_h: float  # Needed for therapeutic effect
-    patch_area_cm2_needed: float              # Area for target systemic dose
+    patch_area_cm2_needed: float  # Area for target systemic dose
     feasibility: str  # "feasible" (<50 cm2), "marginal" (50-100 cm2), "infeasible" (>100 cm2)
 
     # Lag time
@@ -83,14 +83,14 @@ def predict_transdermal_flux(
     # --- Potts-Guy 1992 ---
     # log Kp (cm/s) = -6.3 + 0.71 * logP - 0.0061 * MW
     log_kp_pg_cm_s = -6.3 + 0.71 * logP - 0.0061 * mw
-    kp_pg_cm_per_h = (10.0 ** log_kp_pg_cm_s) * 3600.0
+    kp_pg_cm_per_h = (10.0**log_kp_pg_cm_s) * 3600.0
     # log10(Kp in cm/h)
     log_kp_potts_guy = math.log10(kp_pg_cm_per_h) if kp_pg_cm_per_h > 0 else -float("inf")
 
     # --- Johnson 1995 ---
     # log Kp (cm/s) = -6.43 + 0.50 * logP - 0.007 * MW
     log_kp_j_cm_s = -6.43 + 0.50 * logP - 0.007 * mw
-    kp_j_cm_per_h = (10.0 ** log_kp_j_cm_s) * 3600.0
+    kp_j_cm_per_h = (10.0**log_kp_j_cm_s) * 3600.0
     log_kp_johnson = math.log10(kp_j_cm_per_h) if kp_j_cm_per_h > 0 else -float("inf")
 
     # --- Flux at donor_concentration (µg/cm²/h) ---
@@ -107,9 +107,7 @@ def predict_transdermal_flux(
     #     → area = target_rate / (Kp * patch_concentration)  [cm²]
     flux_therapeutic_ug_per_cm2_per_h = kp_pg_cm_per_h * patch_concentration_mg_mL * 1000.0
     if kp_pg_cm_per_h > 0 and patch_concentration_mg_mL > 0:
-        patch_area_cm2_needed = target_rate_mg_per_h / (
-            kp_pg_cm_per_h * patch_concentration_mg_mL
-        )
+        patch_area_cm2_needed = target_rate_mg_per_h / (kp_pg_cm_per_h * patch_concentration_mg_mL)
     else:
         patch_area_cm2_needed = float("inf")
 
@@ -126,7 +124,7 @@ def predict_transdermal_flux(
     # D_sc ≈ 10^(-9) * exp(logP * 0.1)  [cm²/h, rough approximation]
     h_sc = 0.001  # cm
     d_sc = 1e-9 * math.exp(logP * 0.1)  # cm²/h
-    lag_time_h = (h_sc ** 2) / (6.0 * d_sc)
+    lag_time_h = (h_sc**2) / (6.0 * d_sc)
 
     # --- Transdermal potential ---
     if kp_pg_cm_per_h > 1e-3 and mw < 400 and 1.0 <= logP <= 4.0:

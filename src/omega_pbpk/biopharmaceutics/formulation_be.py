@@ -97,9 +97,7 @@ def predict_be_outcome(
     # t critical value at alpha=0.10 (one-sided), for 90% CI
     t_crit = float(t_dist.ppf(0.90, df))
 
-    def _compute_ci(
-        gmr: float, cv: float
-    ) -> tuple[tuple[float, float], bool]:
+    def _compute_ci(gmr: float, cv: float) -> tuple[tuple[float, float], bool]:
         sigma_ln = math.sqrt(math.log(1.0 + cv**2))
         half_width = t_crit * sigma_ln / math.sqrt(n_subjects)
         ln_gmr = math.log(gmr)

@@ -224,12 +224,18 @@ def test_custom_organ_flows_accepted():
 
 def test_higher_kp_increases_liver_tissue_conc():
     r_low = simulate_co_pbpk(
-        "D", 100, 10, 1.0,
+        "D",
+        100,
+        10,
+        1.0,
         organ_kp={"liver": 1, "kidney": 5, "muscle": 1, "fat": 0.5},
         vd_L=50,
     )
     r_high = simulate_co_pbpk(
-        "D", 100, 10, 1.0,
+        "D",
+        100,
+        10,
+        1.0,
         organ_kp={"liver": 10, "kidney": 5, "muscle": 1, "fat": 0.5},
         vd_L=50,
     )
@@ -251,7 +257,10 @@ def test_sensitivity_returns_list():
 def test_sensitivity_has_expected_keys():
     results = cardiac_output_sensitivity("Drug", 100, 10, 50, [1.0])
     assert set(results[0].keys()) == {
-        "co_fraction", "auc_plasma", "t_half_h", "cl_hep_effective_L_per_h"
+        "co_fraction",
+        "auc_plasma",
+        "t_half_h",
+        "cl_hep_effective_L_per_h",
     }
 
 

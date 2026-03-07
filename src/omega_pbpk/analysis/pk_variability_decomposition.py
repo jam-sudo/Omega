@@ -187,17 +187,11 @@ def anova_variability(
     grand_mean = _mean(log_vals)
 
     # Between-group sum of squares
-    ss_between = sum(
-        len(g_vals) * (_mean(g_vals) - grand_mean) ** 2
-        for g_vals in groups.values()
-    )
+    ss_between = sum(len(g_vals) * (_mean(g_vals) - grand_mean) ** 2 for g_vals in groups.values())
     df_between = n_groups - 1
 
     # Within-group sum of squares
-    ss_within = sum(
-        sum((x - _mean(g_vals)) ** 2 for x in g_vals)
-        for g_vals in groups.values()
-    )
+    ss_within = sum(sum((x - _mean(g_vals)) ** 2 for x in g_vals) for g_vals in groups.values())
     df_within = n_total - n_groups
 
     ms_between = ss_between / df_between if df_between > 0 else 0.0

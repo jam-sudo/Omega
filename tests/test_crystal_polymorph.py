@@ -1,6 +1,7 @@
 """Tests for crystal polymorph impact assessment (Phase 185)."""
 
 import math
+
 import pytest
 
 from omega_pbpk.biopharmaceutics.crystal_polymorph import (
@@ -9,7 +10,6 @@ from omega_pbpk.biopharmaceutics.crystal_polymorph import (
     assess_polymorph_impact,
     compare_polymorphs,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -55,6 +55,7 @@ FORM_POOR = CrystalForm(
 # Basic construction / dataclass
 # ---------------------------------------------------------------------------
 
+
 def test_crystal_form_dataclass():
     assert FORM_I.form_name == "Form I"
     assert FORM_I.relative_solubility == 1.0
@@ -70,6 +71,7 @@ def test_polymorph_result_frozen():
 # ---------------------------------------------------------------------------
 # Solubility computation
 # ---------------------------------------------------------------------------
+
 
 def test_form_i_solubility_equals_reference():
     result = assess_polymorph_impact("Drug A", 0.5, FORM_I)
@@ -91,6 +93,7 @@ def test_amorphous_high_solubility():
 # Dissolution rate
 # ---------------------------------------------------------------------------
 
+
 def test_dissolution_rate_positive():
     result = assess_polymorph_impact("Drug A", 0.5, FORM_I)
     assert result.dissolution_rate_mg_per_min > 0
@@ -99,7 +102,9 @@ def test_dissolution_rate_positive():
 def test_dissolution_rate_scales_with_surface_area():
     r1 = assess_polymorph_impact("Drug A", 0.5, FORM_I, surface_area_cm2=1.0)
     r2 = assess_polymorph_impact("Drug A", 0.5, FORM_I, surface_area_cm2=2.0)
-    assert math.isclose(r2.dissolution_rate_mg_per_min, r1.dissolution_rate_mg_per_min * 2, rel_tol=1e-9)
+    assert math.isclose(
+        r2.dissolution_rate_mg_per_min, r1.dissolution_rate_mg_per_min * 2, rel_tol=1e-9
+    )
 
 
 def test_dissolution_rate_scales_with_solubility():
@@ -111,6 +116,7 @@ def test_dissolution_rate_scales_with_solubility():
 # ---------------------------------------------------------------------------
 # Bioavailability impact
 # ---------------------------------------------------------------------------
+
 
 def test_form_i_ba_impact_zero_bcs_ii():
     result = assess_polymorph_impact("Drug A", 0.5, FORM_I, bcs_class="II")
@@ -153,6 +159,7 @@ def test_bcs_ii_lower_solubility_negative_ba_impact():
 # Stability risk
 # ---------------------------------------------------------------------------
 
+
 def test_amorphous_stability_high():
     result = assess_polymorph_impact("Drug A", 0.5, AMORPHOUS)
     assert result.stability_risk == "high"
@@ -178,6 +185,7 @@ def test_form_ii_below_2x_low_risk():
 # compare_polymorphs
 # ---------------------------------------------------------------------------
 
+
 def test_compare_polymorphs_returns_sorted():
     forms = [FORM_I, FORM_II, AMORPHOUS, FORM_POOR]
     results = compare_polymorphs("Drug A", 0.2, forms, bcs_class="II")
@@ -200,6 +208,7 @@ def test_compare_polymorphs_types():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_reference_solubility_zero():
     with pytest.raises(ValueError, match="reference_solubility_mg_mL"):

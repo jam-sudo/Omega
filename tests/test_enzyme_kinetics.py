@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.enzyme_kinetics import (
@@ -149,9 +147,9 @@ class TestMixedInhibition:
 
     def test_no_inhibitor_equals_mm(self):
         s, vmax, km = 20.0, 80.0, 10.0
-        assert mixed_inhibition(s, vmax, km, ki_uM=5.0, ki_prime_uM=5.0, inhibitor_uM=0.0) == pytest.approx(
-            michaelis_menten_rate(s, vmax, km)
-        )
+        assert mixed_inhibition(
+            s, vmax, km, ki_uM=5.0, ki_prime_uM=5.0, inhibitor_uM=0.0
+        ) == pytest.approx(michaelis_menten_rate(s, vmax, km))
 
     def test_raises_on_nonpositive_ki_prime(self):
         with pytest.raises(ValueError, match="ki_prime_uM"):
@@ -173,9 +171,7 @@ class TestSimulateEnzymeKinetics:
         assert isinstance(result, EnzymeKineticsResult)
 
     def test_no_inhibition_baseline(self):
-        result = simulate_enzyme_kinetics(
-            (0.1, 200.0), vmax=100.0, km=10.0, inhibition_type="none"
-        )
+        result = simulate_enzyme_kinetics((0.1, 200.0), vmax=100.0, km=10.0, inhibition_type="none")
         assert result.inhibition_type == "none"
         assert result.km_apparent == pytest.approx(10.0)
         assert result.vmax_apparent == pytest.approx(100.0)

@@ -13,6 +13,7 @@ from omega_pbpk.clinical.anesthetic_pk import (
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _default(**kwargs) -> AnestheticPKResult:
     defaults = dict(
         drug_name="sevoflurane",
@@ -34,17 +35,21 @@ def _default(**kwargs) -> AnestheticPKResult:
 # Input validation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("param,val", [
-    ("lambda_bg", 0.0),
-    ("lambda_bg", -1.0),
-    ("lambda_brain_blood", 0.0),
-    ("lambda_muscle_blood", -0.5),
-    ("lambda_fat_blood", 0.0),
-    ("alveolar_ventilation_L_per_min", 0.0),
-    ("cardiac_output_L_per_min", -1.0),
-    ("fi", 0.0),
-    ("t_end_min", 0.0),
-])
+
+@pytest.mark.parametrize(
+    "param,val",
+    [
+        ("lambda_bg", 0.0),
+        ("lambda_bg", -1.0),
+        ("lambda_brain_blood", 0.0),
+        ("lambda_muscle_blood", -0.5),
+        ("lambda_fat_blood", 0.0),
+        ("alveolar_ventilation_L_per_min", 0.0),
+        ("cardiac_output_L_per_min", -1.0),
+        ("fi", 0.0),
+        ("t_end_min", 0.0),
+    ],
+)
 def test_invalid_param_raises(param, val):
     with pytest.raises(ValueError, match=param):
         _default(**{param: val})
@@ -53,6 +58,7 @@ def test_invalid_param_raises(param, val):
 # ---------------------------------------------------------------------------
 # Structural tests
 # ---------------------------------------------------------------------------
+
 
 def test_lengths_match():
     result = _default()
@@ -77,6 +83,7 @@ def test_notes_contains_drug_name():
 # ---------------------------------------------------------------------------
 # Physical / pharmacological correctness
 # ---------------------------------------------------------------------------
+
 
 def test_fa_fi_starts_at_zero():
     result = _default()

@@ -11,10 +11,10 @@ _UNITS_TO_MG = 0.035
 
 # Insulin pharmacokinetic profiles (absorption rate constants per h)
 _INSULIN_KA: dict[str, float] = {
-    "rapid": 6.0,    # lispro/aspart: peak ~15 min
+    "rapid": 6.0,  # lispro/aspart: peak ~15 min
     "regular": 2.0,  # regular human: peak ~30-60 min
-    "NPH": 0.5,      # intermediate-acting: peak ~4-8 h
-    "glargine": 0.2, # long-acting: flat profile
+    "NPH": 0.5,  # intermediate-acting: peak ~4-8 h
+    "glargine": 0.2,  # long-acting: flat profile
 }
 
 # Threshold for "active" insulin in plasma (mU/L)
@@ -190,7 +190,7 @@ def simulate_metformin_pk(
         raise ValueError("dt_h must be > 0")
 
     # Metformin parameters
-    ka = 0.5       # absorption rate constant /h
+    ka = 0.5  # absorption rate constant /h
     f_oral = 0.55  # bioavailability (low due to absorption window)
 
     ke = cl_L_per_h / vd_L
@@ -237,9 +237,7 @@ def simulate_metformin_pk(
         t_last = [times_h[j] for j in last_interval_idx]
         cmax_ss = max(c_last)
         trough_ss = min(c_last)
-        auc_tau = float(
-            np_trapz(c_last, t_last)
-        )
+        auc_tau = float(np_trapz(c_last, t_last))
     else:
         cmax_ss = max(c_plasma)
         trough_ss = min(c_plasma)

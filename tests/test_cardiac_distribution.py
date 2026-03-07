@@ -1,6 +1,5 @@
 """Tests for Phase 252: Cardiac Output-Dependent Drug Distribution."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.cardiac_distribution import (
@@ -10,7 +9,6 @@ from omega_pbpk.clinical.cardiac_distribution import (
     scale_organ_flows,
     simulate_cardiac_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # scale_organ_flows tests

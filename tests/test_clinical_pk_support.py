@@ -1,6 +1,7 @@
 """Tests for clinical PK decision support — Phase 504."""
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.clinical_pk_support import (
@@ -10,7 +11,6 @@ from omega_pbpk.clinical.clinical_pk_support import (
     population_adjustment,
     recommend_dose_timing,
 )
-
 
 # ---------------------------------------------------------------------------
 # assess_therapeutic_window
@@ -80,31 +80,30 @@ class TestAssessTherapeuticWindow:
         result = assess_therapeutic_window(
             cmin_mg_L=0.1, cmax_mg_L=0.5, mec_mg_L=1.0, mtc_mg_L=10.0
         )
-        assert "subtherapeutic" in result.recommendation.lower() or "dose" in result.recommendation.lower()
+        assert (
+            "subtherapeutic" in result.recommendation.lower()
+            or "dose" in result.recommendation.lower()
+        )
 
     def test_recommendation_contains_reduce_when_supratherapeutic(self):
         result = assess_therapeutic_window(
             cmin_mg_L=12.0, cmax_mg_L=20.0, mec_mg_L=1.0, mtc_mg_L=10.0
         )
-        assert "reduce" in result.recommendation.lower() or "exceed" in result.recommendation.lower()
+        assert (
+            "reduce" in result.recommendation.lower() or "exceed" in result.recommendation.lower()
+        )
 
     def test_invalid_cmin_negative_raises(self):
         with pytest.raises(ValueError, match="cmin"):
-            assess_therapeutic_window(
-                cmin_mg_L=-1.0, cmax_mg_L=5.0, mec_mg_L=1.0, mtc_mg_L=10.0
-            )
+            assess_therapeutic_window(cmin_mg_L=-1.0, cmax_mg_L=5.0, mec_mg_L=1.0, mtc_mg_L=10.0)
 
     def test_invalid_cmax_less_than_cmin_raises(self):
         with pytest.raises(ValueError, match="cmax"):
-            assess_therapeutic_window(
-                cmin_mg_L=5.0, cmax_mg_L=3.0, mec_mg_L=1.0, mtc_mg_L=10.0
-            )
+            assess_therapeutic_window(cmin_mg_L=5.0, cmax_mg_L=3.0, mec_mg_L=1.0, mtc_mg_L=10.0)
 
     def test_invalid_mtc_le_mec_raises(self):
         with pytest.raises(ValueError, match="mtc"):
-            assess_therapeutic_window(
-                cmin_mg_L=2.0, cmax_mg_L=5.0, mec_mg_L=5.0, mtc_mg_L=5.0
-            )
+            assess_therapeutic_window(cmin_mg_L=2.0, cmax_mg_L=5.0, mec_mg_L=5.0, mtc_mg_L=5.0)
 
     def test_returns_dataclass(self):
         result = assess_therapeutic_window(
@@ -114,9 +113,7 @@ class TestAssessTherapeuticWindow:
 
     def test_narrow_therapeutic_index_note(self):
         """MTC/MEC < 2 → narrow TI note."""
-        result = assess_therapeutic_window(
-            cmin_mg_L=2.0, cmax_mg_L=3.0, mec_mg_L=2.0, mtc_mg_L=3.5
-        )
+        result = assess_therapeutic_window(cmin_mg_L=2.0, cmax_mg_L=3.0, mec_mg_L=2.0, mtc_mg_L=3.5)
         assert "narrow" in result.notes.lower()
 
 
@@ -168,21 +165,22 @@ class TestRecommendDoseTiming:
     def test_invalid_t_half_raises(self):
         with pytest.raises(ValueError, match="t_half_h"):
             recommend_dose_timing(
-                t_half_h=0.0, target_trough_mg_L=1.0,
-                dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0
+                t_half_h=0.0, target_trough_mg_L=1.0, dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0
             )
 
     def test_invalid_dose_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
             recommend_dose_timing(
-                t_half_h=6.0, target_trough_mg_L=1.0,
-                dose_mg=-100.0, cl_L_per_h=5.0, vd_L=50.0
+                t_half_h=6.0, target_trough_mg_L=1.0, dose_mg=-100.0, cl_L_per_h=5.0, vd_L=50.0
             )
 
     def test_all_default_intervals_evaluated(self):
         result = recommend_dose_timing(
-            t_half_h=6.0, target_trough_mg_L=1.0,
-            dose_mg=500.0, cl_L_per_h=5.0, vd_L=50.0,
+            t_half_h=6.0,
+            target_trough_mg_L=1.0,
+            dose_mg=500.0,
+            cl_L_per_h=5.0,
+            vd_L=50.0,
         )
         intervals = [e["interval_h"] for e in result["interval_evaluations"]]
         assert set(intervals) == {6.0, 8.0, 12.0, 24.0}
@@ -279,29 +277,41 @@ class TestBayesianDoseUpdate:
     def test_invalid_cl_raises(self):
         with pytest.raises(ValueError, match="prior_cl"):
             bayesian_dose_update(
-                prior_cl_L_per_h=0.0, prior_vd_L=50.0,
-                observed_conc_mg_L=2.0, observed_time_h=4.0, dose_mg=500.0,
+                prior_cl_L_per_h=0.0,
+                prior_vd_L=50.0,
+                observed_conc_mg_L=2.0,
+                observed_time_h=4.0,
+                dose_mg=500.0,
             )
 
     def test_invalid_observed_conc_raises(self):
         with pytest.raises(ValueError, match="observed_conc"):
             bayesian_dose_update(
-                prior_cl_L_per_h=5.0, prior_vd_L=50.0,
-                observed_conc_mg_L=0.0, observed_time_h=4.0, dose_mg=500.0,
+                prior_cl_L_per_h=5.0,
+                prior_vd_L=50.0,
+                observed_conc_mg_L=0.0,
+                observed_time_h=4.0,
+                dose_mg=500.0,
             )
 
     def test_invalid_route_raises(self):
         with pytest.raises(ValueError, match="route"):
             bayesian_dose_update(
-                prior_cl_L_per_h=5.0, prior_vd_L=50.0,
-                observed_conc_mg_L=2.0, observed_time_h=4.0, dose_mg=500.0,
+                prior_cl_L_per_h=5.0,
+                prior_vd_L=50.0,
+                observed_conc_mg_L=2.0,
+                observed_time_h=4.0,
+                dose_mg=500.0,
                 route="oral",
             )
 
     def test_n_iter_reflected_in_output(self):
         result = bayesian_dose_update(
-            prior_cl_L_per_h=5.0, prior_vd_L=50.0,
-            observed_conc_mg_L=2.0, observed_time_h=4.0, dose_mg=500.0,
+            prior_cl_L_per_h=5.0,
+            prior_vd_L=50.0,
+            observed_conc_mg_L=2.0,
+            observed_time_h=4.0,
+            dose_mg=500.0,
             n_iter=7,
         )
         assert result["n_iterations"] == 7
@@ -345,8 +355,12 @@ class TestPopulationAdjustment:
     def test_reference_patient_near_typical(self):
         """70 kg, 35 years, male, Cr=80 → adjusted ≈ typical."""
         result = population_adjustment(
-            cl_typical=5.0, vd_typical=50.0,
-            weight_kg=70.0, age_years=35.0, sex="male", creatinine_umol_L=80.0,
+            cl_typical=5.0,
+            vd_typical=50.0,
+            weight_kg=70.0,
+            age_years=35.0,
+            sex="male",
+            creatinine_umol_L=80.0,
         )
         # Combined factor should be close to 1.0 for reference patient
         assert 0.5 < result["combined_factor"] < 2.0

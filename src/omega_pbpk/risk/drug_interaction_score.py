@@ -12,7 +12,7 @@ class DDIRiskEntry:
     drug_a: str
     drug_b: str
     mechanism: str  # "cyp_inhibition", "cyp_induction", "transporter", "pk_additive", "pd_synergy"
-    severity: str   # "none", "minor", "moderate", "major", "contraindicated"
+    severity: str  # "none", "minor", "moderate", "major", "contraindicated"
     aucr_estimate: float
     risk_score: float  # 0-100
     clinical_relevance: str

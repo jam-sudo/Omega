@@ -127,8 +127,13 @@ class TestBuildDDINetwork:
             build_ddi_network([])
 
     def test_missing_name_raises(self):
-        bad = {"cl_intrinsic": 5.0, "daily_dose_mg": 10.0, "fm_cyp3a4": 0.5,
-               "fm_cyp2d6": 0.0, "fm_cyp2c9": 0.0}
+        bad = {
+            "cl_intrinsic": 5.0,
+            "daily_dose_mg": 10.0,
+            "fm_cyp3a4": 0.5,
+            "fm_cyp2d6": 0.0,
+            "fm_cyp2c9": 0.0,
+        }
         with pytest.raises(ValueError, match="name"):
             build_ddi_network([bad, DRUG_NO_INHIBITOR])
 

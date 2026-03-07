@@ -87,8 +87,10 @@ def _estimate_cmax_mg_L(
 
     # Cmax in mg/L (dose in mg, Vd in L)
     dose_available = dose_mg * f_oral  # mg
-    cmax = (dose_available / vd_L) * (ka_per_h / (ka_per_h - ke)) * (
-        math.exp(-ke * tmax) - math.exp(-ka_per_h * tmax)
+    cmax = (
+        (dose_available / vd_L)
+        * (ka_per_h / (ka_per_h - ke))
+        * (math.exp(-ke * tmax) - math.exp(-ka_per_h * tmax))
     )
     return max(cmax, 0.0)
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.blood_plasma_ratio import (
@@ -13,7 +14,6 @@ from omega_pbpk.clinical.blood_plasma_ratio import (
     predict_rb,
     rb_sensitivity_analysis,
 )
-
 
 # ---------------------------------------------------------------------------
 # predict_rb
@@ -49,9 +49,7 @@ class TestPredictRb:
 
     def test_explicit_rbc_partition_overrides_logP(self):
         rb_logP = predict_rb(logP=10.0, fu_plasma=0.5, hematocrit=0.45)
-        rb_forced = predict_rb(
-            logP=10.0, fu_plasma=0.5, hematocrit=0.45, rbc_partition=1.0
-        )
+        rb_forced = predict_rb(logP=10.0, fu_plasma=0.5, hematocrit=0.45, rbc_partition=1.0)
         assert rb_forced != rb_logP
 
     def test_rb_formula_for_known_values(self):

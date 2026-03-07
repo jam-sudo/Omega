@@ -1,6 +1,5 @@
 """Tests for prodrug activation kinetics — Phase 464."""
 
-import math
 import pytest
 
 from omega_pbpk.core.prodrug_pk import (
@@ -9,7 +8,6 @@ from omega_pbpk.core.prodrug_pk import (
     prodrug_benefit_score,
     simulate_prodrug_pk,
 )
-
 
 # -------------------------------------------------------------------------
 # Helpers
@@ -126,7 +124,6 @@ class TestSimulateProdrugPK:
     def test_activation_site_liver(self):
         # Liver activation with elevated kact should produce higher or equal active AUC vs gut
         r_liver = _run(activation_site="liver")
-        r_sys = _run(activation_site="systemic")
         # Liver has 1.5x eff_kact → higher activation
         assert r_liver.cmax_active >= 0.0
 

@@ -33,8 +33,8 @@ from dataclasses import dataclass
 # ---------------------------------------------------------------------------
 
 # Passive permeability thresholds (cm/s) for Caco-2-like assays
-_HIGH_PERM_CM_S: float = 20.0e-6    # > 20e-6 cm/s -> high
-_LOW_PERM_CM_S: float = 2.0e-6     # < 2e-6  cm/s -> low
+_HIGH_PERM_CM_S: float = 20.0e-6  # > 20e-6 cm/s -> high
+_LOW_PERM_CM_S: float = 2.0e-6  # < 2e-6  cm/s -> low
 
 # Efflux ratio threshold for P-gp substrate classification
 _PGP_ER_THRESHOLD: float = 2.0
@@ -146,16 +146,11 @@ def passive_permeability(
     corr = charge_corrections[charge_state]
 
     log_papp = (
-        0.30 * logP
-        - 0.013 * psa_A2
-        - 0.40 * n_hbd
-        - 0.60 * math.log10(max(mw, 1.0))
-        - 3.20
-        + corr
+        0.30 * logP - 0.013 * psa_A2 - 0.40 * n_hbd - 0.60 * math.log10(max(mw, 1.0)) - 3.20 + corr
     )
 
     # Clamp to physically reasonable range [1e-9, 1e-4] cm/s
-    papp = 10.0 ** log_papp
+    papp = 10.0**log_papp
     return float(min(max(papp, 1.0e-9), 1.0e-4))
 
 
@@ -377,9 +372,7 @@ def _validate_passive_inputs(
         raise ValueError(f"n_hbd must be >= 0, got {n_hbd}")
     valid_charges = {"neutral", "cationic", "anionic", "zwitterion"}
     if charge_state not in valid_charges:
-        raise ValueError(
-            f"charge_state must be one of {valid_charges}, got '{charge_state}'"
-        )
+        raise ValueError(f"charge_state must be one of {valid_charges}, got '{charge_state}'")
 
 
 # ---------------------------------------------------------------------------

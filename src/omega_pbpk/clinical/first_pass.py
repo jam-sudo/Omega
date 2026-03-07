@@ -72,9 +72,7 @@ def _validate_inputs(
     if qg_L_per_h <= 0.0:
         raise ValueError(f"qg_L_per_h must be > 0, got {qg_L_per_h}")
     if clh_intrinsic_L_per_h <= 0.0:
-        raise ValueError(
-            f"clh_intrinsic_L_per_h must be > 0, got {clh_intrinsic_L_per_h}"
-        )
+        raise ValueError(f"clh_intrinsic_L_per_h must be > 0, got {clh_intrinsic_L_per_h}")
     if qh_L_per_h <= 0.0:
         raise ValueError(f"qh_L_per_h must be > 0, got {qh_L_per_h}")
     if fup <= 0.0 or fup > 1.0:
@@ -127,8 +125,14 @@ def calculate_first_pass(
     FirstPassResult
     """
     _validate_inputs(
-        fa, clg_L_per_h, qg_L_per_h, clh_intrinsic_L_per_h,
-        qh_L_per_h, fup, fub, fl,
+        fa,
+        clg_L_per_h,
+        qg_L_per_h,
+        clh_intrinsic_L_per_h,
+        qh_L_per_h,
+        fup,
+        fub,
+        fl,
     )
 
     # Gut extraction

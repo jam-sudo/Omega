@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.analysis.metabolic_ddi_network import (
@@ -12,7 +11,6 @@ from omega_pbpk.analysis.metabolic_ddi_network import (
     identify_perpetrators,
     identify_victims,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -184,12 +182,7 @@ class TestBuildDDIMatrix:
     def test_max_aucr_equals_max_off_diagonal(self):
         drugs = [STRONG_INHIBITOR, VICTIM_3A4, BYSTANDER]
         result = build_ddi_matrix(drugs)
-        off_diag = [
-            result.aucr_matrix[i][j]
-            for i in range(3)
-            for j in range(3)
-            if i != j
-        ]
+        off_diag = [result.aucr_matrix[i][j] for i in range(3) for j in range(3) if i != j]
         assert result.max_aucr == pytest.approx(max(off_diag), rel=1e-4)
 
 

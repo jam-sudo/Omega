@@ -8,6 +8,7 @@ from dataclasses import dataclass
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AdverseEffectResult:
     """Predicted adverse effects based on PK exposure metrics."""
@@ -15,7 +16,7 @@ class AdverseEffectResult:
     drug_name: str
     drug_class: str
     cmax_ratio: float  # cmax / therapeutic_cmax
-    auc_ratio: float   # auc_24h / therapeutic_auc
+    auc_ratio: float  # auc_24h / therapeutic_auc
     predicted_effects: list[dict]  # [{"effect": ..., "likelihood": ..., "rationale": ...}]
     overall_safety_concern: str  # "acceptable" / "monitor" / "high_risk"
     notes: str
@@ -39,6 +40,7 @@ _VALID_DRUG_CLASSES = {
 # Likelihood helpers
 # ---------------------------------------------------------------------------
 
+
 def _likelihood(ratio: float, moderate_thresh: float, high_thresh: float) -> str:
     """Map an exposure ratio to a risk likelihood string."""
     if ratio >= high_thresh:
@@ -52,39 +54,46 @@ def _likelihood(ratio: float, moderate_thresh: float, high_thresh: float) -> str
 # Per-class adverse effect logic
 # ---------------------------------------------------------------------------
 
+
 def _predict_nsaid(cmax_ratio: float, auc_ratio: float) -> list[dict]:
     effects = []
 
     # GI irritation — driven by Cmax (mucosal exposure)
     gi_lkl = _likelihood(cmax_ratio, moderate_thresh=1.5, high_thresh=2.0)
-    effects.append({
-        "effect": "GI_irritation",
-        "likelihood": gi_lkl,
-        "rationale": (
-            f"Cmax ratio {cmax_ratio:.2f}: threshold >1.5x moderate, >2.0x high; "
-            "mucosal exposure drives GI risk"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "GI_irritation",
+            "likelihood": gi_lkl,
+            "rationale": (
+                f"Cmax ratio {cmax_ratio:.2f}: threshold >1.5x moderate, >2.0x high; "
+                "mucosal exposure drives GI risk"
+            ),
+        }
+    )
 
     # Renal toxicity — driven by AUC (sustained prostaglandin inhibition)
     renal_lkl = _likelihood(auc_ratio, moderate_thresh=1.5, high_thresh=2.5)
-    effects.append({
-        "effect": "renal_toxicity",
-        "likelihood": renal_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: sustained exposure reduces renal prostaglandin synthesis"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "renal_toxicity",
+            "likelihood": renal_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: sustained exposure reduces renal prostaglandin synthesis"
+            ),
+        }
+    )
 
     # Cardiovascular risk at very high exposures
     cv_lkl = _likelihood(auc_ratio, moderate_thresh=2.0, high_thresh=3.0)
-    effects.append({
-        "effect": "cardiovascular_risk",
-        "likelihood": cv_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: elevated COX-2 inhibition increases thrombotic risk"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "cardiovascular_risk",
+            "likelihood": cv_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: elevated COX-2 inhibition increases thrombotic risk"
+            ),
+        }
+    )
 
     return effects
 
@@ -94,34 +103,40 @@ def _predict_opioid(cmax_ratio: float, auc_ratio: float) -> list[dict]:
 
     # Respiratory depression — driven by Cmax
     resp_lkl = _likelihood(cmax_ratio, moderate_thresh=2.0, high_thresh=3.0)
-    effects.append({
-        "effect": "respiratory_depression",
-        "likelihood": resp_lkl,
-        "rationale": (
-            f"Cmax ratio {cmax_ratio:.2f}: threshold >2x moderate, >3x high; "
-            "CNS mu-receptor saturation at peak"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "respiratory_depression",
+            "likelihood": resp_lkl,
+            "rationale": (
+                f"Cmax ratio {cmax_ratio:.2f}: threshold >2x moderate, >3x high; "
+                "CNS mu-receptor saturation at peak"
+            ),
+        }
+    )
 
     # Sedation — driven by AUC
     sed_lkl = _likelihood(auc_ratio, moderate_thresh=1.5, high_thresh=2.5)
-    effects.append({
-        "effect": "sedation",
-        "likelihood": sed_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: total CNS exposure correlates with sedation duration"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "sedation",
+            "likelihood": sed_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: total CNS exposure correlates with sedation duration"
+            ),
+        }
+    )
 
     # Nausea/vomiting — moderate even at therapeutic
     nausea_lkl = _likelihood(cmax_ratio, moderate_thresh=1.0, high_thresh=2.0)
-    effects.append({
-        "effect": "nausea_vomiting",
-        "likelihood": nausea_lkl,
-        "rationale": (
-            f"Cmax ratio {cmax_ratio:.2f}: opioid-induced emesis related to peak exposure"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "nausea_vomiting",
+            "likelihood": nausea_lkl,
+            "rationale": (
+                f"Cmax ratio {cmax_ratio:.2f}: opioid-induced emesis related to peak exposure"
+            ),
+        }
+    )
 
     return effects
 
@@ -135,39 +150,46 @@ def _predict_antibiotic(cmax_ratio: float, auc_ratio: float, drug_name: str) -> 
         nephro_lkl = _likelihood(cmax_ratio, moderate_thresh=1.5, high_thresh=2.0)
     else:
         nephro_lkl = _likelihood(auc_ratio, moderate_thresh=2.0, high_thresh=3.5)
-    effects.append({
-        "effect": "nephrotoxicity",
-        "likelihood": nephro_lkl,
-        "rationale": (
-            f"Ratio (Cmax {cmax_ratio:.2f}, AUC {auc_ratio:.2f}): "
-            "renal tubular accumulation risk"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "nephrotoxicity",
+            "likelihood": nephro_lkl,
+            "rationale": (
+                f"Ratio (Cmax {cmax_ratio:.2f}, AUC {auc_ratio:.2f}): "
+                "renal tubular accumulation risk"
+            ),
+        }
+    )
 
     # Hepatotoxicity — fluoroquinolone pattern (AUC-driven)
-    if any(k in name_lower for k in (
-        "ciprofloxacin", "levofloxacin", "moxifloxacin", "fluoroquinolone"
-    )):
+    if any(
+        k in name_lower
+        for k in ("ciprofloxacin", "levofloxacin", "moxifloxacin", "fluoroquinolone")
+    ):
         hep_lkl = _likelihood(auc_ratio, moderate_thresh=1.5, high_thresh=2.5)
     else:
         hep_lkl = _likelihood(auc_ratio, moderate_thresh=2.5, high_thresh=4.0)
-    effects.append({
-        "effect": "hepatotoxicity",
-        "likelihood": hep_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: hepatic enzyme elevation at supra-therapeutic exposure"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "hepatotoxicity",
+            "likelihood": hep_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: hepatic enzyme elevation at supra-therapeutic exposure"
+            ),
+        }
+    )
 
     # C. difficile — AUC-driven (broad-spectrum disruption)
     cdiff_lkl = _likelihood(auc_ratio, moderate_thresh=1.0, high_thresh=2.0)
-    effects.append({
-        "effect": "c_difficile_risk",
-        "likelihood": cdiff_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: gut microbiome disruption proportional to exposure"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "c_difficile_risk",
+            "likelihood": cdiff_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: gut microbiome disruption proportional to exposure"
+            ),
+        }
+    )
 
     return effects
 
@@ -182,75 +204,85 @@ def _predict_antihypertensive(
     # Use a trough-derived index: if trough is high relative to expected, risk is elevated
     # We use auc_ratio as proxy for overall sustained exposure burden
     hypo_lkl = _likelihood(auc_ratio, moderate_thresh=1.5, high_thresh=2.5)
-    effects.append({
-        "effect": "hypotension",
-        "likelihood": hypo_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}, trough {trough_mg_L:.3f} mg/L: "
-            "sustained BP reduction risk from excessive trough exposure"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "hypotension",
+            "likelihood": hypo_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}, trough {trough_mg_L:.3f} mg/L: "
+                "sustained BP reduction risk from excessive trough exposure"
+            ),
+        }
+    )
 
     # Reflex tachycardia — Cmax-driven (rapid onset vasodilation)
     tachy_lkl = _likelihood(cmax_ratio, moderate_thresh=1.5, high_thresh=2.5)
-    effects.append({
-        "effect": "reflex_tachycardia",
-        "likelihood": tachy_lkl,
-        "rationale": (
-            f"Cmax ratio {cmax_ratio:.2f}: rapid peak vasodilation triggers baroreceptor reflex"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "reflex_tachycardia",
+            "likelihood": tachy_lkl,
+            "rationale": (
+                f"Cmax ratio {cmax_ratio:.2f}: rapid peak vasodilation triggers baroreceptor reflex"
+            ),
+        }
+    )
 
     # Electrolyte disturbance (diuretic class)
     electro_lkl = _likelihood(auc_ratio, moderate_thresh=2.0, high_thresh=3.0)
-    effects.append({
-        "effect": "electrolyte_disturbance",
-        "likelihood": electro_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: excessive diuresis may cause hypokalemia/hyponatremia"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "electrolyte_disturbance",
+            "likelihood": electro_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: excessive diuresis may cause hypokalemia/hyponatremia"
+            ),
+        }
+    )
 
     return effects
 
 
-def _predict_anticoagulant(
-    cmax_ratio: float, auc_ratio: float, trough_mg_L: float
-) -> list[dict]:
+def _predict_anticoagulant(cmax_ratio: float, auc_ratio: float, trough_mg_L: float) -> list[dict]:
     effects = []
 
     # Bleeding risk — AUC is primary driver (> 1.5x → high)
     bleed_lkl = _likelihood(auc_ratio, moderate_thresh=1.2, high_thresh=1.5)
-    effects.append({
-        "effect": "bleeding_risk",
-        "likelihood": bleed_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: threshold >1.2x moderate, >1.5x high; "
-            "sustained anticoagulation increases hemorrhagic risk"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "bleeding_risk",
+            "likelihood": bleed_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: threshold >1.2x moderate, >1.5x high; "
+                "sustained anticoagulation increases hemorrhagic risk"
+            ),
+        }
+    )
 
     # Major bleeding at very high exposure
     major_bleed_lkl = _likelihood(cmax_ratio, moderate_thresh=1.5, high_thresh=2.0)
-    effects.append({
-        "effect": "major_bleeding",
-        "likelihood": major_bleed_lkl,
-        "rationale": (
-            f"Cmax ratio {cmax_ratio:.2f}: peak anticoagulant activity "
-            "at Cmax drives major bleed risk"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "major_bleeding",
+            "likelihood": major_bleed_lkl,
+            "rationale": (
+                f"Cmax ratio {cmax_ratio:.2f}: peak anticoagulant activity "
+                "at Cmax drives major bleed risk"
+            ),
+        }
+    )
 
     # Hematoma formation — trough-dependent
     hematoma_lkl = _likelihood(auc_ratio, moderate_thresh=1.8, high_thresh=2.5)
-    effects.append({
-        "effect": "hematoma_formation",
-        "likelihood": hematoma_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}, trough {trough_mg_L:.3f} mg/L: "
-            "residual anticoagulation at trough increases wound hematoma risk"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "hematoma_formation",
+            "likelihood": hematoma_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}, trough {trough_mg_L:.3f} mg/L: "
+                "residual anticoagulation at trough increases wound hematoma risk"
+            ),
+        }
+    )
 
     return effects
 
@@ -262,35 +294,41 @@ def _predict_immunosuppressant(
 
     # Infection risk — AUC-driven (> 2x → high)
     infect_lkl = _likelihood(auc_ratio, moderate_thresh=1.5, high_thresh=2.0)
-    effects.append({
-        "effect": "infection_risk",
-        "likelihood": infect_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: threshold >1.5x moderate, >2.0x high; "
-            "over-immunosuppression increases opportunistic infection risk"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "infection_risk",
+            "likelihood": infect_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: threshold >1.5x moderate, >2.0x high; "
+                "over-immunosuppression increases opportunistic infection risk"
+            ),
+        }
+    )
 
     # Nephrotoxicity — trough-driven (calcineurin inhibitor pattern)
     nephro_lkl = _likelihood(auc_ratio, moderate_thresh=1.3, high_thresh=1.8)
-    effects.append({
-        "effect": "nephrotoxicity",
-        "likelihood": nephro_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}, trough {trough_mg_L:.3f} mg/L: "
-            "tubular toxicity correlated with sustained trough levels"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "nephrotoxicity",
+            "likelihood": nephro_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}, trough {trough_mg_L:.3f} mg/L: "
+                "tubular toxicity correlated with sustained trough levels"
+            ),
+        }
+    )
 
     # Malignancy risk at chronic high exposure
     malig_lkl = _likelihood(auc_ratio, moderate_thresh=2.0, high_thresh=3.0)
-    effects.append({
-        "effect": "malignancy_risk",
-        "likelihood": malig_lkl,
-        "rationale": (
-            f"AUC ratio {auc_ratio:.2f}: prolonged immunosuppression impairs cancer surveillance"
-        ),
-    })
+    effects.append(
+        {
+            "effect": "malignancy_risk",
+            "likelihood": malig_lkl,
+            "rationale": (
+                f"AUC ratio {auc_ratio:.2f}: prolonged immunosuppression impairs cancer surveillance"
+            ),
+        }
+    )
 
     return effects
 
@@ -298,6 +336,7 @@ def _predict_immunosuppressant(
 # ---------------------------------------------------------------------------
 # Overall safety classification
 # ---------------------------------------------------------------------------
+
 
 def _overall_safety(effects: list[dict]) -> str:
     """Derive overall safety concern from predicted effects."""
@@ -317,6 +356,7 @@ def _overall_safety(effects: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 # Main function
 # ---------------------------------------------------------------------------
+
 
 def predict_adverse_effects(
     drug_name: str,
@@ -355,8 +395,7 @@ def predict_adverse_effects(
         raise ValueError("drug_name must be a non-empty string")
     if drug_class not in _VALID_DRUG_CLASSES:
         raise ValueError(
-            f"drug_class '{drug_class}' not supported; "
-            f"choose from {sorted(_VALID_DRUG_CLASSES)}"
+            f"drug_class '{drug_class}' not supported; choose from {sorted(_VALID_DRUG_CLASSES)}"
         )
     if cmax_mg_L < 0:
         raise ValueError("cmax_mg_L must be >= 0")

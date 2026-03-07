@@ -92,9 +92,7 @@ def simulate_drug_resistance(
     if ec50_sensitive_mg_L <= 0:
         raise ValueError("ec50_sensitive_mg_L must be > 0")
     if ec50_resistant_mg_L <= ec50_sensitive_mg_L:
-        raise ValueError(
-            "ec50_resistant_mg_L must be > ec50_sensitive_mg_L"
-        )
+        raise ValueError("ec50_resistant_mg_L must be > ec50_sensitive_mg_L")
     if not (0.0 < initial_resistant_fraction < 1.0):
         raise ValueError("initial_resistant_fraction must be in (0, 1)")
     if drug_conc_mg_L < 0:
@@ -145,9 +143,7 @@ def simulate_drug_resistance(
         t = (step + 1) * dt_h
         total = s + r
         sf = s / max(total, 1e-10)
-        ec50_eff = (
-            ec50_sensitive_mg_L * sf + ec50_resistant_mg_L * (1.0 - sf)
-        )
+        ec50_eff = ec50_sensitive_mg_L * sf + ec50_resistant_mg_L * (1.0 - sf)
 
         times.append(t)
         s_list.append(s)

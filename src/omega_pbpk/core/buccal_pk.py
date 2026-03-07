@@ -177,8 +177,7 @@ def simulate_buccal_pk(
     # Build notes
     note_parts: list[str] = []
     note_parts.append(
-        f"Route: {route}; surface area = {area_cm2:.1f} cm²; "
-        f"Papp = {papp_cm_s:.2e} cm/s"
+        f"Route: {route}; surface area = {area_cm2:.1f} cm²; Papp = {papp_cm_s:.2e} cm/s"
     )
     if f_absorbed < 0.5:
         note_parts.append(
@@ -186,13 +185,9 @@ def simulate_buccal_pk(
             "consider higher Papp or slower saliva flow"
         )
     if route == "sublingual":
-        note_parts.append(
-            "Sublingual route: very fast onset expected due to rich vascularity"
-        )
+        note_parts.append("Sublingual route: very fast onset expected due to rich vascularity")
     else:
-        note_parts.append(
-            "Buccal route: larger area compensates for lower Papp vs sublingual"
-        )
+        note_parts.append("Buccal route: larger area compensates for lower Papp vs sublingual")
     notes = "; ".join(note_parts)
 
     return BuccalPKResult(

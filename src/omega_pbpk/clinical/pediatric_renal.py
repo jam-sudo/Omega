@@ -82,8 +82,8 @@ def gfr_maturation(age_months: float) -> float:
     pma_weeks = 40.0 + age_months * 4.33
 
     # Rhodin sigmoid: maturation = PMA^Hill / (TM50^Hill + PMA^Hill)
-    pma_h = pma_weeks ** _RHODIN_HILL
-    tm50_h = _RHODIN_TM50_WEEKS ** _RHODIN_HILL
+    pma_h = pma_weeks**_RHODIN_HILL
+    tm50_h = _RHODIN_TM50_WEEKS**_RHODIN_HILL
     maturation = pma_h / (tm50_h + pma_h)
 
     return float(min(max(maturation, 0.01), 1.0))
@@ -112,10 +112,10 @@ def calculate_pediatric_bsa(weight_kg: float, height_cm: float | None = None) ->
 
     if height_cm is not None and height_cm > 0:
         # DuBois formula: BSA = 0.007184 * W^0.425 * H^0.725
-        bsa = 0.007184 * (weight_kg ** 0.425) * (height_cm ** 0.725)
+        bsa = 0.007184 * (weight_kg**0.425) * (height_cm**0.725)
     else:
         # Weight-only approximation
-        bsa = 0.1 * (weight_kg ** 0.67)
+        bsa = 0.1 * (weight_kg**0.67)
 
     return float(bsa)
 
@@ -204,7 +204,7 @@ def simulate_pediatric_renal_pk(
     # --- Hepatic CL scaling: allometric (0.75 exponent) × maturation proxy ---
     # GFR maturation used as simplified proxy for hepatic enzyme maturation
     weight_factor_hepatic = (weight_kg / _ADULT_WEIGHT) ** 0.75
-    hepatic_mat = gfr_frac ** 0.5
+    hepatic_mat = gfr_frac**0.5
     cl_hepatic_scaled = adult_cl_hepatic_L_per_h * weight_factor_hepatic * hepatic_mat
 
     # --- Vd scaling: linear allometric ---
@@ -226,8 +226,7 @@ def simulate_pediatric_renal_pk(
     notes_parts = [
         f"GFR maturation fraction: {gfr_frac:.3f}",
         f"BSA: {bsa:.3f} m²",
-        f"Scaled CL_renal: {cl_renal_scaled:.3f} L/h, "
-        f"CL_hepatic: {cl_hepatic_scaled:.3f} L/h",
+        f"Scaled CL_renal: {cl_renal_scaled:.3f} L/h, CL_hepatic: {cl_hepatic_scaled:.3f} L/h",
         f"Recommended dose: {recommended_dose:.2f} mg "
         f"({dose_mg_per_kg:.2f} mg/kg) q{dosing_interval:.0f}h",
     ]

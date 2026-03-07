@@ -42,14 +42,14 @@ class CLVdAnalysisResult:
     pearson_p_cl_vd: float
 
     # Classification
-    high_cl_fraction: float    # Fraction with CL > 30 L/h (high extraction)
-    high_vd_fraction: float    # Fraction with Vd > 50 L (extensive distribution)
+    high_cl_fraction: float  # Fraction with CL > 30 L/h (high extraction)
+    high_vd_fraction: float  # Fraction with Vd > 50 L (extensive distribution)
     long_thalf_fraction: float  # Fraction with t½ > 12 h
 
     # Optimal PK classification
-    n_once_daily_candidates: int   # t½ 12-36 h (good for QD dosing)
+    n_once_daily_candidates: int  # t½ 12-36 h (good for QD dosing)
     n_twice_daily_candidates: int  # t½ 6-12 h
-    n_rapid_clearance: int         # t½ < 2 h
+    n_rapid_clearance: int  # t½ < 2 h
 
     notes: str
 
@@ -231,7 +231,7 @@ def plot_cl_vd_summary(result: CLVdAnalysisResult) -> str:
         f"  Compounds: {result.n_compounds}",
         sep,
         f"  {'Parameter':<25} {'Mean':>10} {'Median':>10} {'CV%':>8}",
-        f"  {'-'*55}",
+        f"  {'-' * 55}",
         f"  {'CL (L/h)':<25} {result.cl_mean:>10.2f} {result.cl_median:>10.2f} {result.cl_cv_pct:>8.1f}",
         f"  {'Vd (L)':<25} {result.vd_mean:>10.2f} {result.vd_median:>10.2f} {result.vd_cv_pct:>8.1f}",
         f"  {'t½ (h)':<25} {result.t_half_mean:>10.2f} {'—':>10} {result.t_half_cv_pct:>8.1f}",
@@ -251,7 +251,7 @@ def plot_cl_vd_summary(result: CLVdAnalysisResult) -> str:
     # Per-compound table
     lines += [
         f"  {'Compound':<20} {'CL (L/h)':>10} {'Vd (L)':>10} {'t½ (h)':>10}",
-        f"  {'-'*55}",
+        f"  {'-' * 55}",
     ]
     for i, name in enumerate(result.compound_names):
         lines.append(

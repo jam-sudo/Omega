@@ -116,13 +116,11 @@ def polymorph_solubility_ratio(
     """
     if form_a_melting_point_C <= -_KELVIN_OFFSET:
         raise ValueError(
-            f"form_a_melting_point_C must be > {-_KELVIN_OFFSET}, "
-            f"got {form_a_melting_point_C}"
+            f"form_a_melting_point_C must be > {-_KELVIN_OFFSET}, got {form_a_melting_point_C}"
         )
     if form_b_melting_point_C <= -_KELVIN_OFFSET:
         raise ValueError(
-            f"form_b_melting_point_C must be > {-_KELVIN_OFFSET}, "
-            f"got {form_b_melting_point_C}"
+            f"form_b_melting_point_C must be > {-_KELVIN_OFFSET}, got {form_b_melting_point_C}"
         )
 
     tm_a_k = form_a_melting_point_C + _KELVIN_OFFSET
@@ -133,7 +131,7 @@ def polymorph_solubility_ratio(
 
     # log10(S_A/S_B) = -(ΔHfus/R) * (1/Tm_A - 1/Tm_B) / 2.303
     log10_ratio = -(delta_hfus / _R_J_MOL_K) * (1.0 / tm_a_k - 1.0 / tm_b_k) / 2.303
-    return 10.0 ** log10_ratio
+    return 10.0**log10_ratio
 
 
 def dissolution_rate_ratio(
@@ -162,13 +160,9 @@ def dissolution_rate_ratio(
         Dissolution rate ratio (Form A / Form B).
     """
     if form_a_solubility_mg_mL <= 0:
-        raise ValueError(
-            f"form_a_solubility_mg_mL must be > 0, got {form_a_solubility_mg_mL}"
-        )
+        raise ValueError(f"form_a_solubility_mg_mL must be > 0, got {form_a_solubility_mg_mL}")
     if form_b_solubility_mg_mL <= 0:
-        raise ValueError(
-            f"form_b_solubility_mg_mL must be > 0, got {form_b_solubility_mg_mL}"
-        )
+        raise ValueError(f"form_b_solubility_mg_mL must be > 0, got {form_b_solubility_mg_mL}")
     if particle_size_um <= 0:
         raise ValueError(f"particle_size_um must be > 0, got {particle_size_um}")
 
@@ -206,9 +200,7 @@ def bioavailability_impact(
     if bcs_class not in (1, 2, 3, 4):
         raise ValueError(f"bcs_class must be 1, 2, 3, or 4, got {bcs_class}")
     if absorption_window_h <= 0:
-        raise ValueError(
-            f"absorption_window_h must be > 0, got {absorption_window_h}"
-        )
+        raise ValueError(f"absorption_window_h must be > 0, got {absorption_window_h}")
     if ka_base_per_h <= 0:
         raise ValueError(f"ka_base_per_h must be > 0, got {ka_base_per_h}")
 
@@ -277,13 +269,9 @@ def assess_polymorph_risk(
     PolymorphRiskResult
     """
     if form_a_tm_C <= -_KELVIN_OFFSET:
-        raise ValueError(
-            f"form_a_tm_C must be > {-_KELVIN_OFFSET} °C, got {form_a_tm_C}"
-        )
+        raise ValueError(f"form_a_tm_C must be > {-_KELVIN_OFFSET} °C, got {form_a_tm_C}")
     if form_b_tm_C <= -_KELVIN_OFFSET:
-        raise ValueError(
-            f"form_b_tm_C must be > {-_KELVIN_OFFSET} °C, got {form_b_tm_C}"
-        )
+        raise ValueError(f"form_b_tm_C must be > {-_KELVIN_OFFSET} °C, got {form_b_tm_C}")
     if bcs_class not in (1, 2, 3, 4):
         raise ValueError(f"bcs_class must be 1, 2, 3, or 4, got {bcs_class}")
     if daily_dose_mg <= 0:

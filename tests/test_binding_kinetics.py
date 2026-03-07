@@ -14,9 +14,9 @@ from omega_pbpk.core.binding_kinetics import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-KON = 1e6      # M^-1 s^-1  (typical fast binder)
+KON = 1e6  # M^-1 s^-1  (typical fast binder)
 KOFF_SLOW = 1e-4  # s^-1  → RT = 10 000 s
-KOFF_FAST = 0.1   # s^-1  → RT = 10 s
+KOFF_FAST = 0.1  # s^-1  → RT = 10 s
 
 
 def _default_result(**kwargs) -> BindingKineticsResult:
@@ -192,28 +192,33 @@ class TestTHalfOn:
 class TestValidation:
     def test_invalid_kon_raises(self):
         with pytest.raises(ValueError, match="kon"):
-            simulate_binding_kinetics("X", kon_per_M_per_s=0.0, koff_per_s=0.01,
-                                      drug_conc_nM=100.0, target_conc_nM=10.0)
+            simulate_binding_kinetics(
+                "X", kon_per_M_per_s=0.0, koff_per_s=0.01, drug_conc_nM=100.0, target_conc_nM=10.0
+            )
 
     def test_negative_kon_raises(self):
         with pytest.raises(ValueError):
-            simulate_binding_kinetics("X", kon_per_M_per_s=-1e6, koff_per_s=0.01,
-                                      drug_conc_nM=100.0, target_conc_nM=10.0)
+            simulate_binding_kinetics(
+                "X", kon_per_M_per_s=-1e6, koff_per_s=0.01, drug_conc_nM=100.0, target_conc_nM=10.0
+            )
 
     def test_invalid_koff_raises(self):
         with pytest.raises(ValueError, match="koff"):
-            simulate_binding_kinetics("X", kon_per_M_per_s=1e6, koff_per_s=0.0,
-                                      drug_conc_nM=100.0, target_conc_nM=10.0)
+            simulate_binding_kinetics(
+                "X", kon_per_M_per_s=1e6, koff_per_s=0.0, drug_conc_nM=100.0, target_conc_nM=10.0
+            )
 
     def test_negative_drug_conc_raises(self):
         with pytest.raises(ValueError):
-            simulate_binding_kinetics("X", kon_per_M_per_s=1e6, koff_per_s=0.01,
-                                      drug_conc_nM=-1.0, target_conc_nM=10.0)
+            simulate_binding_kinetics(
+                "X", kon_per_M_per_s=1e6, koff_per_s=0.01, drug_conc_nM=-1.0, target_conc_nM=10.0
+            )
 
     def test_invalid_target_conc_raises(self):
         with pytest.raises(ValueError):
-            simulate_binding_kinetics("X", kon_per_M_per_s=1e6, koff_per_s=0.01,
-                                      drug_conc_nM=100.0, target_conc_nM=0.0)
+            simulate_binding_kinetics(
+                "X", kon_per_M_per_s=1e6, koff_per_s=0.01, drug_conc_nM=100.0, target_conc_nM=0.0
+            )
 
 
 # ---------------------------------------------------------------------------

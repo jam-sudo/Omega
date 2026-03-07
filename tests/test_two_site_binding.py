@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
+
 from omega_pbpk.core.two_site_binding import (
-    TwoSiteBindingResult,
     evaluate_two_site_binding,
     two_site_occupancy,
 )
 
-
 # ---------------------------------------------------------------------------
 # two_site_occupancy validation
 # ---------------------------------------------------------------------------
+
 
 def test_occupancy_c_negative():
     with pytest.raises(ValueError, match="c must be >= 0"):
@@ -55,6 +53,7 @@ def test_occupancy_alpha_negative():
 # two_site_occupancy correctness
 # ---------------------------------------------------------------------------
 
+
 def test_occupancy_zero_concentration():
     occ1, occ2 = two_site_occupancy(0.0, kd1=1.0, kd2=2.0)
     assert occ1 == 0.0
@@ -91,6 +90,7 @@ def test_site1_occupancy_standard_hill():
 # ---------------------------------------------------------------------------
 # evaluate_two_site_binding validation
 # ---------------------------------------------------------------------------
+
 
 def test_eval_kd1_zero():
     with pytest.raises(ValueError, match="kd1"):
@@ -140,6 +140,7 @@ def test_eval_n_points_lt_2():
 # ---------------------------------------------------------------------------
 # evaluate_two_site_binding correctness
 # ---------------------------------------------------------------------------
+
 
 def test_concentrations_length_equals_n_points():
     result = evaluate_two_site_binding("Drug", kd1=1.0, kd2=5.0, n_points=30)
@@ -193,9 +194,7 @@ def test_emax2_zero_allowed():
 
 
 def test_concentrations_log_spaced():
-    result = evaluate_two_site_binding(
-        "Drug", kd1=1.0, kd2=5.0, c_min=1e-3, c_max=1e3, n_points=7
-    )
+    result = evaluate_two_site_binding("Drug", kd1=1.0, kd2=5.0, c_min=1e-3, c_max=1e3, n_points=7)
     concs = result.concentrations
     assert concs[0] == pytest.approx(1e-3, rel=1e-6)
     assert concs[-1] == pytest.approx(1e3, rel=1e-6)

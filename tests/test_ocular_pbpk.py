@@ -12,6 +12,7 @@ from omega_pbpk.core.ocular_pbpk import (
 # Input validation
 # ---------------------------------------------------------------------------
 
+
 class TestValidation:
     def test_dose_zero_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
@@ -45,6 +46,7 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 # Topical route
 # ---------------------------------------------------------------------------
+
 
 class TestTopicalRoute:
     @pytest.fixture()
@@ -93,11 +95,15 @@ class TestTopicalRoute:
 # Intravitreal route
 # ---------------------------------------------------------------------------
 
+
 class TestIntravitrealRoute:
     @pytest.fixture()
     def ivt(self):
         return simulate_ocular_pk(
-            "Ranibizumab", dose_mg=0.5, route="intravitreal", t_end_h=72.0,
+            "Ranibizumab",
+            dose_mg=0.5,
+            route="intravitreal",
+            t_end_h=72.0,
         )
 
     def test_vitreous_is_main_compartment(self, ivt):
@@ -124,6 +130,7 @@ class TestIntravitrealRoute:
 # Linear PK (dose proportionality)
 # ---------------------------------------------------------------------------
 
+
 class TestDoseProportionality:
     def test_topical_linear_pk(self):
         r1 = simulate_ocular_pk("X", dose_mg=0.5, route="topical")
@@ -140,6 +147,7 @@ class TestDoseProportionality:
 # Corneal permeability effect
 # ---------------------------------------------------------------------------
 
+
 class TestCornealPermeability:
     def test_higher_perm_higher_aqueous_cmax(self):
         low = simulate_ocular_pk("X", dose_mg=0.5, corneal_perm_cm_h=1.0e-3)
@@ -151,23 +159,36 @@ class TestCornealPermeability:
 # Melanin binding
 # ---------------------------------------------------------------------------
 
+
 class TestMelaninBinding:
     def test_pigmented_lower_vitreous_conc(self):
         """kp_melanin > 1 increases effective Vd, lowering vitreous conc."""
         normal = simulate_ocular_pk(
-            "X", dose_mg=0.5, route="intravitreal", kp_melanin=1.0,
+            "X",
+            dose_mg=0.5,
+            route="intravitreal",
+            kp_melanin=1.0,
         )
         pigmented = simulate_ocular_pk(
-            "X", dose_mg=0.5, route="intravitreal", kp_melanin=2.0,
+            "X",
+            dose_mg=0.5,
+            route="intravitreal",
+            kp_melanin=2.0,
         )
         assert pigmented.cmax_vitreous < normal.cmax_vitreous
 
     def test_pigmented_lower_vitreous_auc(self):
         normal = simulate_ocular_pk(
-            "X", dose_mg=0.5, route="intravitreal", kp_melanin=1.0,
+            "X",
+            dose_mg=0.5,
+            route="intravitreal",
+            kp_melanin=1.0,
         )
         pigmented = simulate_ocular_pk(
-            "X", dose_mg=0.5, route="intravitreal", kp_melanin=2.0,
+            "X",
+            dose_mg=0.5,
+            route="intravitreal",
+            kp_melanin=2.0,
         )
         assert pigmented.auc_vitreous < normal.auc_vitreous
 
@@ -175,6 +196,7 @@ class TestMelaninBinding:
 # ---------------------------------------------------------------------------
 # compare_routes
 # ---------------------------------------------------------------------------
+
 
 class TestCompareRoutes:
     def test_returns_two_results(self):
@@ -198,6 +220,7 @@ class TestCompareRoutes:
 # ---------------------------------------------------------------------------
 # Simulation parameters
 # ---------------------------------------------------------------------------
+
 
 class TestSimulationParams:
     def test_t_end_affects_array_length(self):

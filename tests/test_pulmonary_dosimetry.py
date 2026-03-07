@@ -10,10 +10,10 @@ from omega_pbpk.core.pulmonary_dosimetry import (
     simulate_pulmonary_dosimetry,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic smoke tests
 # ---------------------------------------------------------------------------
+
 
 class TestBasicSmoke:
     def test_mdi_returns_result(self):
@@ -45,6 +45,7 @@ class TestBasicSmoke:
 # ---------------------------------------------------------------------------
 # Device-specific physics
 # ---------------------------------------------------------------------------
+
 
 class TestDevicePhysics:
     def test_nebulizer_lower_oropharyngeal_than_mdi(self):
@@ -83,6 +84,7 @@ class TestDevicePhysics:
 # Particle size effects
 # ---------------------------------------------------------------------------
 
+
 class TestParticleSize:
     def test_small_mmad_higher_fpf(self):
         small = simulate_pulmonary_dosimetry("Drug", 1.0, mmad_um=1.0)
@@ -107,6 +109,7 @@ class TestParticleSize:
 # ---------------------------------------------------------------------------
 # Mass balance and fractions
 # ---------------------------------------------------------------------------
+
 
 class TestMassBalance:
     def test_f_lung_total_positive(self):
@@ -144,6 +147,7 @@ class TestMassBalance:
 # Systemic exposure
 # ---------------------------------------------------------------------------
 
+
 class TestSystemicExposure:
     def test_high_oral_f_increases_systemic(self):
         low = simulate_pulmonary_dosimetry("Drug", 1.0, f_oral_bioavailability=0.05)
@@ -165,6 +169,7 @@ class TestSystemicExposure:
 # ---------------------------------------------------------------------------
 # compare_devices
 # ---------------------------------------------------------------------------
+
 
 class TestCompareDevices:
     def test_returns_all_four_devices(self):
@@ -190,6 +195,7 @@ class TestCompareDevices:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_invalid_device_type(self):

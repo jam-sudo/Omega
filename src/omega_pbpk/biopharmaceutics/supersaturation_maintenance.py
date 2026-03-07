@@ -182,13 +182,9 @@ def simulate_supersaturation_maintenance(
     if crystalline_solubility_mg_mL <= 0:
         raise ValueError("crystalline_solubility_mg_mL must be > 0")
     if amorphous_solubility_mg_mL <= crystalline_solubility_mg_mL:
-        raise ValueError(
-            "amorphous_solubility_mg_mL must be > crystalline_solubility_mg_mL"
-        )
+        raise ValueError("amorphous_solubility_mg_mL must be > crystalline_solubility_mg_mL")
     if polymer_name not in _VALID_POLYMERS:
-        raise ValueError(
-            f"polymer_name must be one of {_VALID_POLYMERS}, got '{polymer_name}'"
-        )
+        raise ValueError(f"polymer_name must be one of {_VALID_POLYMERS}, got '{polymer_name}'")
     if t_end_h <= 0:
         raise ValueError("t_end_h must be > 0")
     if dt_h <= 0:
@@ -196,11 +192,7 @@ def simulate_supersaturation_maintenance(
 
     # Polymer-specific parameters
     k_precip = k_precip_per_h_no_polymer * _PRECIP_FACTOR[polymer_name]
-    delay = (
-        induction_delay_h
-        if induction_delay_h is not None
-        else _INDUCTION_DELAY_H[polymer_name]
-    )
+    delay = induction_delay_h if induction_delay_h is not None else _INDUCTION_DELAY_H[polymer_name]
 
     # Run simulation with polymer
     times, c_diss, c_prec, m_absorbed, induction_time = _run_simulation(
@@ -236,9 +228,7 @@ def simulate_supersaturation_maintenance(
 
     # Duration above 2x crystalline solubility
     threshold_2x = 2.0 * crystalline_solubility_mg_mL
-    duration_2x = sum(
-        dt_h for c in c_diss[:-1] if c > threshold_2x
-    )
+    duration_2x = sum(dt_h for c in c_diss[:-1] if c > threshold_2x)
 
     # Mean dissolved concentration (simple trapezoidal via average)
     if len(c_diss) > 1:
@@ -258,10 +248,7 @@ def simulate_supersaturation_maintenance(
 
     actual_induction = induction_time if not math.isinf(induction_time) else t_end_h
 
-    notes = (
-        f"Polymer: {polymer_name}; k_precip={k_precip:.3f} h^-1; "
-        f"induction delay={delay:.2f} h"
-    )
+    notes = f"Polymer: {polymer_name}; k_precip={k_precip:.3f} h^-1; induction delay={delay:.2f} h"
 
     return SupersaturationMaintenanceResult(
         drug_name=drug_name,

@@ -448,9 +448,7 @@ def test_auc_manual_check():
     # Manual trapezoidal
     t = result.times_h
     c = result.c_sys_mg_L
-    manual_auc = sum(
-        0.5 * (c[i] + c[i + 1]) * (t[i + 1] - t[i]) for i in range(len(t) - 1)
-    )
+    manual_auc = sum(0.5 * (c[i] + c[i + 1]) * (t[i + 1] - t[i]) for i in range(len(t) - 1))
     assert result.auc_sys == pytest.approx(manual_auc, rel=1e-6)
 
 

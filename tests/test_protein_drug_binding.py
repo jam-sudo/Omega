@@ -14,7 +14,6 @@ from omega_pbpk.core.protein_drug_binding import (
     simulate_binding_kinetics,
 )
 
-
 # ---------------------------------------------------------------------------
 # plasma_protein_dissociation_half_life tests
 # ---------------------------------------------------------------------------
@@ -153,59 +152,102 @@ class TestDrugDisplacementKinetics:
 
     def test_result_is_frozen(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+            c_drug1_nM=100.0,
+            c_drug2_nM=50.0,
+            c_protein_nM=600.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
         )
         with pytest.raises((AttributeError, TypeError)):
             result.c_protein_nM = 999.0  # type: ignore[misc]
 
     def test_time_starts_at_zero(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+            c_drug1_nM=100.0,
+            c_drug2_nM=50.0,
+            c_protein_nM=600.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
         )
         assert result.times_h[0] == pytest.approx(0.0)
 
     def test_dp_starts_at_zero(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+            c_drug1_nM=100.0,
+            c_drug2_nM=50.0,
+            c_protein_nM=600.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
         )
         assert result.dp1_nM[0] == pytest.approx(0.0, abs=1e-9)
         assert result.dp2_nM[0] == pytest.approx(0.0, abs=1e-9)
 
     def test_total_bound_does_not_exceed_protein(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=500.0, c_drug2_nM=500.0, c_protein_nM=200.0,
-            kon1=1.0, koff1=0.1, kon2=1.0, koff2=0.1, t_end_h=5.0,
+            c_drug1_nM=500.0,
+            c_drug2_nM=500.0,
+            c_protein_nM=200.0,
+            kon1=1.0,
+            koff1=0.1,
+            kon2=1.0,
+            koff2=0.1,
+            t_end_h=5.0,
         )
         for dp1, dp2 in zip(result.dp1_nM, result.dp2_nM):
             assert dp1 + dp2 <= 200.0 + 1e-6
 
     def test_final_fu_drug1_in_0_1(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+            c_drug1_nM=100.0,
+            c_drug2_nM=50.0,
+            c_protein_nM=600.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
         )
         assert 0.0 <= result.final_fu_drug1 <= 1.0
 
     def test_final_fu_drug2_in_0_1(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+            c_drug1_nM=100.0,
+            c_drug2_nM=50.0,
+            c_protein_nM=600.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
         )
         assert 0.0 <= result.final_fu_drug2 <= 1.0
 
     def test_competitive_displacer_reduces_drug1_binding(self):
         # Without competitor: only drug1
         result_alone = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=1e-6, c_protein_nM=600.0,
-            kon1=0.5, koff1=0.5, kon2=0.001, koff2=10.0, t_end_h=6.0,
+            c_drug1_nM=100.0,
+            c_drug2_nM=1e-6,
+            c_protein_nM=600.0,
+            kon1=0.5,
+            koff1=0.5,
+            kon2=0.001,
+            koff2=10.0,
+            t_end_h=6.0,
         )
         # With strong competitor
         result_compete = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=1000.0, c_protein_nM=600.0,
-            kon1=0.5, koff1=0.5, kon2=1.0, koff2=0.1, t_end_h=6.0,
+            c_drug1_nM=100.0,
+            c_drug2_nM=1000.0,
+            c_protein_nM=600.0,
+            kon1=0.5,
+            koff1=0.5,
+            kon2=1.0,
+            koff2=0.1,
+            t_end_h=6.0,
         )
         # Drug1 should have less bound complex with strong competition
         assert result_compete.dp1_nM[-1] < result_alone.dp1_nM[-1]
@@ -213,56 +255,97 @@ class TestDrugDisplacementKinetics:
     def test_invalid_drug1_conc_zero(self):
         with pytest.raises(ValueError, match="c_drug1_nM must be > 0"):
             drug_displacement_kinetics(
-                c_drug1_nM=0.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-                kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+                c_drug1_nM=0.0,
+                c_drug2_nM=50.0,
+                c_protein_nM=600.0,
+                kon1=0.1,
+                koff1=1.0,
+                kon2=0.2,
+                koff2=0.5,
             )
 
     def test_invalid_drug2_conc_negative(self):
         with pytest.raises(ValueError, match="c_drug2_nM must be > 0"):
             drug_displacement_kinetics(
-                c_drug1_nM=100.0, c_drug2_nM=-1.0, c_protein_nM=600.0,
-                kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+                c_drug1_nM=100.0,
+                c_drug2_nM=-1.0,
+                c_protein_nM=600.0,
+                kon1=0.1,
+                koff1=1.0,
+                kon2=0.2,
+                koff2=0.5,
             )
 
     def test_invalid_protein_conc_zero(self):
         with pytest.raises(ValueError, match="c_protein_nM must be > 0"):
             drug_displacement_kinetics(
-                c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=0.0,
-                kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+                c_drug1_nM=100.0,
+                c_drug2_nM=50.0,
+                c_protein_nM=0.0,
+                kon1=0.1,
+                koff1=1.0,
+                kon2=0.2,
+                koff2=0.5,
             )
 
     def test_invalid_kon1_zero(self):
         with pytest.raises(ValueError, match="kon1 must be > 0"):
             drug_displacement_kinetics(
-                c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-                kon1=0.0, koff1=1.0, kon2=0.2, koff2=0.5,
+                c_drug1_nM=100.0,
+                c_drug2_nM=50.0,
+                c_protein_nM=600.0,
+                kon1=0.0,
+                koff1=1.0,
+                kon2=0.2,
+                koff2=0.5,
             )
 
     def test_invalid_koff2_zero(self):
         with pytest.raises(ValueError, match="koff2 must be > 0"):
             drug_displacement_kinetics(
-                c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-                kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.0,
+                c_drug1_nM=100.0,
+                c_drug2_nM=50.0,
+                c_protein_nM=600.0,
+                kon1=0.1,
+                koff1=1.0,
+                kon2=0.2,
+                koff2=0.0,
             )
 
     def test_p_free_non_negative(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5, t_end_h=4.0,
+            c_drug1_nM=100.0,
+            c_drug2_nM=50.0,
+            c_protein_nM=600.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
+            t_end_h=4.0,
         )
         assert all(p >= -1e-9 for p in result.p_free_nM)
 
     def test_notes_not_empty(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=100.0, c_drug2_nM=50.0, c_protein_nM=600.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+            c_drug1_nM=100.0,
+            c_drug2_nM=50.0,
+            c_protein_nM=600.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
         )
         assert len(result.notes) > 0
 
     def test_stored_concentrations_correct(self):
         result = drug_displacement_kinetics(
-            c_drug1_nM=123.0, c_drug2_nM=456.0, c_protein_nM=789.0,
-            kon1=0.1, koff1=1.0, kon2=0.2, koff2=0.5,
+            c_drug1_nM=123.0,
+            c_drug2_nM=456.0,
+            c_protein_nM=789.0,
+            kon1=0.1,
+            koff1=1.0,
+            kon2=0.2,
+            koff2=0.5,
         )
         assert result.c_drug1_total == pytest.approx(123.0)
         assert result.c_drug2_total == pytest.approx(456.0)

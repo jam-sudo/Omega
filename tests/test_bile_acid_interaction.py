@@ -16,7 +16,6 @@ from omega_pbpk.biopharmaceutics.bile_acid_interaction import (
     simulate_bile_acid_effect_on_absorption,
 )
 
-
 # ---------------------------------------------------------------------------
 # micellar_solubilization_capacity
 # ---------------------------------------------------------------------------
@@ -95,13 +94,17 @@ class TestCholestyramineBinding:
 
     def test_zero_cholestyramine_no_binding(self):
         """Zero resin dose → no binding."""
-        result = cholestyramine_binding(100.0, drug_pka=9.0, drug_logP=2.0, cholestyramine_dose_g=0.0)
+        result = cholestyramine_binding(
+            100.0, drug_pka=9.0, drug_logP=2.0, cholestyramine_dose_g=0.0
+        )
         assert result.fraction_bound == pytest.approx(0.0)
         assert result.dose_available_mg == pytest.approx(100.0)
 
     def test_very_large_dose_no_binding(self):
         """Very large drug dose → fraction bound approaches 0."""
-        result = cholestyramine_binding(100000.0, drug_pka=9.0, drug_logP=2.0, cholestyramine_dose_g=4.0)
+        result = cholestyramine_binding(
+            100000.0, drug_pka=9.0, drug_logP=2.0, cholestyramine_dose_g=4.0
+        )
         assert result.fraction_bound < 0.01
 
     def test_invalid_drug_dose(self):

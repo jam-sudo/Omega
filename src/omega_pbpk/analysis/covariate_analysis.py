@@ -9,6 +9,7 @@ from dataclasses import dataclass
 # Result dataclass (frozen — all scalar fields)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class CovariateAnalysisResult:
     """Result of covariate effect analysis on a PK parameter."""
@@ -18,12 +19,12 @@ class CovariateAnalysisResult:
     n_subjects: int
 
     # Continuous covariate results (power model: PK = theta * cov^beta)
-    beta_exponent: float   # nan if categorical
-    r_squared: float       # nan if categorical
+    beta_exponent: float  # nan if categorical
+    r_squared: float  # nan if categorical
 
     # Categorical covariate results (sex M vs F geometric mean ratio)
-    mean_pk_low: float     # lower category mean (or nan if continuous)
-    mean_pk_high: float    # higher category mean (or nan if continuous)
+    mean_pk_low: float  # lower category mean (or nan if continuous)
+    mean_pk_high: float  # higher category mean (or nan if continuous)
 
     # 75th vs 25th percentile change (%)
     pk_change_75_vs_25_pct: float
@@ -34,6 +35,7 @@ class CovariateAnalysisResult:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _extract_covariate_values(pk_data: list[dict], covariate: str) -> list[float]:
     """Extract numeric covariate values from pk_data list."""
@@ -116,6 +118,7 @@ def _percentile(values: list[float], pct: float) -> float:
 # ---------------------------------------------------------------------------
 # Main analysis function
 # ---------------------------------------------------------------------------
+
 
 def analyze_covariate_effect(
     pk_data: list[dict],
@@ -216,8 +219,8 @@ def analyze_covariate_effect(
         p25_cov = _percentile(cov_values, 25)
         p75_cov = _percentile(cov_values, 75)
         if p25_cov > 0 and not math.isnan(beta):
-            pk_p25 = theta * (p25_cov ** beta)
-            pk_p75 = theta * (p75_cov ** beta)
+            pk_p25 = theta * (p25_cov**beta)
+            pk_p75 = theta * (p75_cov**beta)
             pk_change_pct = (pk_p75 - pk_p25) / pk_p25 * 100.0 if pk_p25 > 0 else float("nan")
         else:
             pk_change_pct = float("nan")
@@ -244,6 +247,7 @@ def analyze_covariate_effect(
 # ---------------------------------------------------------------------------
 # Dose individualization by covariate
 # ---------------------------------------------------------------------------
+
 
 def dose_by_covariate(
     pk_data: list[dict],
@@ -304,11 +308,13 @@ def dose_by_covariate(
     if covariate in _CATEGORICAL_COVARIATES:
         # Use category geometric mean as individual estimate
         m_vals = [
-            v for rec, v in zip(pk_data, pk_values, strict=True)
+            v
+            for rec, v in zip(pk_data, pk_values, strict=True)
             if str(rec.get("sex", "")).upper() == "M"
         ]
         f_vals = [
-            v for rec, v in zip(pk_data, pk_values, strict=True)
+            v
+            for rec, v in zip(pk_data, pk_values, strict=True)
             if str(rec.get("sex", "")).upper() == "F"
         ]
         gm_m = _geometric_mean(m_vals) if m_vals else pop_pk
@@ -335,7 +341,7 @@ def dose_by_covariate(
 
         # theta from pop_pk = theta * pop_cov^beta
         if pop_cov > 0 and not math.isnan(beta):
-            theta = pop_pk / (pop_cov ** beta) if pop_cov ** beta != 0 else pop_pk
+            theta = pop_pk / (pop_cov**beta) if pop_cov**beta != 0 else pop_pk
         else:
             theta = pop_pk
 
@@ -343,7 +349,7 @@ def dose_by_covariate(
             if math.isnan(beta) or cov_val <= 0:
                 indiv_pk = pkv
             else:
-                indiv_pk = theta * (cov_val ** beta)
+                indiv_pk = theta * (cov_val**beta)
             rec_dose = current_dose * (pop_pk / indiv_pk) if indiv_pk > 0 else current_dose
             out.append(
                 {

@@ -97,7 +97,7 @@ def _simulate_subject_pk(
     n_steps = max(int(round(t_end_h / dt_h)), 1)
 
     c_central = 0.0  # mg/L
-    c_gut = 0.0       # mg in gut
+    c_gut = 0.0  # mg in gut
 
     dose_idx = 0
     trough = 0.0

@@ -124,8 +124,7 @@ def predict_metabolite_mw(parent_mw: float, reaction_type: str) -> float:
     reaction_type = reaction_type.strip().lower()
     if reaction_type not in REACTION_MW_DELTA:
         raise ValueError(
-            f"Unknown reaction type '{reaction_type}'. "
-            f"Valid types: {sorted(REACTION_MW_DELTA)}"
+            f"Unknown reaction type '{reaction_type}'. Valid types: {sorted(REACTION_MW_DELTA)}"
         )
     return parent_mw + REACTION_MW_DELTA[reaction_type]
 
@@ -187,15 +186,11 @@ def profile_metabolites(
     }
     for name, val in fm_values.items():
         if val < 0 or val > 1:
-            raise ValueError(
-                f"fm_{name.lower()} must be between 0 and 1, got {val}"
-            )
+            raise ValueError(f"fm_{name.lower()} must be between 0 and 1, got {val}")
 
     total_fm = sum(fm_values.values())
     if total_fm > 1.0 + 1e-9:
-        raise ValueError(
-            f"Sum of all fm values must be ≤ 1.0, got {total_fm:.4f}"
-        )
+        raise ValueError(f"Sum of all fm values must be ≤ 1.0, got {total_fm:.4f}")
 
     # ------------------------------------------------------------------
     # Build pathway list
@@ -254,13 +249,9 @@ def profile_metabolites(
         f"Active metabolite risk: {overall_risk}.",
     ]
     if logP > 3.5:
-        note_parts.append(
-            "High logP suggests extensive CYP oxidative metabolism likely."
-        )
+        note_parts.append("High logP suggests extensive CYP oxidative metabolism likely.")
     if fm_ugt >= 0.2:
-        note_parts.append(
-            "Significant glucuronidation — monitor UGT polymorphisms."
-        )
+        note_parts.append("Significant glucuronidation — monitor UGT polymorphisms.")
 
     return MetaboliteProfileResult(
         compound_name=compound_name,
@@ -320,9 +311,7 @@ def calculate_mist_coverage(metabolite_profiles: list[dict]) -> dict:
         name = entry.get("name", "unknown")
         fraction = entry.get("fraction", 0.0)
         if fraction < 0:
-            raise ValueError(
-                f"Fraction for metabolite '{name}' must be ≥ 0, got {fraction}"
-            )
+            raise ValueError(f"Fraction for metabolite '{name}' must be ≥ 0, got {fraction}")
         if fraction >= mist_threshold:
             mist_required.append(name)
         else:
@@ -333,9 +322,7 @@ def calculate_mist_coverage(metabolite_profiles: list[dict]) -> dict:
         notes = "No metabolites meet FDA MIST threshold (≥10% of parent AUC)."
     else:
         listed = ", ".join(mist_required)
-        notes = (
-            f"{n_required} metabolite(s) require MIST safety testing: {listed}."
-        )
+        notes = f"{n_required} metabolite(s) require MIST safety testing: {listed}."
 
     return {
         "mist_required": mist_required,

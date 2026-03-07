@@ -14,6 +14,7 @@ from omega_pbpk.core.renal_tubular import (
 
 # --- Basic smoke test ---
 
+
 def test_simulate_returns_tubular_result():
     result = simulate_tubular_handling(
         drug_name="TestDrug",
@@ -24,6 +25,7 @@ def test_simulate_returns_tubular_result():
 
 
 # --- Filtration clearance ---
+
 
 def test_filtration_cl_equals_gfr_times_fu():
     result = simulate_tubular_handling(
@@ -39,6 +41,7 @@ def test_filtration_cl_equals_gfr_times_fu():
 
 
 # --- Secretion saturation ---
+
 
 def test_low_conc_gives_low_saturation():
     result = simulate_tubular_handling(
@@ -71,6 +74,7 @@ def test_saturation_at_km_is_50_percent():
 
 # --- Reabsorption ---
 
+
 def test_no_reabsorption_when_f_reabs_zero():
     result = simulate_tubular_handling(
         drug_name="Drug",
@@ -95,6 +99,7 @@ def test_full_reabsorption_reduces_net_cl():
 
 
 # --- fe_urine ---
+
 
 def test_fe_urine_between_0_and_1():
     for conc in [0.01, 0.5, 1.0, 10.0]:
@@ -121,6 +126,7 @@ def test_fe_urine_increases_with_lower_hepatic_cl():
 
 # --- Net renal CL is non-negative ---
 
+
 def test_cl_renal_total_non_negative():
     result = simulate_tubular_handling(
         drug_name="Drug",
@@ -133,6 +139,7 @@ def test_cl_renal_total_non_negative():
 
 
 # --- Secretion CL in linear range ---
+
 
 def test_secretion_cl_linear_at_low_conc():
     """At very low concentration, cl_sec ≈ Vmax/Km (linear limit)."""
@@ -152,6 +159,7 @@ def test_secretion_cl_linear_at_low_conc():
 
 
 # --- renal_clearance_components ---
+
 
 def test_renal_clearance_components_returns_correct_length():
     concs = [0.1, 0.5, 1.0, 5.0, 10.0]
@@ -193,6 +201,7 @@ def test_renal_clearance_components_empty_list():
 
 
 # --- Validation errors ---
+
 
 def test_negative_gfr_raises():
     with pytest.raises(ValueError, match="gfr_mL_per_min"):
@@ -239,6 +248,7 @@ def test_zero_km_raises():
 
 
 # --- Transporter stored ---
+
 
 def test_transporter_stored_in_result():
     result = simulate_tubular_handling(

@@ -32,8 +32,10 @@ def _monoexp_profile(
     for t in times:
         if abs(ka_per_h - ke) < 1e-9:
             ka_per_h += 1e-6
-        c = (dose_mg / vd_L) * (ka_per_h / (ka_per_h - ke)) * (
-            math.exp(-ke * t) - math.exp(-ka_per_h * t)
+        c = (
+            (dose_mg / vd_L)
+            * (ka_per_h / (ka_per_h - ke))
+            * (math.exp(-ke * t) - math.exp(-ka_per_h * t))
         )
         conc.append(max(c, 0.0))
     return times, conc
@@ -153,7 +155,9 @@ class TestComparePKSimulations:
 
     def test_too_few_time_points(self):
         bad_sim = {
-            "name": "Bad", "times": [0.0, 1.0], "concentrations": [1.0, 0.5],
+            "name": "Bad",
+            "times": [0.0, 1.0],
+            "concentrations": [1.0, 0.5],
             "dose_mg": 100.0,
         }
         with pytest.raises(ValueError):
@@ -236,7 +240,9 @@ class TestFoldChangeMatrix:
 
     def test_malformed_simulation(self):
         bad_sim = {
-            "name": "Bad", "times": [0.0, 1.0], "concentrations": [1.0, 0.5],
+            "name": "Bad",
+            "times": [0.0, 1.0],
+            "concentrations": [1.0, 0.5],
             "dose_mg": 100.0,
         }
         with pytest.raises(ValueError):

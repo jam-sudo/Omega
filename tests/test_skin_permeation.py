@@ -9,10 +9,10 @@ from omega_pbpk.core.skin_permeation import (
     compare_vehicles,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic return type and fields
 # ---------------------------------------------------------------------------
+
 
 def test_returns_dataclass():
     result = calculate_skin_permeation("TestDrug", logP=2.0, mw=300.0)
@@ -31,6 +31,7 @@ def test_fields_populated():
 # Potts-Guy physics: higher logP → higher Kp
 # ---------------------------------------------------------------------------
 
+
 def test_high_logP_higher_kp():
     r_low = calculate_skin_permeation("Drug", logP=0.0, mw=300.0)
     r_high = calculate_skin_permeation("Drug", logP=4.0, mw=300.0)
@@ -41,6 +42,7 @@ def test_high_logP_higher_kp():
 # Higher MW → lower Kp
 # ---------------------------------------------------------------------------
 
+
 def test_high_mw_lower_kp():
     r_low = calculate_skin_permeation("Drug", logP=2.0, mw=200.0)
     r_high = calculate_skin_permeation("Drug", logP=2.0, mw=600.0)
@@ -50,6 +52,7 @@ def test_high_mw_lower_kp():
 # ---------------------------------------------------------------------------
 # Vehicle ordering
 # ---------------------------------------------------------------------------
+
 
 def test_ointment_greater_than_cream():
     r_ointment = calculate_skin_permeation("Drug", logP=2.0, mw=300.0, vehicle="ointment")
@@ -74,6 +77,7 @@ def test_vehicle_enhancement_factor_stored():
 # Skin condition
 # ---------------------------------------------------------------------------
 
+
 def test_damaged_skin_higher_penetration_than_normal():
     r_normal = calculate_skin_permeation("Drug", logP=2.0, mw=300.0, skin_condition="normal")
     r_damaged = calculate_skin_permeation("Drug", logP=2.0, mw=300.0, skin_condition="damaged")
@@ -89,6 +93,7 @@ def test_diseased_skin_higher_penetration_than_normal():
 # ---------------------------------------------------------------------------
 # Lag time
 # ---------------------------------------------------------------------------
+
 
 def test_lag_time_positive():
     r = calculate_skin_permeation("Drug", logP=2.0, mw=300.0)
@@ -111,6 +116,7 @@ def test_lag_time_min_01():
 # Flux and absorbed dose
 # ---------------------------------------------------------------------------
 
+
 def test_steady_state_flux_positive():
     r = calculate_skin_permeation("Drug", logP=2.0, mw=300.0)
     assert r.steady_state_flux_ug_cm2_h > 0.0
@@ -131,6 +137,7 @@ def test_higher_kp_higher_flux():
 # Penetration class
 # ---------------------------------------------------------------------------
 
+
 def test_penetration_class_low():
     # Very hydrophilic + high MW → low permeability
     r = calculate_skin_permeation("Drug", logP=-3.0, mw=700.0)
@@ -146,6 +153,7 @@ def test_penetration_class_high():
 # ---------------------------------------------------------------------------
 # compare_vehicles
 # ---------------------------------------------------------------------------
+
 
 def test_compare_vehicles_returns_5_results():
     results = compare_vehicles("Drug", logP=2.0, mw=300.0)
@@ -167,6 +175,7 @@ def test_compare_vehicles_ointment_first():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_vehicle_raises():
     with pytest.raises(ValueError, match="Invalid vehicle"):

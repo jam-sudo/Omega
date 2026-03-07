@@ -280,9 +280,7 @@ def bile_acid_transporter_ddi(
     # Build notes
     notes_parts: list[str] = [f"bile_level={bile_acid_level} ({multiplier}x normal)"]
     if drug_is_oatp_substrate:
-        notes_parts.append(
-            f"OATP substrate: {oatp_inhibition_pct:.1f}% hepatic uptake inhibition"
-        )
+        notes_parts.append(f"OATP substrate: {oatp_inhibition_pct:.1f}% hepatic uptake inhibition")
     if drug_is_asbt_substrate:
         if multiplier > 1.0:
             notes_parts.append(

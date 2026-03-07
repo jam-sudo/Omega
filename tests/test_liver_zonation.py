@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.liver_zonation import (
@@ -14,10 +12,10 @@ from omega_pbpk.core.liver_zonation import (
     zone_extraction_ratio,
 )
 
-
 # ---------------------------------------------------------------------------
 # zone_extraction_ratio
 # ---------------------------------------------------------------------------
+
 
 def test_zone_er_basic():
     # E = fu*CLint / (Q + fu*CLint)
@@ -54,18 +52,25 @@ def test_zone_er_fu_out_of_range_raises():
 # calculate_outlet_concentration
 # ---------------------------------------------------------------------------
 
+
 def test_outlet_lt_inlet():
     c_out = calculate_outlet_concentration(
-        inlet_conc=10.0, n_zones=3, cl_int_per_zone=[5.0, 5.0, 5.0],
-        flow_L_per_h=90.0, fu_plasma=0.1,
+        inlet_conc=10.0,
+        n_zones=3,
+        cl_int_per_zone=[5.0, 5.0, 5.0],
+        flow_L_per_h=90.0,
+        fu_plasma=0.1,
     )
     assert c_out < 10.0
 
 
 def test_outlet_non_negative():
     c_out = calculate_outlet_concentration(
-        inlet_conc=5.0, n_zones=5, cl_int_per_zone=[20.0] * 5,
-        flow_L_per_h=90.0, fu_plasma=0.5,
+        inlet_conc=5.0,
+        n_zones=5,
+        cl_int_per_zone=[20.0] * 5,
+        flow_L_per_h=90.0,
+        fu_plasma=0.5,
     )
     assert c_out >= 0.0
 
@@ -79,8 +84,11 @@ def test_outlet_monotone_decreasing_with_clint():
 
 def test_outlet_zero_clint_equals_inlet():
     c_out = calculate_outlet_concentration(
-        inlet_conc=7.0, n_zones=4, cl_int_per_zone=[0.0] * 4,
-        flow_L_per_h=90.0, fu_plasma=0.1,
+        inlet_conc=7.0,
+        n_zones=4,
+        cl_int_per_zone=[0.0] * 4,
+        flow_L_per_h=90.0,
+        fu_plasma=0.1,
     )
     assert c_out == pytest.approx(7.0)
 
@@ -98,6 +106,7 @@ def test_outlet_mismatched_lengths_raises():
 # ---------------------------------------------------------------------------
 # simulate_liver_zonation — result type and fields
 # ---------------------------------------------------------------------------
+
 
 def _default_sim(**kwargs):
     defaults = dict(
@@ -131,9 +140,7 @@ def test_extraction_ratio_in_valid_range():
 
 def test_cl_hepatic_equals_q_times_er():
     r = _default_sim(flow_L_per_h=90.0)
-    assert r.cl_hepatic_L_per_h == pytest.approx(
-        90.0 * r.overall_extraction_ratio, rel=1e-4
-    )
+    assert r.cl_hepatic_L_per_h == pytest.approx(90.0 * r.overall_extraction_ratio, rel=1e-4)
 
 
 def test_zone_concentrations_length():
@@ -148,14 +155,21 @@ def test_zone_concentrations_length():
 # simulate_liver_zonation — model behaviour
 # ---------------------------------------------------------------------------
 
+
 def test_n_zones_1_well_stirred_equivalence():
     """n_zones=1 should match single well-stirred hepatic model."""
     cl_int = 9.0
     flow = 90.0
     fu = 0.1
     r = simulate_liver_zonation(
-        "X", inlet_conc_mg_L=1.0, flow_L_per_h=flow, n_zones=1,
-        cl_int_per_zone=[cl_int], fu_plasma=fu, t_end_h=1.0, dt_h=0.5,
+        "X",
+        inlet_conc_mg_L=1.0,
+        flow_L_per_h=flow,
+        n_zones=1,
+        cl_int_per_zone=[cl_int],
+        fu_plasma=fu,
+        t_end_h=1.0,
+        dt_h=0.5,
     )
     e_expected = fu * cl_int / (flow + fu * cl_int)
     assert r.overall_extraction_ratio == pytest.approx(e_expected, rel=1e-6)
@@ -168,9 +182,14 @@ def test_more_zones_approaches_plug_flow():
     for n in [1, 3, 10, 50]:
         cl_zone = total_cl / n
         r = simulate_liver_zonation(
-            "X", 1.0, flow_L_per_h=90.0, n_zones=n,
-            cl_int_per_zone=[cl_zone] * n, fu_plasma=0.1,
-            t_end_h=1.0, dt_h=0.5,
+            "X",
+            1.0,
+            flow_L_per_h=90.0,
+            n_zones=n,
+            cl_int_per_zone=[cl_zone] * n,
+            fu_plasma=0.1,
+            t_end_h=1.0,
+            dt_h=0.5,
         )
         results_er.append(r.overall_extraction_ratio)
     # Parallel tube > well-stirred for same total CLint when extraction > 0
@@ -197,8 +216,14 @@ def test_mass_balance_flow_times_delta_conc():
     flow = 90.0
     fu = 0.1
     r = simulate_liver_zonation(
-        "X", inlet_conc_mg_L=10.0, flow_L_per_h=flow, n_zones=3,
-        cl_int_per_zone=cl_int, fu_plasma=fu, t_end_h=1.0, dt_h=0.5,
+        "X",
+        inlet_conc_mg_L=10.0,
+        flow_L_per_h=flow,
+        n_zones=3,
+        cl_int_per_zone=cl_int,
+        fu_plasma=fu,
+        t_end_h=1.0,
+        dt_h=0.5,
     )
     # Mass balance at steady state (last time point)
     c_in = 10.0
@@ -225,6 +250,7 @@ def test_n_zones_one_has_zonation_index_one():
 # ---------------------------------------------------------------------------
 # periportal_vs_centrilobular
 # ---------------------------------------------------------------------------
+
 
 def test_periportal_vs_centrilobular_returns_dict():
     result = periportal_vs_centrilobular("TestDrug", cl_int_total=10.0)
@@ -266,6 +292,7 @@ def test_periportal_zonation_factor_zero_raises():
 # ---------------------------------------------------------------------------
 # simulate_liver_zonation — input validation
 # ---------------------------------------------------------------------------
+
 
 def test_inlet_conc_zero_raises():
     with pytest.raises(ValueError, match="inlet_conc"):

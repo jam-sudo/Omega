@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.analysis.pk_variability_decomposition import (
@@ -11,7 +12,6 @@ from omega_pbpk.analysis.pk_variability_decomposition import (
     calculate_geometric_cv,
     decompose_variability,
 )
-
 
 # ---------------------------------------------------------------------------
 # calculate_geometric_cv — basic
@@ -27,6 +27,7 @@ def test_gcv_identical_values_near_zero():
 def test_gcv_known_lognormal():
     """GCV should equal approximately sqrt(exp(sigma^2)-1)*100 for known sigma."""
     import math
+
     # Generate pseudo-lognormal with known sigma=0.5 on log scale
     # Mean log = 0, sigma log = 0.5 → GCV ≈ sqrt(exp(0.25)-1)*100 ≈ 53.1%
     values = [math.exp(0.5 * (i - 5) / 5.0) for i in range(11)]

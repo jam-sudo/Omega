@@ -292,9 +292,7 @@ def therapeutic_coverage(
     time_toxic = _total_interval_duration(toxic_intervals)
 
     # Time above lower
-    above_lower_intervals = _find_crossing_intervals_above(
-        times_h, concentrations, lower_threshold
-    )
+    above_lower_intervals = _find_crossing_intervals_above(times_h, concentrations, lower_threshold)
     time_above_lower = _total_interval_duration(above_lower_intervals)
 
     # Time in therapeutic = time above lower - time above upper
@@ -307,9 +305,7 @@ def therapeutic_coverage(
 
     notes: list[str] = []
     if pct_therapeutic < 50.0:
-        notes.append(
-            f"Only {pct_therapeutic:.1f}% of dosing interval is within therapeutic range."
-        )
+        notes.append(f"Only {pct_therapeutic:.1f}% of dosing interval is within therapeutic range.")
     if pct_toxic > 20.0:
         notes.append(f"Concentration exceeds upper threshold for {pct_toxic:.1f}% of the time.")
 
@@ -389,20 +385,14 @@ def pk_pd_breakpoint_analysis(
 
     if pkpd_index == "auc_mic":
         target_attained = auc_mic_ratio >= TARGET_AUC_MIC
-        notes.append(
-            f"AUC/MIC target: >= {TARGET_AUC_MIC}; achieved {auc_mic_ratio:.1f}."
-        )
+        notes.append(f"AUC/MIC target: >= {TARGET_AUC_MIC}; achieved {auc_mic_ratio:.1f}.")
     elif pkpd_index == "t_above_mic":
         target_attained = ft_above_mic_pct >= TARGET_FT_MIC
-        notes.append(
-            f"fT>MIC target: >= {TARGET_FT_MIC}%; achieved {ft_above_mic_pct:.1f}%."
-        )
+        notes.append(f"fT>MIC target: >= {TARGET_FT_MIC}%; achieved {ft_above_mic_pct:.1f}%.")
     else:  # cmax_mic
         target_attained = cmax_mic_ratio >= TARGET_CMAX_MIC_LOW
         if cmax_mic_ratio >= TARGET_CMAX_MIC_HIGH:
-            notes.append(
-                f"Cmax/MIC {cmax_mic_ratio:.1f} >= {TARGET_CMAX_MIC_HIGH} (optimal)."
-            )
+            notes.append(f"Cmax/MIC {cmax_mic_ratio:.1f} >= {TARGET_CMAX_MIC_HIGH} (optimal).")
         else:
             notes.append(
                 f"Cmax/MIC target: >= {TARGET_CMAX_MIC_LOW}; achieved {cmax_mic_ratio:.1f}."

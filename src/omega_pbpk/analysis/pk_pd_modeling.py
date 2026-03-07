@@ -170,8 +170,7 @@ def fit_emax_model(
     residuals = [o - p for o, p in zip(effects, predicted, strict=False)]
 
     notes = (
-        f"Hill coefficient n={best_n:.1f}; grid search over n in [0.5, 1.0, 1.5, 2.0]; "
-        f"R²={r2:.4f}"
+        f"Hill coefficient n={best_n:.1f}; grid search over n in [0.5, 1.0, 1.5, 2.0]; R²={r2:.4f}"
     )
 
     return EmaxFitResult(
@@ -291,13 +290,10 @@ def fit_indirect_response_model(
         raise ValueError("responses must be a non-empty list")
     if len(times) != len(responses):
         raise ValueError(
-            f"times and responses must have the same length, "
-            f"got {len(times)} and {len(responses)}"
+            f"times and responses must have the same length, got {len(times)} and {len(responses)}"
         )
     if effect_type not in _valid_effect_types:
-        raise ValueError(
-            f"effect_type must be one of {_valid_effect_types}, got {effect_type!r}"
-        )
+        raise ValueError(f"effect_type must be one of {_valid_effect_types}, got {effect_type!r}")
     if kin <= 0:
         raise ValueError(f"kin must be positive, got {kin}")
     if kout_guess <= 0:
@@ -346,7 +342,7 @@ def fit_indirect_response_model(
 
     notes = (
         f"effect_type={effect_type}; grid search kout in "
-        f"[{kout_guess*0.5:.3g}, {kout_guess:.3g}, {kout_guess*2:.3g}]; "
+        f"[{kout_guess * 0.5:.3g}, {kout_guess:.3g}, {kout_guess * 2:.3g}]; "
         f"R0=kin/kout={r0:.4g}; R²={r2:.4f}"
     )
 

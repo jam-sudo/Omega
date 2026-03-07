@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.prediction.protein_interaction import (
@@ -11,10 +10,10 @@ from omega_pbpk.prediction.protein_interaction import (
     screen_for_protein_interactions,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _base(protein="albumin", **overrides):
     """Return minimal valid kwargs for predict_protein_binding."""
@@ -34,6 +33,7 @@ def _base(protein="albumin", **overrides):
 # ---------------------------------------------------------------------------
 # Albumin tests
 # ---------------------------------------------------------------------------
+
 
 class TestAlbumin:
     def test_high_logP_low_kd(self):
@@ -74,6 +74,7 @@ class TestAlbumin:
 # Alpha-1-AGP tests
 # ---------------------------------------------------------------------------
 
+
 class TestAlpha1AGP:
     def test_basic_drug_stronger_agp_binding(self):
         """Basic drug (pka_base > 7) → stronger AGP binding."""
@@ -105,6 +106,7 @@ class TestAlpha1AGP:
 # CYP3A4 tests
 # ---------------------------------------------------------------------------
 
+
 class TestCYP3A4:
     def test_kd_positive(self):
         r = predict_protein_binding(**_base(protein="cyp3a4"))
@@ -124,6 +126,7 @@ class TestCYP3A4:
 # P-glycoprotein tests
 # ---------------------------------------------------------------------------
 
+
 class TestPGlycoprotein:
     def test_kd_positive(self):
         r = predict_protein_binding(**_base(protein="p_glycoprotein"))
@@ -131,8 +134,12 @@ class TestPGlycoprotein:
 
     def test_low_hb_count_stronger_pgp(self):
         """Low HBD+HBA (< 5) → pKd boosted by +0.5 → lower Kd."""
-        r_low = predict_protein_binding(**_base(protein="p_glycoprotein", n_hbd=1, n_hba=2))  # sum=3
-        r_high = predict_protein_binding(**_base(protein="p_glycoprotein", n_hbd=3, n_hba=3))  # sum=6
+        r_low = predict_protein_binding(
+            **_base(protein="p_glycoprotein", n_hbd=1, n_hba=2)
+        )  # sum=3
+        r_high = predict_protein_binding(
+            **_base(protein="p_glycoprotein", n_hbd=3, n_hba=3)
+        )  # sum=6
         assert r_low.predicted_kd_uM < r_high.predicted_kd_uM
 
     def test_fu_is_one(self):
@@ -143,6 +150,7 @@ class TestPGlycoprotein:
 # ---------------------------------------------------------------------------
 # Plasma generic tests
 # ---------------------------------------------------------------------------
+
 
 class TestPlasmaGeneric:
     def test_kd_between_albumin_and_agp(self):
@@ -162,6 +170,7 @@ class TestPlasmaGeneric:
 # ---------------------------------------------------------------------------
 # Interaction scores tests
 # ---------------------------------------------------------------------------
+
 
 class TestInteractionScores:
     def test_hydrophobic_score_proportional_to_logP(self):
@@ -199,6 +208,7 @@ class TestInteractionScores:
 # Binding mode classification tests
 # ---------------------------------------------------------------------------
 
+
 class TestBindingMode:
     def test_hydrophobic_pocket_for_lipophilic_nonpolar(self):
         """logP > 3 and PSA < 60 and no charge → hydrophobic_pocket."""
@@ -224,6 +234,7 @@ class TestBindingMode:
 # ---------------------------------------------------------------------------
 # Displacement risk tests
 # ---------------------------------------------------------------------------
+
 
 class TestDisplacementRisk:
     def test_tight_binder_high_risk(self):
@@ -251,6 +262,7 @@ class TestDisplacementRisk:
 # Input validation tests
 # ---------------------------------------------------------------------------
 
+
 class TestInputValidation:
     def test_invalid_protein_raises(self):
         with pytest.raises(ValueError, match="protein_name"):
@@ -277,6 +289,7 @@ class TestInputValidation:
 # Frozen dataclass test
 # ---------------------------------------------------------------------------
 
+
 class TestFrozenDataclass:
     def test_frozen(self):
         r = predict_protein_binding(**_base())
@@ -292,13 +305,27 @@ class TestFrozenDataclass:
 # Screen function tests
 # ---------------------------------------------------------------------------
 
+
 class TestScreenForProteinInteractions:
     def _compounds(self):
         return [
-            {"name": "Lipophilic", "logP": 5.0, "mw": 350.0, "psa": 30.0,
-             "n_hbd": 1, "n_hba": 2, "pka_acid": 3.5},
-            {"name": "Hydrophilic", "logP": -1.0, "mw": 200.0, "psa": 150.0,
-             "n_hbd": 5, "n_hba": 8},
+            {
+                "name": "Lipophilic",
+                "logP": 5.0,
+                "mw": 350.0,
+                "psa": 30.0,
+                "n_hbd": 1,
+                "n_hba": 2,
+                "pka_acid": 3.5,
+            },
+            {
+                "name": "Hydrophilic",
+                "logP": -1.0,
+                "mw": 200.0,
+                "psa": 150.0,
+                "n_hbd": 5,
+                "n_hba": 8,
+            },
         ]
 
     def test_returns_nested_dict(self):
@@ -310,13 +337,11 @@ class TestScreenForProteinInteractions:
     def test_all_proteins_present_by_default(self):
         result = screen_for_protein_interactions(self._compounds())
         expected_proteins = {"albumin", "alpha1_agp", "cyp3a4", "p_glycoprotein", "plasma_generic"}
-        for compound_name, protein_dict in result.items():
+        for _compound_name, protein_dict in result.items():
             assert set(protein_dict.keys()) == expected_proteins
 
     def test_custom_protein_subset(self):
-        result = screen_for_protein_interactions(
-            self._compounds(), proteins=["albumin", "cyp3a4"]
-        )
+        result = screen_for_protein_interactions(self._compounds(), proteins=["albumin", "cyp3a4"])
         for protein_dict in result.values():
             assert set(protein_dict.keys()) == {"albumin", "cyp3a4"}
 

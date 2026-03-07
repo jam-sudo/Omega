@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.clinical.pediatric_renal import (
     PediatricRenalResult,
-    gfr_maturation,
     calculate_pediatric_bsa,
-    simulate_pediatric_renal_pk,
+    gfr_maturation,
     pediatric_dose_schedule,
+    simulate_pediatric_renal_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # gfr_maturation
 # ---------------------------------------------------------------------------
+
 
 class TestGFRMaturation:
     def test_newborn_gfr_very_low(self):
@@ -42,8 +41,8 @@ class TestGFRMaturation:
         fracs = [gfr_maturation(a) for a in ages]
         for i in range(len(fracs) - 1):
             assert fracs[i] < fracs[i + 1], (
-                f"GFR not increasing at age {ages[i]} → {ages[i+1]}: "
-                f"{fracs[i]:.4f} → {fracs[i+1]:.4f}"
+                f"GFR not increasing at age {ages[i]} → {ages[i + 1]}: "
+                f"{fracs[i]:.4f} → {fracs[i + 1]:.4f}"
             )
 
     def test_clamped_to_min_001(self):
@@ -67,6 +66,7 @@ class TestGFRMaturation:
 # ---------------------------------------------------------------------------
 # calculate_pediatric_bsa
 # ---------------------------------------------------------------------------
+
 
 class TestCalculatePediatricBSA:
     def test_heavier_child_larger_bsa(self):
@@ -101,7 +101,7 @@ class TestCalculatePediatricBSA:
     def test_dubois_with_height(self):
         """DuBois formula: BSA = 0.007184 * W^0.425 * H^0.725."""
         w, h = 20.0, 110.0
-        expected = 0.007184 * (w ** 0.425) * (h ** 0.725)
+        expected = 0.007184 * (w**0.425) * (h**0.725)
         bsa = calculate_pediatric_bsa(w, height_cm=h)
         assert abs(bsa - expected) < 0.001
 
@@ -109,6 +109,7 @@ class TestCalculatePediatricBSA:
 # ---------------------------------------------------------------------------
 # simulate_pediatric_renal_pk — structure and basic sanity
 # ---------------------------------------------------------------------------
+
 
 def _base_sim(**kwargs) -> PediatricRenalResult:
     defaults = dict(
@@ -230,6 +231,7 @@ class TestPediatricRenalInputValidation:
 # pediatric_dose_schedule
 # ---------------------------------------------------------------------------
 
+
 class TestPediatricDoseSchedule:
     def test_returns_list_sorted_by_age(self):
         ages = [12.0, 0.0, 60.0, 6.0]
@@ -249,9 +251,13 @@ class TestPediatricDoseSchedule:
 
     def test_empty_lists_return_empty(self):
         results = pediatric_dose_schedule(
-            drug_name="D", age_months_list=[], weight_kg_list=[],
-            adult_cl_renal_L_per_h=3.0, adult_cl_hepatic_L_per_h=5.0,
-            adult_vd_L=50.0, adult_dose_mg=500.0,
+            drug_name="D",
+            age_months_list=[],
+            weight_kg_list=[],
+            adult_cl_renal_L_per_h=3.0,
+            adult_cl_hepatic_L_per_h=5.0,
+            adult_vd_L=50.0,
+            adult_dose_mg=500.0,
         )
         assert results == []
 

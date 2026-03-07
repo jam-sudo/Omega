@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BileAcidTransportResult:
     """Result of bile acid transporter-driven enterohepatic cycling simulation."""
@@ -34,8 +35,8 @@ class BileAcidTransportResult:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-_VD_PORTAL_L = 5.0   # portal vein apparent volume (L)
-_VD_HEP_L = 2.0      # hepatocyte apparent volume (L)
+_VD_PORTAL_L = 5.0  # portal vein apparent volume (L)
+_VD_HEP_L = 2.0  # hepatocyte apparent volume (L)
 _K_BILE_PER_H = 0.5  # first-order bile → intestine transit rate (1/h)
 _K_REABS_PER_H = 2.0  # first-order intestinal reabsorption rate (1/h)
 _REABS_FRACTION = 0.95  # fraction of intestinal amount returning to portal
@@ -57,6 +58,7 @@ def _auc_trapz(times: list[float], values: list[float]) -> float:
 # ---------------------------------------------------------------------------
 # Main simulation
 # ---------------------------------------------------------------------------
+
 
 def simulate_bile_acid_transport(
     drug_name: str,
@@ -128,10 +130,10 @@ def simulate_bile_acid_transport(
 
     # --- Initial conditions ---
     # Dose administered directly into portal vein compartment
-    c_portal = dose_mg / _VD_PORTAL_L   # mg/L
-    c_hep = 0.0                          # mg/L
-    a_bile = 0.0                         # mg (amount)
-    a_intestine = 0.0                    # mg (amount)
+    c_portal = dose_mg / _VD_PORTAL_L  # mg/L
+    c_hep = 0.0  # mg/L
+    a_bile = 0.0  # mg (amount)
+    a_intestine = 0.0  # mg (amount)
 
     times: list[float] = []
     cp_list: list[float] = []
@@ -159,10 +161,7 @@ def simulate_bile_acid_transport(
         reabsorption_rate_mg_h = _REABS_FRACTION * intestinal_removal
 
         # ODEs (forward Euler)
-        dc_portal = (
-            -hepatic_uptake / _VD_PORTAL_L
-            + reabsorption_rate_mg_h / _VD_PORTAL_L
-        )
+        dc_portal = -hepatic_uptake / _VD_PORTAL_L + reabsorption_rate_mg_h / _VD_PORTAL_L
         dc_hep = (hepatic_uptake - biliary_excretion - passive_elim) / _VD_HEP_L
         da_bile = biliary_excretion - bile_transit
         da_intestine = bile_transit - intestinal_removal
@@ -179,8 +178,7 @@ def simulate_bile_acid_transport(
     # Estimate number of enterohepatic cycles: each intestinal-to-portal transfer
     # is one cycle; estimate from cumulative reabsorbed / original dose
     total_reabsorbed = sum(
-        _REABS_FRACTION * _K_REABS_PER_H * ai_list[i] * dt_h
-        for i in range(len(ai_list))
+        _REABS_FRACTION * _K_REABS_PER_H * ai_list[i] * dt_h for i in range(len(ai_list))
     )
     n_cycles = total_reabsorbed / dose_mg if dose_mg > 0 else 0.0
 
@@ -209,6 +207,7 @@ def simulate_bile_acid_transport(
 # ---------------------------------------------------------------------------
 # Transporter inhibition effect
 # ---------------------------------------------------------------------------
+
 
 def transporter_inhibition_effect(
     drug_name: str,
@@ -280,9 +279,7 @@ def transporter_inhibition_effect(
     )
 
     auc_ratio = (
-        inhibited.auc_portal / normal.auc_portal
-        if normal.auc_portal > 0.0
-        else float("nan")
+        inhibited.auc_portal / normal.auc_portal if normal.auc_portal > 0.0 else float("nan")
     )
 
     if auc_ratio > 2.0:

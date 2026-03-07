@@ -371,9 +371,7 @@ def adjust_dose_renal(
     if gfr_mL_per_min < 0:
         raise ValueError(f"gfr_mL_per_min must be >=0, got {gfr_mL_per_min}")
     if not (0.0 <= f_renal_excretion <= 1.0):
-        raise ValueError(
-            f"f_renal_excretion must be in [0, 1], got {f_renal_excretion}"
-        )
+        raise ValueError(f"f_renal_excretion must be in [0, 1], got {f_renal_excretion}")
     valid_methods = ("dose_reduction", "interval_extension", "both")
     if method not in valid_methods:
         raise ValueError(f"method must be one of {valid_methods}, got '{method}'")
@@ -413,9 +411,7 @@ def adjust_dose_renal(
     if category == "ESRD":
         notes.append("ESRD: consider dialysis clearance and supplemental dosing.")
     if f_renal_excretion >= 0.8:
-        notes.append(
-            "High renal excretion fraction (>=80%) — renal impairment has major impact."
-        )
+        notes.append("High renal excretion fraction (>=80%) — renal impairment has major impact.")
     if dose_factor <= _MIN_DOSE_FACTOR:
         notes.append("Dose factor clamped to minimum (0.1). Use with caution.")
 

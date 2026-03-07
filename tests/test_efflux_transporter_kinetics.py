@@ -13,7 +13,6 @@ from omega_pbpk.core.efflux_transporter_kinetics import (
     simulate_caco2_transport,
 )
 
-
 # ---------------------------------------------------------------------------
 # efflux_rate
 # ---------------------------------------------------------------------------

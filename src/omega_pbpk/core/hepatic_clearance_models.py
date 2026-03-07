@@ -173,9 +173,7 @@ def dispersion_model(
     # EH = 1 - [4a * exp(1/(2Dn))] / [(1+a)^2 * exp(a/(2Dn)) - (1-a)^2 * exp(-a/(2Dn))]
     # where a = sqrt(1 + 4*r*Dn)
     a = math.sqrt(1.0 + 4.0 * r * dn)
-    denom = (1.0 + a) ** 2 * math.exp(a / (2.0 * dn)) - (1.0 - a) ** 2 * math.exp(
-        -a / (2.0 * dn)
-    )
+    denom = (1.0 + a) ** 2 * math.exp(a / (2.0 * dn)) - (1.0 - a) ** 2 * math.exp(-a / (2.0 * dn))
     if abs(denom) < 1e-10:
         # Fallback to well-stirred approximation
         eh = r / (1.0 + r)

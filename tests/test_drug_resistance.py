@@ -10,10 +10,10 @@ from omega_pbpk.clinical.drug_resistance import (
     simulate_drug_resistance,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic smoke
 # ---------------------------------------------------------------------------
+
 
 def test_simulate_returns_result_type():
     r = simulate_drug_resistance(
@@ -46,6 +46,7 @@ def test_result_fields_present():
 # ---------------------------------------------------------------------------
 # High vs low drug conc
 # ---------------------------------------------------------------------------
+
 
 def test_high_conc_slower_resistance_development():
     r_low = simulate_drug_resistance(
@@ -96,6 +97,7 @@ def test_higher_conc_better_max_response():
 # EC50 resistant: higher → slower time to resistance
 # ---------------------------------------------------------------------------
 
+
 def test_higher_ec50_resistant_faster_resistance():
     r_lo = simulate_drug_resistance(
         "LowR",
@@ -119,6 +121,7 @@ def test_higher_ec50_resistant_faster_resistance():
 # ---------------------------------------------------------------------------
 # Initial resistant fraction
 # ---------------------------------------------------------------------------
+
 
 def test_high_initial_resistant_fraction_faster_resistance():
     r_low = simulate_drug_resistance(
@@ -156,6 +159,7 @@ def test_initial_resistant_fraction_recorded_correctly():
 # No treatment vs treatment
 # ---------------------------------------------------------------------------
 
+
 def test_no_treatment_cells_grow():
     r = simulate_drug_resistance(
         "NoTreat",
@@ -186,6 +190,7 @@ def test_treatment_can_reduce_burden():
 # ---------------------------------------------------------------------------
 # resistance_mitigation
 # ---------------------------------------------------------------------------
+
 
 def test_resistance_mitigation_returns_list():
     results = resistance_mitigation(
@@ -226,6 +231,7 @@ def test_resistance_mitigation_names_contain_conc():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_ec50_resistant_less_than_sensitive_raises():
     with pytest.raises(ValueError, match="ec50_resistant_mg_L"):
@@ -272,6 +278,7 @@ def test_initial_resistant_fraction_one_raises():
 # ---------------------------------------------------------------------------
 # Numeric plausibility
 # ---------------------------------------------------------------------------
+
 
 def test_time_steps_correct():
     r = simulate_drug_resistance(

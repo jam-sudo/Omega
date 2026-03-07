@@ -1,21 +1,22 @@
 """Tests for nutraceutical/food-drug interactions — Phase 316."""
+
 from __future__ import annotations
 
 import pytest
 
 from omega_pbpk.clinical.nutraceutical_ddi import (
-    NutraDDIResult,
     ChelationResult,
-    grapefruit_juice_interaction,
-    st_johns_wort_interaction,
-    mineral_chelation,
+    NutraDDIResult,
     classify_nutra_interaction_risk,
+    grapefruit_juice_interaction,
+    mineral_chelation,
+    st_johns_wort_interaction,
 )
-
 
 # ---------------------------------------------------------------------------
 # grapefruit_juice_interaction
 # ---------------------------------------------------------------------------
+
 
 def test_gfj_returns_result():
     r = grapefruit_juice_interaction("Simvastatin", 10.0, 200.0, 0.9, 40.0)
@@ -91,6 +92,7 @@ def test_gfj_no_interaction_near_zero_fm():
 # st_johns_wort_interaction
 # ---------------------------------------------------------------------------
 
+
 def test_sjw_returns_result():
     r = st_johns_wort_interaction("Cyclosporine", 30.0, 500.0, 0.7, 0.6, 100.0)
     assert isinstance(r, NutraDDIResult)
@@ -144,6 +146,7 @@ def test_sjw_profiles_nonnegative():
 # ---------------------------------------------------------------------------
 # mineral_chelation
 # ---------------------------------------------------------------------------
+
 
 def test_chelation_returns_result():
     r = mineral_chelation("Ciprofloxacin", 500.0, "calcium", 1000.0, 6.0, "fluoroquinolone")
@@ -207,6 +210,7 @@ def test_chelation_effective_dose_mass_balance():
 # ---------------------------------------------------------------------------
 # classify_nutra_interaction_risk
 # ---------------------------------------------------------------------------
+
 
 def test_classify_significant_increase():
     assert classify_nutra_interaction_risk(2.5, "increase") == "significant_increase"

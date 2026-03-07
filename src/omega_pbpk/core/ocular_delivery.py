@@ -368,8 +368,8 @@ def compare_delivery_systems(
         t_dose = inj_idx * 28.0
         c0 = dose_mg / vd_vitreous_mL
         # Add monoexponential contribution from this injection
-        c_monthly += c0 * np.exp(-ke_vitreous_per_day * np.maximum(t_arr - t_dose, 0.0)) * (
-            t_arr >= t_dose
+        c_monthly += (
+            c0 * np.exp(-ke_vitreous_per_day * np.maximum(t_arr - t_dose, 0.0)) * (t_arr >= t_dose)
         )
 
     dt_arr = np.diff(t_arr)
@@ -401,9 +401,7 @@ def compare_delivery_systems(
         "monthly_ivt_n_injections": n_injections,
         "implant_auc": implant.auc_vitreous,
         "implant_days_above_ec50": implant.days_above_ec50,
-        "best_days_above_ec50": max(
-            single.days_above_ec50, monthly_above, implant.days_above_ec50
-        ),
+        "best_days_above_ec50": max(single.days_above_ec50, monthly_above, implant.days_above_ec50),
     }
 
     return {

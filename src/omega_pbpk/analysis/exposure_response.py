@@ -198,9 +198,7 @@ def _log_likelihood_null(responses: list[float]) -> float:
     n = len(responses)
     p_bar = sum(responses) / n
     p_bar = max(1e-12, min(1 - 1e-12, p_bar))
-    return sum(
-        y * math.log(p_bar) + (1 - y) * math.log(1 - p_bar) for y in responses
-    )
+    return sum(y * math.log(p_bar) + (1 - y) * math.log(1 - p_bar) for y in responses)
 
 
 def _log_likelihood_logistic(
@@ -260,9 +258,7 @@ def fit_exposure_response(
     if len(exposures) < 3:
         raise ValueError("At least 3 observations required for fitting")
     if model_type not in _VALID_MODEL_TYPES:
-        raise ValueError(
-            f"model_type must be one of {_VALID_MODEL_TYPES}, got '{model_type}'"
-        )
+        raise ValueError(f"model_type must be one of {_VALID_MODEL_TYPES}, got '{model_type}'")
     if any(not math.isfinite(v) for v in exposures):
         raise ValueError("exposures contains non-finite values")
     if any(not math.isfinite(v) for v in responses):
@@ -275,8 +271,7 @@ def fit_exposure_response(
     if model_type == "emax":
         params = _fit_emax(exposures, responses)
         predicted = [
-            _emax_predict(x, params["emax"], params["ec50"], params["n"])
-            for x in exposures
+            _emax_predict(x, params["emax"], params["ec50"], params["n"]) for x in exposures
         ]
         r2 = _r_squared(responses, predicted)
         ec50 = params["ec50"]
@@ -298,10 +293,7 @@ def fit_exposure_response(
         params = _fit_linear(exposures, responses)
         predicted = [params["a"] + params["b"] * x for x in exposures]
         r2 = _r_squared(responses, predicted)
-        notes = (
-            f"Linear model: E = {params['a']:.3g} + {params['b']:.3g}·X. "
-            f"R²={r2:.3f}"
-        )
+        notes = f"Linear model: E = {params['a']:.3g} + {params['b']:.3g}·X. R²={r2:.3f}"
         return ExposureResponseResult(
             model_type=model_type,
             n_subjects=n,
@@ -325,10 +317,7 @@ def fit_exposure_response(
         else:
             pseudo_r2 = max(0.0, 1.0 - ll_model / ll_null)
 
-        notes = (
-            f"Logistic model: P = sigmoid({a:.3g} + {b:.3g}·X). "
-            f"McFadden R²={pseudo_r2:.3f}"
-        )
+        notes = f"Logistic model: P = sigmoid({a:.3g} + {b:.3g}·X). McFadden R²={pseudo_r2:.3f}"
         return ExposureResponseResult(
             model_type=model_type,
             n_subjects=n,
@@ -417,9 +406,10 @@ def quartile_analysis(
     notes = (
         f"Quartile boundaries: Q25={q25:.3g}, Q50={q50:.3g}, Q75={q75:.3g}. "
         f"Q1 mean={q1_mean:.3g}, Q4 mean={q4_mean:.3g}. "
-        f"Fold-change Q4/Q1: {fold_change:.2f}" if fold_change is not None
+        f"Fold-change Q4/Q1: {fold_change:.2f}"
+        if fold_change is not None
         else f"Quartile boundaries: Q25={q25:.3g}, Q50={q50:.3g}, Q75={q75:.3g}. "
-             "Q1 mean ≈ 0; fold-change undefined."
+        "Q1 mean ≈ 0; fold-change undefined."
     )
 
     return {

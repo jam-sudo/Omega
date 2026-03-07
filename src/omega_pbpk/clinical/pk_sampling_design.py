@@ -43,14 +43,10 @@ def _one_cpt_conc(
     # oral
     if abs(ka - ke) < 1e-9:
         ka = ke + 1e-9
-    return (
-        (dose_mg * f * ka) / (vd * (ka - ke))
-    ) * (math.exp(-ke * t) - math.exp(-ka * t))
+    return ((dose_mg * f * ka) / (vd * (ka - ke))) * (math.exp(-ke * t) - math.exp(-ka * t))
 
 
-def _true_auc_oral(
-    ka: float, ke: float, vd: float, dose_mg: float, f: float = 1.0
-) -> float:
+def _true_auc_oral(ka: float, ke: float, vd: float, dose_mg: float, f: float = 1.0) -> float:
     """Analytical AUC0-inf for 1-cpt oral model."""
     return (dose_mg * f) / (vd * ke)
 
@@ -235,10 +231,7 @@ def evaluate_sampling_scheme(
     coverage = min(coverage, 100.0)
 
     cls = _coverage_class(coverage)
-    notes = (
-        f"Scheme with {len(tps)} samples covers {coverage:.1f}% of true AUC. "
-        f"Class: {cls}."
-    )
+    notes = f"Scheme with {len(tps)} samples covers {coverage:.1f}% of true AUC. Class: {cls}."
 
     return SamplingSchemeResult(
         timepoints_h=tps,

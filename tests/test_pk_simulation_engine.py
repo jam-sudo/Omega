@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.core.pk_simulation_engine import (
@@ -12,7 +13,6 @@ from omega_pbpk.core.pk_simulation_engine import (
     create_dosing_regimen,
     simulate_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # create_dosing_regimen
@@ -149,14 +149,14 @@ class TestSimulatePK1CptIV:
 
 class TestSimulatePK1CptOral:
     def test_tmax_delayed_vs_iv(self):
-        r_iv = simulate_pk("Drug", 100.0, 2.0, 10.0, route="iv")
         r_oral = simulate_pk("Drug", 100.0, 2.0, 10.0, route="oral", ka_per_h=1.0)
         assert r_oral.tmax_h > 0.0
 
     def test_same_t_half_as_iv(self):
         cl, vd = 2.0, 20.0
-        r_oral = simulate_pk("Drug", 100.0, cl, vd, route="oral",
-                              ka_per_h=1.0, f_oral=1.0, t_end_h=48.0, dt_h=0.1)
+        r_oral = simulate_pk(
+            "Drug", 100.0, cl, vd, route="oral", ka_per_h=1.0, f_oral=1.0, t_end_h=48.0, dt_h=0.1
+        )
         expected_t_half = math.log(2.0) * vd / cl
         assert r_oral.t_half_h == pytest.approx(expected_t_half, rel=0.15)
 
@@ -177,32 +177,61 @@ class TestSimulatePK1CptOral:
 
 class TestSimulatePK2Cpt:
     def test_peripheral_conc_nonzero(self):
-        r = simulate_pk("Drug", 100.0, 5.0, 10.0, route="iv",
-                        n_compartments=2, q12_L_per_h=2.0, vd2_L=20.0,
-                        t_end_h=24.0)
+        r = simulate_pk(
+            "Drug",
+            100.0,
+            5.0,
+            10.0,
+            route="iv",
+            n_compartments=2,
+            q12_L_per_h=2.0,
+            vd2_L=20.0,
+            t_end_h=24.0,
+        )
         assert any(c > 0 for c in r.c_peripheral_mg_L)
 
     def test_vss_equals_vd1_plus_vd2(self):
-        r = simulate_pk("Drug", 100.0, 5.0, 10.0, route="iv",
-                        n_compartments=2, q12_L_per_h=2.0, vd2_L=20.0)
+        r = simulate_pk(
+            "Drug", 100.0, 5.0, 10.0, route="iv", n_compartments=2, q12_L_per_h=2.0, vd2_L=20.0
+        )
         assert r.vss_L == pytest.approx(30.0)
 
     def test_2cpt_double_dose_doubles_cmax(self):
-        r1 = simulate_pk("Drug", 100.0, 5.0, 10.0, route="iv",
-                         n_compartments=2, q12_L_per_h=2.0, vd2_L=20.0, t_end_h=48.0)
-        r2 = simulate_pk("Drug", 200.0, 5.0, 10.0, route="iv",
-                         n_compartments=2, q12_L_per_h=2.0, vd2_L=20.0, t_end_h=48.0)
+        r1 = simulate_pk(
+            "Drug",
+            100.0,
+            5.0,
+            10.0,
+            route="iv",
+            n_compartments=2,
+            q12_L_per_h=2.0,
+            vd2_L=20.0,
+            t_end_h=48.0,
+        )
+        r2 = simulate_pk(
+            "Drug",
+            200.0,
+            5.0,
+            10.0,
+            route="iv",
+            n_compartments=2,
+            q12_L_per_h=2.0,
+            vd2_L=20.0,
+            t_end_h=48.0,
+        )
         assert r2.cmax_mg_L == pytest.approx(2 * r1.cmax_mg_L, rel=0.05)
 
     def test_2cpt_peripheral_conc_list_matches_time_length(self):
-        r = simulate_pk("Drug", 100.0, 5.0, 10.0, route="iv",
-                        n_compartments=2, q12_L_per_h=2.0, vd2_L=20.0)
+        r = simulate_pk(
+            "Drug", 100.0, 5.0, 10.0, route="iv", n_compartments=2, q12_L_per_h=2.0, vd2_L=20.0
+        )
         assert len(r.c_peripheral_mg_L) == len(r.times_h)
 
     def test_2cpt_missing_vd2_raises(self):
         with pytest.raises(ValueError):
-            simulate_pk("Drug", 100.0, 5.0, 10.0, route="iv",
-                        n_compartments=2, q12_L_per_h=2.0, vd2_L=0.0)
+            simulate_pk(
+                "Drug", 100.0, 5.0, 10.0, route="iv", n_compartments=2, q12_L_per_h=2.0, vd2_L=0.0
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -215,8 +244,17 @@ class TestMultipleDosing:
         """After many doses, Cmax should be higher than after the first dose."""
         # Use 1h interval so drug accumulates noticeably before 10 doses
         regimen = create_dosing_regimen(100.0, 1.0, 10)
-        r = simulate_pk("Drug", 100.0, 5.0, 10.0, route="oral",
-                        ka_per_h=2.0, dosing_regimen=regimen, t_end_h=12.0, dt_h=0.05)
+        r = simulate_pk(
+            "Drug",
+            100.0,
+            5.0,
+            10.0,
+            route="oral",
+            ka_per_h=2.0,
+            dosing_regimen=regimen,
+            t_end_h=12.0,
+            dt_h=0.05,
+        )
         # Cmax over doses 8-10 window should exceed Cmax in first dose interval
         # First dose interval: t in [0, 1h)
         idx_1h = int(1.0 / 0.05)
@@ -230,8 +268,16 @@ class TestMultipleDosing:
     def test_create_regimen_and_simulate_consistent(self):
         regimen = create_dosing_regimen(100.0, 12.0, 3)
         assert len(regimen) == 3
-        r = simulate_pk("Drug", 100.0, 2.0, 10.0, route="oral",
-                        ka_per_h=1.0, dosing_regimen=regimen, t_end_h=36.0)
+        r = simulate_pk(
+            "Drug",
+            100.0,
+            2.0,
+            10.0,
+            route="oral",
+            ka_per_h=1.0,
+            dosing_regimen=regimen,
+            t_end_h=36.0,
+        )
         assert r.cmax_mg_L > 0
 
 

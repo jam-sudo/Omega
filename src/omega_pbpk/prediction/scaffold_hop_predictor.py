@@ -305,8 +305,14 @@ def predict_scaffold_hop_impact(
     )
 
     recommendation = _overall_recommendation(
-        risk_flags, vd_change, abs_change, cl_change,
-        delta_mw, delta_logP, delta_psa, candidate_drug,
+        risk_flags,
+        vd_change,
+        abs_change,
+        cl_change,
+        delta_mw,
+        delta_logP,
+        delta_psa,
+        candidate_drug,
     )
 
     # Build notes

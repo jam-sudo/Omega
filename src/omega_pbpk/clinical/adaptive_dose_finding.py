@@ -24,8 +24,8 @@ from dataclasses import dataclass, field
 # BOIN design constants
 # ---------------------------------------------------------------------------
 
-_BOIN_PHI1 = 0.6   # lower phi multiplier
-_BOIN_PHI2 = 1.4   # upper phi multiplier
+_BOIN_PHI1 = 0.6  # lower phi multiplier
+_BOIN_PHI2 = 1.4  # upper phi multiplier
 _BOIN_ELIM_THRESHOLD = 0.95  # posterior probability threshold for elimination
 
 
@@ -118,13 +118,9 @@ def boin_decision(
     if n_patients <= 0:
         raise ValueError(f"n_patients must be > 0, got {n_patients}.")
     if n_dlt < 0 or n_dlt > n_patients:
-        raise ValueError(
-            f"n_dlt must be in [0, {n_patients}], got {n_dlt}."
-        )
+        raise ValueError(f"n_dlt must be in [0, {n_patients}], got {n_dlt}.")
     if not (0.0 < target_toxicity < 1.0):
-        raise ValueError(
-            f"target_toxicity must be in (0, 1), got {target_toxicity}."
-        )
+        raise ValueError(f"target_toxicity must be in (0, 1), got {target_toxicity}.")
 
     phi = target_toxicity
     if lambda1 is None:
@@ -187,9 +183,7 @@ def three_plus_three(
         if np_ <= 0:
             raise ValueError(f"n_patients[{i}] must be > 0, got {np_}.")
         if nd < 0 or nd > np_:
-            raise ValueError(
-                f"dlt_counts[{i}]={nd} out of range for n_patients[{i}]={np_}."
-            )
+            raise ValueError(f"dlt_counts[{i}]={nd} out of range for n_patients[{i}]={np_}.")
     for d in doses_mg:
         if d <= 0:
             raise ValueError(f"All dose levels must be > 0, got {d}.")
@@ -226,17 +220,13 @@ def three_plus_three(
                 rec_dose = current_dose
                 decision = "mtd_found"
                 notes = (
-                    f"0/3 DLTs at {current_dose} mg (highest dose). "
-                    "Declare highest dose as MTD."
+                    f"0/3 DLTs at {current_dose} mg (highest dose). Declare highest dose as MTD."
                 )
         elif nd == 1:
             # 1/3: expand cohort
             rec_dose = current_dose
             decision = "stay"
-            notes = (
-                f"1/3 DLTs at {current_dose} mg. "
-                "Expand cohort to 6 patients at this dose."
-            )
+            notes = f"1/3 DLTs at {current_dose} mg. Expand cohort to 6 patients at this dose."
         else:
             # ≥2/3: deescalate
             if current_idx > 0:
@@ -260,33 +250,21 @@ def three_plus_three(
             if current_idx + 1 < len(doses_mg):
                 rec_dose = doses_mg[current_idx + 1]
                 decision = "escalate"
-                notes = (
-                    f"{nd}/{np_} DLTs at {current_dose} mg. "
-                    f"Escalate to {rec_dose} mg."
-                )
+                notes = f"{nd}/{np_} DLTs at {current_dose} mg. Escalate to {rec_dose} mg."
             else:
                 rec_dose = current_dose
                 decision = "mtd_found"
-                notes = (
-                    f"{nd}/{np_} DLTs at {current_dose} mg (highest dose). "
-                    "Declare as MTD."
-                )
+                notes = f"{nd}/{np_} DLTs at {current_dose} mg (highest dose). Declare as MTD."
         else:
             # ≥2/6: MTD is prior level
             if current_idx > 0:
                 rec_dose = doses_mg[current_idx - 1]
                 decision = "mtd_found"
-                notes = (
-                    f"{nd}/{np_} DLTs at {current_dose} mg. "
-                    f"MTD declared at {rec_dose} mg."
-                )
+                notes = f"{nd}/{np_} DLTs at {current_dose} mg. MTD declared at {rec_dose} mg."
             else:
                 rec_dose = current_dose
                 decision = "mtd_found"
-                notes = (
-                    f"{nd}/{np_} DLTs at lowest dose. "
-                    "No safe dose identified; trial stopped."
-                )
+                notes = f"{nd}/{np_} DLTs at lowest dose. No safe dose identified; trial stopped."
     else:
         # Partial cohort (1–5 patients, unusual): apply proportional logic
         if rate < 1 / 3:

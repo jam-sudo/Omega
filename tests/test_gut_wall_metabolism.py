@@ -3,15 +3,14 @@
 import pytest
 
 from omega_pbpk.core.gut_wall_metabolism import (
-    GutWallResult,
     bioavailability_with_gut_wall,
     calculate_gut_wall_extraction,
 )
 
-
 # ---------------------------------------------------------------------------
 # calculate_gut_wall_extraction
 # ---------------------------------------------------------------------------
+
 
 def test_zero_clg_int_fg_one():
     """Zero intrinsic clearance → no gut extraction → Fg = 1."""
@@ -48,22 +47,19 @@ def test_invalid_fu_gut_raises():
 
 def test_zero_qg_raises():
     with pytest.raises(ValueError, match="qg_mL_per_min"):
-        calculate_gut_wall_extraction(
-            "Drug", clg_int_mL_per_min=50.0, qg_mL_per_min=0.0
-        )
+        calculate_gut_wall_extraction("Drug", clg_int_mL_per_min=50.0, qg_mL_per_min=0.0)
 
 
 def test_fu_gut_zero_gives_fg_one():
     """No unbound drug in gut → effective CL = 0 → Fg = 1."""
-    eg, fg = calculate_gut_wall_extraction(
-        "Drug", clg_int_mL_per_min=500.0, fu_gut=0.0
-    )
+    eg, fg = calculate_gut_wall_extraction("Drug", clg_int_mL_per_min=500.0, fu_gut=0.0)
     assert fg == pytest.approx(1.0)
 
 
 # ---------------------------------------------------------------------------
 # bioavailability_with_gut_wall
 # ---------------------------------------------------------------------------
+
 
 def test_f_oral_equals_fa_fg_fh():
     result = bioavailability_with_gut_wall(
@@ -105,39 +101,34 @@ def test_zero_gut_cl_full_gut_availability():
 def test_invalid_fa_negative_raises():
     with pytest.raises(ValueError, match="fa"):
         bioavailability_with_gut_wall(
-            drug_name="Bad", fa=-0.1, cl_hepatic_L_per_h=10.0, vd_L=20.0,
-            clg_int_mL_per_min=50.0
+            drug_name="Bad", fa=-0.1, cl_hepatic_L_per_h=10.0, vd_L=20.0, clg_int_mL_per_min=50.0
         )
 
 
 def test_invalid_fa_greater_than_one_raises():
     with pytest.raises(ValueError, match="fa"):
         bioavailability_with_gut_wall(
-            drug_name="Bad", fa=1.1, cl_hepatic_L_per_h=10.0, vd_L=20.0,
-            clg_int_mL_per_min=50.0
+            drug_name="Bad", fa=1.1, cl_hepatic_L_per_h=10.0, vd_L=20.0, clg_int_mL_per_min=50.0
         )
 
 
 def test_invalid_clg_int_raises():
     with pytest.raises(ValueError, match="clg_int"):
         bioavailability_with_gut_wall(
-            drug_name="Bad", fa=0.8, cl_hepatic_L_per_h=10.0, vd_L=20.0,
-            clg_int_mL_per_min=-5.0
+            drug_name="Bad", fa=0.8, cl_hepatic_L_per_h=10.0, vd_L=20.0, clg_int_mL_per_min=-5.0
         )
 
 
 def test_invalid_cl_hepatic_raises():
     with pytest.raises(ValueError, match="cl_hepatic"):
         bioavailability_with_gut_wall(
-            drug_name="Bad", fa=0.8, cl_hepatic_L_per_h=-1.0, vd_L=20.0,
-            clg_int_mL_per_min=50.0
+            drug_name="Bad", fa=0.8, cl_hepatic_L_per_h=-1.0, vd_L=20.0, clg_int_mL_per_min=50.0
         )
 
 
 def test_result_frozen():
     result = bioavailability_with_gut_wall(
-        drug_name="Test", fa=0.8, cl_hepatic_L_per_h=20.0, vd_L=30.0,
-        clg_int_mL_per_min=100.0
+        drug_name="Test", fa=0.8, cl_hepatic_L_per_h=20.0, vd_L=30.0, clg_int_mL_per_min=100.0
     )
     with pytest.raises((AttributeError, TypeError)):
         result.fg = 0.99  # type: ignore[misc]  # frozen dataclass
@@ -174,8 +165,7 @@ def test_f_oral_between_zero_and_one():
 
 def test_notes_populated():
     result = bioavailability_with_gut_wall(
-        drug_name="NoteTest", fa=0.7, cl_hepatic_L_per_h=10.0, vd_L=20.0,
-        clg_int_mL_per_min=50.0
+        drug_name="NoteTest", fa=0.7, cl_hepatic_L_per_h=10.0, vd_L=20.0, clg_int_mL_per_min=50.0
     )
     assert len(result.notes) > 0
     assert "Fg" in result.notes or "fg" in result.notes.lower() or "F_oral" in result.notes

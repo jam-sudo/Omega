@@ -13,7 +13,6 @@ from omega_pbpk.clinical.extended_pkpd import (
     time_above_ec50,
 )
 
-
 # ---------------------------------------------------------------------------
 # emax_model
 # ---------------------------------------------------------------------------
@@ -157,27 +156,59 @@ class TestSimulatePKPD:
 
     def test_time_above_ec50_zero_when_all_concs_below(self):
         r = simulate_pkpd(
-            "Low", dose_mg=0.001, cl_L_per_h=50.0, vd_L=100.0,
-            emax=10.0, ec50_mg_L=10.0,
-            route="iv", t_end_h=24.0, dt_h=0.1, model="direct",
+            "Low",
+            dose_mg=0.001,
+            cl_L_per_h=50.0,
+            vd_L=100.0,
+            emax=10.0,
+            ec50_mg_L=10.0,
+            route="iv",
+            t_end_h=24.0,
+            dt_h=0.1,
+            model="direct",
         )
         assert r.time_above_ec50_h == pytest.approx(0.0, abs=0.2)
 
     def test_double_dose_longer_time_above_ec50(self):
         r1 = simulate_pkpd(
-            "D", 100.0, 5.0, 50.0, 10.0, 0.5, route="iv",
-            t_end_h=24.0, dt_h=0.1, model="direct",
+            "D",
+            100.0,
+            5.0,
+            50.0,
+            10.0,
+            0.5,
+            route="iv",
+            t_end_h=24.0,
+            dt_h=0.1,
+            model="direct",
         )
         r2 = simulate_pkpd(
-            "D", 200.0, 5.0, 50.0, 10.0, 0.5, route="iv",
-            t_end_h=24.0, dt_h=0.1, model="direct",
+            "D",
+            200.0,
+            5.0,
+            50.0,
+            10.0,
+            0.5,
+            route="iv",
+            t_end_h=24.0,
+            dt_h=0.1,
+            model="direct",
         )
         assert r2.time_above_ec50_h > r1.time_above_ec50_h
 
     def test_baseline_effect_preserved(self):
         r = simulate_pkpd(
-            "D", 100.0, 5.0, 50.0, 10.0, 0.5, e0=2.0,
-            route="iv", t_end_h=24.0, dt_h=0.1, model="direct",
+            "D",
+            100.0,
+            5.0,
+            50.0,
+            10.0,
+            0.5,
+            e0=2.0,
+            route="iv",
+            t_end_h=24.0,
+            dt_h=0.1,
+            model="direct",
         )
         assert r.baseline_effect == pytest.approx(2.0)
 

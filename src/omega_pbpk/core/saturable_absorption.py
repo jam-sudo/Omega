@@ -16,11 +16,11 @@ class SaturableAbsorptionResult:
     dose_mg: float
     times_h: list[float]
     c_plasma: list[float]
-    f_absorbed: float          # fraction of dose absorbed into plasma
+    f_absorbed: float  # fraction of dose absorbed into plasma
     cmax: float
     tmax_h: float
     auc: float
-    saturation_index: float    # Jmax/(Jmax + passive_rate*Km) evaluated at Cmax
+    saturation_index: float  # Jmax/(Jmax + passive_rate*Km) evaluated at Cmax
     notes: str
 
 
@@ -32,7 +32,7 @@ class DoseProportionalityResult:
     aucs: list[float]
     cmaxes: list[float]
     dose_normalized_aucs: list[float]  # AUC / dose
-    power_law_exponent: float          # b in log(AUC) = a + b*log(dose)
+    power_law_exponent: float  # b in log(AUC) = a + b*log(dose)
     proportionality_classification: str  # 'linear' / 'slightly_nonlinear' / 'nonlinear'
     notes: str
 
@@ -239,10 +239,7 @@ def dose_proportionality_analysis(
     else:
         classification = "nonlinear"
 
-    notes = (
-        f"power_law_exponent={b:.3f}; classification={classification}; "
-        f"doses={doses_mg}"
-    )
+    notes = f"power_law_exponent={b:.3f}; classification={classification}; doses={doses_mg}"
 
     return DoseProportionalityResult(
         doses_mg=list(doses_mg),

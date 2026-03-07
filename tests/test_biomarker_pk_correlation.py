@@ -14,7 +14,6 @@ from omega_pbpk.analysis.biomarker_pk_correlation import (
     summarize_pkpd_relationship,
 )
 
-
 # ---------------------------------------------------------------------------
 # Input validation tests
 # ---------------------------------------------------------------------------
@@ -57,9 +56,7 @@ class TestPerfectLinearCorrelation:
         self.pk_vals = list(np.linspace(1.0, 10.0, n))
         # Perfect linear: y = 2*x + 3
         self.bio_vals = [2.0 * x + 3.0 for x in self.pk_vals]
-        self.result = correlate_biomarker_pk(
-            "TestDrug", "Biomarker", self.pk_vals, self.bio_vals
-        )
+        self.result = correlate_biomarker_pk("TestDrug", "Biomarker", self.pk_vals, self.bio_vals)
 
     def test_pearson_r_near_one(self):
         assert self.result.pearson_r == pytest.approx(1.0, abs=1e-6)
@@ -126,9 +123,7 @@ class TestEmaxModel:
         # Generate clean sigmoidal data: E = 100 * C / (5 + C)
         pk_vals = [0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 12.0, 20.0, 30.0, 50.0]
         bio_vals = [100.0 * c / (5.0 + c) for c in pk_vals]
-        result = correlate_biomarker_pk(
-            "Drug", "Effect", pk_vals, bio_vals, correlation_type="auc"
-        )
+        result = correlate_biomarker_pk("Drug", "Effect", pk_vals, bio_vals, correlation_type="auc")
         # Emax fit should be better here; but model selection depends on R²
         # At minimum, emax and ec50 should be positive finite
         assert math.isfinite(result.emax)

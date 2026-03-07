@@ -65,6 +65,7 @@ class IndirectResponseResult:
 # Public helpers
 # ---------------------------------------------------------------------------
 
+
 def calculate_baseline_biomarker(kin: float, kout: float) -> float:
     """Return equilibrium biomarker value = kin / kout.
 
@@ -177,6 +178,7 @@ def calculate_hysteresis_area(
 # ---------------------------------------------------------------------------
 # Main simulation
 # ---------------------------------------------------------------------------
+
 
 def simulate_indirect_response(
     drug_name: str,
@@ -331,10 +333,7 @@ def simulate_indirect_response(
         y1 = abs(biomarker[i + 1] - baseline)
         auc += 0.5 * (y0 + y1) * (times_h[i + 1] - times_h[i])
 
-    notes = (
-        f"route={route}, ke={ke:.4f}/h, R0={baseline:.4f}, "
-        f"Emax={emax}, EC50={ec50_mg_L} mg/L"
-    )
+    notes = f"route={route}, ke={ke:.4f}/h, R0={baseline:.4f}, Emax={emax}, EC50={ec50_mg_L} mg/L"
 
     return IndirectResponseResult(
         drug_name=drug_name,

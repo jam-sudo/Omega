@@ -10,6 +10,7 @@ from omega_pbpk.core.sublingual_pbpk import (
 
 # --- Validation ---
 
+
 def test_dose_le_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):
         simulate_sublingual_pk("Drug", dose_mg=0)
@@ -27,6 +28,7 @@ def test_vd_le_zero_raises():
 
 # --- Basic result structure ---
 
+
 def test_returns_sublingual_pk_result():
     r = simulate_sublingual_pk("TestDrug", dose_mg=5.0)
     assert isinstance(r, SublingualPKResult)
@@ -43,6 +45,7 @@ def test_auc_positive():
 
 
 # --- Pharmacokinetic properties ---
+
 
 def test_sublingual_tmax_earlier_than_oral():
     sl = simulate_sublingual_pk("Drug", dose_mg=10, f_swallowed=0.3)
@@ -79,6 +82,7 @@ def test_first_pass_avoided_positive():
 
 # --- Linearity ---
 
+
 def test_double_dose_doubles_cmax():
     r1 = simulate_sublingual_pk("Drug", dose_mg=5)
     r2 = simulate_sublingual_pk("Drug", dose_mg=10)
@@ -87,6 +91,7 @@ def test_double_dose_doubles_cmax():
 
 # --- Contact time ---
 
+
 def test_longer_contact_more_mucosal_absorption():
     r_short = simulate_sublingual_pk("Drug", dose_mg=10, t_contact_h=0.1)
     r_long = simulate_sublingual_pk("Drug", dose_mg=10, t_contact_h=1.0)
@@ -94,6 +99,7 @@ def test_longer_contact_more_mucosal_absorption():
 
 
 # --- Notes and route ---
+
 
 def test_notes_contain_drug_name_and_route():
     r = simulate_sublingual_pk("Nitroglycerin", dose_mg=0.4, route="sublingual")
@@ -109,6 +115,7 @@ def test_buccal_route_works():
 
 # --- Comparison function ---
 
+
 def test_compare_sublingual_oral_returns_two_results():
     sl, oral = compare_sublingual_oral("Drug", dose_mg=10, cl_L_per_h=1.0, vd_L=30.0)
     assert isinstance(sl, SublingualPKResult)
@@ -117,6 +124,10 @@ def test_compare_sublingual_oral_returns_two_results():
 
 def test_sublingual_auc_greater_than_oral():
     sl, oral = compare_sublingual_oral(
-        "Drug", dose_mg=10, cl_L_per_h=1.0, vd_L=30.0, f_oral_hepatic=0.5,
+        "Drug",
+        dose_mg=10,
+        cl_L_per_h=1.0,
+        vd_L=30.0,
+        f_oral_hepatic=0.5,
     )
     assert sl.auc_0_t > oral.auc_0_t

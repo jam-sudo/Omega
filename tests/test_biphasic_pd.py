@@ -43,8 +43,9 @@ def test_very_high_conc_approaches_asymptote():
     e_inhib = 0.5
     ec50_stim = 0.5
     ec50_inhib = 5.0
-    high_effect = biphasic_effect(1e6, e_stim=e_stim, ec50_stim=ec50_stim,
-                                  e_inhib=e_inhib, ec50_inhib=ec50_inhib)
+    high_effect = biphasic_effect(
+        1e6, e_stim=e_stim, ec50_stim=ec50_stim, e_inhib=e_inhib, ec50_inhib=ec50_inhib
+    )
     asymptote = 1.0 + e_stim - e_inhib  # both Hill fractions approach 1
     assert high_effect == pytest.approx(asymptote, rel=1e-3)
 
@@ -139,12 +140,17 @@ def test_effect_at_cmax_matches_biphasic_effect():
     c_max = 10.0
     e_stim, ec50_stim, e_inhib, ec50_inhib = 1.5, 0.5, 0.2, 5.0
     result = evaluate_biphasic_pd(
-        "Drug", c_max=c_max, n_points=100,
-        e_stim=e_stim, ec50_stim=ec50_stim,
-        e_inhib=e_inhib, ec50_inhib=ec50_inhib,
+        "Drug",
+        c_max=c_max,
+        n_points=100,
+        e_stim=e_stim,
+        ec50_stim=ec50_stim,
+        e_inhib=e_inhib,
+        ec50_inhib=ec50_inhib,
     )
-    expected = biphasic_effect(c_max, e_stim=e_stim, ec50_stim=ec50_stim,
-                               e_inhib=e_inhib, ec50_inhib=ec50_inhib)
+    expected = biphasic_effect(
+        c_max, e_stim=e_stim, ec50_stim=ec50_stim, e_inhib=e_inhib, ec50_inhib=ec50_inhib
+    )
     assert result.effect_at_cmax == pytest.approx(expected, rel=1e-4)
 
 

@@ -269,8 +269,22 @@ class TestResultContent:
 class TestScreenFormulationStrategies:
     def test_returns_list(self):
         compounds = [
-            {"name": "A", "logP": 4.0, "mw": 350.0, "peff": 5e-4, "solubility_mg_mL": 0.01, "dose_mg": 100.0},
-            {"name": "B", "logP": 1.0, "mw": 200.0, "peff": 5e-4, "solubility_mg_mL": 10.0, "dose_mg": 10.0},
+            {
+                "name": "A",
+                "logP": 4.0,
+                "mw": 350.0,
+                "peff": 5e-4,
+                "solubility_mg_mL": 0.01,
+                "dose_mg": 100.0,
+            },
+            {
+                "name": "B",
+                "logP": 1.0,
+                "mw": 200.0,
+                "peff": 5e-4,
+                "solubility_mg_mL": 10.0,
+                "dose_mg": 10.0,
+            },
         ]
         results = screen_formulation_strategies(compounds)
         assert isinstance(results, list)
@@ -279,11 +293,32 @@ class TestScreenFormulationStrategies:
     def test_sorted_by_fold_improvement_descending(self):
         compounds = [
             # BCS I: low fold improvement
-            {"name": "BCS1", "logP": 1.0, "mw": 200.0, "peff": 5e-4, "solubility_mg_mL": 10.0, "dose_mg": 10.0},
+            {
+                "name": "BCS1",
+                "logP": 1.0,
+                "mw": 200.0,
+                "peff": 5e-4,
+                "solubility_mg_mL": 10.0,
+                "dose_mg": 10.0,
+            },
             # BCS II: high fold improvement
-            {"name": "BCS2", "logP": 4.0, "mw": 350.0, "peff": 5e-4, "solubility_mg_mL": 0.01, "dose_mg": 100.0},
+            {
+                "name": "BCS2",
+                "logP": 4.0,
+                "mw": 350.0,
+                "peff": 5e-4,
+                "solubility_mg_mL": 0.01,
+                "dose_mg": 100.0,
+            },
             # BCS IV: moderate improvement
-            {"name": "BCS4", "logP": 3.0, "mw": 400.0, "peff": 1e-5, "solubility_mg_mL": 0.005, "dose_mg": 200.0},
+            {
+                "name": "BCS4",
+                "logP": 3.0,
+                "mw": 400.0,
+                "peff": 1e-5,
+                "solubility_mg_mL": 0.005,
+                "dose_mg": 200.0,
+            },
         ]
         results = screen_formulation_strategies(compounds)
         folds = [r.fold_improvement for r in results]
@@ -291,7 +326,14 @@ class TestScreenFormulationStrategies:
 
     def test_single_compound(self):
         compounds = [
-            {"name": "Solo", "logP": 3.0, "mw": 300.0, "peff": 5e-4, "solubility_mg_mL": 0.05, "dose_mg": 50.0},
+            {
+                "name": "Solo",
+                "logP": 3.0,
+                "mw": 300.0,
+                "peff": 5e-4,
+                "solubility_mg_mL": 0.05,
+                "dose_mg": 50.0,
+            },
         ]
         results = screen_formulation_strategies(compounds)
         assert len(results) == 1
@@ -312,29 +354,45 @@ class TestInputValidation:
     def test_invalid_mw(self):
         with pytest.raises(ValueError, match="mw"):
             predict_absorption_enhancement(
-                drug_name="X", logP=2.0, mw=0.0, peff_cm_per_s=1e-4,
-                solubility_mg_mL=1.0, dose_mg=100.0,
+                drug_name="X",
+                logP=2.0,
+                mw=0.0,
+                peff_cm_per_s=1e-4,
+                solubility_mg_mL=1.0,
+                dose_mg=100.0,
             )
 
     def test_invalid_peff(self):
         with pytest.raises(ValueError, match="peff"):
             predict_absorption_enhancement(
-                drug_name="X", logP=2.0, mw=300.0, peff_cm_per_s=0.0,
-                solubility_mg_mL=1.0, dose_mg=100.0,
+                drug_name="X",
+                logP=2.0,
+                mw=300.0,
+                peff_cm_per_s=0.0,
+                solubility_mg_mL=1.0,
+                dose_mg=100.0,
             )
 
     def test_invalid_solubility(self):
         with pytest.raises(ValueError, match="solubility"):
             predict_absorption_enhancement(
-                drug_name="X", logP=2.0, mw=300.0, peff_cm_per_s=1e-4,
-                solubility_mg_mL=0.0, dose_mg=100.0,
+                drug_name="X",
+                logP=2.0,
+                mw=300.0,
+                peff_cm_per_s=1e-4,
+                solubility_mg_mL=0.0,
+                dose_mg=100.0,
             )
 
     def test_invalid_dose(self):
         with pytest.raises(ValueError, match="dose_mg"):
             predict_absorption_enhancement(
-                drug_name="X", logP=2.0, mw=300.0, peff_cm_per_s=1e-4,
-                solubility_mg_mL=1.0, dose_mg=-5.0,
+                drug_name="X",
+                logP=2.0,
+                mw=300.0,
+                peff_cm_per_s=1e-4,
+                solubility_mg_mL=1.0,
+                dose_mg=-5.0,
             )
 
     def test_negative_logp_accepted(self):

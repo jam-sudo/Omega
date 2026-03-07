@@ -490,9 +490,7 @@ def predict_metabolite_toxicity_risk(
         note = f"Low toxic burden ({toxic_burden:.3f}); acceptable metabolite risk profile."
     elif toxic_burden <= 2.0:
         risk_category = "moderate"
-        note = (
-            f"Moderate toxic burden ({toxic_burden:.3f}); monitor for exposure-related toxicity."
-        )
+        note = f"Moderate toxic burden ({toxic_burden:.3f}); monitor for exposure-related toxicity."
     else:
         risk_category = "high"
         note = (

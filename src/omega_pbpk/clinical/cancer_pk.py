@@ -78,7 +78,7 @@ def _run_1cpt_forward_euler(
 
     # State variables
     c_central = 0.0  # mg/L in central compartment
-    c_gut = 0.0      # mg in gut compartment (oral only)
+    c_gut = 0.0  # mg in gut compartment (oral only)
 
     # Dose times (one per cycle)
     dose_schedule = [i * interval_h for i in range(n_cycles)]
@@ -308,9 +308,7 @@ def nadir_prediction(
 
     cumulative_auc = _trapezoidal_auc(times_h, c_plasma_mg_L_list)
 
-    nadir_effect = emax_myelosuppression * cumulative_auc / (
-        myelosuppression_ec50 + cumulative_auc
-    )
+    nadir_effect = emax_myelosuppression * cumulative_auc / (myelosuppression_ec50 + cumulative_auc)
 
     if nadir_effect > 80.0:
         risk_category = "severe"

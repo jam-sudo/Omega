@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.lung_surfactant import (
@@ -12,7 +11,6 @@ from omega_pbpk.core.lung_surfactant import (
     simulate_inhaled_surfactant_pk,
     surfactant_partition,
 )
-
 
 # ── surfactant_partition ──────────────────────────────────────────────
 

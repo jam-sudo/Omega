@@ -14,15 +14,15 @@ from omega_pbpk.biopharmaceutics.excipient_compatibility import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _screen(smiles: str = "CC", drug_name: str = "TestDrug", excipients=None):
-    return screen_excipient_compatibility(
-        drug_name=drug_name, smiles=smiles, excipients=excipients
-    )
+    return screen_excipient_compatibility(drug_name=drug_name, smiles=smiles, excipients=excipients)
 
 
 # ---------------------------------------------------------------------------
 # Return-type and immutability
 # ---------------------------------------------------------------------------
+
 
 def test_returns_compatibility_result():
     result = _screen()
@@ -45,11 +45,12 @@ def test_excipient_interaction_frozen():
 # Amine + lactose → high severity
 # ---------------------------------------------------------------------------
 
+
 def test_amine_lactose_high_severity():
     """Primary amine drug + lactose → Maillard reaction, high severity."""
     result = screen_excipient_compatibility(
         drug_name="AmineDrug",
-        smiles="CN",     # contains N → amine detected
+        smiles="CN",  # contains N → amine detected
         excipients=["lactose"],
     )
     assert result.n_high_severity == 1
@@ -80,6 +81,7 @@ def test_amine_lactose_interaction_type():
 # Ester + magnesium_stearate → moderate
 # ---------------------------------------------------------------------------
 
+
 def test_ester_mgstearate_moderate():
     # "C(=O)O" is an ester
     result = screen_excipient_compatibility(
@@ -104,11 +106,12 @@ def test_ester_mgstearate_to_avoid():
 # No problematic groups → compatible
 # ---------------------------------------------------------------------------
 
+
 def test_inert_drug_compatible():
     """Drug with no detected reactive groups → all excipients compatible."""
     result = screen_excipient_compatibility(
         drug_name="InertDrug",
-        smiles="CCCC",   # no N, no ester, no nitro, no S, no aromatic
+        smiles="CCCC",  # no N, no ester, no nitro, no S, no aromatic
         excipients=["mannitol", "microcrystalline_cellulose", "talc"],
     )
     assert result.overall_compatibility == "compatible"
@@ -129,6 +132,7 @@ def test_inert_drug_recommended_all():
 # Default excipient list
 # ---------------------------------------------------------------------------
 
+
 def test_default_excipients_screened():
     result = _screen(smiles="CCCC")
     assert result.excipients_tested == DEFAULT_EXCIPIENTS
@@ -144,6 +148,7 @@ def test_interactions_length_matches_excipients():
 # ---------------------------------------------------------------------------
 # n_high_severity count
 # ---------------------------------------------------------------------------
+
 
 def test_n_high_severity_counts_correctly():
     # amine + lactose → 1 high; mannitol → none
@@ -168,6 +173,7 @@ def test_n_high_severity_zero_no_interactions():
 # suggest_formulation
 # ---------------------------------------------------------------------------
 
+
 def test_suggest_formulation_returns_result():
     result = suggest_formulation("Drug", "CCCC", bcs_class="II", route="oral")
     assert isinstance(result, CompatibilityResult)
@@ -176,8 +182,12 @@ def test_suggest_formulation_returns_result():
 def test_suggest_formulation_bcs_ii_has_solubilizers():
     """BCS II should include solubilizing excipients like HPC or povidone."""
     result = suggest_formulation("Drug", "CCCC", bcs_class="II")
-    solubilizers = {"hydroxypropyl_cellulose", "povidone", "polysorbate_80",
-                    "sodium_lauryl_sulfate"}
+    solubilizers = {
+        "hydroxypropyl_cellulose",
+        "povidone",
+        "polysorbate_80",
+        "sodium_lauryl_sulfate",
+    }
     assert len(solubilizers & set(result.excipients_tested)) > 0
 
 
@@ -198,8 +208,9 @@ def test_suggest_formulation_amine_detects_problem():
 # Functional group detection
 # ---------------------------------------------------------------------------
 
+
 def test_aromatic_detected():
-    result = _screen(smiles="c1ccccc1")   # benzene ring
+    result = _screen(smiles="c1ccccc1")  # benzene ring
     assert "aromatic" in result.drug_functional_groups
 
 
@@ -216,6 +227,7 @@ def test_no_groups_for_alkane():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_empty_smiles_raises():
     with pytest.raises(ValueError):

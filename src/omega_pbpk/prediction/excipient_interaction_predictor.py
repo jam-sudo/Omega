@@ -88,8 +88,7 @@ _EXCIPIENT_DB: dict[str, dict] = {
         "compatibility_base": 60.0,
         "mechanism": "Inert diluent; reducing sugar — Maillard reaction with"
         " primary amines compromises stability",
-        "notes": "Avoid with amine-containing drugs; not suitable for lactose"
-        "-intolerant patients",
+        "notes": "Avoid with amine-containing drugs; not suitable for lactose-intolerant patients",
     },
     "MCC": {
         "type": "filler",
@@ -274,9 +273,7 @@ def predict_excipient_effect(
     key = excipient_name.strip()
     if key not in _EXCIPIENT_DB:
         supported = ", ".join(sorted(_EXCIPIENT_DB.keys()))
-        raise ValueError(
-            f"Unknown excipient '{excipient_name}'. Supported: {supported}"
-        )
+        raise ValueError(f"Unknown excipient '{excipient_name}'. Supported: {supported}")
 
     entry = _EXCIPIENT_DB[key]
     fold = _solubility_fold_change(entry, drug_logp)

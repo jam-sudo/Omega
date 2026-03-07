@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # Oie-Tozer physiological volumes (L/kg)
-_VP = 0.0436   # plasma volume
-_VE = 0.151    # extravascular interstitial fluid volume
-_VR = 0.380    # remaining (intracellular + deep tissue) volume
+_VP = 0.0436  # plasma volume
+_VE = 0.151  # extravascular interstitial fluid volume
+_VR = 0.380  # remaining (intracellular + deep tissue) volume
 
 
 def _compute_re_fp(logP: float) -> float:

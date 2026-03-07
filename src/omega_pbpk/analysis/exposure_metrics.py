@@ -366,9 +366,7 @@ def compute_nca_parameters(
             # tau > observation window; extrapolate using AUC0-inf
             if not math.isnan(base.auc0inf):
                 auc_tau = min(base.auc0inf, base.auc0t + (base.auc0inf - base.auc0t))
-                notes.append(
-                    "tau_h exceeds observation window; Cavg approximated from AUC0-inf."
-                )
+                notes.append("tau_h exceeds observation window; Cavg approximated from AUC0-inf.")
             else:
                 auc_tau = base.auc0t
         cavg = auc_tau / tau_h if tau_h > 0 else None

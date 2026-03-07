@@ -137,9 +137,7 @@ class TestBayesianDoseAdjustmentValidation:
 
     def test_no_targets_raises(self):
         with pytest.raises(ValueError, match="target"):
-            bayesian_dose_adjustment(
-                "Drug", [1.0, 0.5], [4.0, 8.0], 5.0, 50.0, 100.0, 12.0
-            )
+            bayesian_dose_adjustment("Drug", [1.0, 0.5], [4.0, 8.0], 5.0, 50.0, 100.0, 12.0)
 
     def test_zero_target_auc24_raises(self):
         with pytest.raises(ValueError, match="target_auc24"):
@@ -256,8 +254,7 @@ class TestBayesianDoseAdjustmentFunctional:
         """When both targets given, AUC target takes precedence."""
         concs, times = _simple_decay()
         result_auc = bayesian_dose_adjustment(
-            "Drug", concs, times, 5.0, 50.0, 100.0, 12.0,
-            target_auc24=400.0, target_trough=0.5
+            "Drug", concs, times, 5.0, 50.0, 100.0, 12.0, target_auc24=400.0, target_trough=0.5
         )
         result_auc_only = bayesian_dose_adjustment(
             "Drug", concs, times, 5.0, 50.0, 100.0, 12.0, target_auc24=400.0

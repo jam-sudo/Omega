@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.drug_transport_model import (
     TransporterKineticsResult,
-    transport_rate,
-    efflux_transport_rate,
-    simulate_transporter_kinetics,
     calculate_net_transport,
+    efflux_transport_rate,
     inhibition_constant,
+    simulate_transporter_kinetics,
+    transport_rate,
 )
-
 
 # ---------------------------------------------------------------------------
 # transport_rate
 # ---------------------------------------------------------------------------
+
 
 class TestTransportRate:
     def test_zero_substrate_returns_zero(self):
@@ -98,6 +97,7 @@ class TestTransportRate:
 # efflux_transport_rate
 # ---------------------------------------------------------------------------
 
+
 class TestEffluxTransportRate:
     def test_ba_direction_uses_basal_conc(self):
         """B→A efflux driven by basolateral concentration."""
@@ -132,49 +132,50 @@ class TestEffluxTransportRate:
 # simulate_transporter_kinetics
 # ---------------------------------------------------------------------------
 
+
 class TestSimulateTransporterKinetics:
     def test_returns_correct_type(self):
         result = simulate_transporter_kinetics(
-            "TestDrug", initial_conc_uM=10.0,
-            vmax_uptake=50.0, km_uptake=5.0,
+            "TestDrug",
+            initial_conc_uM=10.0,
+            vmax_uptake=50.0,
+            km_uptake=5.0,
         )
         assert isinstance(result, TransporterKineticsResult)
 
     def test_higher_vmax_uptake_higher_ss(self):
         """Higher uptake Vmax should lead to higher steady-state intracellular concentration."""
-        r_low = simulate_transporter_kinetics(
-            "Drug", 10.0, vmax_uptake=20.0, km_uptake=5.0
-        )
-        r_high = simulate_transporter_kinetics(
-            "Drug", 10.0, vmax_uptake=100.0, km_uptake=5.0
-        )
+        r_low = simulate_transporter_kinetics("Drug", 10.0, vmax_uptake=20.0, km_uptake=5.0)
+        r_high = simulate_transporter_kinetics("Drug", 10.0, vmax_uptake=100.0, km_uptake=5.0)
         assert r_high.steady_state_conc_uM > r_low.steady_state_conc_uM
 
     def test_with_efflux_lower_ss_than_without(self):
         """Active efflux should decrease steady-state intracellular concentration."""
         r_no_efflux = simulate_transporter_kinetics(
-            "Drug", 10.0, vmax_uptake=50.0, km_uptake=5.0,
-            vmax_efflux=0.0
+            "Drug", 10.0, vmax_uptake=50.0, km_uptake=5.0, vmax_efflux=0.0
         )
         r_efflux = simulate_transporter_kinetics(
-            "Drug", 10.0, vmax_uptake=50.0, km_uptake=5.0,
-            vmax_efflux=40.0, km_efflux=5.0
+            "Drug", 10.0, vmax_uptake=50.0, km_uptake=5.0, vmax_efflux=40.0, km_efflux=5.0
         )
         assert r_efflux.steady_state_conc_uM < r_no_efflux.steady_state_conc_uM
 
     def test_net_accumulation_ratio_uptake_dominated(self):
         """When uptake >> efflux, accumulation ratio should exceed 1."""
         result = simulate_transporter_kinetics(
-            "Drug", 10.0, vmax_uptake=200.0, km_uptake=1.0,
-            vmax_efflux=0.0, cl_passive_per_h=0.01,
-            cell_volume_uL=0.5, t_end_h=8.0
+            "Drug",
+            10.0,
+            vmax_uptake=200.0,
+            km_uptake=1.0,
+            vmax_efflux=0.0,
+            cl_passive_per_h=0.01,
+            cell_volume_uL=0.5,
+            t_end_h=8.0,
         )
         assert result.net_accumulation_ratio > 1.0
 
     def test_time_array_length_correct(self):
         result = simulate_transporter_kinetics(
-            "Drug", 5.0, vmax_uptake=30.0, km_uptake=3.0,
-            t_end_h=2.0, dt_h=0.1
+            "Drug", 5.0, vmax_uptake=30.0, km_uptake=3.0, t_end_h=2.0, dt_h=0.1
         )
         # n_steps + 1 time points
         assert len(result.times_h) == len(result.c_intracellular_uM)
@@ -187,9 +188,7 @@ class TestSimulateTransporterKinetics:
         assert result.drug_name == "Methotrexate"
 
     def test_initial_intracellular_zero(self):
-        result = simulate_transporter_kinetics(
-            "Drug", 10.0, vmax_uptake=50.0, km_uptake=5.0
-        )
+        result = simulate_transporter_kinetics("Drug", 10.0, vmax_uptake=50.0, km_uptake=5.0)
         assert result.c_intracellular_uM[0] == 0.0
 
     def test_negative_initial_conc_raises(self):
@@ -202,21 +201,15 @@ class TestSimulateTransporterKinetics:
 
     def test_efflux_without_km_raises(self):
         with pytest.raises(ValueError, match="km_efflux"):
-            simulate_transporter_kinetics(
-                "Drug", 5.0, 50.0, 5.0, vmax_efflux=30.0, km_efflux=None
-            )
+            simulate_transporter_kinetics("Drug", 5.0, 50.0, 5.0, vmax_efflux=30.0, km_efflux=None)
 
     def test_zero_cell_volume_raises(self):
         with pytest.raises(ValueError, match="cell_volume_uL"):
-            simulate_transporter_kinetics(
-                "Drug", 5.0, 50.0, 5.0, cell_volume_uL=0.0
-            )
+            simulate_transporter_kinetics("Drug", 5.0, 50.0, 5.0, cell_volume_uL=0.0)
 
     def test_notes_contains_efflux_info(self):
         r_no = simulate_transporter_kinetics("D", 5.0, 50.0, 5.0, vmax_efflux=0.0)
-        r_yes = simulate_transporter_kinetics(
-            "D", 5.0, 50.0, 5.0, vmax_efflux=20.0, km_efflux=5.0
-        )
+        r_yes = simulate_transporter_kinetics("D", 5.0, 50.0, 5.0, vmax_efflux=20.0, km_efflux=5.0)
         assert "efflux" in r_no.notes
         assert "efflux" in r_yes.notes
 
@@ -224,6 +217,7 @@ class TestSimulateTransporterKinetics:
 # ---------------------------------------------------------------------------
 # calculate_net_transport
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateNetTransport:
     def test_basic_calculation(self):
@@ -242,6 +236,7 @@ class TestCalculateNetTransport:
 # ---------------------------------------------------------------------------
 # inhibition_constant
 # ---------------------------------------------------------------------------
+
 
 class TestInhibitionConstant:
     def test_ic50_at_km_gives_ki_half(self):

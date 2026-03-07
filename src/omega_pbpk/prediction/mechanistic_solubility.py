@@ -36,16 +36,14 @@ def yalkowsky_solubility(logP: float, tm_C: float, mw: float = None) -> float:
         ValueError: If tm_C <= 25 (crystalline drug requirement).
     """
     if tm_C <= 25.0:
-        raise ValueError(
-            f"Melting point must be > 25°C for crystalline drugs, got {tm_C}°C"
-        )
+        raise ValueError(f"Melting point must be > 25°C for crystalline drugs, got {tm_C}°C")
 
     correction = 0.5
     if mw is not None and mw > 500.0:
         correction += 0.1
 
     log_s = -logP - 0.01 * (tm_C - 25.0) + correction
-    return 10.0 ** log_s
+    return 10.0**log_s
 
 
 def alogps_correction(logP: float, n_hbd: int, n_hba: int, mw: float) -> float:
@@ -107,9 +105,7 @@ def predict_intrinsic_solubility(
         correction += 0.1
 
     if tm_C <= 25.0:
-        raise ValueError(
-            f"Melting point must be > 25°C for crystalline drugs, got {tm_C}°C"
-        )
+        raise ValueError(f"Melting point must be > 25°C for crystalline drugs, got {tm_C}°C")
 
     log_s_base = -logP - 0.01 * (tm_C - 25.0) + correction
 
@@ -117,7 +113,7 @@ def predict_intrinsic_solubility(
     hb_log_correction = alogps_correction(logP, n_hbd, n_hba, mw)
 
     log_s = log_s_base + hb_log_correction
-    return 10.0 ** log_s
+    return 10.0**log_s
 
 
 def solubility_class(solubility_mg_mL: float) -> str:
@@ -170,9 +166,7 @@ def predict_solubility_profile(
     if mw <= 0.0:
         raise ValueError(f"mw must be > 0, got {mw}")
     if tm_C <= 25.0:
-        raise ValueError(
-            f"Melting point must be > 25°C for crystalline drugs, got {tm_C}°C"
-        )
+        raise ValueError(f"Melting point must be > 25°C for crystalline drugs, got {tm_C}°C")
     if n_hbd < 0:
         raise ValueError(f"n_hbd must be >= 0, got {n_hbd}")
     if n_hba < 0:
@@ -183,7 +177,7 @@ def predict_solubility_profile(
 
     # H-bond correction factor (as log-space additive)
     hb_log_corr = alogps_correction(logP, n_hbd, n_hba, mw)
-    hbond_correction_factor = 10.0 ** hb_log_corr
+    hbond_correction_factor = 10.0**hb_log_corr
 
     # Combined intrinsic solubility
     intrinsic_sol = yalkowsky_est * hbond_correction_factor

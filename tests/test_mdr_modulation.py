@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from omega_pbpk.clinical.mdr_modulation import MDRResult, simulate_mdr_effect, screen_mdr_inhibitors
-
+from omega_pbpk.clinical.mdr_modulation import MDRResult, screen_mdr_inhibitors, simulate_mdr_effect
 
 # ── default parameters for convenience ──────────────────────────────────────
 
@@ -18,6 +17,7 @@ DEFAULTS = dict(
 
 
 # ── basic behaviour ─────────────────────────────────────────────────────────
+
 
 def test_baseline_fold_change_is_one():
     r = simulate_mdr_effect(**DEFAULTS, inhibitor_fraction=0.0)
@@ -108,6 +108,7 @@ def test_higher_efflux_reduces_intracellular():
 
 # ── screen_mdr_inhibitors ──────────────────────────────────────────────────
 
+
 def test_screen_returns_correct_count():
     inhibitors = [
         {"inhibitor_name": "InhA", "inhibitor_fraction": 0.3},
@@ -134,6 +135,7 @@ def test_screen_empty_list_raises():
 
 
 # ── validation errors ───────────────────────────────────────────────────────
+
 
 def test_dose_zero_raises():
     with pytest.raises(ValueError):

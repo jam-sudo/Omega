@@ -2,8 +2,7 @@
 
 import pytest
 
-from omega_pbpk.core.cbf_pbpk import CBFPKResult, simulate_cbf_pk, compare_cbf_conditions
-
+from omega_pbpk.core.cbf_pbpk import CBFPKResult, compare_cbf_conditions, simulate_cbf_pk
 
 # ── Validation tests ──────────────────────────────────────────────────
 

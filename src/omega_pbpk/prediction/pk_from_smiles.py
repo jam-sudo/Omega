@@ -228,6 +228,7 @@ def _count_rings(smiles: str) -> int:
     digits = re.findall(r"(?<![%])\d|%\d{2}", smiles)
     # Each ring closure digit appears twice (open + close) → count unique ones
     from collections import Counter
+
     cnt = Counter(digits)
     # Number of rings = number of digits that appear >=2 times
     return sum(1 for v in cnt.values() if v >= 2)

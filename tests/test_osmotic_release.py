@@ -10,7 +10,6 @@ from omega_pbpk.biopharmaceutics.osmotic_release import (
     simulate_osmotic_release,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -94,11 +93,7 @@ def test_zero_order_plateau_nearly_constant(base_result: OsmoticReleaseResult) -
     rates = base_result.release_rate_mg_per_h
     t_lag = base_result.t_lag_h
     # Sample the first 8 hours after lag (well within plateau)
-    plateau_rates = [
-        r
-        for t, r in zip(times, rates)
-        if t_lag + 1.0 <= t <= t_lag + 8.0 and r > 0
-    ]
+    plateau_rates = [r for t, r in zip(times, rates) if t_lag + 1.0 <= t <= t_lag + 8.0 and r > 0]
     assert len(plateau_rates) > 0, "No plateau rates found"
     avg = sum(plateau_rates) / len(plateau_rates)
     # Avg should be within 30% of nominal plateau rate (noise + efficiency)
@@ -151,19 +146,13 @@ def test_plateau_rate_formula() -> None:
 
 
 def test_longer_lag_lowers_f_released_at_4h() -> None:
-    r_short = simulate_osmotic_release(
-        drug_name="X", dose_mg=100.0, t_lag_h=0.5, t_end_h=24.0
-    )
-    r_long = simulate_osmotic_release(
-        drug_name="X", dose_mg=100.0, t_lag_h=3.0, t_end_h=24.0
-    )
+    r_short = simulate_osmotic_release(drug_name="X", dose_mg=100.0, t_lag_h=0.5, t_end_h=24.0)
+    r_long = simulate_osmotic_release(drug_name="X", dose_mg=100.0, t_lag_h=3.0, t_end_h=24.0)
     assert r_long.f_released_at_4h < r_short.f_released_at_4h
 
 
 def test_zero_lag_has_immediate_release() -> None:
-    r = simulate_osmotic_release(
-        drug_name="X", dose_mg=100.0, t_lag_h=0.0, t_end_h=24.0, dt_h=0.1
-    )
+    r = simulate_osmotic_release(drug_name="X", dose_mg=100.0, t_lag_h=0.0, t_end_h=24.0, dt_h=0.1)
     # With zero lag, release starts at first time step
     assert r.release_rate_mg_per_h[0] > 0 or r.release_rate_mg_per_h[1] > 0
 
@@ -200,8 +189,7 @@ def test_c_plasma_length_matches_times(base_result: OsmoticReleaseResult) -> Non
 
 def test_compare_osmotic_devices_returns_three_devices() -> None:
     result = compare_osmotic_devices(
-        drug_name="Y", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-        drug_solubility_mg_mL=100.0
+        drug_name="Y", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, drug_solubility_mg_mL=100.0
     )
     assert "elementary_osmotic" in result
     assert "push_pull" in result
@@ -210,8 +198,7 @@ def test_compare_osmotic_devices_returns_three_devices() -> None:
 
 def test_compare_osmotic_devices_has_best_zero_order() -> None:
     result = compare_osmotic_devices(
-        drug_name="Y", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-        drug_solubility_mg_mL=100.0
+        drug_name="Y", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, drug_solubility_mg_mL=100.0
     )
     assert "best_zero_order" in result
     best = result["best_zero_order"]
@@ -220,8 +207,7 @@ def test_compare_osmotic_devices_has_best_zero_order() -> None:
 
 def test_compare_osmotic_devices_results_are_osmotic_release_result() -> None:
     result = compare_osmotic_devices(
-        drug_name="Z", dose_mg=50.0, cl_L_per_h=3.0, vd_L=30.0,
-        drug_solubility_mg_mL=200.0
+        drug_name="Z", dose_mg=50.0, cl_L_per_h=3.0, vd_L=30.0, drug_solubility_mg_mL=200.0
     )
     for device in ["elementary_osmotic", "push_pull", "mini_osmotic"]:
         assert isinstance(result[device], OsmoticReleaseResult)

@@ -326,6 +326,4 @@ def _validate_state(state: str) -> None:
 
 def _validate_formulation(formulation: str) -> None:
     if formulation not in _VALID_FORMULATIONS:
-        raise ValueError(
-            f"formulation must be one of {_VALID_FORMULATIONS}, got '{formulation}'"
-        )
+        raise ValueError(f"formulation must be one of {_VALID_FORMULATIONS}, got '{formulation}'")

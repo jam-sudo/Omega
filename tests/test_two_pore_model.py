@@ -60,9 +60,18 @@ class TestTwoPorePKResultDataclass:
     def test_has_required_fields(self):
         r = simulate_two_pore_pk(**IGG_PARAMS)
         for attr in [
-            "drug_name", "mw_kDa", "dose_mg", "sigma_small", "sigma_large",
-            "times_days", "c_central_mg_L", "c_tissue_mg_L",
-            "cmax", "t_half_days", "auc_mg_day_per_L", "notes",
+            "drug_name",
+            "mw_kDa",
+            "dose_mg",
+            "sigma_small",
+            "sigma_large",
+            "times_days",
+            "c_central_mg_L",
+            "c_tissue_mg_L",
+            "cmax",
+            "t_half_days",
+            "auc_mg_day_per_L",
+            "notes",
         ]:
             assert hasattr(r, attr), f"Missing attribute: {attr}"
 

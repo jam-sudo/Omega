@@ -32,10 +32,10 @@ class BBBPenetrationResult:
     hbd: int
     pka: float
     tpsa: float
-    mpo_score: float                # 0-6, sum of desirability functions
-    kp_uu_brain: float              # estimated unbound brain/plasma ratio
-    bbb_class: str                  # 'high' / 'moderate' / 'low'
-    cns_exposure: float             # Kp_uu * fu_plasma
+    mpo_score: float  # 0-6, sum of desirability functions
+    kp_uu_brain: float  # estimated unbound brain/plasma ratio
+    bbb_class: str  # 'high' / 'moderate' / 'low'
+    cns_exposure: float  # Kp_uu * fu_plasma
     component_scores: dict[str, float] = field(default_factory=dict)
     notes: str = ""
 

@@ -1,18 +1,18 @@
 """Tests for Phase 371: membrane partitioning prediction."""
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.membrane_partitioning import (
-    MembranePartitionResult,
     predict_membrane_partitioning,
     screen_membrane_partitioning,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic construction / frozen dataclass
 # ---------------------------------------------------------------------------
+
 
 def test_result_is_frozen_dataclass():
     res = predict_membrane_partitioning("TestDrug", logP=2.0, mw=300.0, psa=60.0, n_hbd=2)
@@ -32,6 +32,7 @@ def test_result_attributes_accessible():
 # ---------------------------------------------------------------------------
 # Km/w values
 # ---------------------------------------------------------------------------
+
 
 def test_km_w_neutral_positive():
     res = predict_membrane_partitioning("DrugA", logP=3.0, mw=300.0, psa=50.0, n_hbd=2)
@@ -72,6 +73,7 @@ def test_ionized_exactly_3_log_units_below_neutral():
 # LogP effect
 # ---------------------------------------------------------------------------
 
+
 def test_high_logP_higher_km_w():
     low = predict_membrane_partitioning("LowP", logP=1.0, mw=300.0, psa=50.0, n_hbd=2)
     high = predict_membrane_partitioning("HighP", logP=4.0, mw=300.0, psa=50.0, n_hbd=2)
@@ -81,6 +83,7 @@ def test_high_logP_higher_km_w():
 # ---------------------------------------------------------------------------
 # PSA and HBD effects
 # ---------------------------------------------------------------------------
+
 
 def test_high_psa_lower_km_w():
     low_psa = predict_membrane_partitioning("LowPSA", logP=3.0, mw=300.0, psa=20.0, n_hbd=1)
@@ -98,6 +101,7 @@ def test_high_hbd_lower_km_w():
 # Neutral compound (no pKa): effective == neutral
 # ---------------------------------------------------------------------------
 
+
 def test_neutral_compound_effective_equals_neutral():
     res = predict_membrane_partitioning("Neutral", logP=3.0, mw=300.0, psa=50.0, n_hbd=2)
     assert abs(res.km_w_effective - res.km_w_neutral) < 1e-9
@@ -106,6 +110,7 @@ def test_neutral_compound_effective_equals_neutral():
 # ---------------------------------------------------------------------------
 # Ionized compound: effective Km/w reduced
 # ---------------------------------------------------------------------------
+
 
 def test_acid_at_low_pka_reduces_effective_km_w():
     """Acid with pKa << 7.4 is mostly ionized → effective Km/w << neutral."""
@@ -139,6 +144,7 @@ def test_base_at_low_pka_mostly_neutral():
 # Permeability
 # ---------------------------------------------------------------------------
 
+
 def test_perm_cm_per_s_positive():
     res = predict_membrane_partitioning("DrugA", logP=3.0, mw=300.0, psa=50.0, n_hbd=2)
     assert res.perm_cm_per_s > 0
@@ -153,6 +159,7 @@ def test_high_logP_higher_permeability():
 # ---------------------------------------------------------------------------
 # Permeability classification
 # ---------------------------------------------------------------------------
+
 
 def test_high_perm_class():
     # Very lipophilic, low PSA/HBD, small MW → high permeability
@@ -175,6 +182,7 @@ def test_perm_class_values():
 # CNS membrane potential
 # ---------------------------------------------------------------------------
 
+
 def test_cns_membrane_potential_true_for_high_km_w():
     # High logP + low PSA → km_w_effective > 100
     res = predict_membrane_partitioning("CNSDrug", logP=5.0, mw=250.0, psa=15.0, n_hbd=0)
@@ -194,6 +202,7 @@ def test_cns_membrane_potential_false_for_low_km_w():
 # Lipid accumulation
 # ---------------------------------------------------------------------------
 
+
 def test_lipid_accumulation_positive():
     res = predict_membrane_partitioning("Drug", logP=3.0, mw=300.0, psa=50.0, n_hbd=2)
     assert res.lipid_accumulation_factor >= 0
@@ -202,6 +211,7 @@ def test_lipid_accumulation_positive():
 # ---------------------------------------------------------------------------
 # screen_membrane_partitioning
 # ---------------------------------------------------------------------------
+
 
 def test_screen_returns_list():
     compounds = [
@@ -237,6 +247,7 @@ def test_screen_first_is_highest_membrane_affinity():
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_mw_raises():
     with pytest.raises(ValueError, match="mw must be"):

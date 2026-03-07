@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.prediction.cns_penetration import (
@@ -12,7 +10,6 @@ from omega_pbpk.prediction.cns_penetration import (
     compute_mpo_cns,
     predict_bbb_penetration,
 )
-
 
 # ---------------------------------------------------------------------------
 # compute_mpo_cns tests
@@ -140,24 +137,18 @@ class TestPredictBbbPenetration:
         assert result.mpo_score >= 4.0
 
     def test_low_bbb_class(self):
-        result = predict_bbb_penetration(
-            logP=6.0, logD74=5.0, mw=600.0, hbd=4, pka=5.0, tpsa=100.0
-        )
+        result = predict_bbb_penetration(logP=6.0, logD74=5.0, mw=600.0, hbd=4, pka=5.0, tpsa=100.0)
         assert result.bbb_class == "low"
         assert result.mpo_score < 2.5
 
     def test_moderate_bbb_class(self):
         # MPO around 3 → moderate
-        result = predict_bbb_penetration(
-            logP=4.0, logD74=3.0, mw=430.0, hbd=1, pka=7.0, tpsa=65.0
-        )
+        result = predict_bbb_penetration(logP=4.0, logD74=3.0, mw=430.0, hbd=1, pka=7.0, tpsa=65.0)
         assert result.bbb_class in ("moderate", "low")
 
     def test_kp_uu_brain_sigmoid(self):
         # At MPO=3, sigmoid(0)=0.5
-        result = predict_bbb_penetration(
-            logP=1.0, logD74=1.0, mw=300.0, hbd=0, pka=7.0, tpsa=65.0
-        )
+        result = predict_bbb_penetration(logP=1.0, logD74=1.0, mw=300.0, hbd=0, pka=7.0, tpsa=65.0)
         # mpo_score should be 3 (pKa=7 → 0, tpsa=65 → 0.5)
         # Actually: d_pka=0 (7 not in [8,10]), d_tpsa=0.5 → mpo = 4.5 → high
         # Let's just check kp_uu is a float in valid range
@@ -236,9 +227,9 @@ class TestBatchCnsScreen:
 
     def test_sorted_by_mpo_score_descending(self):
         compounds = [
-            self._make_compound(6.0, 5.0, 600.0, 4, 5.0, 100.0),   # worst
-            self._make_compound(1.0, 1.0, 300.0, 0, 9.0, 30.0),    # best
-            self._make_compound(3.0, 2.5, 400.0, 1, 8.5, 60.0),    # middle
+            self._make_compound(6.0, 5.0, 600.0, 4, 5.0, 100.0),  # worst
+            self._make_compound(1.0, 1.0, 300.0, 0, 9.0, 30.0),  # best
+            self._make_compound(3.0, 2.5, 400.0, 1, 8.5, 60.0),  # middle
         ]
         results = batch_cns_screen(compounds)
         scores = [r.mpo_score for r in results]
@@ -264,9 +255,7 @@ class TestBatchCnsScreen:
 
     def test_optional_fu_plasma(self):
         # Without fu_plasma key → uses default 0.1
-        compound = {
-            "logP": 1.0, "logD74": 1.0, "mw": 300.0, "hbd": 0, "pka": 9.0, "tpsa": 30.0
-        }
+        compound = {"logP": 1.0, "logD74": 1.0, "mw": 300.0, "hbd": 0, "pka": 9.0, "tpsa": 30.0}
         results = batch_cns_screen([compound])
         assert len(results) == 1
         assert results[0].cns_exposure == pytest.approx(results[0].kp_uu_brain * 0.1)

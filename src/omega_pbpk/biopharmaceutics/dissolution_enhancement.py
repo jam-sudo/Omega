@@ -152,10 +152,7 @@ def _nanosuspension(
         sol_imp = _clamp(1.5 + drug_logP * 0.4, 1.5, 6.0)
         abs_imp = _clamp(0.25 + drug_logP * 0.05, 0.20, 0.60)
         recommended = drug_logP >= 2.0
-        notes = (
-            f"Nano particle size increases dissolution; logP={drug_logP:.1f} "
-            f"MW={drug_mw:.0f}."
-        )
+        notes = f"Nano particle size increases dissolution; logP={drug_logP:.1f} MW={drug_mw:.0f}."
     else:
         enhancement = 1.5
         sol_imp = 1.2
@@ -243,8 +240,7 @@ def _cyclodextrin_strategy(
         abs_imp = 0.20
         recommended = False
         notes = (
-            f"High logP ({drug_logP:.1f}) may exceed CD solubilization capacity; "
-            "consider SEDDS."
+            f"High logP ({drug_logP:.1f}) may exceed CD solubilization capacity; consider SEDDS."
         )
     else:
         enhancement = 1.5
@@ -377,15 +373,11 @@ def predict_enhancement(
     strategy_lower = strategy.lower()
     if strategy_lower not in _STRATEGIES:
         valid = ", ".join(sorted(_STRATEGIES))
-        raise ValueError(
-            f"Unknown strategy '{strategy}'. Valid strategies: {valid}"
-        )
+        raise ValueError(f"Unknown strategy '{strategy}'. Valid strategies: {valid}")
     if drug_mw <= 0:
         raise ValueError(f"drug_mw must be > 0, got {drug_mw}")
     if drug_solubility_mg_mL < 0:
-        raise ValueError(
-            f"drug_solubility_mg_mL must be >= 0, got {drug_solubility_mg_mL}"
-        )
+        raise ValueError(f"drug_solubility_mg_mL must be >= 0, got {drug_solubility_mg_mL}")
 
     fn = _STRATEGY_FN[strategy_lower]
     enhancement, sol_imp, abs_imp, recommended, notes = fn(
@@ -468,9 +460,7 @@ def cyclodextrin_complexation(
     """
     valid_cd = {"HP-beta-CD", "beta-CD", "gamma-CD", "alpha-CD"}
     if cd_type not in valid_cd:
-        raise ValueError(
-            f"Unknown cd_type '{cd_type}'. Valid types: {', '.join(sorted(valid_cd))}"
-        )
+        raise ValueError(f"Unknown cd_type '{cd_type}'. Valid types: {', '.join(sorted(valid_cd))}")
     if drug_mw <= 0:
         raise ValueError(f"drug_mw must be > 0, got {drug_mw}")
 
@@ -512,13 +502,9 @@ def cyclodextrin_complexation(
 
     notes_parts = [mw_note]
     if drug_logP >= 2.0 and mw_ok:
-        notes_parts.append(
-            f"Good hydrophobic driving force (logP={drug_logP:.1f}) for {cd_type}."
-        )
+        notes_parts.append(f"Good hydrophobic driving force (logP={drug_logP:.1f}) for {cd_type}.")
     elif drug_logP < 1.0:
-        notes_parts.append(
-            "Low logP reduces hydrophobic driving force for CD complexation."
-        )
+        notes_parts.append("Low logP reduces hydrophobic driving force for CD complexation.")
 
     return {
         "complexation_efficiency": round(ce, 4),

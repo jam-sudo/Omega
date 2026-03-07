@@ -109,7 +109,7 @@ def predict_metabolism_rate(
     # 1. Base CLint estimate from logP, MW, H-bond count                  #
     # ------------------------------------------------------------------ #
     exponent = 0.5 * logP - 0.005 * mw + 0.3 * (n_hbd + n_hba) * 0.1
-    clint_base = 10.0 ** exponent
+    clint_base = 10.0**exponent
 
     # Clamp to physiological range
     clint_base = max(0.1, min(500.0, clint_base))

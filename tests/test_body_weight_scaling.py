@@ -14,6 +14,7 @@ from omega_pbpk.clinical.body_weight_scaling import (
 
 # --- Basic smoke test ---
 
+
 def test_scale_pk_returns_bwscaling_result():
     result = scale_pk_by_weight(
         drug_name="Drug",
@@ -28,6 +29,7 @@ def test_scale_pk_returns_bwscaling_result():
 
 
 # --- Same weight → scaling factor = 1 ---
+
 
 def test_same_weight_cl_factor_one():
     result = scale_pk_by_weight(
@@ -46,6 +48,7 @@ def test_same_weight_cl_factor_one():
 
 
 # --- 2x weight allometric scaling ---
+
 
 def test_double_weight_cl_factor_exponent_075():
     result = scale_pk_by_weight(
@@ -78,6 +81,7 @@ def test_double_weight_vd_linear_exponent():
 
 
 # --- Dose capping ---
+
 
 def test_dose_capping_at_max():
     result = scale_pk_by_weight(
@@ -123,6 +127,7 @@ def test_no_dose_capping_within_range():
 
 # --- t_half calculation ---
 
+
 def test_scaled_t_half_computed_correctly():
     result = scale_pk_by_weight(
         drug_name="Drug",
@@ -137,6 +142,7 @@ def test_scaled_t_half_computed_correctly():
 
 
 # --- dose_by_weight_band ---
+
 
 def test_dose_by_weight_band_returns_correct_length():
     bands = [(30.0, 50.0), (50.0, 70.0), (70.0, 90.0), (90.0, 120.0)]
@@ -191,6 +197,7 @@ def test_dose_by_weight_band_empty():
 
 
 # --- Validation errors ---
+
 
 def test_zero_reference_weight_raises():
     with pytest.raises(ValueError, match="reference_weight_kg"):
@@ -255,6 +262,7 @@ def test_zero_cl_exponent_raises():
 
 # --- Dose proportional to CL ---
 
+
 def test_dose_proportional_to_cl_factor():
     result = scale_pk_by_weight(
         drug_name="Drug",
@@ -269,6 +277,7 @@ def test_dose_proportional_to_cl_factor():
 
 
 # --- Stored reference values ---
+
 
 def test_stored_reference_values():
     result = scale_pk_by_weight(

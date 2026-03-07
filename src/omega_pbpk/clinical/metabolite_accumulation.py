@@ -49,15 +49,9 @@ def _classify_concern(
     metabolite_parent_auc_ratio: float,
 ) -> str:
     """Classify the metabolite safety concern level."""
-    if (
-        metabolite_accumulation_ratio > 5
-        and metabolite_parent_auc_ratio > 2
-    ):
+    if metabolite_accumulation_ratio > 5 and metabolite_parent_auc_ratio > 2:
         return "high"
-    if (
-        metabolite_accumulation_ratio > 2
-        or metabolite_parent_auc_ratio > 1
-    ):
+    if metabolite_accumulation_ratio > 2 or metabolite_parent_auc_ratio > 1:
         return "moderate"
     return "none"
 
@@ -123,9 +117,7 @@ def simulate_metabolite_accumulation(
     if vd_parent_L <= 0:
         raise ValueError(f"vd_parent_L must be > 0, got {vd_parent_L}")
     if cl_metabolite_L_per_h <= 0:
-        raise ValueError(
-            f"cl_metabolite_L_per_h must be > 0, got {cl_metabolite_L_per_h}"
-        )
+        raise ValueError(f"cl_metabolite_L_per_h must be > 0, got {cl_metabolite_L_per_h}")
     if vd_metabolite_L <= 0:
         raise ValueError(f"vd_metabolite_L must be > 0, got {vd_metabolite_L}")
     if dose_mg <= 0:
@@ -156,9 +148,7 @@ def simulate_metabolite_accumulation(
     all_cp: list[float] = []
     all_cm: list[float] = []
 
-    dose_times = {
-        int(round(i * interval_h / dt_h)) for i in range(n_doses)
-    }
+    dose_times = {int(round(i * interval_h / dt_h)) for i in range(n_doses)}
 
     first_peak_parent = 0.0
     first_peak_recorded = False
@@ -177,13 +167,9 @@ def simulate_metabolite_accumulation(
 
         # ODEs
         da_gut = -ka_per_h * a_gut
-        dc_parent = (
-            ka_per_h * a_gut / vd_parent_L
-            - ke_parent * c_parent
-        )
+        dc_parent = ka_per_h * a_gut / vd_parent_L - ke_parent * c_parent
         dc_metabolite = (
-            fm * cl_parent_L_per_h * c_parent / vd_metabolite_L
-            - ke_metabolite * c_metabolite
+            fm * cl_parent_L_per_h * c_parent / vd_metabolite_L - ke_metabolite * c_metabolite
         )
 
         a_gut = max(0.0, a_gut + da_gut * dt_h)
@@ -205,7 +191,11 @@ def simulate_metabolite_accumulation(
     # Fallback: use absolute max of first dose interval
     if not first_peak_recorded:
         first_interval_mask = t_arr <= interval_h
-        first_peak_parent = float(cp_arr[first_interval_mask].max()) if first_interval_mask.any() else float(cp_arr.max())
+        first_peak_parent = (
+            float(cp_arr[first_interval_mask].max())
+            if first_interval_mask.any()
+            else float(cp_arr.max())
+        )
 
     # Last dose interval for steady-state summary
     last_dose_time = (n_doses - 1) * interval_h
@@ -223,7 +213,9 @@ def simulate_metabolite_accumulation(
     eps = 1e-12
     parent_acc = c_parent_peak_ss / max(first_peak_parent, eps)
 
-    first_peak_metabolite = float(cm_arr[t_arr <= interval_h].max()) if (t_arr <= interval_h).any() else eps
+    first_peak_metabolite = (
+        float(cm_arr[t_arr <= interval_h].max()) if (t_arr <= interval_h).any() else eps
+    )
     metabolite_acc = c_metabolite_peak_ss / max(first_peak_metabolite, eps)
 
     # AUC via trapezoid in last interval

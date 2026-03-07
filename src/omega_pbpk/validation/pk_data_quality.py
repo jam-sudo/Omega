@@ -143,20 +143,16 @@ def _validate_pk_data(
             f"got {len(times_h)} and {len(concentrations)}"
         )
     if len(times_h) < 3:
-        raise ValueError(
-            f"At least 3 time-points required, got {len(times_h)}"
-        )
+        raise ValueError(f"At least 3 time-points required, got {len(times_h)}")
     for i in range(len(times_h) - 1):
         if times_h[i] >= times_h[i + 1]:
             raise ValueError(
                 f"times_h must be strictly increasing; "
-                f"times_h[{i}]={times_h[i]} >= times_h[{i+1}]={times_h[i+1]}"
+                f"times_h[{i}]={times_h[i]} >= times_h[{i + 1}]={times_h[i + 1]}"
             )
     for c in concentrations:
         if c < 0:
-            raise ValueError(
-                f"Concentrations must be >= 0, got {c}"
-            )
+            raise ValueError(f"Concentrations must be >= 0, got {c}")
     return times_h, concentrations
 
 
@@ -262,13 +258,11 @@ def assess_sampling_schedule(
             "Add early time-points to capture the absorption phase (before estimated tmax)."
         )
     if not c3_distribution:
-        recommendations.append(
-            "Add samples around Cmax to characterise the peak concentration."
-        )
+        recommendations.append("Add samples around Cmax to characterise the peak concentration.")
     if not c4_terminal:
         recommendations.append(
             f"Add at least {_MIN_PHASE_POINTS} samples in the terminal elimination phase "
-            f"(last {int(_TERMINAL_FRACTION*100)}% of sampling window)."
+            f"(last {int(_TERMINAL_FRACTION * 100)}% of sampling window)."
         )
     if not c5_coverage:
         recommendations.append(

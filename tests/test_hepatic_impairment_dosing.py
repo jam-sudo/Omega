@@ -9,7 +9,6 @@ from omega_pbpk.clinical.hepatic_impairment_dosing import (
     child_pugh_score,
 )
 
-
 # ---------------------------------------------------------------------------
 # child_pugh_score tests
 # ---------------------------------------------------------------------------

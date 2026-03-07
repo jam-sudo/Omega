@@ -3,6 +3,7 @@
 Detect and characterize nonlinear PK (dose-dependent CL, Vd, or both)
 from multi-dose PK data.
 """
+
 from __future__ import annotations
 
 import math
@@ -122,9 +123,7 @@ def detect_pk_nonlinearity(
     if len(doses_mg) < 3 or len(auc_values) < 3 or len(cmax_values) < 3:
         raise ValueError("At least 3 data points are required.")
     if len(doses_mg) != len(auc_values) or len(doses_mg) != len(cmax_values):
-        raise ValueError(
-            "doses_mg, auc_values, and cmax_values must have the same length."
-        )
+        raise ValueError("doses_mg, auc_values, and cmax_values must have the same length.")
     for d in doses_mg:
         if d <= 0:
             raise ValueError(f"All doses must be positive; got {d}.")
@@ -194,9 +193,7 @@ def detect_pk_nonlinearity(
     if not is_nl_auc:
         notes_parts.append("AUC appears dose-proportional.")
     else:
-        notes_parts.append(
-            f"AUC nonlinear: R2={auc_r2:.3f}, CV%={dn_auc_cv:.1f}%."
-        )
+        notes_parts.append(f"AUC nonlinear: R2={auc_r2:.3f}, CV%={dn_auc_cv:.1f}%.")
     notes_parts.append(f"AUC power-law exponent b={auc_b:.3f}.")
 
     return PKNonlinearityResult(
@@ -278,9 +275,7 @@ def generate_dose_proportionality_report(
         "Dose-Normalized AUC by Dose Level",
         "-" * 40,
     ]
-    for _i, (d, dna) in enumerate(
-        zip(result.doses_mg, result.dose_normalized_auc, strict=False)
-    ):
+    for _i, (d, dna) in enumerate(zip(result.doses_mg, result.dose_normalized_auc, strict=False)):
         lines.append(f"  {d:8.1f} mg  →  DN-AUC = {dna:.4f}")
     lines.append("")
     lines.append(f"Notes: {result.notes}")

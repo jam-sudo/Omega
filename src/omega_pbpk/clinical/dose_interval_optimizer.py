@@ -232,13 +232,11 @@ def optimize_dose_interval(
 
         # Extract concentrations in the last interval
         last_interval_concs = [
-            c
-            for t, c in zip(times, concs, strict=False)
-            if last_dose_time <= t <= next_dose_time
+            c for t, c in zip(times, concs, strict=False) if last_dose_time <= t <= next_dose_time
         ]
 
         if len(last_interval_concs) < 2:
-            last_interval_concs = concs[-max(2, len(concs) // n_doses):]
+            last_interval_concs = concs[-max(2, len(concs) // n_doses) :]
 
         trough = min(last_interval_concs)
         peak = max(last_interval_concs)

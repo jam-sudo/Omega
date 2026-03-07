@@ -18,12 +18,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-_VALID_PROTEINS = frozenset(
-    {"albumin", "alpha1_agp", "cyp3a4", "p_glycoprotein", "plasma_generic"}
-)
+_VALID_PROTEINS = frozenset({"albumin", "alpha1_agp", "cyp3a4", "p_glycoprotein", "plasma_generic"})
 
 _R = 8.314e-3  # kJ/(mol·K)
-_T = 310.0     # K (body temperature)
+_T = 310.0  # K (body temperature)
 
 
 @dataclass(frozen=True)
@@ -34,19 +32,19 @@ class ProteinInteractionResult:
     protein_name: str  # "albumin", "alpha1_agp", "cyp3a4", "p_glycoprotein", "plasma_generic"
 
     # Predicted binding
-    predicted_kd_uM: float               # Dissociation constant (µM)
+    predicted_kd_uM: float  # Dissociation constant (µM)
     predicted_delta_g_kJ_per_mol: float  # Binding free energy
-    predicted_fu: float                  # Fraction unbound
+    predicted_fu: float  # Fraction unbound
 
     # Interaction analysis
-    hydrophobic_score: float       # Contribution from logP
-    polar_score: float             # Contribution from PSA/HBD/HBA
-    charge_score: float            # Based on pKa
+    hydrophobic_score: float  # Contribution from logP
+    polar_score: float  # Contribution from PSA/HBD/HBA
+    charge_score: float  # Based on pKa
     total_interaction_score: float
 
     # Selectivity
-    likely_binding_mode: str    # "hydrophobic_pocket", "ionic", "mixed", "surface"
-    displacement_risk: str      # "low", "moderate", "high"
+    likely_binding_mode: str  # "hydrophobic_pocket", "ionic", "mixed", "surface"
+    displacement_risk: str  # "low", "moderate", "high"
 
     notes: str
 
@@ -198,9 +196,7 @@ def predict_protein_binding(
     # Interaction scores (protein-independent)
     hydrophobic_score = logP * 0.5
     polar_score = -(psa / 100.0 + n_hbd * 0.3)
-    if (pka_acid is not None and pka_acid < 5.0) or (
-        pka_base is not None and pka_base > 8.0
-    ):
+    if (pka_acid is not None and pka_acid < 5.0) or (pka_base is not None and pka_base > 8.0):
         charge_score = 1.0
     else:
         charge_score = 0.0
@@ -226,7 +222,9 @@ def predict_protein_binding(
         pkd, kd = _predict_cyp3a4(logP, psa, mw)
         predicted_kd_uM = kd
         predicted_fu = 1.0  # not a PPB context
-        notes_parts.append(f"CYP3A4 active-site pKd={pkd:.2f}. fu not applicable (metabolic binding).")
+        notes_parts.append(
+            f"CYP3A4 active-site pKd={pkd:.2f}. fu not applicable (metabolic binding)."
+        )
 
     elif protein_name == "p_glycoprotein":
         pkd, kd = _predict_pgp(logP, n_hbd, n_hba)
@@ -255,8 +253,7 @@ def predict_protein_binding(
     displacement_risk = _displacement_risk(predicted_kd_uM)
 
     notes_parts.append(
-        f"Binding mode: {likely_binding_mode}. "
-        f"Displacement risk: {displacement_risk}."
+        f"Binding mode: {likely_binding_mode}. Displacement risk: {displacement_risk}."
     )
     notes = " ".join(notes_parts)
 

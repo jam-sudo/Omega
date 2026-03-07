@@ -117,9 +117,7 @@ class TestRecommendFormulationFunctional:
 
     def test_extended_release_preferred_for_long_duration(self):
         r = recommend_formulation(**_default_kwargs(target_duration_h=24.0))
-        strat = (
-            r.primary_strategy + r.secondary_strategy + r.tertiary_strategy
-        ).lower()
+        strat = (r.primary_strategy + r.secondary_strategy + r.tertiary_strategy).lower()
         assert "er" in strat or "extended" in strat or "mr" in strat
 
     def test_risk_flags_is_tuple(self):

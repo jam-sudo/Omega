@@ -12,10 +12,10 @@ from omega_pbpk.risk.multidrug_resistance import (
     screen_mdr_liability,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def high_risk_compound() -> MDRRiskResult:
@@ -49,6 +49,7 @@ def low_risk_compound() -> MDRRiskResult:
 # Return-type and structure
 # ---------------------------------------------------------------------------
 
+
 def test_returns_mdr_risk_result(high_risk_compound):
     assert isinstance(high_risk_compound, MDRRiskResult)
 
@@ -67,6 +68,7 @@ def test_fields_set(high_risk_compound):
 # ---------------------------------------------------------------------------
 # Score calculation
 # ---------------------------------------------------------------------------
+
 
 def test_high_risk_score_correct(high_risk_compound):
     # 0.4 + 0.3 + 0.2 + 0.1 = 1.0
@@ -107,6 +109,7 @@ def test_logp_below_threshold_no_contribution():
 # Risk categories
 # ---------------------------------------------------------------------------
 
+
 def test_high_risk_category(high_risk_compound):
     assert high_risk_compound.risk_category == "high"
 
@@ -125,6 +128,7 @@ def test_moderate_risk_category():
 # Efflux mechanisms list
 # ---------------------------------------------------------------------------
 
+
 def test_all_mechanisms_listed(high_risk_compound):
     assert len(high_risk_compound.efflux_mechanisms) == 3
 
@@ -141,6 +145,7 @@ def test_pgp_mechanism_name():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_mw_zero():
     with pytest.raises(ValueError, match="mw"):
@@ -165,6 +170,7 @@ def test_valid_drug_class_targeted():
 # ---------------------------------------------------------------------------
 # efflux_ratio_impact
 # ---------------------------------------------------------------------------
+
 
 def test_efflux_ratio_returns_dict():
     r = efflux_ratio_impact(2.0, 1.5)
@@ -194,6 +200,7 @@ def test_efflux_ratio_negative_pgp_raises():
 # predict_combination_mdr
 # ---------------------------------------------------------------------------
 
+
 def test_combination_mdr_returns_dict():
     d1 = {"name": "A", "is_pgp_substrate": True, "mdr_score": 0.5}
     d2 = {"name": "B", "is_pgp_substrate": True, "mdr_score": 0.5}
@@ -212,8 +219,18 @@ def test_dual_pgp_substrates_synergy():
 
 
 def test_pgp_inhibitor_reduces_mdr():
-    inhibitor = {"name": "Inhibitor", "is_pgp_substrate": False, "is_pgp_inhibitor": True, "mdr_score": 0.1}
-    substrate = {"name": "Substrate", "is_pgp_substrate": True, "is_pgp_inhibitor": False, "mdr_score": 0.8}
+    inhibitor = {
+        "name": "Inhibitor",
+        "is_pgp_substrate": False,
+        "is_pgp_inhibitor": True,
+        "mdr_score": 0.1,
+    }
+    substrate = {
+        "name": "Substrate",
+        "is_pgp_substrate": True,
+        "is_pgp_inhibitor": False,
+        "mdr_score": 0.8,
+    }
     r = predict_combination_mdr(inhibitor, substrate)
     assert r["interaction_type"] == "pgp_inhibition_reduces_mdr"
     # substrate effective score reduced by 50%: 0.8*0.5=0.4; combined=max(0.1, 0.4)=0.4
@@ -232,12 +249,29 @@ def test_independent_combination():
 # screen_mdr_liability
 # ---------------------------------------------------------------------------
 
+
 def test_screen_returns_list():
     compounds = [
-        {"compound_name": "A", "smiles": "", "mw": 200.0, "logP": 4.0, "psa": 20.0,
-         "is_pgp_substrate": True, "is_bcrp_substrate": False, "is_mrp_substrate": False},
-        {"compound_name": "B", "smiles": "", "mw": 300.0, "logP": 1.0, "psa": 30.0,
-         "is_pgp_substrate": False, "is_bcrp_substrate": False, "is_mrp_substrate": False},
+        {
+            "compound_name": "A",
+            "smiles": "",
+            "mw": 200.0,
+            "logP": 4.0,
+            "psa": 20.0,
+            "is_pgp_substrate": True,
+            "is_bcrp_substrate": False,
+            "is_mrp_substrate": False,
+        },
+        {
+            "compound_name": "B",
+            "smiles": "",
+            "mw": 300.0,
+            "logP": 1.0,
+            "psa": 30.0,
+            "is_pgp_substrate": False,
+            "is_bcrp_substrate": False,
+            "is_mrp_substrate": False,
+        },
     ]
     results = screen_mdr_liability(compounds)
     assert isinstance(results, list)
@@ -246,10 +280,26 @@ def test_screen_returns_list():
 
 def test_screen_sorted_descending():
     compounds = [
-        {"compound_name": "Low", "smiles": "", "mw": 200.0, "logP": 1.0, "psa": 20.0,
-         "is_pgp_substrate": False, "is_bcrp_substrate": False, "is_mrp_substrate": False},
-        {"compound_name": "High", "smiles": "", "mw": 350.0, "logP": 4.0, "psa": 40.0,
-         "is_pgp_substrate": True, "is_bcrp_substrate": True, "is_mrp_substrate": True},
+        {
+            "compound_name": "Low",
+            "smiles": "",
+            "mw": 200.0,
+            "logP": 1.0,
+            "psa": 20.0,
+            "is_pgp_substrate": False,
+            "is_bcrp_substrate": False,
+            "is_mrp_substrate": False,
+        },
+        {
+            "compound_name": "High",
+            "smiles": "",
+            "mw": 350.0,
+            "logP": 4.0,
+            "psa": 40.0,
+            "is_pgp_substrate": True,
+            "is_bcrp_substrate": True,
+            "is_mrp_substrate": True,
+        },
     ]
     results = screen_mdr_liability(compounds)
     assert results[0].compound_name == "High"

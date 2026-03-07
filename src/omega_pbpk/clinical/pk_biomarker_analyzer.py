@@ -147,8 +147,7 @@ def correlate_pk_biomarker(
     y_mean = _mean(biomarker_values)
     ss_x = sum((xi - x_mean) ** 2 for xi in pk_values)
     cov = sum(
-        (xi - x_mean) * (yi - y_mean)
-        for xi, yi in zip(pk_values, biomarker_values, strict=True)
+        (xi - x_mean) * (yi - y_mean) for xi, yi in zip(pk_values, biomarker_values, strict=True)
     )
 
     slope = cov / ss_x if ss_x != 0.0 else 0.0
@@ -304,9 +303,7 @@ def exposure_response_summary(
         )
     n = len(pk_param_values)
     if n < n_bins:
-        raise ValueError(
-            f"Number of subjects ({n}) must be >= n_bins ({n_bins})"
-        )
+        raise ValueError(f"Number of subjects ({n}) must be >= n_bins ({n_bins})")
     if n_bins < 1:
         raise ValueError("n_bins must be >= 1")
 
@@ -344,11 +341,9 @@ def exposure_response_summary(
 
     # Check monotonicity of bin_mean_response
     monotonic = all(
-        bin_mean_response[i] <= bin_mean_response[i + 1]
-        for i in range(len(bin_mean_response) - 1)
+        bin_mean_response[i] <= bin_mean_response[i + 1] for i in range(len(bin_mean_response) - 1)
     ) or all(
-        bin_mean_response[i] >= bin_mean_response[i + 1]
-        for i in range(len(bin_mean_response) - 1)
+        bin_mean_response[i] >= bin_mean_response[i + 1] for i in range(len(bin_mean_response) - 1)
     )
 
     notes_parts = [f"n={n} subjects in {n_bins} bins"]

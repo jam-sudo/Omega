@@ -109,12 +109,7 @@ def microsomal_clint_scale(
         raise ValueError("mppgl must be positive.")
 
     clint_liver = (
-        clint_uL_per_min_per_mg
-        * protein_conc_mg_per_mL
-        * liver_weight_g
-        * mppgl
-        * 60.0
-        / 1e6
+        clint_uL_per_min_per_mg * protein_conc_mg_per_mL * liver_weight_g * mppgl * 60.0 / 1e6
     )
     return float(clint_liver)
 
@@ -161,13 +156,7 @@ def hepatocyte_clint_scale(
         raise ValueError("hpgl must be positive.")
 
     # hpgl is in cells/g; divide by 1e6 to convert to 10^6-cells/g
-    clint_liver = (
-        clint_uL_per_min_per_1e6cells
-        * (hpgl / 1e6)
-        * liver_weight_g
-        * 60.0
-        / 1e6
-    )
+    clint_liver = clint_uL_per_min_per_1e6cells * (hpgl / 1e6) * liver_weight_g * 60.0 / 1e6
     return float(clint_liver)
 
 
@@ -382,7 +371,7 @@ def ivive_pipeline(
         else "low extraction (E<0.3)"
     )
     notes = (
-        f"fu_mic correction factor: {1.0/fu_mic:.2f}x; "
+        f"fu_mic correction factor: {1.0 / fu_mic:.2f}x; "
         f"CLint_liver={clint_liver:.4f} L/h; {er_class}"
     )
 

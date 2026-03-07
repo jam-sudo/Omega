@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.clinical.indirect_response_pd import (
@@ -13,12 +11,12 @@ from omega_pbpk.clinical.indirect_response_pd import (
 )
 
 # Default parameters for tests
-_DOSE = 100.0        # mg
-_VD = 20.0           # L
-_CL = 5.0            # L/h  → ke = 0.25/h
-_KIN = 10.0          # response units/h
-_KOUT = 1.0          # 1/h  → baseline = 10.0
-_EC50 = 1.0          # mg/L
+_DOSE = 100.0  # mg
+_VD = 20.0  # L
+_CL = 5.0  # L/h  → ke = 0.25/h
+_KIN = 10.0  # response units/h
+_KOUT = 1.0  # 1/h  → baseline = 10.0
+_EC50 = 1.0  # mg/L
 
 
 class TestResultDataclass:
@@ -88,8 +86,15 @@ class TestModel1InhibitProduction:
     def test_response_decreases_when_drug_present(self):
         # High dose, high emax → response should drop below baseline
         r = simulate_indirect_response(
-            1, dose_mg=1000.0, vd_L=_VD, cl_L_per_h=_CL, kin=_KIN, kout=_KOUT,
-            ec50_ic50_mg_L=0.1, emax_imax=1.0, t_end_h=48.0,
+            1,
+            dose_mg=1000.0,
+            vd_L=_VD,
+            cl_L_per_h=_CL,
+            kin=_KIN,
+            kout=_KOUT,
+            ec50_ic50_mg_L=0.1,
+            emax_imax=1.0,
+            t_end_h=48.0,
         )
         min_response = min(r.response)
         assert min_response < r.baseline_r0
@@ -111,8 +116,15 @@ class TestModel2InhibitDegradation:
     def test_response_increases_when_drug_present(self):
         # Inhibiting degradation → response increases
         r = simulate_indirect_response(
-            2, dose_mg=1000.0, vd_L=_VD, cl_L_per_h=_CL, kin=_KIN, kout=_KOUT,
-            ec50_ic50_mg_L=0.1, emax_imax=1.0, t_end_h=72.0,
+            2,
+            dose_mg=1000.0,
+            vd_L=_VD,
+            cl_L_per_h=_CL,
+            kin=_KIN,
+            kout=_KOUT,
+            ec50_ic50_mg_L=0.1,
+            emax_imax=1.0,
+            t_end_h=72.0,
         )
         assert r.peak_response > r.baseline_r0
 
@@ -130,8 +142,15 @@ class TestModel3StimulateProduction:
 
     def test_response_increases_when_drug_present(self):
         r = simulate_indirect_response(
-            3, dose_mg=500.0, vd_L=_VD, cl_L_per_h=_CL, kin=_KIN, kout=_KOUT,
-            ec50_ic50_mg_L=1.0, emax_imax=2.0, t_end_h=72.0,
+            3,
+            dose_mg=500.0,
+            vd_L=_VD,
+            cl_L_per_h=_CL,
+            kin=_KIN,
+            kout=_KOUT,
+            ec50_ic50_mg_L=1.0,
+            emax_imax=2.0,
+            t_end_h=72.0,
         )
         assert r.peak_response > r.baseline_r0
 
@@ -141,9 +160,7 @@ class TestModel3StimulateProduction:
 
     def test_emax_zero_gives_no_effect(self):
         # With emax=0 equivalent (minimum allowed > 0), response stays near baseline
-        r = simulate_indirect_response(
-            3, _DOSE, _VD, _CL, _KIN, _KOUT, _EC50, emax_imax=1e-9
-        )
+        r = simulate_indirect_response(3, _DOSE, _VD, _CL, _KIN, _KOUT, _EC50, emax_imax=1e-9)
         # baseline should be approximately maintained throughout
         assert abs(r.baseline_r0 - _KIN / _KOUT) < 1e-6
 
@@ -158,8 +175,15 @@ class TestModel4StimulateDegrad:
     def test_response_increases_when_drug_present(self):
         # Reducing kout → response rises above baseline
         r = simulate_indirect_response(
-            4, dose_mg=500.0, vd_L=_VD, cl_L_per_h=_CL, kin=_KIN, kout=_KOUT,
-            ec50_ic50_mg_L=1.0, emax_imax=5.0, t_end_h=72.0,
+            4,
+            dose_mg=500.0,
+            vd_L=_VD,
+            cl_L_per_h=_CL,
+            kin=_KIN,
+            kout=_KOUT,
+            ec50_ic50_mg_L=1.0,
+            emax_imax=5.0,
+            t_end_h=72.0,
         )
         assert r.peak_response > r.baseline_r0
 
@@ -173,8 +197,15 @@ class TestMetrics:
 
     def test_peak_response_model1_below_baseline_high_dose(self):
         r = simulate_indirect_response(
-            1, dose_mg=500.0, vd_L=5.0, cl_L_per_h=1.0,
-            kin=_KIN, kout=_KOUT, ec50_ic50_mg_L=0.5, emax_imax=1.0, t_end_h=96.0,
+            1,
+            dose_mg=500.0,
+            vd_L=5.0,
+            cl_L_per_h=1.0,
+            kin=_KIN,
+            kout=_KOUT,
+            ec50_ic50_mg_L=0.5,
+            emax_imax=1.0,
+            t_end_h=96.0,
         )
         assert r.peak_response <= r.baseline_r0
 
@@ -189,16 +220,21 @@ class TestMetrics:
     def test_time_to_return_minus1_if_not_returned(self):
         # Short simulation — response won't return to baseline
         r = simulate_indirect_response(
-            1, dose_mg=1000.0, vd_L=5.0, cl_L_per_h=0.5, kin=_KIN, kout=0.05,
-            ec50_ic50_mg_L=0.1, emax_imax=1.0, t_end_h=2.0,
+            1,
+            dose_mg=1000.0,
+            vd_L=5.0,
+            cl_L_per_h=0.5,
+            kin=_KIN,
+            kout=0.05,
+            ec50_ic50_mg_L=0.1,
+            emax_imax=1.0,
+            t_end_h=2.0,
         )
         # Either -1 or a valid time within simulation
         assert r.time_to_return_pct == -1.0 or 0.0 <= r.time_to_return_pct <= 2.0
 
     def test_time_to_return_nonnegative_when_found(self):
-        r = simulate_indirect_response(
-            1, _DOSE, _VD, _CL, _KIN, _KOUT, _EC50, t_end_h=96.0
-        )
+        r = simulate_indirect_response(1, _DOSE, _VD, _CL, _KIN, _KOUT, _EC50, t_end_h=96.0)
         if r.time_to_return_pct != -1.0:
             assert r.time_to_return_pct >= 0.0
 
@@ -283,8 +319,13 @@ class TestCompareIDRModels:
     def test_inhibitory_models_reduce_or_stable_response(self):
         # Models I and II with high dose → peak response relative to model type
         results = compare_idr_models(
-            dose_mg=500.0, vd_L=5.0, cl_L_per_h=1.0,
-            kin=_KIN, kout=_KOUT, ec50_mg_L=0.1, emax_imax=1.0
+            dose_mg=500.0,
+            vd_L=5.0,
+            cl_L_per_h=1.0,
+            kin=_KIN,
+            kout=_KOUT,
+            ec50_mg_L=0.1,
+            emax_imax=1.0,
         )
         # Model I inhibits production → response goes below baseline at some point
         min_r1 = min(results["I"].response)
@@ -292,7 +333,12 @@ class TestCompareIDRModels:
 
     def test_stimulatory_models_increase_response(self):
         results = compare_idr_models(
-            dose_mg=500.0, vd_L=5.0, cl_L_per_h=1.0,
-            kin=_KIN, kout=_KOUT, ec50_mg_L=0.1, emax_imax=2.0
+            dose_mg=500.0,
+            vd_L=5.0,
+            cl_L_per_h=1.0,
+            kin=_KIN,
+            kout=_KOUT,
+            ec50_mg_L=0.1,
+            emax_imax=2.0,
         )
         assert results["III"].peak_response > results["III"].baseline_r0

@@ -148,9 +148,7 @@ def simulate_drug_holiday(
 
     # Return to SS: time after restart for conc to recover to 80% of pre-holiday trough
     # Pre-holiday trough = c at step before first dose
-    pre_holiday_trough = c_plasma[
-        max(0, holiday_start_idx - int(dosing_interval_h / dt_h))
-    ]
+    pre_holiday_trough = c_plasma[max(0, holiday_start_idx - int(dosing_interval_h / dt_h))]
     target_ss = 0.8 * pre_holiday_trough if pre_holiday_trough > 0 else 0.0
     return_ss_h = n_doses_after * dosing_interval_h  # default
     restart_idx = holiday_end_idx

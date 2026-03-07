@@ -1,6 +1,7 @@
 """Tests for Phase 258: nonlinear_pk_fitting.py"""
 
 import math
+
 import numpy as np
 import pytest
 
@@ -10,8 +11,8 @@ from omega_pbpk.analysis.nonlinear_pk_fitting import (
     fit_nonlinear_pk,
 )
 
-
 # --- Helpers ----------------------------------------------------------------
+
 
 def _generate_mm_data(
     vmax: float = 10.0,
@@ -34,6 +35,7 @@ def _generate_mm_data(
 
 
 # --- Input validation -------------------------------------------------------
+
 
 def test_too_few_timepoints_raises():
     with pytest.raises(ValueError, match="4 time points"):
@@ -66,6 +68,7 @@ def test_vd_negative_raises():
 
 
 # --- Basic fit quality ------------------------------------------------------
+
 
 def test_vmax_close_to_true():
     """Fitted Vmax should be within 30% of true value for noise-free data."""
@@ -163,8 +166,7 @@ def test_with_custom_vmax_km_guess():
     """Providing custom initial guesses should still converge."""
     times, concs = _generate_mm_data(vmax=10.0, km=2.0)
     result = fit_nonlinear_pk(
-        "Drug", times, concs, dose_mg=100.0,
-        vd_guess_L=30.0, vmax_guess=15.0, km_guess=3.0
+        "Drug", times, concs, dose_mg=100.0, vd_guess_L=30.0, vmax_guess=15.0, km_guess=3.0
     )
     assert result.r_squared >= 0.90
 

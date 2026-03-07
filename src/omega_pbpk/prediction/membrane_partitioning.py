@@ -97,11 +97,11 @@ def predict_membrane_partitioning(
 
     # Km/w neutral species (Osterberg 2001, DMPC calibration)
     log_km_w_neutral = 1.09 * logP - 0.01 * psa - 0.15 * n_hbd
-    km_w_neutral = 10.0 ** log_km_w_neutral
+    km_w_neutral = 10.0**log_km_w_neutral
 
     # Ionized species: 1000x less membrane-permeable
     log_km_w_ionized = log_km_w_neutral - 3.0
-    km_w_ionized = 10.0 ** log_km_w_ionized
+    km_w_ionized = 10.0**log_km_w_ionized
 
     # Ionized fraction at pH 7.4
     fi = 0.0
@@ -119,10 +119,8 @@ def predict_membrane_partitioning(
     km_w_effective = km_w_linear
 
     # Permeability from Abraham model (PAMPA/Caco-2 correlations)
-    log_perm_cm_per_s = (
-        0.76 * log_km_w_effective - 0.56 * n_hbd - 0.0086 * mw - 4.0
-    )
-    perm_cm_per_s = 10.0 ** log_perm_cm_per_s
+    log_perm_cm_per_s = 0.76 * log_km_w_effective - 0.56 * n_hbd - 0.0086 * mw - 4.0
+    perm_cm_per_s = 10.0**log_perm_cm_per_s
 
     # Lipid accumulation (30% membrane lipid content)
     lipid_accumulation_factor = km_w_effective * 0.3 / 100.0

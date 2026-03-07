@@ -122,9 +122,7 @@ def _validate_inputs(doses_mg: list[float], responses: list[float]) -> None:
             f"got {len(doses_mg)} vs {len(responses)}"
         )
     if len(doses_mg) < 4:
-        raise ValueError(
-            f"At least 4 data points required for fitting, got {len(doses_mg)}"
-        )
+        raise ValueError(f"At least 4 data points required for fitting, got {len(doses_mg)}")
     if any(d <= 0 for d in doses_mg):
         raise ValueError("All doses_mg must be > 0")
     if any(not math.isfinite(r) for r in responses):

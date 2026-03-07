@@ -13,6 +13,7 @@ from omega_pbpk.clinical.adverse_effect_predictor import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _default(**kw):
     """Return a predict_adverse_effects call with sensible defaults."""
     defaults = dict(
@@ -21,8 +22,8 @@ def _default(**kw):
         cmax_mg_L=10.0,
         auc_24h_mg_h_L=80.0,
         trough_mg_L=1.0,
-        therapeutic_cmax=10.0,   # ratio = 1.0
-        therapeutic_auc=80.0,    # ratio = 1.0
+        therapeutic_cmax=10.0,  # ratio = 1.0
+        therapeutic_auc=80.0,  # ratio = 1.0
     )
     defaults.update(kw)
     return predict_adverse_effects(**defaults)
@@ -31,6 +32,7 @@ def _default(**kw):
 # ---------------------------------------------------------------------------
 # Return type and structure
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_dataclass(self):
@@ -52,8 +54,12 @@ class TestReturnType:
     def test_likelihood_values_valid(self):
         valid = {"low", "moderate", "high"}
         for drug_class in (
-            "nsaid", "opioid", "antibiotic", "antihypertensive",
-            "anticoagulant", "immunosuppressant"
+            "nsaid",
+            "opioid",
+            "antibiotic",
+            "antihypertensive",
+            "anticoagulant",
+            "immunosuppressant",
         ):
             r = _default(drug_class=drug_class)
             for eff in r.predicted_effects:
@@ -64,8 +70,12 @@ class TestReturnType:
     def test_overall_safety_concern_valid(self):
         valid = {"acceptable", "monitor", "high_risk"}
         for drug_class in (
-            "nsaid", "opioid", "antibiotic", "antihypertensive",
-            "anticoagulant", "immunosuppressant"
+            "nsaid",
+            "opioid",
+            "antibiotic",
+            "antihypertensive",
+            "anticoagulant",
+            "immunosuppressant",
         ):
             r = _default(drug_class=drug_class)
             assert r.overall_safety_concern in valid
@@ -90,6 +100,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # NSAID class
 # ---------------------------------------------------------------------------
+
 
 class TestNSAID:
     def test_gi_irritation_low_at_therapeutic(self):
@@ -116,6 +127,7 @@ class TestNSAID:
 # Opioid class
 # ---------------------------------------------------------------------------
 
+
 class TestOpioid:
     def test_respiratory_depression_high_at_3x_cmax(self):
         r = _default(drug_class="opioid", cmax_mg_L=30.0, therapeutic_cmax=10.0)
@@ -140,6 +152,7 @@ class TestOpioid:
 # ---------------------------------------------------------------------------
 # Antibiotic class
 # ---------------------------------------------------------------------------
+
 
 class TestAntibiotic:
     def test_nephrotoxicity_present(self):
@@ -183,6 +196,7 @@ class TestAntibiotic:
 # Antihypertensive class
 # ---------------------------------------------------------------------------
 
+
 class TestAntihypertensive:
     def test_hypotension_present(self):
         r = _default(drug_class="antihypertensive")
@@ -206,6 +220,7 @@ class TestAntihypertensive:
 # ---------------------------------------------------------------------------
 # Anticoagulant class
 # ---------------------------------------------------------------------------
+
 
 class TestAnticoagulant:
     def test_bleeding_risk_present(self):
@@ -236,6 +251,7 @@ class TestAnticoagulant:
 # Immunosuppressant class
 # ---------------------------------------------------------------------------
 
+
 class TestImmunosuppressant:
     def test_infection_risk_present(self):
         r = _default(drug_class="immunosuppressant")
@@ -265,6 +281,7 @@ class TestImmunosuppressant:
 # Overall safety classification
 # ---------------------------------------------------------------------------
 
+
 class TestOverallSafety:
     def test_acceptable_at_therapeutic(self):
         r = _default(drug_class="nsaid")
@@ -289,6 +306,7 @@ class TestOverallSafety:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_invalid_drug_class_raises(self):

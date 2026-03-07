@@ -163,9 +163,7 @@ class TestEquilibrium:
         protein = 40.0
         kd = koff / kon
         expected_fu = kd / (kd + protein)
-        res = _default_result(
-            kon_per_h_per_mg_L=kon, koff_per_h=koff, protein_conc_mg_L=protein
-        )
+        res = _default_result(kon_per_h_per_mg_L=kon, koff_per_h=koff, protein_conc_mg_L=protein)
         assert res.fu_equilibrium == pytest.approx(expected_fu, rel=1e-6)
 
     def test_t_half_binding_equals_ln2_over_koff(self):
@@ -181,10 +179,10 @@ class TestEquilibrium:
         """
         kon = 0.05
         koff = 0.5
-        protein = 200.0   # large protein excess
+        protein = 200.0  # large protein excess
         kd = koff / kon
         fu_eq = kd / (kd + protein)
-        c_total = 0.1     # drug << protein → ligand-depletion negligible
+        c_total = 0.1  # drug << protein → ligand-depletion negligible
         # Run for 20 half-lives (well into equilibrium)
         t_half = math.log(2.0) / koff
         res = simulate_binding_kinetics(

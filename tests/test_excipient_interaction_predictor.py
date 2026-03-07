@@ -11,7 +11,6 @@ from omega_pbpk.prediction.excipient_interaction_predictor import (
     screen_excipients,
 )
 
-
 # ---------------------------------------------------------------------------
 # Supported excipient list
 # ---------------------------------------------------------------------------
@@ -22,8 +21,7 @@ def test_supported_excipients_count():
 
 
 def test_supported_excipients_includes_required():
-    required = {"HPMC", "PVP", "SDS", "Poloxamer 407", "Lactose", "MCC",
-                "Stearic acid", "Tween 80"}
+    required = {"HPMC", "PVP", "SDS", "Poloxamer 407", "Lactose", "MCC", "Stearic acid", "Tween 80"}
     assert required.issubset(set(SUPPORTED_EXCIPIENTS))
 
 

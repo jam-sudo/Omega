@@ -15,6 +15,7 @@ from dataclasses import dataclass
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ReleaseModelFitResult:
     """Result of fitting multiple release models to observed data."""
@@ -30,6 +31,7 @@ class ReleaseModelFitResult:
 # ---------------------------------------------------------------------------
 # Release models
 # ---------------------------------------------------------------------------
+
 
 def zero_order_release(
     t_h: float,
@@ -149,12 +151,13 @@ def korsmeyer_peppas(
         raise ValueError("k_kp must be >= 0")
     if t_h <= 0:
         return 0.0
-    return k_kp * (t_h ** n_exponent)
+    return k_kp * (t_h**n_exponent)
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _mean(values: list[float]) -> float:
     if not values:
@@ -186,9 +189,9 @@ def _ols_slope_intercept(x: list[float], y: list[float]) -> tuple[float, float]:
         return 0.0, (y[0] if y else 0.0)
     sx = sum(x)
     sy = sum(y)
-    sxx = sum(xi ** 2 for xi in x)
+    sxx = sum(xi**2 for xi in x)
     sxy = sum(xi * yi for xi, yi in zip(x, y, strict=False))
-    denom = n * sxx - sx ** 2
+    denom = n * sxx - sx**2
     if abs(denom) < 1e-15:
         return 0.0, _mean(y)
     slope = (n * sxy - sx * sy) / denom
@@ -199,6 +202,7 @@ def _ols_slope_intercept(x: list[float], y: list[float]) -> tuple[float, float]:
 # ---------------------------------------------------------------------------
 # Model fitting
 # ---------------------------------------------------------------------------
+
 
 def fit_release_model(
     times_h: list[float],
@@ -286,7 +290,7 @@ def fit_release_model(
         slope_kp, intercept_kp = _ols_slope_intercept(ln_t_kp, ln_f_kp)
         n_exp = slope_kp
         k_kp = math.exp(intercept_kp)
-        pred_kp_full = [k_kp * (ti ** n_exp) if ti > 0 else 0.0 for ti in t]
+        pred_kp_full = [k_kp * (ti**n_exp) if ti > 0 else 0.0 for ti in t]
         r2_values["korsmeyer_peppas"] = _r_squared(frac, pred_kp_full)
         params["korsmeyer_peppas"] = {"k_kp": k_kp, "n_exponent": n_exp}
     else:
@@ -312,10 +316,7 @@ def fit_release_model(
     else:
         mechanism = "anomalous"
 
-    notes = (
-        f"Best model: {best_model} (R²={best_r2:.4f}); "
-        f"KP n={n_kp:.3f} → {mechanism}"
-    )
+    notes = f"Best model: {best_model} (R²={best_r2:.4f}); KP n={n_kp:.3f} → {mechanism}"
 
     return ReleaseModelFitResult(
         best_model=best_model,
@@ -330,6 +331,7 @@ def fit_release_model(
 # ---------------------------------------------------------------------------
 # Profile comparison
 # ---------------------------------------------------------------------------
+
 
 def compare_release_profiles(
     times_h: list[float],

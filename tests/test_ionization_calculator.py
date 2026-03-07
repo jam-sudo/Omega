@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.prediction.ionization_calculator import (
@@ -15,10 +14,10 @@ from omega_pbpk.prediction.ionization_calculator import (
     solubility_from_ionization,
 )
 
-
 # ---------------------------------------------------------------------------
 # fraction_ionized — acid
 # ---------------------------------------------------------------------------
+
 
 class TestFractionIonizedAcid:
     def test_acid_at_pka_half_ionized(self):
@@ -48,6 +47,7 @@ class TestFractionIonizedAcid:
 # fraction_ionized — base
 # ---------------------------------------------------------------------------
 
+
 class TestFractionIonizedBase:
     def test_base_at_pka_half_ionized(self):
         fi = fraction_ionized(ph=9.0, pka=9.0, drug_type="base")
@@ -70,6 +70,7 @@ class TestFractionIonizedBase:
 # ---------------------------------------------------------------------------
 # fraction_neutral
 # ---------------------------------------------------------------------------
+
 
 class TestFractionNeutral:
     def test_sum_to_one_acid(self):
@@ -97,6 +98,7 @@ class TestFractionNeutral:
 # effective_charge
 # ---------------------------------------------------------------------------
 
+
 class TestEffectiveCharge:
     def test_fully_ionized_acid_charge_minus_one(self):
         # Acid pKa=4 at pH=10: fi ≈ 1, charge ≈ -1
@@ -114,9 +116,7 @@ class TestEffectiveCharge:
 
     def test_zwitterion_net_charge(self):
         # Zwitterion: base pKa=9 and acid pKa=3; at pH=7.4 net ≈ 0 nominally
-        charge = effective_charge(
-            ph=7.4, pka_values=[9.0, 3.0], drug_types=["base", "acid"]
-        )
+        charge = effective_charge(ph=7.4, pka_values=[9.0, 3.0], drug_types=["base", "acid"])
         # Both are charged at pH 7.4 → net approximately 0 (±1)
         assert -2.0 <= charge <= 2.0
 
@@ -132,6 +132,7 @@ class TestEffectiveCharge:
 # ---------------------------------------------------------------------------
 # ionization_profile
 # ---------------------------------------------------------------------------
+
 
 class TestIonizationProfile:
     def test_returns_correct_keys(self):
@@ -167,6 +168,7 @@ class TestIonizationProfile:
 # predict_gi_charge_states
 # ---------------------------------------------------------------------------
 
+
 class TestPredictGIChargeStates:
     def test_acid_pka4_mostly_neutral_in_stomach(self):
         result = predict_gi_charge_states(pka=4.0, drug_type="acid")
@@ -191,7 +193,11 @@ class TestPredictGIChargeStates:
         result = predict_gi_charge_states(pka=5.0, drug_type="acid")
         assert isinstance(result.absorption_favorable_segment, str)
         assert result.absorption_favorable_segment in (
-            "stomach", "duodenum", "jejunum", "ileum", "colon"
+            "stomach",
+            "duodenum",
+            "jejunum",
+            "ileum",
+            "colon",
         )
 
     def test_result_is_frozen_dataclass(self):
@@ -207,6 +213,7 @@ class TestPredictGIChargeStates:
 # ---------------------------------------------------------------------------
 # solubility_from_ionization
 # ---------------------------------------------------------------------------
+
 
 class TestSolubilityFromIonization:
     def test_acid_high_ph_higher_solubility(self):
@@ -235,19 +242,13 @@ class TestSolubilityFromIonization:
 
     def test_at_pka_solubility_doubled(self):
         # At pH = pKa: factor = 1 + 10^0 = 2
-        s = solubility_from_ionization(
-            intrinsic_sol_mg_mL=1.0, ph=5.0, pka=5.0, drug_type="acid"
-        )
+        s = solubility_from_ionization(intrinsic_sol_mg_mL=1.0, ph=5.0, pka=5.0, drug_type="acid")
         assert abs(s - 2.0) < 1e-6
 
     def test_negative_intrinsic_solubility_raises(self):
         with pytest.raises(ValueError):
-            solubility_from_ionization(
-                intrinsic_sol_mg_mL=-1.0, ph=7.4, pka=5.0
-            )
+            solubility_from_ionization(intrinsic_sol_mg_mL=-1.0, ph=7.4, pka=5.0)
 
     def test_invalid_ph_raises(self):
         with pytest.raises(ValueError):
-            solubility_from_ionization(
-                intrinsic_sol_mg_mL=1.0, ph=15.0, pka=5.0
-            )
+            solubility_from_ionization(intrinsic_sol_mg_mL=1.0, ph=15.0, pka=5.0)

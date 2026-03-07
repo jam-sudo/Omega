@@ -143,7 +143,7 @@ def test_very_low_logP_fu_close_to_one():
 
 
 def test_binding_class_low():
-    assert _binding_class(0.8) == "low"      # 20% bound
+    assert _binding_class(0.8) == "low"  # 20% bound
 
 
 def test_binding_class_moderate():
@@ -151,7 +151,7 @@ def test_binding_class_moderate():
 
 
 def test_binding_class_high():
-    assert _binding_class(0.05) == "high"    # 95% bound
+    assert _binding_class(0.05) == "high"  # 95% bound
 
 
 def test_binding_class_boundary_50():
@@ -199,8 +199,12 @@ def test_disease_fu_ratio_hypoalbuminemia():
 def test_disease_fu_clamped_at_one():
     """Even with high multiplier, fu cannot exceed 1.0."""
     d = disease_effect_on_binding(
-        mw=100.0, logP=-5.0, psa=200.0, pka=7.0,
-        molecule_type="neutral", logD_pH74=-4.0,
+        mw=100.0,
+        logP=-5.0,
+        psa=200.0,
+        pka=7.0,
+        molecule_type="neutral",
+        logD_pH74=-4.0,
         disease="hypoalbuminemia",
     )
     assert d["disease_fu"] <= 1.0
@@ -214,8 +218,12 @@ def test_disease_invalid_name():
 def test_disease_invalid_mw():
     with pytest.raises(ValueError, match="mw"):
         disease_effect_on_binding(
-            mw=-1, logP=2.0, psa=50.0, pka=7.0,
-            molecule_type="neutral", logD_pH74=1.0,
+            mw=-1,
+            logP=2.0,
+            psa=50.0,
+            pka=7.0,
+            molecule_type="neutral",
+            logD_pH74=1.0,
             disease="renal_failure",
         )
 

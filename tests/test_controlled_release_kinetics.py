@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.biopharmaceutics.controlled_release_kinetics import (
@@ -15,10 +16,10 @@ from omega_pbpk.biopharmaceutics.controlled_release_kinetics import (
     zero_order_release,
 )
 
-
 # ---------------------------------------------------------------------------
 # zero_order_release
 # ---------------------------------------------------------------------------
+
 
 class TestZeroOrderRelease:
     def test_zero_at_t_zero(self):
@@ -57,6 +58,7 @@ class TestZeroOrderRelease:
 # first_order_release
 # ---------------------------------------------------------------------------
 
+
 class TestFirstOrderRelease:
     def test_zero_at_t_zero(self):
         assert first_order_release(0.0, 0.5) == pytest.approx(0.0)
@@ -92,6 +94,7 @@ class TestFirstOrderRelease:
 # higuchi_release
 # ---------------------------------------------------------------------------
 
+
 class TestHiguchiRelease:
     def test_zero_at_t_zero(self):
         assert higuchi_release(0.0, 0.2) == pytest.approx(0.0)
@@ -125,13 +128,14 @@ class TestHiguchiRelease:
 # korsmeyer_peppas
 # ---------------------------------------------------------------------------
 
+
 class TestKorsmeyerPeppas:
     def test_zero_at_t_zero(self):
         assert korsmeyer_peppas(0.0, 0.3, 0.45) == pytest.approx(0.0)
 
     def test_power_law_formula(self):
         k, n, t = 0.3, 0.5, 4.0
-        assert korsmeyer_peppas(t, k, n) == pytest.approx(k * (t ** n), rel=1e-6)
+        assert korsmeyer_peppas(t, k, n) == pytest.approx(k * (t**n), rel=1e-6)
 
     def test_n_one_linear_in_t(self):
         """n=1 → fraction = k * t (zero-order like)."""
@@ -148,7 +152,7 @@ class TestKorsmeyerPeppas:
     def test_fickian_label_for_n_le_045(self):
         """n=0.45 is Fickian boundary."""
         f = korsmeyer_peppas(4.0, 0.2, 0.45)
-        assert f == pytest.approx(0.2 * (4.0 ** 0.45), rel=1e-6)
+        assert f == pytest.approx(0.2 * (4.0**0.45), rel=1e-6)
 
     def test_negative_k_raises(self):
         with pytest.raises(ValueError):
@@ -162,6 +166,7 @@ class TestKorsmeyerPeppas:
 # ---------------------------------------------------------------------------
 # fit_release_model
 # ---------------------------------------------------------------------------
+
 
 class TestFitReleaseModel:
     def _zero_order_data(self, k0=0.08, n_pts=10, t_max=10.0):
@@ -181,7 +186,7 @@ class TestFitReleaseModel:
 
     def _kp_data(self, k=0.3, n=0.45, n_pts=10, t_max=10.0):
         times = [0.5 + t_max * i / (n_pts - 1) for i in range(n_pts)]
-        fracs = [min(k * (t ** n), 1.0) for t in times]
+        fracs = [min(k * (t**n), 1.0) for t in times]
         return times, fracs
 
     def test_returns_result_instance(self):
@@ -273,6 +278,7 @@ class TestFitReleaseModel:
 # ---------------------------------------------------------------------------
 # compare_release_profiles
 # ---------------------------------------------------------------------------
+
 
 class TestCompareReleaseProfiles:
     def _linear_profile(self, k=0.08, n=12, t_max=12.0):

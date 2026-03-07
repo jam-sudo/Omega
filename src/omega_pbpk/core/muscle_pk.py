@@ -145,11 +145,7 @@ def simulate_muscle_pk(
             gut_mass = max(0.0, gut_mass + d_gut)
 
         # dC_central/dt
-        dc_central = (
-            -ke * c_central
-            - transfer / vd_central
-            + abs_rate / vd_central
-        )
+        dc_central = -ke * c_central - transfer / vd_central + abs_rate / vd_central
         # dC_muscle/dt
         dc_muscle = transfer / vd_muscle
 

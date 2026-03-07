@@ -46,9 +46,7 @@ def bliss_independence(effect_a: float, effect_b: float) -> float:
     return effect_a + effect_b - effect_a * effect_b
 
 
-def bliss_synergy_score(
-    effect_a: float, effect_b: float, effect_combo: float
-) -> float:
+def bliss_synergy_score(effect_a: float, effect_b: float, effect_combo: float) -> float:
     """Compute Bliss synergy score (observed minus expected).
 
     A positive score indicates synergy (combo exceeds independence expectation).

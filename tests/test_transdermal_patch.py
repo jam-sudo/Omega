@@ -1,6 +1,5 @@
 """Tests for Phase 251: Transdermal Patch PK."""
 
-import math
 import pytest
 
 from omega_pbpk.core.transdermal_patch import (
@@ -8,7 +7,6 @@ from omega_pbpk.core.transdermal_patch import (
     compare_patch_types,
     simulate_transdermal_patch,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic smoke tests
@@ -76,7 +74,6 @@ def test_reservoir_near_constant_concentration():
         dt_h=0.1,
     )
     # After lag, plasma should rise and reach quasi-steady state
-    times = result.times_h
     c = result.c_plasma_mg_L
     # At end of patch, concentration should be positive
     idx_end = int(24.0 / 0.1)
@@ -134,7 +131,6 @@ def test_plasma_rises_after_lag():
         t_end_h=24.0,
         dt_h=0.1,
     )
-    times = result.times_h
     c = result.c_plasma_mg_L
     idx_after_lag = int((lag + 5.0) / 0.1)  # 5h after lag
     assert c[idx_after_lag] > 0.0

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.biopharmaceutics.formulation_be import (
@@ -12,7 +10,6 @@ from omega_pbpk.biopharmaceutics.formulation_be import (
     predict_be_outcome,
     required_sample_size,
 )
-
 
 # ---------------------------------------------------------------------------
 # predict_be_outcome tests
@@ -91,8 +88,9 @@ def test_failing_cmax_fails_overall():
 
 def test_both_passing_overall_be():
     # GMR ~0.95 for both with large n, small CV should pass
-    res = predict_be_outcome(100.0, 20.0, 95.0, 19.0, ref_auc_cv=0.15, ref_cmax_cv=0.15,
-                             n_subjects=30)
+    res = predict_be_outcome(
+        100.0, 20.0, 95.0, 19.0, ref_auc_cv=0.15, ref_cmax_cv=0.15, n_subjects=30
+    )
     assert res.overall_be is True
 
 
@@ -221,7 +219,7 @@ def test_invalid_gmr_raises():
         required_sample_size(gmr=0.0, cv=0.20)
 
 
-def test_invalid_cv_raises():
+def test_required_sample_size_invalid_cv_raises():
     with pytest.raises(ValueError, match="cv"):
         required_sample_size(gmr=0.95, cv=0.0)
 

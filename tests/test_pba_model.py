@@ -6,7 +6,6 @@ import pytest
 
 from omega_pbpk.core.pba_model import PBAResult, compare_particle_sizes, simulate_pba
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

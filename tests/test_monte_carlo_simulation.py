@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.analysis.monte_carlo_simulation import (
-    MonteCarloResult,
     MonteCarloPKResult,
+    MonteCarloResult,
+    calculate_probability_target_attainment,
     monte_carlo_pk,
     run_monte_carlo_pk,
     summarize_percentiles,
-    calculate_probability_target_attainment,
     uncertainty_propagation,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers — legacy API

@@ -103,8 +103,9 @@ def test_low_ic50_requires_clinical_study():
 
 def test_pgp_uses_gut_concentration():
     """P-gp: c_inlet should be large (gut lumen concentration)."""
-    result = _run(transporter="P-gp", dose_mg_perpetrator=500.0, mw_perpetrator=350.0,
-                  ic50_vitro_uM=10.0)
+    result = _run(
+        transporter="P-gp", dose_mg_perpetrator=500.0, mw_perpetrator=350.0, ic50_vitro_uM=10.0
+    )
     # C_gut_uM = (500/0.25 L) * 1000 / 350 >> systemic
     expected_c_gut = (500.0 / 0.25) * 1000.0 / 350.0
     assert result.c_inlet_uM == pytest.approx(expected_c_gut, rel=1e-3)
@@ -125,16 +126,26 @@ def test_oatp1b1_uses_portal_concentration():
 
 
 def test_oatp1b3_uses_portal_concentration():
-    result = _run(transporter="OATP1B3", dose_mg_perpetrator=100.0,
-                  mw_perpetrator=350.0, fu_plasma=0.5, vd_L=50.0)
+    result = _run(
+        transporter="OATP1B3",
+        dose_mg_perpetrator=100.0,
+        mw_perpetrator=350.0,
+        fu_plasma=0.5,
+        vd_L=50.0,
+    )
     # C_portal = (dose/vd * fu * 1.5) * 1000 / mw
     expected = (100.0 / 50.0) * 0.5 * 1.5 * 1000.0 / 350.0
     assert result.c_inlet_uM == pytest.approx(expected, rel=1e-3)
 
 
 def test_oat1_uses_systemic_concentration():
-    result = _run(transporter="OAT1", dose_mg_perpetrator=100.0,
-                  mw_perpetrator=350.0, fu_plasma=0.5, vd_L=50.0)
+    result = _run(
+        transporter="OAT1",
+        dose_mg_perpetrator=100.0,
+        mw_perpetrator=350.0,
+        fu_plasma=0.5,
+        vd_L=50.0,
+    )
     # C_systemic = dose/vd * fu * 1000/mw
     expected = (100.0 / 50.0) * 0.5 * 1000.0 / 350.0
     assert result.c_inlet_uM == pytest.approx(expected, rel=1e-3)
@@ -154,8 +165,14 @@ def test_oct2_uses_systemic_concentration():
 
 def test_no_ddi_category_boundary():
     # R just below 1.1
-    result = _run(transporter="OAT1", ic50_vitro_uM=1e5, dose_mg_perpetrator=1.0,
-                  mw_perpetrator=350.0, fu_plasma=0.5, vd_L=50.0)
+    result = _run(
+        transporter="OAT1",
+        ic50_vitro_uM=1e5,
+        dose_mg_perpetrator=1.0,
+        mw_perpetrator=350.0,
+        fu_plasma=0.5,
+        vd_L=50.0,
+    )
     assert result.ddi_category == "no_ddi"
 
 
@@ -167,8 +184,14 @@ def test_predicted_auc_ratio_capped_at_five():
 def test_requires_clinical_study_threshold():
     """When AUC ratio > 1.25, clinical study is needed."""
     # Force AUC ratio slightly above 1.25 via R > 1.25
-    result = _run(transporter="OAT1", ic50_vitro_uM=0.01, dose_mg_perpetrator=5000.0,
-                  mw_perpetrator=350.0, fu_plasma=1.0, vd_L=10.0)
+    result = _run(
+        transporter="OAT1",
+        ic50_vitro_uM=0.01,
+        dose_mg_perpetrator=5000.0,
+        mw_perpetrator=350.0,
+        fu_plasma=1.0,
+        vd_L=10.0,
+    )
     assert result.requires_clinical_study
 
 

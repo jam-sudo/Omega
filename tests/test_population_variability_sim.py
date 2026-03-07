@@ -199,9 +199,7 @@ def test_cv_trough_positive_with_variability():
 
 def test_zero_variability():
     """With CV=0, all subjects should have identical troughs."""
-    result = simulate_population_pk(
-        20, 100.0, 5.0, 50.0, cl_cv_pct=0.0, vd_cv_pct=0.0, seed=99
-    )
+    result = simulate_population_pk(20, 100.0, 5.0, 50.0, cl_cv_pct=0.0, vd_cv_pct=0.0, seed=99)
     troughs = result.individual_troughs
     assert max(troughs) - min(troughs) < 1e-9
 

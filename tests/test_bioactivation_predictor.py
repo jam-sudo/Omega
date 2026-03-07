@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.bioactivation_predictor import (
@@ -11,7 +12,6 @@ from omega_pbpk.prediction.bioactivation_predictor import (
     predict_bioactivation_risk,
     screen_compound_series,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -121,9 +121,7 @@ def test_epoxide_precursor_not_detected_low_logp():
 
 def test_furan_high_dose_high_fm_very_high_risk():
     smiles_furan = "c1ccoc1CC"
-    r = predict_bioactivation_risk(
-        "HighRisk", smiles_furan, 1000.0, fm_cyp3a4=0.9
-    )
+    r = predict_bioactivation_risk("HighRisk", smiles_furan, 1000.0, fm_cyp3a4=0.9)
     assert r.risk_category in ("high", "very_high")
     assert r.risk_score > 25.0
 
@@ -154,9 +152,7 @@ def test_bioactivation_burden_positive_when_alerts():
 
 
 def test_total_fm_cyp_capped_at_one():
-    r = predict_bioactivation_risk(
-        "X", "CCC", 100.0, fm_cyp3a4=0.5, fm_cyp2d6=0.4, fm_cyp1a2=0.4
-    )
+    r = predict_bioactivation_risk("X", "CCC", 100.0, fm_cyp3a4=0.5, fm_cyp2d6=0.4, fm_cyp1a2=0.4)
     assert r.total_fm_cyp <= 1.0
 
 
@@ -259,8 +255,7 @@ def test_screen_sorted_descending():
 
 def test_screen_returns_all_compounds():
     compounds = [
-        {"compound_name": f"C{i}", "smiles": "CCC", "daily_dose_mg": 50.0}
-        for i in range(5)
+        {"compound_name": f"C{i}", "smiles": "CCC", "daily_dose_mg": 50.0} for i in range(5)
     ]
     results = screen_compound_series(compounds)
     assert len(results) == 5

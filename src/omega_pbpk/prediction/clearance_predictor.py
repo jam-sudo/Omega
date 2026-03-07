@@ -101,7 +101,7 @@ def predict_hepatic_cl(
             * hepatocyte_scaling
         )
         notes = (
-            f"Hepatocyte scaling: {_HEPATOCYTES_PER_G_LIVER/1e6:.0f}×10^6 cells/g liver, "
+            f"Hepatocyte scaling: {_HEPATOCYTES_PER_G_LIVER / 1e6:.0f}×10^6 cells/g liver, "
             f"{_LIVER_WEIGHT_PER_KG_BW} g liver/kg BW"
         )
 
@@ -175,9 +175,7 @@ def rank_clearance_compounds(
         clint = cpd.get("clint")
         fu_mic = cpd.get("fu_mic")
         if clint is None or fu_mic is None:
-            raise ValueError(
-                f"Compound '{name}' must have 'clint' and 'fu_mic' fields"
-            )
+            raise ValueError(f"Compound '{name}' must have 'clint' and 'fu_mic' fields")
 
         pred = predict_hepatic_cl(
             clint_uL_per_min_per_mg_protein=float(clint),

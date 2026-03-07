@@ -13,13 +13,12 @@ import numpy as np
 from omega_pbpk._compat import np_trapz
 
 # Recognised organ names
-_VALID_ORGANS = frozenset(
-    {"liver", "kidney", "brain", "lung", "heart", "muscle", "fat"}
-)
+_VALID_ORGANS = frozenset({"liver", "kidney", "brain", "lung", "heart", "muscle", "fat"})
 
 # ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class OrganConcentrationResult:
@@ -43,6 +42,7 @@ class OrganConcentrationResult:
 # ---------------------------------------------------------------------------
 # Single-organ prediction
 # ---------------------------------------------------------------------------
+
 
 def predict_organ_concentration(
     plasma_concs: list[float],
@@ -90,9 +90,7 @@ def predict_organ_concentration(
     if len(plasma_concs) != len(times_h):
         raise ValueError("plasma_concs and times_h must have the same length")
     if organ_name not in _VALID_ORGANS:
-        raise ValueError(
-            f"organ_name must be one of {sorted(_VALID_ORGANS)}, got '{organ_name}'"
-        )
+        raise ValueError(f"organ_name must be one of {sorted(_VALID_ORGANS)}, got '{organ_name}'")
     if kp_organ <= 0:
         raise ValueError("kp_organ must be > 0")
     if not (0 < fu_plasma <= 1.0):
@@ -157,6 +155,7 @@ def predict_organ_concentration(
 # ---------------------------------------------------------------------------
 # Multi-organ profile
 # ---------------------------------------------------------------------------
+
 
 def organ_exposure_profile(
     plasma_concs: list[float],

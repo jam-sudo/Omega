@@ -211,29 +211,49 @@ class TestAssessOverallStability:
 
     def test_thermal_is_correct_type(self):
         result = assess_overall_stability(
-            mw_kDa=150.0, isoelectric_point=7.0, n_disulfide_bonds=4,
-            n_asp=2, n_asn=2, n_met=1, n_trp=0,
+            mw_kDa=150.0,
+            isoelectric_point=7.0,
+            n_disulfide_bonds=4,
+            n_asp=2,
+            n_asn=2,
+            n_met=1,
+            n_trp=0,
         )
         assert isinstance(result["thermal"], ThermalStabilityResult)
 
     def test_chemical_is_correct_type(self):
         result = assess_overall_stability(
-            mw_kDa=150.0, isoelectric_point=7.0, n_disulfide_bonds=4,
-            n_asp=2, n_asn=2, n_met=1, n_trp=0,
+            mw_kDa=150.0,
+            isoelectric_point=7.0,
+            n_disulfide_bonds=4,
+            n_asp=2,
+            n_asn=2,
+            n_met=1,
+            n_trp=0,
         )
         assert isinstance(result["chemical"], ChemicalStabilityResult)
 
     def test_colloidal_is_correct_type(self):
         result = assess_overall_stability(
-            mw_kDa=150.0, isoelectric_point=7.0, n_disulfide_bonds=4,
-            n_asp=2, n_asn=2, n_met=1, n_trp=0,
+            mw_kDa=150.0,
+            isoelectric_point=7.0,
+            n_disulfide_bonds=4,
+            n_asp=2,
+            n_asn=2,
+            n_met=1,
+            n_trp=0,
         )
         assert isinstance(result["colloidal"], ColloidalStabilityResult)
 
     def test_overall_risk_valid_string(self):
         result = assess_overall_stability(
-            mw_kDa=150.0, isoelectric_point=7.0, n_disulfide_bonds=4,
-            n_asp=2, n_asn=2, n_met=1, n_trp=0,
+            mw_kDa=150.0,
+            isoelectric_point=7.0,
+            n_disulfide_bonds=4,
+            n_asp=2,
+            n_asn=2,
+            n_met=1,
+            n_trp=0,
         )
         assert result["overall_risk"] in ("low", "moderate", "high")
 
@@ -260,8 +280,8 @@ class TestAssessOverallStability:
         """
         result = assess_overall_stability(
             mw_kDa=150.0,
-            isoelectric_point=9.0,   # pI far from pH 5.5 → large zeta
-            n_disulfide_bonds=12,    # high Tm
+            isoelectric_point=9.0,  # pI far from pH 5.5 → large zeta
+            n_disulfide_bonds=12,  # high Tm
             n_asp=2,
             n_asn=1,
             n_met=1,

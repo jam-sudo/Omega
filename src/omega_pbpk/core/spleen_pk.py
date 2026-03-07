@@ -237,13 +237,15 @@ def mps_uptake_analysis(
         else:
             classification = "Extensive MPS sequestration"
 
-        results.append({
-            "phagocytosis_rate_per_h": rate,
-            "f_sequestered": f_seq,
-            "classification": classification,
-            "cmax_plasma_mg_L": sim.cmax_plasma,
-            "auc_plasma_mg_h_L": sim.auc_plasma,
-        })
+        results.append(
+            {
+                "phagocytosis_rate_per_h": rate,
+                "f_sequestered": f_seq,
+                "classification": classification,
+                "cmax_plasma_mg_L": sim.cmax_plasma,
+                "auc_plasma_mg_h_L": sim.auc_plasma,
+            }
+        )
 
     return results
 

@@ -14,7 +14,6 @@ from omega_pbpk.clinical.pediatric_dose_optimization import (
     target_auc_dose,
 )
 
-
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -85,6 +84,7 @@ class TestTargetAucDose:
     def test_practical_dose_in_steps(self):
         """Practical dose must be one of the defined steps."""
         from omega_pbpk.clinical.pediatric_dose_optimization import _PRACTICAL_DOSE_STEPS
+
         result = target_auc_dose(**self._base_params())
         assert result.practical_dose_mg in _PRACTICAL_DOSE_STEPS
 

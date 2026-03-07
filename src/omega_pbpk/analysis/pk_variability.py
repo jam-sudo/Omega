@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 from scipy import stats
@@ -87,7 +86,7 @@ def analyze_pk_variability(
     drug_name: str,
     auc_values: list[float],
     cmax_values: list[float],
-    trough_values: Optional[list[float]] = None,
+    trough_values: list[float] | None = None,
     n_occasions: int = 1,
 ) -> PKVariabilityResult:
     """Analyze PK variability across a population.

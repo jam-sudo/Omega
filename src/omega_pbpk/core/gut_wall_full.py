@@ -138,10 +138,7 @@ def simulate_gut_wall_full(
 
     # --- Regional ka (permeability-based) corrected for P-gp ---
     # Convert peff from cm/s to h-based: *3600
-    ka_raw = [
-        2.0 * peff_cm_per_s * 3600.0 / _RADII_CM[i]
-        for i in range(4)
-    ]
+    ka_raw = [2.0 * peff_cm_per_s * 3600.0 / _RADII_CM[i] for i in range(4)]
     ka_eff = [k / pgp_efflux_ratio for k in ka_raw]
 
     # --- Per-segment absorption and extraction ---
@@ -187,10 +184,7 @@ def simulate_gut_wall_full(
 
     # --- Effective gut wall CL (weighted by segment absorption fraction) ---
     total_fa_nz = max(fa_total, 1e-12)
-    cl_gut_wall = sum(
-        clint_segments[i] * (fa_segments[i] / total_fa_nz)
-        for i in range(4)
-    )
+    cl_gut_wall = sum(clint_segments[i] * (fa_segments[i] / total_fa_nz) for i in range(4))
 
     notes_parts = [
         f"Dn={dn:.2f}",

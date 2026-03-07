@@ -41,6 +41,7 @@ def base_result() -> RenalSaturationResult:
 # 1. Input validation
 # ---------------------------------------------------------------------------
 
+
 class TestInputValidation:
     def test_zero_dose_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
@@ -87,6 +88,7 @@ class TestInputValidation:
 # 2. Frozen dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestFrozenDataclass:
     def test_result_is_frozen(self):
         result = base_result()
@@ -101,6 +103,7 @@ class TestFrozenDataclass:
 # ---------------------------------------------------------------------------
 # 3. Output shapes and types
 # ---------------------------------------------------------------------------
+
 
 class TestOutputShapes:
     def test_times_and_conc_same_length(self):
@@ -127,6 +130,7 @@ class TestOutputShapes:
 # ---------------------------------------------------------------------------
 # 4. Physics / pharmacology
 # ---------------------------------------------------------------------------
+
 
 class TestPhysics:
     def test_auc_positive(self):
@@ -160,16 +164,17 @@ class TestPhysics:
 # 5. Low dose → dose proportional
 # ---------------------------------------------------------------------------
 
+
 class TestLowDoseDoseProportional:
     def test_low_dose_dose_proportional(self):
         # Dose << Km*Vd → minimal saturation
         result = simulate_renal_saturation(
             drug_name="LowDose",
-            dose_mg=1.0,         # very small dose
+            dose_mg=1.0,  # very small dose
             cl_nonrenal_L_per_h=5.0,
             vd_L=50.0,
             vmax_mg_per_h=50.0,
-            km_mg_L=5.0,         # high Km
+            km_mg_L=5.0,  # high Km
             route="iv",
             t_end_h=24.0,
         )
@@ -181,16 +186,17 @@ class TestLowDoseDoseProportional:
 # 6. High dose → non-dose-proportional (saturated)
 # ---------------------------------------------------------------------------
 
+
 class TestHighDoseSaturation:
     def test_high_dose_not_dose_proportional(self):
         # Cmax >> Km → strong saturation
         result = simulate_renal_saturation(
             drug_name="HighDose",
-            dose_mg=500.0,       # large dose → high Cmax relative to Km
+            dose_mg=500.0,  # large dose → high Cmax relative to Km
             cl_nonrenal_L_per_h=1.0,
-            vd_L=10.0,           # small Vd → high Cmax
+            vd_L=10.0,  # small Vd → high Cmax
             vmax_mg_per_h=5.0,
-            km_mg_L=0.5,         # small Km → easy to saturate
+            km_mg_L=0.5,  # small Km → easy to saturate
             route="iv",
             t_end_h=48.0,
         )
@@ -218,6 +224,7 @@ class TestHighDoseSaturation:
 # ---------------------------------------------------------------------------
 # 7. CL_renal at high vs low concentrations
 # ---------------------------------------------------------------------------
+
 
 class TestCLRenalSaturation:
     def test_cl_renal_initial_higher_than_at_high_cmax(self):
@@ -250,6 +257,7 @@ class TestCLRenalSaturation:
 # 8. Oral route
 # ---------------------------------------------------------------------------
 
+
 class TestOralRoute:
     def test_oral_route_runs(self):
         result = simulate_renal_saturation(
@@ -259,9 +267,7 @@ class TestOralRoute:
         assert len(result.c_plasma_mg_L) > 0
 
     def test_oral_concentrations_non_negative(self):
-        result = simulate_renal_saturation(
-            **{**BASE, "route": "oral", "f_oral": 0.9}
-        )
+        result = simulate_renal_saturation(**{**BASE, "route": "oral", "f_oral": 0.9})
         assert all(c >= 0.0 for c in result.c_plasma_mg_L)
 
 
@@ -269,19 +275,16 @@ class TestOralRoute:
 # 9. Zero GFR (anephric) — only active secretion remains
 # ---------------------------------------------------------------------------
 
+
 class TestZeroGFR:
     def test_zero_gfr_runs(self):
-        result = simulate_renal_saturation(
-            **{**BASE, "gfr_mL_per_min": 0.0}
-        )
+        result = simulate_renal_saturation(**{**BASE, "gfr_mL_per_min": 0.0})
         assert result.fe_urine >= 0.0
 
     def test_zero_gfr_cl_filtration_zero(self):
         # With GFR=0, filtration CL=0; only secretion contributes.
         # cl_renal_initial = Vmax/(Km + C0) where C0 = dose/vd
-        result = simulate_renal_saturation(
-            **{**BASE, "gfr_mL_per_min": 0.0}
-        )
+        result = simulate_renal_saturation(**{**BASE, "gfr_mL_per_min": 0.0})
         c0 = BASE["dose_mg"] / BASE["vd_L"]
         expected_cl_sec = BASE["vmax_mg_per_h"] / (BASE["km_mg_L"] + c0)
         assert abs(result.cl_renal_initial_L_per_h - expected_cl_sec) < 0.5
@@ -290,6 +293,7 @@ class TestZeroGFR:
 # ---------------------------------------------------------------------------
 # 10. dose_proportionality_check
 # ---------------------------------------------------------------------------
+
 
 class TestDoseProportionalityCheck:
     def test_returns_expected_keys(self):
@@ -312,7 +316,7 @@ class TestDoseProportionalityCheck:
             cl_nonrenal_L_per_h=10.0,
             vd_L=100.0,
             vmax_mg_per_h=100.0,
-            km_mg_L=50.0,   # high Km ensures linear regime
+            km_mg_L=50.0,  # high Km ensures linear regime
         )
         assert result["proportional"] is True
 

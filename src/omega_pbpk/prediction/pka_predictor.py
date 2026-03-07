@@ -59,13 +59,7 @@ def _detect_functional_group(smiles: str) -> tuple[str | None, float | None]:
     s = smiles.lower()
 
     # Carboxylic acid: C(=O)O or COOH patterns
-    if (
-        "c(=o)o" in s
-        or "c(o)=o" in s
-        or "oc(=o)" in s
-        or "cooh" in s
-        or "c(=o)oh" in s
-    ):
+    if "c(=o)o" in s or "c(o)=o" in s or "oc(=o)" in s or "cooh" in s or "c(=o)oh" in s:
         return "carboxylic_acid", _GROUP_PKA["carboxylic_acid"]
 
     # Sulfonamide: S(=O)(=O)N

@@ -1,6 +1,5 @@
 """Tests for receptor binding kinetics simulation — Phase 467."""
 
-import math
 import pytest
 
 from omega_pbpk.core.receptor_binding import (
@@ -12,10 +11,10 @@ from omega_pbpk.core.receptor_binding import (
     simulate_with_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Unit tests: calculate_kd
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateKd:
     def test_basic_kd(self):
@@ -48,6 +47,7 @@ class TestCalculateKd:
 # Unit tests: residence_time
 # ---------------------------------------------------------------------------
 
+
 class TestResidenceTime:
     def test_basic(self):
         mrt = residence_time(koff_per_h=2.0)
@@ -74,6 +74,7 @@ class TestResidenceTime:
 # ---------------------------------------------------------------------------
 # Unit tests: occupancy_at_steady_state
 # ---------------------------------------------------------------------------
+
 
 class TestOccupancyAtSteadyState:
     def test_at_kd_concentration(self):
@@ -112,6 +113,7 @@ class TestOccupancyAtSteadyState:
 # ---------------------------------------------------------------------------
 # Integration tests: simulate_receptor_binding
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateReceptorBinding:
     def test_returns_result_type(self):
@@ -204,18 +206,24 @@ class TestSimulateReceptorBinding:
 # Integration tests: simulate_with_pk
 # ---------------------------------------------------------------------------
 
+
 class TestSimulateWithPk:
     def test_returns_result_type(self):
         result = simulate_with_pk(
-            "DrugPK", 100.0, cl_L_per_h=5.0, vd_L=50.0,
-            kon_per_nM_per_h=0.1, koff_per_h=0.5
+            "DrugPK", 100.0, cl_L_per_h=5.0, vd_L=50.0, kon_per_nM_per_h=0.1, koff_per_h=0.5
         )
         assert isinstance(result, ReceptorBindingResult)
 
     def test_drug_conc_decreases_due_to_elimination(self):
         result = simulate_with_pk(
-            "DrugPK", 100.0, cl_L_per_h=10.0, vd_L=20.0,
-            kon_per_nM_per_h=0.001, koff_per_h=0.01, t_end_h=10.0, dt_h=0.01
+            "DrugPK",
+            100.0,
+            cl_L_per_h=10.0,
+            vd_L=20.0,
+            kon_per_nM_per_h=0.001,
+            koff_per_h=0.01,
+            t_end_h=10.0,
+            dt_h=0.01,
         )
         # With rapid elimination, drug conc should decrease
         assert result.drug_free_nM[-1] < result.drug_free_nM[0]
@@ -223,55 +231,73 @@ class TestSimulateWithPk:
     def test_fast_elimination_reduces_occupancy(self):
         """High CL → drug cleared quickly → lower eventual occupancy."""
         r_fast_cl = simulate_with_pk(
-            "DrugFastCL", 200.0, cl_L_per_h=20.0, vd_L=10.0,
-            kon_per_nM_per_h=0.05, koff_per_h=0.2, t_end_h=48.0, dt_h=0.01
+            "DrugFastCL",
+            200.0,
+            cl_L_per_h=20.0,
+            vd_L=10.0,
+            kon_per_nM_per_h=0.05,
+            koff_per_h=0.2,
+            t_end_h=48.0,
+            dt_h=0.01,
         )
         r_slow_cl = simulate_with_pk(
-            "DrugSlowCL", 200.0, cl_L_per_h=0.5, vd_L=10.0,
-            kon_per_nM_per_h=0.05, koff_per_h=0.2, t_end_h=48.0, dt_h=0.01
+            "DrugSlowCL",
+            200.0,
+            cl_L_per_h=0.5,
+            vd_L=10.0,
+            kon_per_nM_per_h=0.05,
+            koff_per_h=0.2,
+            t_end_h=48.0,
+            dt_h=0.01,
         )
         # Slow CL → drug persists → higher sustained occupancy → higher final complex
         assert r_slow_cl.complex_nM[-1] >= r_fast_cl.complex_nM[-1]
 
     def test_kd_correct_in_pk_simulation(self):
         result = simulate_with_pk(
-            "DrugKd", 50.0, cl_L_per_h=1.0, vd_L=10.0,
-            kon_per_nM_per_h=0.2, koff_per_h=2.0
+            "DrugKd", 50.0, cl_L_per_h=1.0, vd_L=10.0, kon_per_nM_per_h=0.2, koff_per_h=2.0
         )
         assert abs(result.kd_nM - 10.0) < 1e-9
 
     def test_invalid_dose_raises(self):
         with pytest.raises(ValueError):
             simulate_with_pk(
-                "DrugX", 0.0, cl_L_per_h=1.0, vd_L=10.0,
-                kon_per_nM_per_h=0.1, koff_per_h=0.5
+                "DrugX", 0.0, cl_L_per_h=1.0, vd_L=10.0, kon_per_nM_per_h=0.1, koff_per_h=0.5
             )
 
     def test_invalid_vd_raises(self):
         with pytest.raises(ValueError):
             simulate_with_pk(
-                "DrugX", 10.0, cl_L_per_h=1.0, vd_L=0.0,
-                kon_per_nM_per_h=0.1, koff_per_h=0.5
+                "DrugX", 10.0, cl_L_per_h=1.0, vd_L=0.0, kon_per_nM_per_h=0.1, koff_per_h=0.5
             )
 
     def test_invalid_mw_raises(self):
         with pytest.raises(ValueError):
             simulate_with_pk(
-                "DrugX", 10.0, cl_L_per_h=1.0, vd_L=10.0,
-                kon_per_nM_per_h=0.1, koff_per_h=0.5, mw_g_mol=0.0
+                "DrugX",
+                10.0,
+                cl_L_per_h=1.0,
+                vd_L=10.0,
+                kon_per_nM_per_h=0.1,
+                koff_per_h=0.5,
+                mw_g_mol=0.0,
             )
 
     def test_occupancy_range(self):
         result = simulate_with_pk(
-            "DrugRange", 100.0, cl_L_per_h=2.0, vd_L=20.0,
-            kon_per_nM_per_h=0.1, koff_per_h=1.0, t_end_h=24.0
+            "DrugRange",
+            100.0,
+            cl_L_per_h=2.0,
+            vd_L=20.0,
+            kon_per_nM_per_h=0.1,
+            koff_per_h=1.0,
+            t_end_h=24.0,
         )
         for occ in result.occupancy_pct:
             assert 0.0 <= occ <= 100.0
 
     def test_notes_not_empty(self):
         result = simulate_with_pk(
-            "DrugNotes", 50.0, cl_L_per_h=3.0, vd_L=30.0,
-            kon_per_nM_per_h=0.05, koff_per_h=0.5
+            "DrugNotes", 50.0, cl_L_per_h=3.0, vd_L=30.0, kon_per_nM_per_h=0.05, koff_per_h=0.5
         )
         assert len(result.notes) > 0

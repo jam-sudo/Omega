@@ -35,13 +35,21 @@ BASE = dict(
 # Dataclass structure
 # ---------------------------------------------------------------------------
 
+
 class TestOrganConcentrationResultFields:
     def test_all_fields_present(self):
         result = predict_organ_concentration(**BASE)
         expected = {
-            "organ_name", "kp_organ", "fu_plasma", "fu_tissue",
-            "times_h", "c_tissue_mg_L",
-            "auc_tissue", "cmax_tissue", "tissue_plasma_auc_ratio", "notes",
+            "organ_name",
+            "kp_organ",
+            "fu_plasma",
+            "fu_tissue",
+            "times_h",
+            "c_tissue_mg_L",
+            "auc_tissue",
+            "cmax_tissue",
+            "tissue_plasma_auc_ratio",
+            "notes",
         }
         for f in expected:
             assert hasattr(result, f), f"Missing field: {f}"
@@ -62,6 +70,7 @@ class TestOrganConcentrationResultFields:
 # ---------------------------------------------------------------------------
 # Core concentration calculations
 # ---------------------------------------------------------------------------
+
 
 class TestConcentrationCalculations:
     def test_tissue_length_matches_times(self):
@@ -104,6 +113,7 @@ class TestConcentrationCalculations:
 # Different organs
 # ---------------------------------------------------------------------------
 
+
 class TestOrganVariants:
     def test_kidney(self):
         result = predict_organ_concentration(**{**BASE, "organ_name": "kidney"})
@@ -111,9 +121,7 @@ class TestOrganVariants:
         assert result.auc_tissue > 0
 
     def test_brain(self):
-        result = predict_organ_concentration(**{
-            **BASE, "organ_name": "brain", "kp_organ": 0.05
-        })
+        result = predict_organ_concentration(**{**BASE, "organ_name": "brain", "kp_organ": 0.05})
         assert result.organ_name == "brain"
         assert any("brain" in n.lower() for n in result.notes)
 
@@ -138,6 +146,7 @@ class TestOrganVariants:
 # Notes
 # ---------------------------------------------------------------------------
 
+
 class TestNotes:
     def test_notes_is_list(self):
         result = predict_organ_concentration(**BASE)
@@ -149,22 +158,23 @@ class TestNotes:
 
     def test_consistent_kp_note(self):
         # fu_plasma/fu_tissue = 0.3/0.3 = 1.0, kp=1.0 → consistent
-        result = predict_organ_concentration(**{
-            **BASE, "kp_organ": 1.0, "fu_plasma": 0.3, "fu_tissue": 0.3
-        })
+        result = predict_organ_concentration(
+            **{**BASE, "kp_organ": 1.0, "fu_plasma": 0.3, "fu_tissue": 0.3}
+        )
         assert any("consistent" in n.lower() for n in result.notes)
 
     def test_inconsistent_kp_note(self):
         # kp=10 but fu_plasma/fu_tissue=1 → very different
-        result = predict_organ_concentration(**{
-            **BASE, "kp_organ": 10.0, "fu_plasma": 0.5, "fu_tissue": 0.5
-        })
+        result = predict_organ_concentration(
+            **{**BASE, "kp_organ": 10.0, "fu_plasma": 0.5, "fu_tissue": 0.5}
+        )
         assert any("deviates" in n.lower() or "active" in n.lower() for n in result.notes)
 
 
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestValidationErrors:
     def test_empty_plasma_concs(self):
@@ -204,6 +214,7 @@ class TestValidationErrors:
 # organ_exposure_profile
 # ---------------------------------------------------------------------------
 
+
 class TestOrganExposureProfile:
     KP_DICT = {"liver": 3.5, "kidney": 5.0, "brain": 0.1, "lung": 2.0}
 
@@ -218,8 +229,13 @@ class TestOrganExposureProfile:
 
     def test_each_entry_has_required_keys(self):
         profile = organ_exposure_profile(CP, T, self.KP_DICT, 0.3)
-        required = {"c_tissue_mg_L", "auc_tissue", "cmax_tissue",
-                    "tissue_plasma_auc_ratio", "result"}
+        required = {
+            "c_tissue_mg_L",
+            "auc_tissue",
+            "cmax_tissue",
+            "tissue_plasma_auc_ratio",
+            "result",
+        }
         for organ, entry in profile.items():
             assert required.issubset(entry.keys()), f"Missing keys for {organ}"
 

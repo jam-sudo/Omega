@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.pk_covariate_analyzer import (
@@ -13,7 +14,6 @@ from omega_pbpk.clinical.pk_covariate_analyzer import (
     covariate_sensitivity,
     power_law_covariate,
 )
-
 
 # ---------------------------------------------------------------------------
 # power_law_covariate tests

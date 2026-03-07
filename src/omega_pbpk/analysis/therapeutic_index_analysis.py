@@ -85,9 +85,7 @@ def _validate_ti_inputs(
     if mec <= 0:
         raise ValueError("therapeutic_range_mg_L lower bound (MEC) must be > 0.")
     if mtc <= mec:
-        raise ValueError(
-            "therapeutic_range_mg_L upper bound (MTC) must be > lower bound (MEC)."
-        )
+        raise ValueError("therapeutic_range_mg_L upper bound (MTC) must be > lower bound (MEC).")
 
 
 def _validate_population_inputs(
@@ -209,9 +207,7 @@ def compute_therapeutic_index(
     -------
     TherapeuticIndexResult
     """
-    _validate_ti_inputs(
-        drug_name, ed50_mg, td50_mg, ed50_auc, td50_auc, therapeutic_range_mg_L
-    )
+    _validate_ti_inputs(drug_name, ed50_mg, td50_mg, ed50_auc, td50_auc, therapeutic_range_mg_L)
 
     ti_dose = td50_mg / ed50_mg
     ti_auc = td50_auc / ed50_auc
@@ -233,20 +229,15 @@ def compute_therapeutic_index(
             "dose adjustment for organ impairment."
         )
     else:
-        monitoring = (
-            "Wide therapeutic index — standard dosing monitoring is appropriate."
-        )
+        monitoring = "Wide therapeutic index — standard dosing monitoring is appropriate."
 
     notes_parts: list[str] = []
     notes_parts.append(f"TI_dose = {ti_dose:.2f}, TI_AUC = {ti_auc:.2f}.")
     notes_parts.append(
-        f"Safety margin = {safety_margin_pct:.1f}% "
-        f"(MEC={mec} mg/L, MTC={mtc} mg/L)."
+        f"Safety margin = {safety_margin_pct:.1f}% (MEC={mec} mg/L, MTC={mtc} mg/L)."
     )
     if is_narrow_ti:
-        notes_parts.append(
-            "Drug classified as narrow TI per FDA guidance (TI < 2)."
-        )
+        notes_parts.append("Drug classified as narrow TI per FDA guidance (TI < 2).")
 
     return TherapeuticIndexResult(
         drug_name=drug_name,
@@ -327,15 +318,12 @@ def simulate_ti_population(
         )
     elif therapeutic_window_pct < 0.10:
         notes.append(
-            "Narrow therapeutic window in population (<10% therapeutic) — "
-            "high risk of toxicity."
+            "Narrow therapeutic window in population (<10% therapeutic) — high risk of toxicity."
         )
     if pct_effective < 0.5:
         notes.append("Less than 50% of subjects are expected to respond at this dose.")
     if pct_toxic > 0.1:
-        notes.append(
-            f"{pct_toxic * 100:.1f}% of subjects expected to experience toxicity."
-        )
+        notes.append(f"{pct_toxic * 100:.1f}% of subjects expected to experience toxicity.")
 
     return TIPopulationResult(
         drug_name=drug_name,

@@ -6,10 +6,10 @@ import pytest
 
 from omega_pbpk.core.mucoadhesive_pk import MucoadhesivePKResult, simulate_mucoadhesive_pk
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def buccal_tablet() -> MucoadhesivePKResult:
@@ -26,6 +26,7 @@ def buccal_tablet() -> MucoadhesivePKResult:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_dose_zero():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -65,6 +66,7 @@ def test_invalid_formulation_type():
 # Basic result checks
 # ---------------------------------------------------------------------------
 
+
 def test_cmax_positive(buccal_tablet: MucoadhesivePKResult):
     assert buccal_tablet.cmax > 0.0
 
@@ -89,6 +91,7 @@ def test_f_mucosal_absorption_range(buccal_tablet: MucoadhesivePKResult):
 # Array length consistency
 # ---------------------------------------------------------------------------
 
+
 def test_array_lengths_consistent(buccal_tablet: MucoadhesivePKResult):
     n = len(buccal_tablet.times_h)
     assert len(buccal_tablet.c_plasma_mg_L) == n
@@ -99,11 +102,10 @@ def test_array_lengths_consistent(buccal_tablet: MucoadhesivePKResult):
 # All adhesion sites work
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("site", ["buccal", "nasal", "gastric", "vaginal"])
 def test_all_adhesion_sites(site: str):
-    r = simulate_mucoadhesive_pk(
-        "drug", dose_mg=1.0, cl_L_per_h=5.0, vd_L=50.0, adhesion_site=site
-    )
+    r = simulate_mucoadhesive_pk("drug", dose_mg=1.0, cl_L_per_h=5.0, vd_L=50.0, adhesion_site=site)
     assert r.cmax > 0.0
     assert r.adhesion_site == site
 
@@ -111,6 +113,7 @@ def test_all_adhesion_sites(site: str):
 # ---------------------------------------------------------------------------
 # All formulation types work
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("form", ["tablet", "gel", "microsphere"])
 def test_all_formulation_types(form: str):
@@ -125,6 +128,7 @@ def test_all_formulation_types(form: str):
 # Microsphere slower release → lower Cmax than tablet
 # ---------------------------------------------------------------------------
 
+
 def test_microsphere_lower_cmax_than_tablet():
     common = dict(drug_name="drug", dose_mg=1.0, cl_L_per_h=5.0, vd_L=50.0)
     r_tab = simulate_mucoadhesive_pk(**common, formulation_type="tablet")
@@ -135,6 +139,7 @@ def test_microsphere_lower_cmax_than_tablet():
 # ---------------------------------------------------------------------------
 # Drug name stored
 # ---------------------------------------------------------------------------
+
 
 def test_drug_name_stored():
     r = simulate_mucoadhesive_pk("buprenorphine", dose_mg=0.8, cl_L_per_h=50.0, vd_L=300.0)

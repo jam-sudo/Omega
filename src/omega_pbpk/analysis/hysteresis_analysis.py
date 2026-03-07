@@ -33,6 +33,7 @@ class HysteresisResult:
 # Validation helpers
 # ---------------------------------------------------------------------------
 
+
 def _validate_inputs(
     concentrations: list[float],
     effects: list[float],
@@ -51,6 +52,7 @@ def _validate_inputs(
 # ---------------------------------------------------------------------------
 # Core functions
 # ---------------------------------------------------------------------------
+
 
 def compute_hysteresis_area(
     concentrations: list[float],

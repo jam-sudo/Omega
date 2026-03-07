@@ -14,7 +14,6 @@ from omega_pbpk.analysis.pk_variability import (
     simulate_population_variability,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -242,9 +241,7 @@ def test_simulate_population_reproducible_seed():
 
 def test_identify_drivers_returns_dict():
     aucs = [10.0, 20.0, 50.0, 100.0, 200.0]
-    drivers = identify_high_variability_drivers(
-        aucs, {"weight": [50.0, 60.0, 70.0, 80.0, 90.0]}
-    )
+    drivers = identify_high_variability_drivers(aucs, {"weight": [50.0, 60.0, 70.0, 80.0, 90.0]})
     assert isinstance(drivers, dict)
     assert "weight" in drivers
 
@@ -269,6 +266,4 @@ def test_identify_drivers_empty_auc_raises():
 
 def test_identify_drivers_negative_auc_raises():
     with pytest.raises(ValueError, match="auc_values"):
-        identify_high_variability_drivers(
-            [10.0, -5.0, 30.0], {"weight": [50.0, 60.0, 70.0]}
-        )
+        identify_high_variability_drivers([10.0, -5.0, 30.0], {"weight": [50.0, 60.0, 70.0]})

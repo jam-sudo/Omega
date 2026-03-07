@@ -13,15 +13,15 @@ _VALID_PD_MODELS = ("emax", "linear", "log_linear")
 @dataclass(frozen=True)
 class PKPDThresholdResult:
     drug_name: str
-    pd_model: str              # "emax", "linear", "log_linear"
+    pd_model: str  # "emax", "linear", "log_linear"
     ec50_mg_L: float
     emax: float
-    target_effect_pct: float   # desired % of Emax
-    threshold_conc_mg_L: float # C needed for target effect
-    min_dose_mg: float         # minimum dose to achieve threshold (1-cpt IV)
+    target_effect_pct: float  # desired % of Emax
+    threshold_conc_mg_L: float  # C needed for target effect
+    min_dose_mg: float  # minimum dose to achieve threshold (1-cpt IV)
     cl_L_per_h: float
     vd_L: float
-    t_above_threshold_h: float # time above threshold for given dose
+    t_above_threshold_h: float  # time above threshold for given dose
     dose_mg: float
     notes: str
 
@@ -124,9 +124,7 @@ def calculate_pkpd_threshold(
     if dose_mg <= 0:
         raise ValueError(f"dose_mg must be positive, got {dose_mg}")
     if not (0.0 < target_effect_pct < 100.0):
-        raise ValueError(
-            f"target_effect_pct must be in (0, 100), got {target_effect_pct}"
-        )
+        raise ValueError(f"target_effect_pct must be in (0, 100), got {target_effect_pct}")
     if hill_n <= 0:
         raise ValueError(f"hill_n must be positive, got {hill_n}")
 

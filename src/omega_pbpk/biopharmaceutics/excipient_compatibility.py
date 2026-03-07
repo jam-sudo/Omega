@@ -47,31 +47,22 @@ def _build_interaction_table() -> dict[tuple[str, str], ExcipientInteraction]:
             interaction_type="degradation",
             severity="high",
             mechanism=(
-                "Maillard reaction: primary amine + reducing sugar "
-                "\u2192 browning, degradation"
+                "Maillard reaction: primary amine + reducing sugar \u2192 browning, degradation"
             ),
-            mitigation=(
-                "Replace lactose with mannitol or microcrystalline cellulose"
-            ),
+            mitigation=("Replace lactose with mannitol or microcrystalline cellulose"),
         ),
         ("ester", "magnesium_stearate"): ExcipientInteraction(
             excipient="magnesium_stearate",
             interaction_type="degradation",
             severity="moderate",
-            mechanism=(
-                "Alkaline conditions from Mg stearate may hydrolyze esters"
-            ),
-            mitigation=(
-                "Minimize magnesium stearate level or use calcium stearate"
-            ),
+            mechanism=("Alkaline conditions from Mg stearate may hydrolyze esters"),
+            mitigation=("Minimize magnesium stearate level or use calcium stearate"),
         ),
         ("nitro", "microcrystalline_cellulose"): ExcipientInteraction(
             excipient="microcrystalline_cellulose",
             interaction_type="pH_shift",
             severity="low",
-            mechanism=(
-                "Minor acidic pH from MCC may affect nitro compound stability"
-            ),
+            mechanism=("Minor acidic pH from MCC may affect nitro compound stability"),
             mitigation="Monitor pH and add buffer if needed",
         ),
     }
@@ -172,9 +163,7 @@ def screen_excipient_compatibility(
         overall = "compatible"
 
     recommended = [
-        exc
-        for i, exc in zip(interactions, excipients, strict=True)
-        if i.severity == "none"
+        exc for i, exc in zip(interactions, excipients, strict=True) if i.severity == "none"
     ]
     to_avoid = [
         exc

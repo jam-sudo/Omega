@@ -124,19 +124,14 @@ class TestOral:
         ka, f = 1.5, 0.8
         ke = cl / vd
         t = 2.0
-        expected = (f * dose * ka / (vd * (ka - ke))) * (
-            math.exp(-ke * t) - math.exp(-ka * t)
-        )
+        expected = (f * dose * ka / (vd * (ka - ke))) * (math.exp(-ke * t) - math.exp(-ka * t))
         res = predict_concentration(**_oral_kwargs(time_h=t))
         assert res.predicted_conc_mg_L == pytest.approx(expected, rel=1e-6)
 
     def test_oral_concentration_rises_then_falls(self):
         """Oral PK curve is unimodal."""
         times = [0.5, 1.0, 2.0, 4.0, 8.0, 12.0]
-        concs = [
-            predict_concentration(**_oral_kwargs(time_h=t)).predicted_conc_mg_L
-            for t in times
-        ]
+        concs = [predict_concentration(**_oral_kwargs(time_h=t)).predicted_conc_mg_L for t in times]
         # There should be a maximum somewhere in the middle
         peak_idx = concs.index(max(concs))
         assert 0 < peak_idx < len(concs) - 1
@@ -158,16 +153,12 @@ class TestMultipleDose:
     def test_multiple_doses_higher_than_single(self):
         """Accumulation: conc with prior doses > single dose."""
         single = predict_concentration(**_iv_kwargs(time_h=2.0, n_prior_doses=0))
-        multi = predict_concentration(**_iv_kwargs(
-            time_h=2.0, n_prior_doses=5, interval_h=8.0
-        ))
+        multi = predict_concentration(**_iv_kwargs(time_h=2.0, n_prior_doses=5, interval_h=8.0))
         assert multi.predicted_conc_mg_L > single.predicted_conc_mg_L
 
     def test_zero_prior_doses_equals_single_dose(self):
         res0 = predict_concentration(**_iv_kwargs(time_h=2.0, n_prior_doses=0))
-        res1 = predict_concentration(**_iv_kwargs(
-            time_h=2.0, n_prior_doses=0, interval_h=24.0
-        ))
+        res1 = predict_concentration(**_iv_kwargs(time_h=2.0, n_prior_doses=0, interval_h=24.0))
         assert res0.predicted_conc_mg_L == pytest.approx(res1.predicted_conc_mg_L)
 
     def test_n_prior_doses_field_stored(self):
@@ -198,8 +189,7 @@ class TestConcentrationGrid:
     def test_custom_time_points(self):
         pts = [0.0, 1.0, 2.0, 4.0]
         grid = concentration_grid(
-            drug_name="D", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-            route="iv", time_points=pts
+            drug_name="D", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, route="iv", time_points=pts
         )
         assert len(grid) == 4
         for i, entry in enumerate(grid):
@@ -216,8 +206,7 @@ class TestConcentrationGrid:
     def test_iv_conc_decreasing_over_time(self):
         pts = [0.0, 1.0, 3.0, 6.0, 12.0]
         grid = concentration_grid(
-            drug_name="D", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-            route="iv", time_points=pts
+            drug_name="D", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, route="iv", time_points=pts
         )
         concs = [e["concentration_mg_L"] for e in grid]
         # All concentrations after t=0 should be less than C(0)
@@ -226,8 +215,7 @@ class TestConcentrationGrid:
     def test_empty_time_points_raises(self):
         with pytest.raises(ValueError):
             concentration_grid(
-                drug_name="D", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-                route="iv", time_points=[]
+                drug_name="D", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, route="iv", time_points=[]
             )
 
 

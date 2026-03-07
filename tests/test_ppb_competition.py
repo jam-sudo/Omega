@@ -205,7 +205,6 @@ class TestSensitivity:
 # 8. Symmetry: swapping A and B gives displacement of B
 # ---------------------------------------------------------------------------
 def test_swapping_a_b_gives_b_displacement():
-    r_ab = _comp(ca_mg_L=10.0, cb_mg_L=50.0, fu_a_alone=0.1, fu_b_alone=0.2)
     r_ba = compute_ppb_competition(
         drug_a_name="DrugB",
         drug_b_name="DrugA",

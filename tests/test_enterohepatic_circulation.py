@@ -125,8 +125,12 @@ def test_array_lengths_consistent():
 def test_no_ehc_secondary_peaks_count():
     """With f_biliary=0, no bile -> typically 0 secondary peaks."""
     result = simulate_ehc(
-        "Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-        f_biliary=0.0, route="iv",
+        "Drug",
+        dose_mg=100.0,
+        cl_L_per_h=5.0,
+        vd_L=50.0,
+        f_biliary=0.0,
+        route="iv",
     )
     assert result.n_secondary_peaks == 0
 
@@ -134,8 +138,13 @@ def test_no_ehc_secondary_peaks_count():
 def test_ehc_secondary_peak_nonnegative():
     """secondary_peak field must be >= 0."""
     result = simulate_ehc(
-        "Drug", dose_mg=100.0, cl_L_per_h=2.0, vd_L=50.0,
-        f_biliary=0.5, ehc_cycle_delay_h=4.0, route="iv",
+        "Drug",
+        dose_mg=100.0,
+        cl_L_per_h=2.0,
+        vd_L=50.0,
+        f_biliary=0.5,
+        ehc_cycle_delay_h=4.0,
+        route="iv",
     )
     assert result.secondary_peak >= 0.0
 
@@ -191,7 +200,11 @@ def test_result_is_frozen_dataclass():
 
 def test_concentrations_non_negative():
     result = simulate_ehc(
-        "Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-        f_biliary=0.3, route="iv",
+        "Drug",
+        dose_mg=100.0,
+        cl_L_per_h=5.0,
+        vd_L=50.0,
+        f_biliary=0.3,
+        route="iv",
     )
     assert all(c >= 0.0 for c in result.c_plasma_mg_L)

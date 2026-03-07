@@ -34,9 +34,17 @@ class TestMusclePKResult:
     def test_has_required_fields(self):
         result = simulate_muscle_pk(**BASE)
         fields = [
-            "drug_name", "dose_mg", "kp_muscle", "muscle_blood_flow_L_per_h",
-            "times_h", "c_plasma_mg_L", "c_muscle_mg_L",
-            "cmax_plasma", "auc_plasma", "muscle_plasma_ss_ratio", "notes",
+            "drug_name",
+            "dose_mg",
+            "kp_muscle",
+            "muscle_blood_flow_L_per_h",
+            "times_h",
+            "c_plasma_mg_L",
+            "c_muscle_mg_L",
+            "cmax_plasma",
+            "auc_plasma",
+            "muscle_plasma_ss_ratio",
+            "notes",
         ]
         for f in fields:
             assert hasattr(result, f), f"Missing field: {f}"
@@ -225,10 +233,15 @@ class TestExerciseEffect:
     def test_has_expected_keys(self):
         result = exercise_effect(**self.BASE_EX)
         for key in [
-            "auc_plasma_normal", "auc_plasma_exercise",
-            "cmax_plasma_normal", "cmax_plasma_exercise",
-            "cmax_muscle_normal", "cmax_muscle_exercise",
-            "auc_ratio_exercise_vs_normal", "flow_ratio", "notes",
+            "auc_plasma_normal",
+            "auc_plasma_exercise",
+            "cmax_plasma_normal",
+            "cmax_plasma_exercise",
+            "cmax_muscle_normal",
+            "cmax_muscle_exercise",
+            "auc_ratio_exercise_vs_normal",
+            "flow_ratio",
+            "notes",
         ]:
             assert key in result, f"Missing key: {key}"
 

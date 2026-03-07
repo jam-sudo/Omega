@@ -11,10 +11,10 @@ from omega_pbpk.core.lymphatic_advanced import (
     trl_association_fraction,
 )
 
-
 # ---------------------------------------------------------------------------
 # trl_association_fraction — unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestTrlAssociationFraction:
     """Tests for trl_association_fraction() function."""
@@ -71,6 +71,7 @@ class TestTrlAssociationFraction:
 # ---------------------------------------------------------------------------
 # simulate_lymphatic_advanced_pk — unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateLymphaticAdvancedPk:
     """Tests for simulate_lymphatic_advanced_pk() function."""
@@ -203,6 +204,7 @@ class TestSimulateLymphaticAdvancedPk:
 # ---------------------------------------------------------------------------
 # compare_fat_meals — tests
 # ---------------------------------------------------------------------------
+
 
 class TestCompareFatMeals:
     """Tests for compare_fat_meals() function."""

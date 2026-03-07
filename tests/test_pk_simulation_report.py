@@ -16,6 +16,7 @@ from omega_pbpk.analysis.pk_simulation_report import (
 # Helpers — generate a simple 1-compartment IV profile
 # ---------------------------------------------------------------------------
 
+
 def _iv_profile(
     dose_mg: float = 100.0,
     cl: float = 2.0,

@@ -73,7 +73,7 @@ class DrugLikenessResult:
 
 def _norm_score(value: float, optimal: float, width: float) -> float:
     """Gaussian-like normalised property score for QED calculation."""
-    return math.exp(-((value - optimal) ** 2) / (2.0 * width ** 2))
+    return math.exp(-((value - optimal) ** 2) / (2.0 * width**2))
 
 
 def _calc_qed(

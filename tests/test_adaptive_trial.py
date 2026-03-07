@@ -12,6 +12,7 @@ from omega_pbpk.clinical.adaptive_trial import (
 
 # --- Validation ---
 
+
 def test_n_total_le_zero_raises():
     with pytest.raises(ValueError, match="n_total"):
         design_adaptive_trial("T", n_total=0, effect_size=0.5)
@@ -33,6 +34,7 @@ def test_effect_size_le_zero_raises():
 
 
 # --- Basic result structure ---
+
 
 def test_returns_adaptive_trial_result():
     r = design_adaptive_trial("Trial1", n_total=200, effect_size=0.5)
@@ -56,6 +58,7 @@ def test_interim_analysis_has_required_fields():
 
 # --- Sample size calculator ---
 
+
 def test_sample_size_positive():
     n = sample_size_calculator(effect_size=0.5)
     assert n > 0
@@ -70,9 +73,14 @@ def test_larger_effect_smaller_n():
 
 # --- Stopping boundaries ---
 
+
 def test_obf_first_boundary_higher_than_last():
     r = design_adaptive_trial(
-        "T", n_total=300, effect_size=0.3, n_interim=2, stopping_rule="obf",
+        "T",
+        n_total=300,
+        effect_size=0.3,
+        n_interim=2,
+        stopping_rule="obf",
     )
     if len(r.interim_analyses) >= 2:
         assert r.interim_analyses[0].boundary_alpha >= r.interim_analyses[1].boundary_alpha
@@ -80,7 +88,11 @@ def test_obf_first_boundary_higher_than_last():
 
 def test_pocock_boundaries_approximately_equal():
     r = design_adaptive_trial(
-        "T", n_total=300, effect_size=0.3, n_interim=2, stopping_rule="pocock",
+        "T",
+        n_total=300,
+        effect_size=0.3,
+        n_interim=2,
+        stopping_rule="pocock",
     )
     if len(r.interim_analyses) >= 2:
         b1 = r.interim_analyses[0].boundary_alpha
@@ -89,6 +101,7 @@ def test_pocock_boundaries_approximately_equal():
 
 
 # --- Decision outcomes ---
+
 
 def test_final_decision_valid():
     r = design_adaptive_trial("T", n_total=200, effect_size=0.5)
@@ -107,6 +120,7 @@ def test_type1_error_bounded():
 
 # --- Reproducibility ---
 
+
 def test_same_seed_same_result():
     r1 = design_adaptive_trial("T", n_total=200, effect_size=0.5, seed=99)
     r2 = design_adaptive_trial("T", n_total=200, effect_size=0.5, seed=99)
@@ -121,6 +135,7 @@ def test_different_seeds_different_z():
 
 # --- Compare stopping rules ---
 
+
 def test_compare_returns_three_results():
     results = compare_stopping_rules("T", n_total=200, effect_size=0.5)
     assert len(results) == 3
@@ -128,6 +143,7 @@ def test_compare_returns_three_results():
 
 
 # --- Large vs small effect ---
+
 
 def test_large_effect_likely_efficacy():
     r = design_adaptive_trial("T", n_total=400, effect_size=1.5, seed=42)
@@ -141,6 +157,7 @@ def test_tiny_effect_likely_futility():
 
 # --- InterimAnalysis decision values ---
 
+
 def test_interim_decision_valid():
     r = design_adaptive_trial("T", n_total=200, effect_size=0.5, n_interim=2)
     for ia in r.interim_analyses:
@@ -149,14 +166,20 @@ def test_interim_decision_valid():
 
 # --- No stopping rule ---
 
+
 def test_no_stopping_completes_full():
     r = design_adaptive_trial(
-        "T", n_total=200, effect_size=0.5, n_interim=2, stopping_rule="none",
+        "T",
+        n_total=200,
+        effect_size=0.5,
+        n_interim=2,
+        stopping_rule="none",
     )
     assert len(r.interim_analyses) == 3  # 2 interim + 1 final
 
 
 # --- Notes ---
+
 
 def test_notes_contain_trial_name():
     r = design_adaptive_trial("MyTrial", n_total=200, effect_size=0.5)
@@ -164,6 +187,7 @@ def test_notes_contain_trial_name():
 
 
 # --- Single interim ---
+
 
 def test_single_interim():
     r = design_adaptive_trial("T", n_total=200, effect_size=0.5, n_interim=1)
@@ -184,7 +208,6 @@ from omega_pbpk.clinical.adaptive_trial import (  # noqa: E402
     simulate_adaptive_trial,
     simulate_dose_finding,
 )
-
 
 # ---------------------------------------------------------------------------
 # conditional_power tests
@@ -226,9 +249,7 @@ class TestConditionalPower:
 
 class TestSimulateAdaptiveTrial:
     def test_returns_correct_type(self):
-        result = simulate_adaptive_trial(
-            "DrugA", n_planned=100, effect_size=0.5, rng_seed=42
-        )
+        result = simulate_adaptive_trial("DrugA", n_planned=100, effect_size=0.5, rng_seed=42)
         assert isinstance(result, SimpleAdaptiveTrialResult)
 
     def test_frozen_dataclass(self):
@@ -287,14 +308,10 @@ class TestSimulateAdaptiveTrial:
 
     def test_validation_interim_fraction_boundary(self):
         with pytest.raises(ValueError, match="interim_fraction"):
-            simulate_adaptive_trial(
-                "X", n_planned=50, effect_size=0.5, interim_fraction=0.9
-            )
+            simulate_adaptive_trial("X", n_planned=50, effect_size=0.5, interim_fraction=0.9)
 
     def test_stopped_early_flag_consistent(self):
-        result = simulate_adaptive_trial(
-            "X", n_planned=100, effect_size=0.5, rng_seed=42
-        )
+        result = simulate_adaptive_trial("X", n_planned=100, effect_size=0.5, rng_seed=42)
         if result.stopped_early:
             assert result.n_enrolled < result.n_planned
         else:

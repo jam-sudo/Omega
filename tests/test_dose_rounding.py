@@ -1,4 +1,5 @@
 """Tests for Phase 181 — dose_rounding module."""
+
 import pytest
 
 from omega_pbpk.clinical.dose_rounding import DoseRoundingResult, round_dose, select_optimal_regimen
@@ -6,6 +7,7 @@ from omega_pbpk.clinical.dose_rounding import DoseRoundingResult, round_dose, se
 # ---------------------------------------------------------------------------
 # round_dose — exact match
 # ---------------------------------------------------------------------------
+
 
 def test_exact_match_single_tablet():
     result = round_dose("DrugA", 100.0, [100.0])
@@ -26,6 +28,7 @@ def test_exact_match_multiple_strengths():
 # ---------------------------------------------------------------------------
 # round_dose — rounding behaviour
 # ---------------------------------------------------------------------------
+
 
 def test_rounds_to_nearest_above():
     # target 75 mg, only 50 mg tablet, max_tablets=2 → 1x50=50 and 2x50=100
@@ -64,6 +67,7 @@ def test_multi_tablet_combination():
 # within_10pct flag
 # ---------------------------------------------------------------------------
 
+
 def test_within_10pct_true():
     result = round_dose("DrugG", 100.0, [105.0])
     assert result.within_10pct is True
@@ -86,6 +90,7 @@ def test_within_10pct_boundary_exactly_10():
 # regimen_description
 # ---------------------------------------------------------------------------
 
+
 def test_regimen_description_singular():
     result = round_dose("DrugJ", 50.0, [50.0])
     assert "1 x 50 mg tablet" in result.regimen_description
@@ -102,6 +107,7 @@ def test_regimen_description_plural():
 # prefer_fewer_tablets
 # ---------------------------------------------------------------------------
 
+
 def test_prefer_fewer_tablets():
     # target 100 mg, strengths [50, 100] — both give 0% error but 1x100 uses
     # fewer tablets than 2x50
@@ -113,6 +119,7 @@ def test_prefer_fewer_tablets():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_target_zero():
     with pytest.raises(ValueError, match="target_dose_mg"):
@@ -138,6 +145,7 @@ def test_negative_strength():
 # select_optimal_regimen
 # ---------------------------------------------------------------------------
 
+
 def test_select_optimal_regimen_returns_list():
     results = select_optimal_regimen("DrugQ", 200.0, [50.0, 100.0])
     assert isinstance(results, list)
@@ -153,9 +161,7 @@ def test_select_optimal_regimen_sorted_ascending():
 
 
 def test_select_optimal_regimen_custom_frequencies():
-    results = select_optimal_regimen(
-        "DrugS", 300.0, [100.0], frequencies=[2, 3]
-    )
+    results = select_optimal_regimen("DrugS", 300.0, [100.0], frequencies=[2, 3])
     assert len(results) == 2
     # freq=3 → 100 mg/dose → exact match
     exact = [r for r in results if r.dose_error_pct == pytest.approx(0.0)]

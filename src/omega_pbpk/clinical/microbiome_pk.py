@@ -144,13 +144,10 @@ def assess_microbiome_impact(
     MicrobiomePKResult
     """
     if not (0 < f_oral_baseline <= 1.0):
-        raise ValueError(
-            f"f_oral_baseline must be in (0, 1], got {f_oral_baseline}"
-        )
+        raise ValueError(f"f_oral_baseline must be in (0, 1], got {f_oral_baseline}")
     if microbiome_state not in VALID_STATES:
         raise ValueError(
-            f"microbiome_state must be one of {sorted(VALID_STATES)}, "
-            f"got '{microbiome_state}'"
+            f"microbiome_state must be one of {sorted(VALID_STATES)}, got '{microbiome_state}'"
         )
 
     effects = _build_effects(

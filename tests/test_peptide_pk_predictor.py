@@ -1,6 +1,7 @@
 """Tests for peptide PK predictor — Phase 468."""
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.peptide_pk_predictor import (
@@ -11,10 +12,10 @@ from omega_pbpk.prediction.peptide_pk_predictor import (
     predict_peptide_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Unit tests: estimate_peptide_clearance
 # ---------------------------------------------------------------------------
+
 
 class TestEstimatePeptideClearance:
     def test_returns_positive(self):
@@ -69,6 +70,7 @@ class TestEstimatePeptideClearance:
 # Unit tests: estimate_peptide_half_life
 # ---------------------------------------------------------------------------
 
+
 class TestEstimatePeptideHalfLife:
     def test_basic(self):
         # t_half = (Vd * ln2) / CL; with Vd=1.0, CL=1.0 → t_half = ln(2)
@@ -97,6 +99,7 @@ class TestEstimatePeptideHalfLife:
 # ---------------------------------------------------------------------------
 # Unit tests: peptide_route_suitability
 # ---------------------------------------------------------------------------
+
 
 class TestPeptideRouteSuitability:
     def test_returns_required_keys(self):
@@ -144,6 +147,7 @@ class TestPeptideRouteSuitability:
 # ---------------------------------------------------------------------------
 # Integration tests: predict_peptide_pk
 # ---------------------------------------------------------------------------
+
 
 class TestPredictPeptidePk:
     def test_returns_dataclass(self):

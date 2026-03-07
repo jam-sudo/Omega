@@ -1,6 +1,5 @@
 """Tests for PK sampling design — Phase 463."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.pk_sampling_design import (
@@ -10,7 +9,6 @@ from omega_pbpk.clinical.pk_sampling_design import (
     select_sparse_timepoints,
     simulate_nca_from_samples,
 )
-
 
 # -------------------------------------------------------------------------
 # select_sparse_timepoints
@@ -184,7 +182,9 @@ class TestOptimalNcaTimepoints:
         assert pts == sorted(pts)
 
     def test_include_trough_false(self):
-        pts = optimal_nca_timepoints(cmax_time_h=2.0, t_half_h=6.0, n_samples=6, include_trough=False)
+        pts = optimal_nca_timepoints(
+            cmax_time_h=2.0, t_half_h=6.0, n_samples=6, include_trough=False
+        )
         assert len(pts) == 6
 
     def test_minimum_n_samples_2(self):

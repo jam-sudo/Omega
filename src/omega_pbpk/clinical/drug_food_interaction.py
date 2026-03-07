@@ -71,9 +71,7 @@ def assess_food_effect(
         raise ValueError(f"Invalid BCS class '{bcs_class}'. Must be one of: {sorted(_VALID_BCS)}")
     if food_condition not in _VALID_FOOD_CONDITIONS:
         valid = sorted(_VALID_FOOD_CONDITIONS)
-        raise ValueError(
-            f"Invalid food_condition '{food_condition}'. Must be one of: {valid}"
-        )
+        raise ValueError(f"Invalid food_condition '{food_condition}'. Must be one of: {valid}")
     if formulation not in _VALID_FORMULATIONS:
         raise ValueError(
             f"Invalid formulation '{formulation}'. Must be one of: {sorted(_VALID_FORMULATIONS)}"

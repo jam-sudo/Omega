@@ -12,7 +12,6 @@ from omega_pbpk.core.enterohepatic_cycling import (
     simulate_enterohepatic_cycling,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper: default valid inputs
 # ---------------------------------------------------------------------------
@@ -190,11 +189,19 @@ def test_high_biliary_ehr_auc_ratio_greater_than_one():
 def test_ehr_extends_half_life():
     """With biliary recycling, apparent t_half should be longer."""
     r_no_ehr = simulate_enterohepatic_cycling(
-        drug_name="Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, f_biliary=0.0,
+        drug_name="Drug",
+        dose_mg=100.0,
+        cl_L_per_h=5.0,
+        vd_L=50.0,
+        f_biliary=0.0,
         t_end_h=96.0,
     )
     r_ehr = simulate_enterohepatic_cycling(
-        drug_name="Drug", dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, f_biliary=0.5,
+        drug_name="Drug",
+        dose_mg=100.0,
+        cl_L_per_h=5.0,
+        vd_L=50.0,
+        f_biliary=0.5,
         t_end_h=96.0,
     )
     assert r_ehr.t_half_h >= r_no_ehr.t_half_no_ehr_h

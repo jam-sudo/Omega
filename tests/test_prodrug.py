@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
 import numpy as np
+import pytest
 
 from omega_pbpk.clinical.prodrug import (
     ProdrugResult,
-    simulate_prodrug,
     compare_prodrug_doses,
+    simulate_prodrug,
 )
 
 # ---------------------------------------------------------------------------

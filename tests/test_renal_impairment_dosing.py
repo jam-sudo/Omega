@@ -1,10 +1,10 @@
 """Tests for renal_impairment_dosing module (Phase 205)."""
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.renal_impairment_dosing import (
-    CKDStage,
     RenalImpairmentDoseResult,
     adjust_dose_for_ckd,
     ckd_dose_table,

@@ -27,7 +27,7 @@ __all__ = [
 # Constants
 # ---------------------------------------------------------------------------
 
-_LAG_FED_H = 1.5    # gastric emptying lag in fed state (hours)
+_LAG_FED_H = 1.5  # gastric emptying lag in fed state (hours)
 _LAG_FASTED_H = 0.25  # gastric emptying lag in fasted state (hours)
 
 # AUC ratio thresholds for food effect classification
@@ -120,7 +120,7 @@ def _simulate_one_cpt_oral(
     concentrations: list[float] = []
 
     a_gut = f * dose_mg  # total absorbable drug mass (mg)
-    c_plasma = 0.0       # plasma concentration (mg/L)
+    c_plasma = 0.0  # plasma concentration (mg/L)
 
     t = 0.0
     for _ in range(n_steps + 1):

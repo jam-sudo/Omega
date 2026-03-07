@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.biopharmaceutics.formulation_ph_optimizer import (
@@ -13,7 +11,6 @@ from omega_pbpk.biopharmaceutics.formulation_ph_optimizer import (
     predict_stability_ph,
     solubility_vs_ph,
 )
-
 
 # ---------------------------------------------------------------------------
 # solubility_vs_ph
@@ -35,9 +32,15 @@ class TestSolubilityVsPh:
         """For an acid, solubility increases at pH > pKa."""
         pka = 5.0
         s0 = 0.1
-        result = solubility_vs_ph(pka=pka, logP=2.0, mw=300.0, drug_type="acid",
-                                   intrinsic_solubility_mg_mL=s0,
-                                   ph_range=(3.0, 9.0), n_points=100)
+        result = solubility_vs_ph(
+            pka=pka,
+            logP=2.0,
+            mw=300.0,
+            drug_type="acid",
+            intrinsic_solubility_mg_mL=s0,
+            ph_range=(3.0, 9.0),
+            n_points=100,
+        )
         ph_vals = result["ph_values"]
         sols = result["solubility_mg_mL"]
         # Find index just below and just above pKa
@@ -49,9 +52,15 @@ class TestSolubilityVsPh:
         """For a base, solubility increases at pH < pKa."""
         pka = 7.0
         s0 = 0.1
-        result = solubility_vs_ph(pka=pka, logP=2.0, mw=300.0, drug_type="base",
-                                   intrinsic_solubility_mg_mL=s0,
-                                   ph_range=(3.0, 11.0), n_points=100)
+        result = solubility_vs_ph(
+            pka=pka,
+            logP=2.0,
+            mw=300.0,
+            drug_type="base",
+            intrinsic_solubility_mg_mL=s0,
+            ph_range=(3.0, 11.0),
+            n_points=100,
+        )
         ph_vals = result["ph_values"]
         sols = result["solubility_mg_mL"]
         idx_below = min(range(len(ph_vals)), key=lambda i: abs(ph_vals[i] - (pka - 2.0)))
@@ -62,9 +71,15 @@ class TestSolubilityVsPh:
         """At pH = pKa: S = S0 * (1 + 10^0) = 2 * S0."""
         pka = 6.0
         s0 = 0.5
-        result = solubility_vs_ph(pka=pka, logP=2.0, mw=300.0, drug_type="acid",
-                                   intrinsic_solubility_mg_mL=s0,
-                                   ph_range=(5.9, 6.1), n_points=3)
+        result = solubility_vs_ph(
+            pka=pka,
+            logP=2.0,
+            mw=300.0,
+            drug_type="acid",
+            intrinsic_solubility_mg_mL=s0,
+            ph_range=(5.9, 6.1),
+            n_points=3,
+        )
         # Middle point is at pKa
         sols = result["solubility_mg_mL"]
         ph_vals = result["ph_values"]
@@ -74,9 +89,15 @@ class TestSolubilityVsPh:
     def test_base_at_ph_equals_pka_solubility_is_2x_s0(self):
         pka = 7.0
         s0 = 0.3
-        result = solubility_vs_ph(pka=pka, logP=2.0, mw=300.0, drug_type="base",
-                                   intrinsic_solubility_mg_mL=s0,
-                                   ph_range=(6.9, 7.1), n_points=3)
+        result = solubility_vs_ph(
+            pka=pka,
+            logP=2.0,
+            mw=300.0,
+            drug_type="base",
+            intrinsic_solubility_mg_mL=s0,
+            ph_range=(6.9, 7.1),
+            n_points=3,
+        )
         sols = result["solubility_mg_mL"]
         ph_vals = result["ph_values"]
         idx = min(range(len(ph_vals)), key=lambda i: abs(ph_vals[i] - pka))
@@ -116,8 +137,12 @@ class TestOptimalPhForSolubility:
     def test_acid_optimal_ph_above_pka(self):
         """For an acid with high target, optimal pH should be above pKa."""
         result = optimal_ph_for_solubility(
-            pka=5.0, logP=2.0, mw=300.0, drug_type="acid",
-            intrinsic_solubility_mg_mL=0.01, target_solubility_mg_mL=10.0
+            pka=5.0,
+            logP=2.0,
+            mw=300.0,
+            drug_type="acid",
+            intrinsic_solubility_mg_mL=0.01,
+            target_solubility_mg_mL=10.0,
         )
         # For an acid, solubility increases above pKa
         assert result.optimal_ph >= result.pka - 0.5
@@ -126,16 +151,24 @@ class TestOptimalPhForSolubility:
         """For a base with high target, optimal pH should be below pKa."""
         pka = 8.5
         result = optimal_ph_for_solubility(
-            pka=pka, logP=2.0, mw=300.0, drug_type="base",
-            intrinsic_solubility_mg_mL=0.01, target_solubility_mg_mL=1.0
+            pka=pka,
+            logP=2.0,
+            mw=300.0,
+            drug_type="base",
+            intrinsic_solubility_mg_mL=0.01,
+            target_solubility_mg_mL=1.0,
         )
         # Optimal should be below pKa (where base is more ionized)
         assert result.optimal_ph <= pka + 0.5
 
     def test_target_achievable_when_max_sol_exceeds_target(self):
         result = optimal_ph_for_solubility(
-            pka=5.0, logP=2.0, mw=300.0, drug_type="acid",
-            intrinsic_solubility_mg_mL=1.0, target_solubility_mg_mL=0.001
+            pka=5.0,
+            logP=2.0,
+            mw=300.0,
+            drug_type="acid",
+            intrinsic_solubility_mg_mL=1.0,
+            target_solubility_mg_mL=0.001,
         )
         assert result.target_achievable is True
 
@@ -144,16 +177,24 @@ class TestOptimalPhForSolubility:
         # To make target unachievable, need target >> S0*1e7
         # With S0=1e-12 mg/mL, max ~1e-5 mg/mL; target=1.0 is unachievable
         result = optimal_ph_for_solubility(
-            pka=5.0, logP=2.0, mw=300.0, drug_type="acid",
-            intrinsic_solubility_mg_mL=1e-12, target_solubility_mg_mL=1.0
+            pka=5.0,
+            logP=2.0,
+            mw=300.0,
+            drug_type="acid",
+            intrinsic_solubility_mg_mL=1e-12,
+            target_solubility_mg_mL=1.0,
         )
         assert result.target_achievable is False
 
     def test_stability_concern_when_optimal_ph_outside_range(self):
         # For a base with pKa=2, optimal pH would be very low (<3)
         result = optimal_ph_for_solubility(
-            pka=2.0, logP=3.0, mw=300.0, drug_type="base",
-            intrinsic_solubility_mg_mL=0.001, target_solubility_mg_mL=100.0
+            pka=2.0,
+            logP=3.0,
+            mw=300.0,
+            drug_type="base",
+            intrinsic_solubility_mg_mL=0.001,
+            target_solubility_mg_mL=100.0,
         )
         # Max solubility at very low pH; if optimal lands outside 3-8, concern=True
         # or stability_concern may be False if target is met within range
@@ -177,13 +218,11 @@ class TestOptimalPhForSolubility:
 
     def test_invalid_intrinsic_solubility_raises(self):
         with pytest.raises(ValueError, match="intrinsic_solubility"):
-            optimal_ph_for_solubility(pka=5.0, logP=2.0, mw=300.0,
-                                       intrinsic_solubility_mg_mL=0.0)
+            optimal_ph_for_solubility(pka=5.0, logP=2.0, mw=300.0, intrinsic_solubility_mg_mL=0.0)
 
     def test_invalid_target_solubility_raises(self):
         with pytest.raises(ValueError, match="target_solubility"):
-            optimal_ph_for_solubility(pka=5.0, logP=2.0, mw=300.0,
-                                       target_solubility_mg_mL=-1.0)
+            optimal_ph_for_solubility(pka=5.0, logP=2.0, mw=300.0, target_solubility_mg_mL=-1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -247,8 +286,13 @@ class TestPredictStabilityPh:
 
     def test_returns_required_keys(self):
         result = predict_stability_ph("acid", 5.0)
-        for key in ("optimal_ph", "stability_range", "stability_concern",
-                    "recommendation", "risk_level"):
+        for key in (
+            "optimal_ph",
+            "stability_range",
+            "stability_concern",
+            "recommendation",
+            "risk_level",
+        ):
             assert key in result
 
     def test_low_risk_within_range(self):

@@ -53,9 +53,7 @@ def predict_hydrolysis_rate(
     T_K = temperature_C + 273.15
 
     # Arrhenius temperature factor relative to 25°C
-    arrhenius_factor = math.exp(
-        (activation_energy_kJ_mol / R) * (1.0 / T_ref_K - 1.0 / T_K)
-    )
+    arrhenius_factor = math.exp((activation_energy_kJ_mol / R) * (1.0 / T_ref_K - 1.0 / T_K))
 
     # pH-rate profile: base rate at neutral pH, increases at extremes
     # Acid catalysis: significant below pH 3
@@ -193,11 +191,7 @@ def _overall_stability(
 ) -> str:
     """Determine overall stability from individual risk categories."""
     risk_score = {"low": 0, "moderate": 1, "high": 2}
-    total = (
-        risk_score[hydrolysis_risk]
-        + risk_score[oxidation_risk]
-        + risk_score[humidity_risk]
-    )
+    total = risk_score[hydrolysis_risk] + risk_score[oxidation_risk] + risk_score[humidity_risk]
 
     if total == 0:
         return "excellent"
@@ -300,15 +294,12 @@ def assess_formulation_stability(
 
     overall = _overall_stability(hydrolysis_risk, oxidation_risk, humidity_risk)
 
-    shelf_life = _shelf_life_months(
-        hydrolysis_risk, oxidation_risk, humidity_risk, temperature_C
-    )
+    shelf_life = _shelf_life_months(hydrolysis_risk, oxidation_risk, humidity_risk, temperature_C)
 
     storage = _recommended_storage(hydrolysis_risk, oxidation_risk, humidity_risk)
 
     notes = (
-        f"Hydrolysis rate={hydrolysis_rate:.2e}/h; "
-        f"pH={ph}; T={temperature_C}°C; RH={humidity_pct}%"
+        f"Hydrolysis rate={hydrolysis_rate:.2e}/h; pH={ph}; T={temperature_C}°C; RH={humidity_pct}%"
     )
 
     return FormulationStabilityResult(

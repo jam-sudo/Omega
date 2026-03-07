@@ -150,23 +150,17 @@ class TestObesityPKScaling:
 
     # Vd scaling per distribution type
     def test_hydrophilic_vd_uses_lbw(self):
-        result = obesity_pk_scaling(
-            "Drug", 5.0, 50.0, 35.0, 175.0, 120.0, "male", "hydrophilic"
-        )
+        result = obesity_pk_scaling("Drug", 5.0, 50.0, 35.0, 175.0, 120.0, "male", "hydrophilic")
         expected_vd = 50.0 * (result.lbw_kg / 70.0)
         assert result.vd_adjusted_L == pytest.approx(expected_vd, rel=1e-6)
 
     def test_lipophilic_vd_uses_tbw(self):
-        result = obesity_pk_scaling(
-            "Drug", 5.0, 50.0, 35.0, 175.0, 120.0, "male", "lipophilic"
-        )
+        result = obesity_pk_scaling("Drug", 5.0, 50.0, 35.0, 175.0, 120.0, "male", "lipophilic")
         expected_vd = 50.0 * (120.0 / 70.0)
         assert result.vd_adjusted_L == pytest.approx(expected_vd, rel=1e-6)
 
     def test_mixed_vd_blends_lbw_tbw(self):
-        result = obesity_pk_scaling(
-            "Drug", 5.0, 50.0, 35.0, 175.0, 120.0, "male", "mixed"
-        )
+        result = obesity_pk_scaling("Drug", 5.0, 50.0, 35.0, 175.0, 120.0, "male", "mixed")
         lbw = result.lbw_kg
         tbw = 120.0
         excess_fat = tbw - lbw
@@ -221,37 +215,25 @@ class TestObesityPKScaling:
 
     def test_invalid_cl(self):
         with pytest.raises(ValueError, match="normal_cl_L_per_h"):
-            obesity_pk_scaling(
-                "Drug", -1.0, 50.0, 32.0, 175.0, 100.0, "male", "hydrophilic"
-            )
+            obesity_pk_scaling("Drug", -1.0, 50.0, 32.0, 175.0, 100.0, "male", "hydrophilic")
 
     def test_invalid_vd(self):
         with pytest.raises(ValueError, match="normal_vd_L"):
-            obesity_pk_scaling(
-                "Drug", 5.0, 0.0, 32.0, 175.0, 100.0, "male", "hydrophilic"
-            )
+            obesity_pk_scaling("Drug", 5.0, 0.0, 32.0, 175.0, 100.0, "male", "hydrophilic")
 
     def test_invalid_bmi(self):
         with pytest.raises(ValueError, match="bmi"):
-            obesity_pk_scaling(
-                "Drug", 5.0, 50.0, -5.0, 175.0, 100.0, "male", "hydrophilic"
-            )
+            obesity_pk_scaling("Drug", 5.0, 50.0, -5.0, 175.0, 100.0, "male", "hydrophilic")
 
     def test_invalid_distribution_type(self):
         with pytest.raises(ValueError, match="distribution_type"):
-            obesity_pk_scaling(
-                "Drug", 5.0, 50.0, 32.0, 175.0, 100.0, "male", "amphiphilic"
-            )
+            obesity_pk_scaling("Drug", 5.0, 50.0, 32.0, 175.0, 100.0, "male", "amphiphilic")
 
     def test_distribution_type_case_insensitive(self):
-        result = obesity_pk_scaling(
-            "Drug", 5.0, 50.0, 32.0, 175.0, 100.0, "male", "Hydrophilic"
-        )
+        result = obesity_pk_scaling("Drug", 5.0, 50.0, 32.0, 175.0, 100.0, "male", "Hydrophilic")
         assert result.distribution_type == "hydrophilic"
 
     def test_female_patient(self):
-        result = obesity_pk_scaling(
-            "Drug", 3.0, 30.0, 30.0, 160.0, 90.0, "female", "lipophilic"
-        )
+        result = obesity_pk_scaling("Drug", 3.0, 30.0, 30.0, 160.0, 90.0, "female", "lipophilic")
         assert result.cl_adjusted_L_per_h > 0
         assert result.vd_adjusted_L > 0

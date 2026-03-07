@@ -30,21 +30,21 @@ class OrganPBPKResult:
 # -------------------------------------------------------------------------
 # Physiological constants for a 70 kg human
 # -------------------------------------------------------------------------
-_Q_LIVER  = 90.0    # L/h
-_Q_KIDNEY = 72.0    # L/h
-_Q_MUSCLE = 75.0    # L/h
-_Q_LUNG   = 390.0   # L/h  (cardiac output; lung treated as central extension)
+_Q_LIVER = 90.0  # L/h
+_Q_KIDNEY = 72.0  # L/h
+_Q_MUSCLE = 75.0  # L/h
+_Q_LUNG = 390.0  # L/h  (cardiac output; lung treated as central extension)
 
-_V_LIVER  = 1.8     # L
-_V_KIDNEY = 0.6     # L
-_V_LUNG   = 0.6     # L
-_V_MUSCLE = 35.0    # L
+_V_LIVER = 1.8  # L
+_V_KIDNEY = 0.6  # L
+_V_LUNG = 0.6  # L
+_V_MUSCLE = 35.0  # L
 
 # Central (plasma) volume — lung distributes into central via fast equilibrium
-_V_CENTRAL = 5.0    # L
+_V_CENTRAL = 5.0  # L
 
-_KA_DEFAULT = 1.0   # oral absorption rate constant (h⁻¹)
-_F_ABS      = 1.0   # fraction absorbed
+_KA_DEFAULT = 1.0  # oral absorption rate constant (h⁻¹)
+_F_ABS = 1.0  # fraction absorbed
 
 _VALID_ROUTES = ("iv", "oral")
 
@@ -144,9 +144,7 @@ def _organ_update_exact(
     # Net amount returned from organ to central over dt (mg)
     # = Q * integral(C_organ/Kp - c_art, 0, dt)
     # integral of C(t)/Kp dt = css/Kp * dt + (c_organ - css)/Kp * (1-decay)/alpha
-    avg_return_flux = q / kp * (
-        css * dt + (c_organ - css) * (1.0 - decay) / alpha
-    ) - q * c_art * dt
+    avg_return_flux = q / kp * (css * dt + (c_organ - css) * (1.0 - decay) / alpha) - q * c_art * dt
     return new_c, avg_return_flux
 
 
@@ -175,9 +173,9 @@ def simulate_organ_pbpk(
     """
     _validate_inputs(dose_mg, route, cl_int_L_per_h, fu_plasma, t_end_h, dt_h)
 
-    kp_liver  = calculate_organ_kp(logP, fu_plasma, "liver")
+    kp_liver = calculate_organ_kp(logP, fu_plasma, "liver")
     kp_kidney = calculate_organ_kp(logP, fu_plasma, "kidney")
-    kp_lung   = calculate_organ_kp(logP, fu_plasma, "lung")
+    kp_lung = calculate_organ_kp(logP, fu_plasma, "lung")
     kp_muscle = calculate_organ_kp(logP, fu_plasma, "muscle")
 
     # Effective central volume includes lung (fast equilibrium with plasma)
@@ -191,11 +189,11 @@ def simulate_organ_pbpk(
         a_central = 0.0
         a_gut = dose_mg * _F_ABS
 
-    c_liver  = 0.0  # mg/L
+    c_liver = 0.0  # mg/L
     c_kidney = 0.0
     c_muscle = 0.0
 
-    times:    list[float] = []
+    times: list[float] = []
     cp_trace: list[float] = []
     cl_trace: list[float] = []
     ck_trace: list[float] = []
@@ -206,7 +204,7 @@ def simulate_organ_pbpk(
 
     for step in range(n_steps + 1):
         t = step * dt_h
-        c_art  = a_central / v_eff
+        c_art = a_central / v_eff
         c_lung = c_art * kp_lung
 
         times.append(t)
@@ -229,9 +227,15 @@ def simulate_organ_pbpk(
             absorbed = 0.0
 
         # Analytic organ updates (always stable)
-        new_c_liver,  flux_liver  = _organ_update_exact(
-            c_liver,  c_art, kp_liver,  _Q_LIVER,  _V_LIVER,  dt_h,
-            extra_cl=cl_int_L_per_h, fu=fu_plasma
+        new_c_liver, flux_liver = _organ_update_exact(
+            c_liver,
+            c_art,
+            kp_liver,
+            _Q_LIVER,
+            _V_LIVER,
+            dt_h,
+            extra_cl=cl_int_L_per_h,
+            fu=fu_plasma,
         )
         new_c_kidney, flux_kidney = _organ_update_exact(
             c_kidney, c_art, kp_kidney, _Q_KIDNEY, _V_KIDNEY, dt_h
@@ -249,11 +253,11 @@ def simulate_organ_pbpk(
         a_central = max(0.0, a_central + da_central)
 
         # Update organ concentrations
-        c_liver  = new_c_liver
+        c_liver = new_c_liver
         c_kidney = new_c_kidney
         c_muscle = new_c_muscle
 
-    auc  = _trapezoidal_auc(times, cp_trace)
+    auc = _trapezoidal_auc(times, cp_trace)
     cmax = max(cp_trace)
 
     notes = (

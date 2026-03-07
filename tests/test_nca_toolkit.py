@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.analysis.nca_toolkit import (
     NCAResult,
-    compute_aumc,
     compute_accumulation_ratio,
+    compute_aumc,
     compute_nca_full,
     compute_terminal_slope,
     superposition_steady_state,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers to build test profiles

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
 from omega_pbpk.clinical.clinical_trial_pk import (
@@ -283,27 +282,55 @@ def test_multiple_dose_higher_auc_than_single():
 
 
 def test_compare_dose_groups_returns_list():
-    result = compare_dose_groups("trial", [50.0, 100.0, 200.0], cl_mean=5.0, vd_mean=50.0,
-                                 n_subjects_per_group=5, t_end_h=24.0, dt_h=0.5)
+    result = compare_dose_groups(
+        "trial",
+        [50.0, 100.0, 200.0],
+        cl_mean=5.0,
+        vd_mean=50.0,
+        n_subjects_per_group=5,
+        t_end_h=24.0,
+        dt_h=0.5,
+    )
     assert isinstance(result, list)
     assert len(result) == 3
 
 
 def test_compare_dose_groups_sorted_ascending():
-    result = compare_dose_groups("trial", [200.0, 50.0, 100.0], cl_mean=5.0, vd_mean=50.0,
-                                 n_subjects_per_group=5, t_end_h=24.0, dt_h=0.5)
+    result = compare_dose_groups(
+        "trial",
+        [200.0, 50.0, 100.0],
+        cl_mean=5.0,
+        vd_mean=50.0,
+        n_subjects_per_group=5,
+        t_end_h=24.0,
+        dt_h=0.5,
+    )
     doses = [r.dose_mg for r in result]
     assert doses == sorted(doses)
 
 
 def test_compare_dose_groups_all_results():
-    result = compare_dose_groups("trial", [50.0, 100.0], cl_mean=5.0, vd_mean=50.0,
-                                 n_subjects_per_group=5, t_end_h=24.0, dt_h=0.5)
+    result = compare_dose_groups(
+        "trial",
+        [50.0, 100.0],
+        cl_mean=5.0,
+        vd_mean=50.0,
+        n_subjects_per_group=5,
+        t_end_h=24.0,
+        dt_h=0.5,
+    )
     assert all(isinstance(r, ClinicalTrialPKResult) for r in result)
 
 
 def test_compare_dose_groups_cmax_increases():
-    result = compare_dose_groups("trial", [50.0, 100.0, 200.0], cl_mean=5.0, vd_mean=50.0,
-                                 n_subjects_per_group=10, t_end_h=24.0, dt_h=0.5)
+    result = compare_dose_groups(
+        "trial",
+        [50.0, 100.0, 200.0],
+        cl_mean=5.0,
+        vd_mean=50.0,
+        n_subjects_per_group=10,
+        t_end_h=24.0,
+        dt_h=0.5,
+    )
     cmax_vals = [r.cmax_gm_mg_L for r in result]
     assert cmax_vals[0] < cmax_vals[1] < cmax_vals[2]

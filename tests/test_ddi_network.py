@@ -10,10 +10,10 @@ from omega_pbpk.clinical.ddi_network import (
     find_critical_path,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _drug(name, substrates=None, inhibitors=None, inducers=None, is_strong=False):
     return {
@@ -28,6 +28,7 @@ def _drug(name, substrates=None, inhibitors=None, inducers=None, is_strong=False
 # ---------------------------------------------------------------------------
 # Basic construction tests
 # ---------------------------------------------------------------------------
+
 
 class TestBuildDDINetwork:
     def test_empty_drug_list(self):
@@ -202,6 +203,7 @@ class TestBuildDDINetwork:
 # Validation tests
 # ---------------------------------------------------------------------------
 
+
 class TestValidation:
     def test_invalid_input_not_list(self):
         with pytest.raises(ValueError, match="drugs must be a list"):
@@ -219,6 +221,7 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 # find_critical_path tests
 # ---------------------------------------------------------------------------
+
 
 class TestFindCriticalPath:
     def test_returns_list(self):

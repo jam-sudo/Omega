@@ -162,7 +162,7 @@ def _simulate_subject_oral(
     """
     ke = cl / vd
     a_gut = dose_mg  # amount in gut (mg)
-    c = 0.0          # plasma concentration (mg/L)
+    c = 0.0  # plasma concentration (mg/L)
     profile: list[float] = []
     for i, _t in enumerate(times):
         profile.append(c)

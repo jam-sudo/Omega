@@ -364,17 +364,19 @@ def compare_nasal_formulations(
             dt_h=dt_h,
         )
 
-        results.append({
-            "name": form["name"],
-            "f_nasal": f_nasal,
-            "k_nasal": k_nasal,
-            "mcc": mcc,
-            "cmax": sim.cmax_systemic,
-            "tmax_h": sim.tmax_systemic_h,
-            "auc": sim.auc_systemic,
-            "f_absorbed": sim.f_absorbed_systemic,
-            "result": sim,
-        })
+        results.append(
+            {
+                "name": form["name"],
+                "f_nasal": f_nasal,
+                "k_nasal": k_nasal,
+                "mcc": mcc,
+                "cmax": sim.cmax_systemic,
+                "tmax_h": sim.tmax_systemic_h,
+                "auc": sim.auc_systemic,
+                "f_absorbed": sim.f_absorbed_systemic,
+                "result": sim,
+            }
+        )
 
     results.sort(key=lambda d: d["auc"], reverse=True)
     return results

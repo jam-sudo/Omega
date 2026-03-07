@@ -22,10 +22,10 @@ class CardiacSafetyResult:
     smiles: str
     herg_ic50_uM: float
     concentration_uM: float
-    qt_risk_score: float       # 0–100
-    qt_risk_category: str      # low / moderate / high / critical
-    delta_qtc_ms: float        # estimated QTc prolongation (ms)
-    inotropy_risk: str         # low / moderate / high
+    qt_risk_score: float  # 0–100
+    qt_risk_category: str  # low / moderate / high / critical
+    delta_qtc_ms: float  # estimated QTc prolongation (ms)
+    inotropy_risk: str  # low / moderate / high
     overall_cardiac_risk: str  # low / moderate / high / critical
     structural_alerts: list[str]
     mitigation: list[str]
@@ -35,9 +35,9 @@ class CardiacSafetyResult:
 # ── Structural alert patterns (substring match against SMILES) ────────────────
 
 _STRUCTURAL_ALERT_PATTERNS: list[tuple[str, str]] = [
-    ("anthraquinone", "C(=O)c1"),          # quinone carbonyl attached to aromatic ring
+    ("anthraquinone", "C(=O)c1"),  # quinone carbonyl attached to aromatic ring
     ("tertiary_amine_basic", "N(C)(C)C"),  # fully methylated tertiary amine
-    ("biguanide", "NC(=N)N"),              # biguanide scaffold
+    ("biguanide", "NC(=N)N"),  # biguanide scaffold
 ]
 
 

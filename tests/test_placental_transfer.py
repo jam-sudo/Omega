@@ -14,6 +14,7 @@ from omega_pbpk.core.placental_transfer import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _default_kwargs(**overrides):
     """Return default kwargs for simulate_placental_transfer."""
     base = dict(
@@ -37,6 +38,7 @@ def _default_kwargs(**overrides):
 # ---------------------------------------------------------------------------
 # Input validation tests
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_drug_name_empty(self):
@@ -109,6 +111,7 @@ class TestInputValidation:
 # Result structure tests
 # ---------------------------------------------------------------------------
 
+
 class TestResultStructure:
     def test_result_type(self):
         result = simulate_placental_transfer(**_default_kwargs())
@@ -158,6 +161,7 @@ class TestResultStructure:
 # ---------------------------------------------------------------------------
 # PK behavior tests
 # ---------------------------------------------------------------------------
+
 
 class TestPKBehavior:
     def test_maternal_conc_decreases_over_time_iv(self):
@@ -240,6 +244,7 @@ class TestPKBehavior:
 # ---------------------------------------------------------------------------
 # fetal_drug_exposure_risk tests
 # ---------------------------------------------------------------------------
+
 
 class TestFetalExposureRisk:
     def test_low_risk(self):

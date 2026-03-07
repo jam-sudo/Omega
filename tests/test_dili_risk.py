@@ -304,9 +304,27 @@ def test_invalid_mw_zero_raises():
 
 def test_rank_returns_sorted_descending():
     compounds = [
-        {"name": "safe", "smiles": CLEAN_SMILES, "daily_dose_mg": 1.0, "mw": CLEAN_MW, "logP": CLEAN_LOGP},
-        {"name": "furan", "smiles": FURAN_SMILES, "daily_dose_mg": 10.0, "mw": FURAN_MW, "logP": FURAN_LOGP},
-        {"name": "danger", "smiles": MULTI_SMILES, "daily_dose_mg": 100.0, "mw": MULTI_MW, "logP": MULTI_LOGP},
+        {
+            "name": "safe",
+            "smiles": CLEAN_SMILES,
+            "daily_dose_mg": 1.0,
+            "mw": CLEAN_MW,
+            "logP": CLEAN_LOGP,
+        },
+        {
+            "name": "furan",
+            "smiles": FURAN_SMILES,
+            "daily_dose_mg": 10.0,
+            "mw": FURAN_MW,
+            "logP": FURAN_LOGP,
+        },
+        {
+            "name": "danger",
+            "smiles": MULTI_SMILES,
+            "daily_dose_mg": 100.0,
+            "mw": MULTI_MW,
+            "logP": MULTI_LOGP,
+        },
     ]
     ranked = rank_dili_risk(compounds)
     assert ranked[0].dili_risk_score >= ranked[1].dili_risk_score >= ranked[2].dili_risk_score
@@ -314,7 +332,13 @@ def test_rank_returns_sorted_descending():
 
 def test_rank_returns_list_of_results():
     compounds = [
-        {"name": "a", "smiles": CLEAN_SMILES, "daily_dose_mg": 10.0, "mw": CLEAN_MW, "logP": CLEAN_LOGP},
+        {
+            "name": "a",
+            "smiles": CLEAN_SMILES,
+            "daily_dose_mg": 10.0,
+            "mw": CLEAN_MW,
+            "logP": CLEAN_LOGP,
+        },
     ]
     result = rank_dili_risk(compounds)
     assert isinstance(result, list)
@@ -323,8 +347,13 @@ def test_rank_returns_list_of_results():
 
 def test_rank_length_matches_input():
     compounds = [
-        {"name": f"cpd{i}", "smiles": CLEAN_SMILES, "daily_dose_mg": float(i * 10 + 1),
-         "mw": CLEAN_MW, "logP": CLEAN_LOGP}
+        {
+            "name": f"cpd{i}",
+            "smiles": CLEAN_SMILES,
+            "daily_dose_mg": float(i * 10 + 1),
+            "mw": CLEAN_MW,
+            "logP": CLEAN_LOGP,
+        }
         for i in range(5)
     ]
     ranked = rank_dili_risk(compounds)

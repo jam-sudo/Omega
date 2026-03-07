@@ -24,22 +24,22 @@ from dataclasses import dataclass, field
 
 _TRIMESTER_FACTORS: dict[int, dict[str, float]] = {
     1: {
-        "gfr_factor": 1.25,         # GFR +25%
+        "gfr_factor": 1.25,  # GFR +25%
         "cardiac_output_factor": 1.15,  # CO +15%
-        "plasma_volume_factor": 1.10,   # plasma vol +10%
-        "albumin_factor": 0.95,     # albumin -5%
+        "plasma_volume_factor": 1.10,  # plasma vol +10%
+        "albumin_factor": 0.95,  # albumin -5%
     },
     2: {
-        "gfr_factor": 1.50,         # GFR +50%
+        "gfr_factor": 1.50,  # GFR +50%
         "cardiac_output_factor": 1.35,  # CO +35%
-        "plasma_volume_factor": 1.40,   # plasma vol +40%
-        "albumin_factor": 0.85,     # albumin -15%
+        "plasma_volume_factor": 1.40,  # plasma vol +40%
+        "albumin_factor": 0.85,  # albumin -15%
     },
     3: {
-        "gfr_factor": 1.50,         # GFR +50%
+        "gfr_factor": 1.50,  # GFR +50%
         "cardiac_output_factor": 1.45,  # CO +45%
-        "plasma_volume_factor": 1.50,   # plasma vol +50%
-        "albumin_factor": 0.75,     # albumin -25%
+        "plasma_volume_factor": 1.50,  # plasma vol +50%
+        "albumin_factor": 0.75,  # albumin -25%
     },
 }
 
@@ -66,7 +66,7 @@ class PregnancyPKResult:
     auc_pregnant: float = 0.0
     cmax_pregnant: float = 0.0
     auc_nonpregnant_estimate: float = 0.0
-    auc_ratio: float = 0.0                      # pregnant / non-pregnant
+    auc_ratio: float = 0.0  # pregnant / non-pregnant
     dose_adjustment_recommendation: str = ""
     notes: str = ""
 

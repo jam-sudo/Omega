@@ -36,10 +36,10 @@ __all__ = [
 
 # Cardiac state parameters
 CARDIAC_STATES: dict[str, dict[str, float]] = {
-    "normal":        {"co_L_per_min": 5.0,  "cl_factor": 1.0, "vd_factor": 1.0},
-    "heart_failure": {"co_L_per_min": 2.5,  "cl_factor": 0.6, "vd_factor": 0.8},
-    "exercise":      {"co_L_per_min": 15.0, "cl_factor": 1.3, "vd_factor": 1.1},
-    "sepsis":        {"co_L_per_min": 8.0,  "cl_factor": 0.7, "vd_factor": 1.3},
+    "normal": {"co_L_per_min": 5.0, "cl_factor": 1.0, "vd_factor": 1.0},
+    "heart_failure": {"co_L_per_min": 2.5, "cl_factor": 0.6, "vd_factor": 0.8},
+    "exercise": {"co_L_per_min": 15.0, "cl_factor": 1.3, "vd_factor": 1.1},
+    "sepsis": {"co_L_per_min": 8.0, "cl_factor": 0.7, "vd_factor": 1.3},
 }
 
 # Tissue-to-plasma partition coefficients (fixed heuristics)
@@ -55,7 +55,7 @@ class CardiacOutputPKResult:
     """PK simulation outcome under a given cardiac output state."""
 
     drug_name: str
-    cardiac_state: str              # "normal", "heart_failure", "exercise", "sepsis"
+    cardiac_state: str  # "normal", "heart_failure", "exercise", "sepsis"
     cardiac_output_L_per_min: float
     dose_mg: float
     route: str
@@ -65,9 +65,9 @@ class CardiacOutputPKResult:
     c_kidney_mg_L: list[float]
     c_muscle_mg_L: list[float]
     cmax_plasma: float
-    auc_plasma: float               # mg·h/L (trapezoid)
-    cl_effective_L_per_h: float     # effective CL given cardiac state
-    redistribution_index: float     # |cl_factor-1| + |vd_factor-1|
+    auc_plasma: float  # mg·h/L (trapezoid)
+    cl_effective_L_per_h: float  # effective CL given cardiac state
+    redistribution_index: float  # |cl_factor-1| + |vd_factor-1|
     notes: str
 
 
@@ -165,8 +165,8 @@ def simulate_cardiac_output_pk(
         amount_central = max(amount_central, 0.0)
 
     # Tissue concentrations derived from plasma + cardiac output scaling
-    co_ratio = co / _NORMAL_CO          # relative to normal (5 L/min)
-    co_ratio_inv = _NORMAL_CO / co      # inverse for muscle
+    co_ratio = co / _NORMAL_CO  # relative to normal (5 L/min)
+    co_ratio_inv = _NORMAL_CO / co  # inverse for muscle
 
     c_liver_arr = c_plasma_arr * _KP_LIVER * co_ratio
     c_kidney_arr = c_plasma_arr * _KP_KIDNEY * co_ratio
@@ -255,10 +255,10 @@ _ORGAN_VOLUMES: dict[str, float] = {
 
 # Default normal organ blood flows (L/h) — reference healthy adult
 _DEFAULT_ORGAN_FLOWS: dict[str, float] = {
-    "liver": 54.0,    # hepatic artery + portal; ~0.9 L/min
-    "kidney": 72.0,   # ~1.2 L/min
-    "muscle": 15.0,   # resting skeletal muscle
-    "fat": 5.0,       # adipose
+    "liver": 54.0,  # hepatic artery + portal; ~0.9 L/min
+    "kidney": 72.0,  # ~1.2 L/min
+    "muscle": 15.0,  # resting skeletal muscle
+    "fat": 5.0,  # adipose
 }
 
 # Default tissue-to-plasma partition coefficients
@@ -278,15 +278,15 @@ class COPBPKResult:
 
     drug_name: str
     dose_mg: float
-    cardiac_output_fraction: float          # 1.0 = normal CO
-    cl_hep_effective_L_per_h: float         # well-stirred effective hepatic CL
+    cardiac_output_fraction: float  # 1.0 = normal CO
+    cl_hep_effective_L_per_h: float  # well-stirred effective hepatic CL
 
     times_h: list[float]
     c_plasma_mg_L: list[float]
-    tissue_concs: dict[str, list[float]]    # organ → concentration time course
+    tissue_concs: dict[str, list[float]]  # organ → concentration time course
 
-    auc_plasma: float                       # mg·h/L (trapezoidal)
-    t_half_h: float                         # terminal half-life (h)
+    auc_plasma: float  # mg·h/L (trapezoidal)
+    t_half_h: float  # terminal half-life (h)
     notes: str
 
 
@@ -421,9 +421,7 @@ def simulate_co_pbpk(
         c_tissue_arr[org][0] = kp[org] * c0_plasma
 
     # Tissue wash-in rate constants (h⁻¹): how fast each tissue equilibrates
-    k_tissue: dict[str, float] = {
-        org: q_scaled[org] / _ORGAN_VOLUMES[org] for org in _ORGANS
-    }
+    k_tissue: dict[str, float] = {org: q_scaled[org] / _ORGAN_VOLUMES[org] for org in _ORGANS}
 
     for i in range(n_pts - 1):
         cp = c_plasma_arr[i]

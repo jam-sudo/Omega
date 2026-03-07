@@ -112,7 +112,7 @@ def power_model_fit(
 
     beta, log_alpha, r2 = _linear_regression(log_d, log_pk)
     alpha = float(math.exp(log_alpha))
-    predicted = [float(alpha * (d ** beta)) for d in doses_mg]
+    predicted = [float(alpha * (d**beta)) for d in doses_mg]
     assessment = _assess(beta)
 
     return PowerModelResult(

@@ -19,7 +19,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # Dataclass
 # ---------------------------------------------------------------------------
@@ -108,7 +107,9 @@ def _simulate_1cpt_oral(
             if t > t_dose:
                 elapsed = t - t_dose
                 # mg/L per h
-                absorption_rate += (effective_dose * ka_per_h / vd_L) * math.exp(-ka_per_h * elapsed)
+                absorption_rate += (effective_dose * ka_per_h / vd_L) * math.exp(
+                    -ka_per_h * elapsed
+                )
 
         dCdt = absorption_rate - ke * C[step - 1]
         C[step] = max(0.0, C[step - 1] + dCdt * dt)

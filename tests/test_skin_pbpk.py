@@ -14,6 +14,7 @@ from omega_pbpk.core.skin_pbpk import (
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _baseline_result(**kwargs) -> SkinPBPKResult:
     defaults = dict(
         drug_name="test_drug",
@@ -31,6 +32,7 @@ def _baseline_result(**kwargs) -> SkinPBPKResult:
 # ---------------------------------------------------------------------------
 # Basic structural tests
 # ---------------------------------------------------------------------------
+
 
 class TestSkinPBPKResultStructure:
     def test_returns_correct_type(self):
@@ -66,6 +68,7 @@ class TestSkinPBPKResultStructure:
 # ---------------------------------------------------------------------------
 # Mass balance / physics
 # ---------------------------------------------------------------------------
+
 
 class TestSkinPBPKPhysics:
     def test_initial_sc_equals_total_dose(self):
@@ -125,6 +128,7 @@ class TestSkinPBPKPhysics:
 # Parameter sensitivity
 # ---------------------------------------------------------------------------
 
+
 class TestSkinPBPKSensitivity:
     def test_higher_dose_gives_higher_auc(self):
         r1 = _baseline_result(dose_mg_cm2=0.5)
@@ -161,12 +165,16 @@ class TestSkinPBPKSensitivity:
 # Input validation
 # ---------------------------------------------------------------------------
 
+
 class TestSkinPBPKValidation:
     def test_empty_drug_name_raises(self):
         with pytest.raises(ValueError, match="drug_name"):
             simulate_skin_pbpk(
-                drug_name="", dose_mg_cm2=1.0, application_area_cm2=10.0,
-                cl_sys_L_per_h=2.0, vd_sys_L=20.0,
+                drug_name="",
+                dose_mg_cm2=1.0,
+                application_area_cm2=10.0,
+                cl_sys_L_per_h=2.0,
+                vd_sys_L=20.0,
             )
 
     def test_zero_dose_raises(self):
@@ -202,6 +210,7 @@ class TestSkinPBPKValidation:
 # compare_penetration_enhancers
 # ---------------------------------------------------------------------------
 
+
 class TestComparePenetrationEnhancers:
     def _enhancers(self):
         return [
@@ -211,30 +220,22 @@ class TestComparePenetrationEnhancers:
         ]
 
     def test_returns_list_of_dicts(self):
-        result = compare_penetration_enhancers(
-            "drug", 1.0, 10.0, 2.0, 20.0, self._enhancers()
-        )
+        result = compare_penetration_enhancers("drug", 1.0, 10.0, 2.0, 20.0, self._enhancers())
         assert isinstance(result, list)
         assert all(isinstance(r, dict) for r in result)
 
     def test_sorted_by_auc_descending(self):
-        result = compare_penetration_enhancers(
-            "drug", 1.0, 10.0, 2.0, 20.0, self._enhancers()
-        )
+        result = compare_penetration_enhancers("drug", 1.0, 10.0, 2.0, 20.0, self._enhancers())
         aucs = [r["auc_sys"] for r in result]
         assert aucs == sorted(aucs, reverse=True)
 
     def test_dmso_higher_auc_than_baseline(self):
-        result = compare_penetration_enhancers(
-            "drug", 1.0, 10.0, 2.0, 20.0, self._enhancers()
-        )
+        result = compare_penetration_enhancers("drug", 1.0, 10.0, 2.0, 20.0, self._enhancers())
         auc_map = {r["name"]: r["auc_sys"] for r in result}
         assert auc_map["DMSO"] > auc_map["baseline"]
 
     def test_result_keys_present(self):
-        result = compare_penetration_enhancers(
-            "drug", 1.0, 10.0, 2.0, 20.0, self._enhancers()
-        )
+        result = compare_penetration_enhancers("drug", 1.0, 10.0, 2.0, 20.0, self._enhancers())
         for r in result:
             assert "name" in r
             assert "auc_sys" in r
@@ -248,20 +249,20 @@ class TestComparePenetrationEnhancers:
 
     def test_negative_dose_raises(self):
         with pytest.raises(ValueError, match="dose_mg_cm2"):
-            compare_penetration_enhancers(
-                "drug", -1.0, 10.0, 2.0, 20.0, self._enhancers()
-            )
+            compare_penetration_enhancers("drug", -1.0, 10.0, 2.0, 20.0, self._enhancers())
 
     def test_single_enhancer_returns_one_entry(self):
         result = compare_penetration_enhancers(
-            "drug", 1.0, 10.0, 2.0, 20.0,
+            "drug",
+            1.0,
+            10.0,
+            2.0,
+            20.0,
             [{"name": "test", "k_sc_mult": 2.0}],
         )
         assert len(result) == 1
 
     def test_f_systemic_between_0_and_1(self):
-        result = compare_penetration_enhancers(
-            "drug", 1.0, 10.0, 2.0, 20.0, self._enhancers()
-        )
+        result = compare_penetration_enhancers("drug", 1.0, 10.0, 2.0, 20.0, self._enhancers())
         for r in result:
             assert 0.0 <= r["f_systemic"] <= 1.0

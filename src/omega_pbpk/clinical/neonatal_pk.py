@@ -26,12 +26,12 @@ __all__ = [
 class NeonatalScalingFactors:
     age_days: float
     weight_kg: float
-    gfr_mL_per_min_per_kg: float       # mL/min/1.73m²
-    hepatic_enzyme_maturation: float   # 0-1 relative to adult
-    bsa_m2: float                      # body surface area
-    total_body_water_fraction: float   # TBW/BW (neonates: ~0.8, adults: ~0.6)
-    plasma_protein_fraction: float     # albumin fraction relative to adult (neonates: ~0.5)
-    cardiac_output_fraction: float     # relative to adult
+    gfr_mL_per_min_per_kg: float  # mL/min/1.73m²
+    hepatic_enzyme_maturation: float  # 0-1 relative to adult
+    bsa_m2: float  # body surface area
+    total_body_water_fraction: float  # TBW/BW (neonates: ~0.8, adults: ~0.6)
+    plasma_protein_fraction: float  # albumin fraction relative to adult (neonates: ~0.5)
+    cardiac_output_fraction: float  # relative to adult
     cyp3a4_maturation: float
     ugt_maturation: float
     renal_maturation: float
@@ -44,7 +44,7 @@ class NeonatalDoseResult:
     weight_kg: float
     adult_dose_mg_per_kg: float
     neonatal_dose_mg_per_kg: float
-    neonatal_dose_mg: float           # absolute dose
+    neonatal_dose_mg: float  # absolute dose
     cl_adult_mL_per_min_per_kg: float
     cl_neonatal_mL_per_min_per_kg: float
     t_half_adult_h: float
@@ -133,9 +133,7 @@ def adjust_dose_neonatal(
 
     valid_eliminations = {"hepatic", "renal", "mixed"}
     if elimination not in valid_eliminations:
-        raise ValueError(
-            f"elimination must be one of {valid_eliminations}, got '{elimination}'"
-        )
+        raise ValueError(f"elimination must be one of {valid_eliminations}, got '{elimination}'")
 
     sf = neonatal_scaling(age_days, weight_kg)
 
@@ -183,13 +181,9 @@ def adjust_dose_neonatal(
     # Build cautions
     cautions: list[str] = []
     if sf.cyp3a4_maturation < 0.3:
-        cautions.append(
-            "CYP3A4 highly immature — avoid CYP3A4 substrates with narrow TI"
-        )
+        cautions.append("CYP3A4 highly immature — avoid CYP3A4 substrates with narrow TI")
     if sf.renal_maturation < 0.2:
-        cautions.append(
-            "Renal function very immature — renal dose adjustment critical"
-        )
+        cautions.append("Renal function very immature — renal dose adjustment critical")
     if cl_factor < 0.2:
         cautions.append("Very low CL maturation — consider TDM")
 
@@ -309,13 +303,9 @@ def neonatal_scaling_factors(
         Scaling factors relative to adult values (1.0 = adult).
     """
     if not (24.0 <= gestational_age_weeks <= 42.0):
-        raise ValueError(
-            f"gestational_age_weeks must be 24–42, got {gestational_age_weeks}"
-        )
+        raise ValueError(f"gestational_age_weeks must be 24–42, got {gestational_age_weeks}")
     if not (0.0 <= postnatal_age_days <= 365.0):
-        raise ValueError(
-            f"postnatal_age_days must be 0–365, got {postnatal_age_days}"
-        )
+        raise ValueError(f"postnatal_age_days must be 0–365, got {postnatal_age_days}")
 
     pna = postnatal_age_days
 
@@ -382,9 +372,7 @@ def scale_neonatal_dose(
         raise ValueError("All fm/f_renal fractions must be >= 0")
     total_fm = fm_cyp3a4 + fm_cyp2d6 + fm_cyp2c9 + fm_cyp2c19 + f_renal
     if total_fm > 1.0 + 1e-9:
-        raise ValueError(
-            f"Sum of fm fractions ({total_fm:.4f}) must not exceed 1.0"
-        )
+        raise ValueError(f"Sum of fm fractions ({total_fm:.4f}) must not exceed 1.0")
 
     sc = neonatal_scaling_factors(gestational_age_weeks, postnatal_age_days)
 

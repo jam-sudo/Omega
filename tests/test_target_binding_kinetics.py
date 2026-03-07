@@ -1,5 +1,7 @@
 """Tests for drug-target binding kinetics — Phase 278."""
+
 import pytest
+
 from omega_pbpk.clinical.target_binding_kinetics import (
     TargetBindingResult,
     simulate_target_binding,
@@ -68,8 +70,12 @@ class TestBindingKinetics:
         assert r2.peak_occupancy_pct > r1.peak_occupancy_pct
 
     def test_higher_kon_faster_binding(self):
-        r1 = simulate_target_binding("drug", "receptor", 100.0, kon_per_nM_per_h=0.1, t_end_h=5.0, dt_h=0.05)
-        r2 = simulate_target_binding("drug", "receptor", 100.0, kon_per_nM_per_h=2.0, t_end_h=5.0, dt_h=0.05)
+        r1 = simulate_target_binding(
+            "drug", "receptor", 100.0, kon_per_nM_per_h=0.1, t_end_h=5.0, dt_h=0.05
+        )
+        r2 = simulate_target_binding(
+            "drug", "receptor", 100.0, kon_per_nM_per_h=2.0, t_end_h=5.0, dt_h=0.05
+        )
         # Faster kon -> reaches higher occupancy sooner -> earlier tmax
         assert r2.tmax_occupancy_h <= r1.tmax_occupancy_h + 2.0
 

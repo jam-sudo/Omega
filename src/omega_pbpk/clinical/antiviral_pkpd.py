@@ -133,7 +133,7 @@ def simulate_antiviral_pkpd(
     v_load = np.zeros(n_steps + 1)
 
     # Initial conditions
-    v_load[0] = 10.0 ** baseline_viral_load_log10  # copies/mL
+    v_load[0] = 10.0**baseline_viral_load_log10  # copies/mL
 
     a_gut = 0.0
     if route == "iv":
@@ -147,8 +147,8 @@ def simulate_antiviral_pkpd(
 
         # Drug effect (Hill equation)
         if c > 0.0:
-            c_n = c ** hill_n
-            ec_n = ec50_mg_L ** hill_n
+            c_n = c**hill_n
+            ec_n = ec50_mg_L**hill_n
             effect = emax_antiviral * c_n / (ec_n + c_n)
         else:
             effect = 0.0
@@ -246,8 +246,7 @@ def dose_response_antiviral(
         raise ValueError("doses_mg must be a non-empty list")
 
     results = [
-        simulate_antiviral_pkpd(drug_name, dose, cl_L_per_h, vd_L, **kwargs)
-        for dose in doses_mg
+        simulate_antiviral_pkpd(drug_name, dose, cl_L_per_h, vd_L, **kwargs) for dose in doses_mg
     ]
     return sorted(results, key=lambda r: r.dose_mg)
 

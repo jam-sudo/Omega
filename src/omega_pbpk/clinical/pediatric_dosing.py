@@ -331,9 +331,7 @@ def calculate_pediatric_dose(
                 "Infant (age < 1 year): immature organ function, consider reduced dosing interval."
             )
         if age_years < 0.25:
-            cautions.append(
-                "Neonate: highly variable PK; therapeutic drug monitoring recommended."
-            )
+            cautions.append("Neonate: highly variable PK; therapeutic drug monitoring recommended.")
     if weight_kg is not None and weight_kg < 5.0:
         cautions.append("Low body weight (< 5 kg): precise weight-based dosing critical.")
 

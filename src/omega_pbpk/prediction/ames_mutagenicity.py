@@ -3,6 +3,7 @@
 Predict Ames test mutagenicity from SMILES structural alerts and physicochemical
 properties.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -83,10 +84,10 @@ class AmesMutagenicityResult:
     logP: float
     alerts: list[AmesAlert]
     n_alerts: int
-    mutagenicity_score: float    # 0-100
-    ames_prediction: str         # "positive", "negative", "borderline"
-    genotoxicity_risk: str       # "low", "moderate", "high"
-    primary_concern: str         # top alert name or "none"
+    mutagenicity_score: float  # 0-100
+    ames_prediction: str  # "positive", "negative", "borderline"
+    genotoxicity_risk: str  # "low", "moderate", "high"
+    primary_concern: str  # top alert name or "none"
     mitigation: list[str]
     notes: str
 
@@ -116,9 +117,7 @@ def _check_alert(smiles: str, name: str) -> bool:  # noqa: PLR0911
     if name == "quinone":
         return "O=C1C=CC(=O)" in smiles or "C1(=O)C=CC(=O)" in smiles
     if name == "furan":
-        return "c1ccoc1" in smiles or (
-            "o" in smiles and "c" in smiles and len(smiles) < 30
-        )
+        return "c1ccoc1" in smiles or ("o" in smiles and "c" in smiles and len(smiles) < 30)
     return False
 
 

@@ -1,5 +1,5 @@
 """Tests for Phase 373 — PK Nonlinearity Detector."""
-import math
+
 import pytest
 
 from omega_pbpk.analysis.pk_nonlinearity import (
@@ -7,7 +7,6 @@ from omega_pbpk.analysis.pk_nonlinearity import (
     detect_pk_nonlinearity,
     generate_dose_proportionality_report,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -20,18 +19,19 @@ CMAX_LINEAR = [d * 0.8 for d in DOSES_LINEAR]
 
 # Supraproportional: AUC grows faster than dose (b > 1.1)
 DOSES_SUPRA = [10.0, 20.0, 50.0, 100.0, 200.0]
-AUC_SUPRA = [d ** 1.5 * 0.5 for d in DOSES_SUPRA]   # b≈1.5
+AUC_SUPRA = [d**1.5 * 0.5 for d in DOSES_SUPRA]  # b≈1.5
 CMAX_SUPRA = [d * 0.8 for d in DOSES_SUPRA]
 
 # Infraproportional: AUC grows slower than dose (b < 0.9)
 DOSES_INFRA = [10.0, 20.0, 50.0, 100.0, 200.0]
-AUC_INFRA = [d ** 0.5 * 10.0 for d in DOSES_INFRA]   # b≈0.5
-CMAX_INFRA = [d ** 0.5 * 3.0 for d in DOSES_INFRA]   # Cmax also infraproportional
+AUC_INFRA = [d**0.5 * 10.0 for d in DOSES_INFRA]  # b≈0.5
+CMAX_INFRA = [d**0.5 * 3.0 for d in DOSES_INFRA]  # Cmax also infraproportional
 
 
 # ---------------------------------------------------------------------------
 # Basic structure tests
 # ---------------------------------------------------------------------------
+
 
 class TestPKNonlinearityResultStructure:
     def test_returns_dataclass(self):
@@ -55,6 +55,7 @@ class TestPKNonlinearityResultStructure:
 # ---------------------------------------------------------------------------
 # Linear data tests
 # ---------------------------------------------------------------------------
+
 
 class TestLinearPK:
     def test_high_r2_for_linear_auc(self):
@@ -108,6 +109,7 @@ class TestLinearPK:
 # Supraproportional tests
 # ---------------------------------------------------------------------------
 
+
 class TestSupraproportionalPK:
     def test_is_nonlinear_auc_true(self):
         result = detect_pk_nonlinearity("Drug", DOSES_SUPRA, AUC_SUPRA, CMAX_SUPRA)
@@ -138,6 +140,7 @@ class TestSupraproportionalPK:
 # Infraproportional tests
 # ---------------------------------------------------------------------------
 
+
 class TestInfraproportionalPK:
     def test_nonlinearity_type_infraproportional(self):
         result = detect_pk_nonlinearity("Drug", DOSES_INFRA, AUC_INFRA, CMAX_INFRA)
@@ -161,11 +164,10 @@ class TestInfraproportionalPK:
 # Report generation tests
 # ---------------------------------------------------------------------------
 
+
 class TestReportGeneration:
     def test_report_non_empty_string(self):
-        report = generate_dose_proportionality_report(
-            "Drug", DOSES_LINEAR, AUC_LINEAR, CMAX_LINEAR
-        )
+        report = generate_dose_proportionality_report("Drug", DOSES_LINEAR, AUC_LINEAR, CMAX_LINEAR)
         assert isinstance(report, str)
         assert len(report) > 100
 
@@ -176,9 +178,7 @@ class TestReportGeneration:
         assert "MYDRUG" in report or "MyDrug" in report
 
     def test_report_contains_nonlinearity_type(self):
-        report = generate_dose_proportionality_report(
-            "Drug", DOSES_LINEAR, AUC_LINEAR, CMAX_LINEAR
-        )
+        report = generate_dose_proportionality_report("Drug", DOSES_LINEAR, AUC_LINEAR, CMAX_LINEAR)
         assert "linear" in report.lower()
 
 
@@ -186,10 +186,13 @@ class TestReportGeneration:
 # Input validation tests
 # ---------------------------------------------------------------------------
 
+
 class TestInputValidation:
     def test_raises_on_mismatched_lengths(self):
         with pytest.raises(ValueError, match="same length"):
-            detect_pk_nonlinearity("Drug", [10.0, 20.0, 50.0], [25.0, 50.0, 125.0, 250.0], [8.0, 16.0, 40.0])
+            detect_pk_nonlinearity(
+                "Drug", [10.0, 20.0, 50.0], [25.0, 50.0, 125.0, 250.0], [8.0, 16.0, 40.0]
+            )
 
     def test_raises_on_fewer_than_3_points(self):
         with pytest.raises(ValueError, match="3"):
@@ -197,15 +200,21 @@ class TestInputValidation:
 
     def test_raises_on_negative_dose(self):
         with pytest.raises(ValueError, match="positive"):
-            detect_pk_nonlinearity("Drug", [-10.0, 20.0, 50.0], [25.0, 50.0, 125.0], [8.0, 16.0, 40.0])
+            detect_pk_nonlinearity(
+                "Drug", [-10.0, 20.0, 50.0], [25.0, 50.0, 125.0], [8.0, 16.0, 40.0]
+            )
 
     def test_raises_on_negative_auc(self):
         with pytest.raises(ValueError, match="positive"):
-            detect_pk_nonlinearity("Drug", [10.0, 20.0, 50.0], [-25.0, 50.0, 125.0], [8.0, 16.0, 40.0])
+            detect_pk_nonlinearity(
+                "Drug", [10.0, 20.0, 50.0], [-25.0, 50.0, 125.0], [8.0, 16.0, 40.0]
+            )
 
     def test_raises_on_unsorted_doses(self):
         with pytest.raises(ValueError, match="ascending"):
-            detect_pk_nonlinearity("Drug", [50.0, 20.0, 10.0], [125.0, 50.0, 25.0], [40.0, 16.0, 8.0])
+            detect_pk_nonlinearity(
+                "Drug", [50.0, 20.0, 10.0], [125.0, 50.0, 25.0], [40.0, 16.0, 8.0]
+            )
 
     def test_saturation_dose_positive(self):
         result = detect_pk_nonlinearity("Drug", DOSES_LINEAR, AUC_LINEAR, CMAX_LINEAR)

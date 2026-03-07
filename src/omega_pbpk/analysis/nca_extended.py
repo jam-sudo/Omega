@@ -127,9 +127,7 @@ def _estimate_lambda_z(
     lz = -coeffs[0]
 
     if lz <= 0:
-        raise ValueError(
-            "Estimated lambda_z is non-positive; terminal phase is not declining."
-        )
+        raise ValueError("Estimated lambda_z is non-positive; terminal phase is not declining.")
 
     predicted = np.polyval(coeffs, t_seg)
     ss_res = float(np.sum((log_c - predicted) ** 2))
@@ -228,9 +226,7 @@ def extended_nca(
         auc_inf = auc_last + auc_extrap
         pct_extrap = (auc_extrap / auc_inf * 100.0) if auc_inf > 0 else 0.0
         if pct_extrap > 20.0:
-            notes.append(
-                f"AUC extrapolation {pct_extrap:.1f}% > 20%; AUC_inf may be unreliable."
-            )
+            notes.append(f"AUC extrapolation {pct_extrap:.1f}% > 20%; AUC_inf may be unreliable.")
     else:
         auc_inf = float("nan")
         pct_extrap = float("nan")
@@ -294,25 +290,21 @@ def extended_nca(
         mrt_iv_estimate = 1.0 / lambda_z
         mat_h = mrt_h - mrt_iv_estimate
         if mat_h < 0:
-            notes.append(
-                f"MAT computed as {mat_h:.3f} h (negative); MRT_oral < MRT_iv estimate."
-            )
+            notes.append(f"MAT computed as {mat_h:.3f} h (negative); MRT_oral < MRT_iv estimate.")
 
     # --- Swing and peak-trough ratio ---
     if cmin_mg_L is not None:
         if cmin_mg_L > 0:
             swing_pct = (cmax - cmin_mg_L) / cmin_mg_L * 100.0
             peak_trough = cmax / cmin_mg_L
-            notes.append(
-                f"Swing = {swing_pct:.1f}%, Peak:Trough ratio = {peak_trough:.2f}."
-            )
+            notes.append(f"Swing = {swing_pct:.1f}%, Peak:Trough ratio = {peak_trough:.2f}.")
         else:
             notes.append("Cmin = 0; swing and peak-trough ratio undefined.")
 
     notes.append(
-        f"lambda_z from last {n_terminal} terminal points (R²={r2:.4f}); "
-        f"t½ = {t_half_h:.2f} h."
-        if not math.isnan(r2) else "lambda_z regression failed."
+        f"lambda_z from last {n_terminal} terminal points (R²={r2:.4f}); t½ = {t_half_h:.2f} h."
+        if not math.isnan(r2)
+        else "lambda_z regression failed."
     )
 
     return ExtendedNCAResult(

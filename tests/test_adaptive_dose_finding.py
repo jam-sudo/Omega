@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.clinical.adaptive_dose_finding import (
@@ -14,10 +13,10 @@ from omega_pbpk.clinical.adaptive_dose_finding import (
     three_plus_three,
 )
 
-
 # ---------------------------------------------------------------------------
 # boin_decision tests
 # ---------------------------------------------------------------------------
+
 
 class TestBoinDecision:
     def test_zero_dlt_escalates(self):
@@ -73,6 +72,7 @@ class TestBoinDecision:
 # ---------------------------------------------------------------------------
 # three_plus_three tests
 # ---------------------------------------------------------------------------
+
 
 class TestThreePlusThree:
     def test_zero_of_three_escalates(self):
@@ -154,6 +154,7 @@ class TestThreePlusThree:
 # calculate_mtd tests
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateMtd:
     def test_closest_dose_to_target(self):
         doses = [10.0, 20.0, 40.0, 80.0]
@@ -204,6 +205,7 @@ class TestCalculateMtd:
 # ---------------------------------------------------------------------------
 # simulate_dose_escalation tests
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateDoseEscalation:
     def test_returns_dose_escalation_result(self):
@@ -273,9 +275,7 @@ class TestSimulateDoseEscalation:
 
     def test_safe_drug_escalates_to_high_dose(self):
         # All rates very low → trial should escalate through all levels
-        result = simulate_dose_escalation(
-            [0.01, 0.02, 0.03, 0.04], n_cohorts=10, seed=42
-        )
+        result = simulate_dose_escalation([0.01, 0.02, 0.03, 0.04], n_cohorts=10, seed=42)
         # Most patients should be at higher dose levels (escalation expected)
         total = sum(result.n_patients_per_level)
         assert total > 0

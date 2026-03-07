@@ -15,7 +15,6 @@ from omega_pbpk.clinical.neonatal_pk import (
     simulate_neonatal_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # neonatal_scaling_factors tests
 # ---------------------------------------------------------------------------
@@ -181,8 +180,16 @@ def test_scale_dose_negative_fm_raises():
 def test_scale_dose_fm_sum_exceeds_1_raises():
     with pytest.raises(ValueError, match="Sum"):
         scale_neonatal_dose(
-            "D", 10.0, 3.0, 40.0, 7.0,
-            fm_cyp3a4=0.5, fm_cyp2d6=0.3, fm_cyp2c9=0.3, fm_cyp2c19=0.1, f_renal=0.1
+            "D",
+            10.0,
+            3.0,
+            40.0,
+            7.0,
+            fm_cyp3a4=0.5,
+            fm_cyp2d6=0.3,
+            fm_cyp2c9=0.3,
+            fm_cyp2c19=0.1,
+            f_renal=0.1,
         )
 
 
@@ -249,9 +256,7 @@ def test_simulate_pk_t_half_consistent():
 
 
 def test_simulate_pk_time_array_length():
-    res = simulate_neonatal_pk(
-        "D", 10.0, 3.0, 40.0, 7.0, 0.1, 1.0, t_end_h=24.0, dt_h=0.1
-    )
+    res = simulate_neonatal_pk("D", 10.0, 3.0, 40.0, 7.0, 0.1, 1.0, t_end_h=24.0, dt_h=0.1)
     assert len(res.times_h) == len(res.c_plasma)
     assert len(res.times_h) > 0
 
@@ -305,6 +310,16 @@ def test_simulate_pk_stores_drug_name():
 def test_simulate_pk_fm_sum_exceeds_1_raises():
     with pytest.raises(ValueError, match="Sum"):
         simulate_neonatal_pk(
-            "D", 10.0, 3.0, 40.0, 7.0, 0.1, 1.0,
-            fm_cyp3a4=0.5, fm_cyp2d6=0.3, fm_cyp2c9=0.3, fm_cyp2c19=0.1, f_renal=0.1
+            "D",
+            10.0,
+            3.0,
+            40.0,
+            7.0,
+            0.1,
+            1.0,
+            fm_cyp3a4=0.5,
+            fm_cyp2d6=0.3,
+            fm_cyp2c9=0.3,
+            fm_cyp2c19=0.1,
+            f_renal=0.1,
         )

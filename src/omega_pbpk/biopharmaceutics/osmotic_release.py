@@ -128,9 +128,7 @@ def simulate_osmotic_release(
     if drug_solubility_mg_mL <= 0:
         raise ValueError(f"drug_solubility_mg_mL must be > 0, got {drug_solubility_mg_mL}")
     if device_type not in _VALID_DEVICE_TYPES:
-        raise ValueError(
-            f"device_type must be one of {_VALID_DEVICE_TYPES}, got {device_type!r}"
-        )
+        raise ValueError(f"device_type must be one of {_VALID_DEVICE_TYPES}, got {device_type!r}")
 
     efficiency, variability = _device_modifiers(device_type)
 

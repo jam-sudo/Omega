@@ -15,7 +15,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-
 __all__ = [
     "ViscosityResult",
     "predict_viscosity",
@@ -186,8 +185,8 @@ def predict_viscosity(
     phi = concentration_mg_mL / (rho_protein * 1000.0)
 
     # Self-crowding factor: k depends on protein shape + interactions
-    k_crowding = 2.5 + kd * 2.0   # Einstein coeff 2.5 for spheres
-    s_crowding = 0.7 + kd * 0.3   # crowding/interaction factor
+    k_crowding = 2.5 + kd * 2.0  # Einstein coeff 2.5 for spheres
+    s_crowding = 0.7 + kd * 0.3  # crowding/interaction factor
 
     denom = 1.0 - s_crowding * phi
     if denom <= 0:
@@ -261,7 +260,4 @@ def screen_concentrations(
     -------
     List of ViscosityResult, one per concentration.
     """
-    return [
-        predict_viscosity(protein_name, c, **kwargs)
-        for c in concentrations_mg_mL
-    ]
+    return [predict_viscosity(protein_name, c, **kwargs) for c in concentrations_mg_mL]

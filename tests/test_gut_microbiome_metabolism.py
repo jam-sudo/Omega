@@ -12,7 +12,6 @@ from omega_pbpk.clinical.gut_microbiome_metabolism import (
     simulate_colonic_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # assess_microbiome_metabolism tests
 # ---------------------------------------------------------------------------

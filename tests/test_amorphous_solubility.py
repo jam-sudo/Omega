@@ -43,10 +43,12 @@ class TestAmorphousSolubilityResult:
 
     def test_ratio_decreases_at_higher_temperature(self):
         """At temperatures closer to Tm the solubility advantage is smaller."""
-        res_body = amorphous_solubility_advantage("D", tm_C=200.0, tg_C=100.0, logP=2.0,
-                                                  temperature_C=37.0)
-        res_warm = amorphous_solubility_advantage("D", tm_C=200.0, tg_C=100.0, logP=2.0,
-                                                  temperature_C=100.0)
+        res_body = amorphous_solubility_advantage(
+            "D", tm_C=200.0, tg_C=100.0, logP=2.0, temperature_C=37.0
+        )
+        res_warm = amorphous_solubility_advantage(
+            "D", tm_C=200.0, tg_C=100.0, logP=2.0, temperature_C=100.0
+        )
         assert res_body.sa_sc_ratio > res_warm.sa_sc_ratio
 
     def test_delta_hfus_formula(self):
@@ -64,8 +66,7 @@ class TestAmorphousSolubilityResult:
         T = T_C + 273.15
         hfus = 50.0 * Tm
         expected_ratio = math.exp(hfus * (Tm - T) / (R * T * Tm))
-        res = amorphous_solubility_advantage("D", tm_C=tm_C, tg_C=80.0, logP=2.0,
-                                             temperature_C=T_C)
+        res = amorphous_solubility_advantage("D", tm_C=tm_C, tg_C=80.0, logP=2.0, temperature_C=T_C)
         assert res.sa_sc_ratio == pytest.approx(expected_ratio, rel=1e-6)
 
     def test_notes_not_empty(self):
@@ -112,23 +113,25 @@ class TestAmorphousValidation:
 
     def test_raises_temperature_zero(self):
         with pytest.raises(ValueError, match="temperature_C"):
-            amorphous_solubility_advantage("D", tm_C=150.0, tg_C=80.0, logP=2.0,
-                                           temperature_C=0.0)
+            amorphous_solubility_advantage("D", tm_C=150.0, tg_C=80.0, logP=2.0, temperature_C=0.0)
 
     def test_raises_temperature_negative(self):
         with pytest.raises(ValueError, match="temperature_C"):
-            amorphous_solubility_advantage("D", tm_C=150.0, tg_C=80.0, logP=2.0,
-                                           temperature_C=-10.0)
+            amorphous_solubility_advantage(
+                "D", tm_C=150.0, tg_C=80.0, logP=2.0, temperature_C=-10.0
+            )
 
     def test_raises_temperature_equals_tm(self):
         with pytest.raises(ValueError):
-            amorphous_solubility_advantage("D", tm_C=150.0, tg_C=80.0, logP=2.0,
-                                           temperature_C=150.0)
+            amorphous_solubility_advantage(
+                "D", tm_C=150.0, tg_C=80.0, logP=2.0, temperature_C=150.0
+            )
 
     def test_raises_temperature_above_tm(self):
         with pytest.raises(ValueError):
-            amorphous_solubility_advantage("D", tm_C=100.0, tg_C=60.0, logP=2.0,
-                                           temperature_C=120.0)
+            amorphous_solubility_advantage(
+                "D", tm_C=100.0, tg_C=60.0, logP=2.0, temperature_C=120.0
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +187,7 @@ class TestSPSim:
             amorphous_sol_mg_mL=10.0,
             k_precipitation_per_h=5.0,
             k_dissolution_per_h=0.0,
-            dose_mg=1.0,     # dose/V = 0.004 mg/mL < crystalline_sol=1.0
+            dose_mg=1.0,  # dose/V = 0.004 mg/mL < crystalline_sol=1.0
             volume_GI_mL=250.0,
             t_end_h=3.0,
             dt_h=0.05,
@@ -236,7 +239,8 @@ class TestSPSim:
         """AUC should match manual trapezoid calculation."""
         res = spring_and_parachute_sim(**self._default_kwargs())
         manual_auc = sum(
-            0.5 * (res.c_supersaturated[i] + res.c_supersaturated[i + 1])
+            0.5
+            * (res.c_supersaturated[i] + res.c_supersaturated[i + 1])
             * (res.times_h[i + 1] - res.times_h[i])
             for i in range(len(res.times_h) - 1)
         )
@@ -272,9 +276,9 @@ class TestSPSimValidation:
 
     def test_raises_amorphous_less_than_crystalline(self):
         with pytest.raises(ValueError):
-            spring_and_parachute_sim(**self._base(
-                crystalline_sol_mg_mL=2.0, amorphous_sol_mg_mL=1.0
-            ))
+            spring_and_parachute_sim(
+                **self._base(crystalline_sol_mg_mL=2.0, amorphous_sol_mg_mL=1.0)
+            )
 
     def test_raises_negative_kp(self):
         with pytest.raises(ValueError, match="k_precipitation"):

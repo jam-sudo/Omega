@@ -194,23 +194,19 @@ class TestToxicity:
 
 class TestDrugLikeness:
     def test_lipinski_pass_typical_oral_drug(self):
-        r = predict_admet_profile("OralDrug", "CCO", mw=300.0, logP=2.0,
-                                  n_hbd=2, n_hba=4)
+        r = predict_admet_profile("OralDrug", "CCO", mw=300.0, logP=2.0, n_hbd=2, n_hba=4)
         assert r.lipinski_pass is True
 
     def test_lipinski_fail_high_mw(self):
-        r = predict_admet_profile("Big", "CCO", mw=600.0, logP=2.0,
-                                  n_hbd=2, n_hba=4)
+        r = predict_admet_profile("Big", "CCO", mw=600.0, logP=2.0, n_hbd=2, n_hba=4)
         assert r.lipinski_pass is False
 
     def test_lipinski_fail_high_logP(self):
-        r = predict_admet_profile("Lipo", "CCCCCC", mw=300.0, logP=6.0,
-                                  n_hbd=1, n_hba=2)
+        r = predict_admet_profile("Lipo", "CCCCCC", mw=300.0, logP=6.0, n_hbd=1, n_hba=2)
         assert r.lipinski_pass is False
 
     def test_lipinski_fail_high_hbd(self):
-        r = predict_admet_profile("Polar", "CCO", mw=200.0, logP=1.0,
-                                  n_hbd=7, n_hba=4)
+        r = predict_admet_profile("Polar", "CCO", mw=200.0, logP=1.0, n_hbd=7, n_hba=4)
         assert r.lipinski_pass is False
 
 
@@ -227,21 +223,31 @@ class TestCompositeScore:
 
     def test_clean_drug_like_compound_has_high_score(self):
         r = predict_admet_profile(
-            "CleanDrug", "CCO",
-            mw=200.0, logP=2.0,
-            psa=50.0, n_hbd=1, n_hba=3,
+            "CleanDrug",
+            "CCO",
+            mw=200.0,
+            logP=2.0,
+            psa=50.0,
+            n_hbd=1,
+            n_hba=3,
         )
         assert r.composite_score > 40.0
 
     def test_toxic_compound_has_lower_score(self):
         # Nitroaromatic, high logP, low hba → ames + herg + hepatotox
         r_toxic = predict_admet_profile(
-            "Toxic", "c1ccc([N+](=O)[O-])cc1",
-            mw=350.0, logP=4.5, n_hba=1,
+            "Toxic",
+            "c1ccc([N+](=O)[O-])cc1",
+            mw=350.0,
+            logP=4.5,
+            n_hba=1,
         )
         r_clean = predict_admet_profile(
-            "Clean", "CCCO",
-            mw=200.0, logP=1.5, n_hba=5,
+            "Clean",
+            "CCCO",
+            mw=200.0,
+            logP=1.5,
+            n_hba=5,
         )
         assert r_toxic.composite_score <= r_clean.composite_score
 
@@ -265,8 +271,13 @@ class TestCompareAdmetProfiles:
         compounds = [
             {"name": "C1", "smiles": "CCO", "mw": 200.0, "logP": 1.0, "n_hba": 8},
             {"name": "C2", "smiles": "CCO", "mw": 300.0, "logP": 2.5, "n_hba": 5},
-            {"name": "C3", "smiles": "c1ccc([N+](=O)[O-])cc1", "mw": 400.0,
-             "logP": 4.5, "n_hba": 1},
+            {
+                "name": "C3",
+                "smiles": "c1ccc([N+](=O)[O-])cc1",
+                "mw": 400.0,
+                "logP": 4.5,
+                "n_hba": 1,
+            },
         ]
         results = compare_admet_profiles(compounds)
         scores = [r.composite_score for r in results]

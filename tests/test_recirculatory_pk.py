@@ -39,17 +39,21 @@ def _run(**overrides):
 # Input validation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("param", [
-    "dose_mg",
-    "cl_central_L_per_h",
-    "v_central_L",
-    "q_fast_L_per_h",
-    "v_fast_L",
-    "q_slow_L_per_h",
-    "v_slow_L",
-    "ke0_per_h",
-    "v_effect_L",
-])
+
+@pytest.mark.parametrize(
+    "param",
+    [
+        "dose_mg",
+        "cl_central_L_per_h",
+        "v_central_L",
+        "q_fast_L_per_h",
+        "v_fast_L",
+        "q_slow_L_per_h",
+        "v_slow_L",
+        "ke0_per_h",
+        "v_effect_L",
+    ],
+)
 def test_invalid_param_raises(param):
     with pytest.raises(ValueError, match=param):
         _run(**{param: 0.0})
@@ -64,6 +68,7 @@ def test_negative_param_raises():
 # Initial condition
 # ---------------------------------------------------------------------------
 
+
 def test_c_central_initial_equals_dose_over_volume():
     result = _run(dose_mg=100.0, v_central_L=10.0)
     assert abs(result.c_central_mg_L[0] - 10.0) < 1e-6
@@ -72,6 +77,7 @@ def test_c_central_initial_equals_dose_over_volume():
 # ---------------------------------------------------------------------------
 # Basic positivity / structure
 # ---------------------------------------------------------------------------
+
 
 def test_cmax_central_positive():
     result = _run()
@@ -102,6 +108,7 @@ def test_t_half_positive():
 # Array lengths
 # ---------------------------------------------------------------------------
 
+
 def test_array_lengths_consistent():
     result = _run()
     n = len(result.times_h)
@@ -114,6 +121,7 @@ def test_array_lengths_consistent():
 # ---------------------------------------------------------------------------
 # Linearity
 # ---------------------------------------------------------------------------
+
 
 def test_double_dose_doubles_cmax():
     r1 = _run(dose_mg=100.0)
@@ -131,6 +139,7 @@ def test_double_dose_doubles_auc():
 # Distribution
 # ---------------------------------------------------------------------------
 
+
 def test_fast_compartment_has_drug():
     result = _run()
     assert max(result.c_fast_mg_L) > 0.0
@@ -145,6 +154,7 @@ def test_slow_compartment_has_drug():
 # Drug name stored
 # ---------------------------------------------------------------------------
 
+
 def test_drug_name_stored():
     result = _run(drug_name="Propofol")
     assert result.drug_name == "Propofol"
@@ -154,6 +164,7 @@ def test_drug_name_stored():
 # Result type
 # ---------------------------------------------------------------------------
 
+
 def test_returns_correct_type():
     result = _run()
     assert isinstance(result, RecirculatoryPKResult)
@@ -162,6 +173,7 @@ def test_returns_correct_type():
 # ---------------------------------------------------------------------------
 # Notes field
 # ---------------------------------------------------------------------------
+
 
 def test_notes_contains_drug_name():
     result = _run(drug_name="Fentanyl")
