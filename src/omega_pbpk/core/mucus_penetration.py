@@ -303,6 +303,239 @@ def simulate_mucus_pk(
     )
 
 
+# ---------------------------------------------------------------------------
+# Phase 441: simulate_mucus_penetration — 1D Fickian diffusion model
+# ---------------------------------------------------------------------------
+
+# Pore radii (nm) for each mucus type
+_PORE_RADIUS_NM: dict[str, float] = {
+    "gastric": 100.0,
+    "intestinal": 200.0,
+    "respiratory": 150.0,
+    "cervical": 50.0,
+}
+
+_VALID_MUCUS_TYPES = set(_PORE_RADIUS_NM.keys())
+
+# Simulation fixed geometry
+_AREA_CM2 = 1.0  # cm²
+_VOL_LUMEN_ML = 1.0  # mL
+_VOL_EPITHELIUM_ML = 0.1  # mL
+_K_ABS_PER_H = 1.0  # 1/h, epithelial → systemic absorption
+
+
+@dataclass
+class MucusPenetrationResult:
+    """Result of mucus penetration simulation (Phase 441)."""
+
+    drug_name: str
+    dose_mg: float
+    mucus_type: str
+    mucus_thickness_um: float
+    diffusion_coeff_effective: float  # cm²/s
+    times_h: list[float] = field(default_factory=list)
+    c_lumen_mg_mL: list[float] = field(default_factory=list)
+    c_epithelium_mg_mL: list[float] = field(default_factory=list)
+    f_penetrated: float = 0.0
+    t50_penetration_h: float = float("nan")
+    notes: str = ""
+
+
+def _hydrodynamic_radius_nm(mw: float) -> float:
+    """Estimate hydrodynamic radius from MW: r_h = 0.066 * mw^0.43 (nm)."""
+    return 0.066 * (mw**0.43)
+
+
+def _size_exclusion_factor(r_h_nm: float, pore_radius_nm: float) -> float:
+    """Steric size-exclusion: factor = (1 - r_h/pore_radius)^2; 0 if r_h >= pore."""
+    if r_h_nm >= pore_radius_nm:
+        return 0.0
+    return (1.0 - r_h_nm / pore_radius_nm) ** 2
+
+
+def _charge_factor_penetration(charge: str) -> float:
+    """Mucin is negatively charged. neutral=1.0, positive=0.3, negative=0.7."""
+    c = charge.lower()
+    if c in ("positive", "cationic", "+"):
+        return 0.3
+    if c in ("negative", "anionic", "-"):
+        return 0.7
+    return 1.0  # neutral
+
+
+def _lipophilicity_factor_penetration(logP: float) -> float:
+    """logP > 2 → 1.5 (partitions into mucus gel); else 1.0."""
+    return 1.5 if logP > 2.0 else 1.0
+
+
+def _effective_diffusion_cm2_s(
+    d_free_cm2_s: float,
+    mw: float,
+    logP: float,
+    charge: str,
+    pore_radius_nm: float,
+) -> float:
+    """D_effective = D_free * size_factor * k_int * k_lipo."""
+    r_h = _hydrodynamic_radius_nm(mw)
+    f_size = _size_exclusion_factor(r_h, pore_radius_nm)
+    k_int = _charge_factor_penetration(charge)
+    k_lipo = _lipophilicity_factor_penetration(logP)
+    return d_free_cm2_s * f_size * k_int * k_lipo
+
+
+def simulate_mucus_penetration(
+    drug_name: str,
+    dose_mg: float,
+    mucus_type: str,
+    mucus_thickness_um: float,
+    diffusion_coeff_cm2_s: float,
+    mw: float,
+    logP: float,
+    charge: str,
+    t_end_h: float = 4.0,
+    dt_h: float = 0.01,
+) -> MucusPenetrationResult:
+    """Simulate drug penetration through a mucus barrier using 1D Fick diffusion.
+
+    Parameters
+    ----------
+    drug_name : str
+        Name of the drug compound.
+    dose_mg : float
+        Dose (mg) applied to the lumen compartment.
+    mucus_type : str
+        Type of mucus barrier: "gastric", "intestinal", "respiratory", "cervical".
+    mucus_thickness_um : float
+        Thickness of the mucus layer (micrometers, µm).
+    diffusion_coeff_cm2_s : float
+        Free aqueous diffusion coefficient (cm²/s).
+    mw : float
+        Molecular weight (g/mol).
+    logP : float
+        Lipophilicity (log octanol/water partition coefficient).
+    charge : str
+        Charge state: "neutral", "positive"/"cationic", or "negative"/"anionic".
+    t_end_h : float
+        Simulation end time (hours).
+    dt_h : float
+        Time step (hours).
+
+    Returns
+    -------
+    MucusPenetrationResult
+        Time-course concentrations and penetration summary metrics.
+    """
+    # --- Input validation ---
+    if not drug_name or not drug_name.strip():
+        raise ValueError("drug_name must be a non-empty string")
+    if dose_mg <= 0:
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if mucus_type not in _VALID_MUCUS_TYPES:
+        raise ValueError(
+            f"mucus_type must be one of {sorted(_VALID_MUCUS_TYPES)}, got '{mucus_type}'"
+        )
+    if mucus_thickness_um <= 0:
+        raise ValueError(f"mucus_thickness_um must be > 0, got {mucus_thickness_um}")
+    if diffusion_coeff_cm2_s <= 0:
+        raise ValueError(f"diffusion_coeff_cm2_s must be > 0, got {diffusion_coeff_cm2_s}")
+    if mw <= 0:
+        raise ValueError(f"mw must be > 0, got {mw}")
+    if t_end_h <= 0:
+        raise ValueError(f"t_end_h must be > 0, got {t_end_h}")
+    if dt_h <= 0:
+        raise ValueError(f"dt_h must be > 0, got {dt_h}")
+
+    charge_lower = charge.lower()
+    _valid_charges_pen = {"neutral", "positive", "cationic", "+", "negative", "anionic", "-"}
+    if charge_lower not in _valid_charges_pen:
+        raise ValueError(
+            f"charge must be neutral/positive/cationic/negative/anionic, got '{charge}'"
+        )
+
+    pore_radius_nm = _PORE_RADIUS_NM[mucus_type]
+
+    # Effective diffusion coefficient (cm²/s)
+    d_eff = _effective_diffusion_cm2_s(
+        diffusion_coeff_cm2_s, mw, logP, charge, pore_radius_nm
+    )
+
+    # Convert thickness from µm to cm for Fick's law (all in cm units)
+    thickness_cm = mucus_thickness_um * 1e-4  # µm → cm
+
+    # Convert D_eff from cm²/s to cm²/h for forward Euler in hours
+    d_eff_per_h = d_eff * 3600.0
+
+    # Initial conditions (mg/mL)
+    c_lumen = dose_mg / _VOL_LUMEN_ML  # mg/mL
+    c_epi = 0.0  # mg/mL
+
+    # t50: first time c_epi reaches half of expected equilibrium peak
+    half_max_epi = (dose_mg * 0.5) / (_VOL_LUMEN_ML + _VOL_EPITHELIUM_ML)
+    t50_h = float("nan")
+
+    n_steps = max(int(t_end_h / dt_h), 1)
+    times: list[float] = [0.0]
+    c_lumen_arr: list[float] = [c_lumen]
+    c_epi_arr: list[float] = [c_epi]
+
+    for i in range(n_steps):
+        # Flux (mg/cm²/h) through mucus: Fick's first law
+        # C_lumen in mg/mL = mg/cm³, thickness in cm → flux in mg/cm²/h
+        if thickness_cm > 0 and d_eff_per_h > 0:
+            flux_mg_cm2_h = d_eff_per_h * c_lumen / thickness_cm
+        else:
+            flux_mg_cm2_h = 0.0
+
+        # Rate of change (mg/mL/h)
+        dc_lumen = -flux_mg_cm2_h * _AREA_CM2 / _VOL_LUMEN_ML
+        dc_epi = (flux_mg_cm2_h * _AREA_CM2 / _VOL_EPITHELIUM_ML) - _K_ABS_PER_H * c_epi
+
+        # Forward Euler update
+        c_lumen = max(c_lumen + dc_lumen * dt_h, 0.0)
+        c_epi = max(c_epi + dc_epi * dt_h, 0.0)
+
+        t_next = (i + 1) * dt_h
+        times.append(t_next)
+        c_lumen_arr.append(c_lumen)
+        c_epi_arr.append(c_epi)
+
+        # Track t50: first time c_epi reaches the half_max threshold
+        if math.isnan(t50_h) and c_epi >= half_max_epi:
+            t50_h = t_next
+
+    # Fraction penetrated: mass that left lumen (excluding residual epi and lumen)
+    mass_remaining_lumen = c_lumen_arr[-1] * _VOL_LUMEN_ML
+    mass_remaining_epi = c_epi_arr[-1] * _VOL_EPITHELIUM_ML
+    mass_penetrated = dose_mg - mass_remaining_lumen - mass_remaining_epi
+    f_penetrated = float(max(mass_penetrated / dose_mg, 0.0))
+
+    # Build notes string
+    r_h = _hydrodynamic_radius_nm(mw)
+    notes_parts = [
+        f"r_h={r_h:.2f} nm vs pore={pore_radius_nm:.0f} nm",
+        f"D_eff={d_eff:.3e} cm2/s",
+        f"k_int(charge)={_charge_factor_penetration(charge):.2f}",
+        f"k_lipo={_lipophilicity_factor_penetration(logP):.2f}",
+    ]
+    if r_h >= pore_radius_nm:
+        notes_parts.append("WARNING: molecule exceeds pore size, D_eff=0")
+    notes = "; ".join(notes_parts)
+
+    return MucusPenetrationResult(
+        drug_name=drug_name,
+        dose_mg=dose_mg,
+        mucus_type=mucus_type,
+        mucus_thickness_um=mucus_thickness_um,
+        diffusion_coeff_effective=d_eff,
+        times_h=times,
+        c_lumen_mg_mL=c_lumen_arr,
+        c_epithelium_mg_mL=c_epi_arr,
+        f_penetrated=float(f_penetrated),
+        t50_penetration_h=t50_h,
+        notes=notes,
+    )
+
+
 def compare_charges(
     drug_name: str,
     dose_mg: float,
