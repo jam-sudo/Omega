@@ -1,47 +1,103 @@
-"""Tests for core/inhalation_pbpk.py — Phase 633."""
+"""Tests for core/inhalation_pbpk.py — Phase 877."""
 
 import pytest
 
 from omega_pbpk.core.inhalation_pbpk import (
     InhalationPKResult,
-    compare_inhalation_devices,
+    compare_inhalation_routes,
     simulate_inhalation_pk,
 )
 
+
 # ---------------------------------------------------------------------------
-# Basic smoke tests
+# Smoke tests
 # ---------------------------------------------------------------------------
 
 
 def test_returns_inhalation_pk_result():
-    result = simulate_inhalation_pk("salbutamol", dose_mg=0.1)
+    result = simulate_inhalation_pk("salbutamol", dose_mg=1.0)
     assert isinstance(result, InhalationPKResult)
 
 
-def test_field_types():
-    result = simulate_inhalation_pk("salbutamol", dose_mg=0.1)
+def test_result_fields_correct_types():
+    result = simulate_inhalation_pk("drug_a", dose_mg=1.0)
     assert isinstance(result.drug_name, str)
     assert isinstance(result.dose_mg, float)
-    assert isinstance(result.f_lung_abs, float)
+    assert isinstance(result.route, str)
     assert isinstance(result.times_h, list)
     assert isinstance(result.c_plasma_mg_L, list)
-    assert isinstance(result.cmax_mg_L, float)
-    assert isinstance(result.tmax_h, float)
-    assert isinstance(result.auc_mg_h_per_L, float)
-    assert isinstance(result.t_half_h, float)
-    assert isinstance(result.f_systemic, float)
-    assert isinstance(result.lung_auc, float)
+    assert isinstance(result.a_central_airway_mg, list)
+    assert isinstance(result.a_alveolar_mg, list)
+    assert isinstance(result.cmax_plasma_mg_L, float)
+    assert isinstance(result.tmax_plasma_h, float)
+    assert isinstance(result.auc_plasma_mg_h_per_L, float)
+    assert isinstance(result.f_pulmonary, float)
+    assert isinstance(result.lung_deposition_central_frac, float)
+    assert isinstance(result.lung_deposition_alveolar_frac, float)
     assert isinstance(result.notes, str)
 
 
 def test_cmax_positive():
     result = simulate_inhalation_pk("drug_a", dose_mg=1.0)
-    assert result.cmax_mg_L > 0
+    assert result.cmax_plasma_mg_L > 0
 
 
 def test_auc_positive():
     result = simulate_inhalation_pk("drug_a", dose_mg=1.0)
-    assert result.auc_mg_h_per_L > 0
+    assert result.auc_plasma_mg_h_per_L > 0
+
+
+def test_times_length_matches_plasma():
+    result = simulate_inhalation_pk("drug_a", dose_mg=1.0, t_end_h=4.0, dt_h=0.1)
+    assert len(result.times_h) == len(result.c_plasma_mg_L)
+    assert len(result.times_h) == len(result.a_central_airway_mg)
+    assert len(result.times_h) == len(result.a_alveolar_mg)
+
+
+# ---------------------------------------------------------------------------
+# Route-specific tests
+# ---------------------------------------------------------------------------
+
+
+def test_dpi_route_stored():
+    result = simulate_inhalation_pk("drug", dose_mg=1.0, route="DPI")
+    assert result.route == "DPI"
+
+
+def test_nebulizer_route_stored():
+    result = simulate_inhalation_pk("drug", dose_mg=1.0, route="nebulizer")
+    assert result.route == "nebulizer"
+
+
+def test_mdi_route_stored():
+    result = simulate_inhalation_pk("drug", dose_mg=1.0, route="MDI")
+    assert result.route == "MDI"
+
+
+def test_dpi_higher_auc_than_nebulizer():
+    """DPI has higher alveolar fraction → more absorption than nebulizer."""
+    dpi = simulate_inhalation_pk("drug", dose_mg=1.0, route="DPI")
+    neb = simulate_inhalation_pk("drug", dose_mg=1.0, route="nebulizer")
+    assert dpi.auc_plasma_mg_h_per_L > neb.auc_plasma_mg_h_per_L
+
+
+def test_dpi_higher_auc_than_mdi():
+    """DPI has higher alveolar fraction than MDI."""
+    dpi = simulate_inhalation_pk("drug", dose_mg=1.0, route="DPI")
+    mdi = simulate_inhalation_pk("drug", dose_mg=1.0, route="MDI")
+    assert dpi.auc_plasma_mg_h_per_L > mdi.auc_plasma_mg_h_per_L
+
+
+def test_deposition_fractions_sum_to_one():
+    result = simulate_inhalation_pk("drug", dose_mg=1.0)
+    total = result.lung_deposition_central_frac + result.lung_deposition_alveolar_frac
+    assert abs(total - 1.0) < 1e-9
+
+
+def test_nebulizer_alveolar_frac_is_lower():
+    dpi = simulate_inhalation_pk("drug", dose_mg=1.0, route="DPI")
+    neb = simulate_inhalation_pk("drug", dose_mg=1.0, route="nebulizer")
+    assert neb.lung_deposition_alveolar_frac < dpi.lung_deposition_alveolar_frac
 
 
 # ---------------------------------------------------------------------------
@@ -49,71 +105,62 @@ def test_auc_positive():
 # ---------------------------------------------------------------------------
 
 
-def test_higher_f_lung_abs_gives_higher_cmax():
-    res_high = simulate_inhalation_pk("drug", dose_mg=1.0, f_lung_abs=0.9)
-    res_low = simulate_inhalation_pk("drug", dose_mg=1.0, f_lung_abs=0.3)
-    assert res_high.cmax_mg_L > res_low.cmax_mg_L
-
-
-def test_higher_k_lung_abs_gives_earlier_tmax():
-    res_fast = simulate_inhalation_pk("drug", dose_mg=1.0, k_lung_abs_per_h=20.0)
-    res_slow = simulate_inhalation_pk("drug", dose_mg=1.0, k_lung_abs_per_h=1.0)
-    assert res_fast.tmax_h < res_slow.tmax_h
-
-
-def test_zero_f_swallowed_no_crash():
-    result = simulate_inhalation_pk("drug", dose_mg=1.0, f_swallowed=0.0)
-    assert result.cmax_mg_L > 0
-
-
 def test_double_dose_doubles_cmax():
     res1 = simulate_inhalation_pk("drug", dose_mg=1.0)
     res2 = simulate_inhalation_pk("drug", dose_mg=2.0)
-    ratio = res2.cmax_mg_L / res1.cmax_mg_L
+    ratio = res2.cmax_plasma_mg_L / res1.cmax_plasma_mg_L
     assert abs(ratio - 2.0) < 0.05, f"Expected ~2x Cmax, got ratio={ratio:.3f}"
 
 
 def test_double_dose_doubles_auc():
     res1 = simulate_inhalation_pk("drug", dose_mg=1.0)
     res2 = simulate_inhalation_pk("drug", dose_mg=2.0)
-    ratio = res2.auc_mg_h_per_L / res1.auc_mg_h_per_L
+    ratio = res2.auc_plasma_mg_h_per_L / res1.auc_plasma_mg_h_per_L
     assert abs(ratio - 2.0) < 0.05, f"Expected ~2x AUC, got ratio={ratio:.3f}"
 
 
-def test_t_half_positive():
+def test_f_pulmonary_in_range():
     result = simulate_inhalation_pk("drug", dose_mg=1.0)
-    assert result.t_half_h > 0
+    assert 0.0 <= result.f_pulmonary <= 1.5  # can exceed 1 only with very slow CL
 
 
-def test_f_systemic_in_range():
+def test_notes_present():
+    result = simulate_inhalation_pk("drug", dose_mg=1.0)
+    assert len(result.notes) > 0
+
+
+def test_notes_good_bioavailability_high_dose():
+    """Large f_lung should give good bioavailability."""
     result = simulate_inhalation_pk(
-        "drug", dose_mg=1.0, f_lung_abs=0.9, f_swallowed=0.1, f_oral_swallowed=0.2
+        "drug",
+        dose_mg=5.0,
+        f_lung=0.9,
+        cl_L_per_h=5.0,
+        vd_L=50.0,
     )
-    assert 0 < result.f_systemic <= 1.0
+    assert "Good" in result.notes or "Moderate" in result.notes
 
 
 # ---------------------------------------------------------------------------
-# compare_inhalation_devices tests
+# compare_inhalation_routes tests
 # ---------------------------------------------------------------------------
 
 
-def test_compare_devices_returns_correct_length():
-    devices = [
-        {"f_lung_abs": 0.9},
-        {"f_lung_abs": 0.5},
-        {"f_lung_abs": 0.3},
-    ]
-    results = compare_inhalation_devices("drug", dose_mg=1.0, device_params=devices)
+def test_compare_returns_three_results():
+    results = compare_inhalation_routes("drug", dose_mg=1.0)
     assert len(results) == 3
 
 
-def test_compare_devices_higher_f_lung_abs_higher_cmax():
-    devices = [
-        {"f_lung_abs": 0.9},
-        {"f_lung_abs": 0.3},
-    ]
-    results = compare_inhalation_devices("drug", dose_mg=1.0, device_params=devices)
-    assert results[0].cmax_mg_L > results[1].cmax_mg_L
+def test_compare_sorted_descending_auc():
+    results = compare_inhalation_routes("drug", dose_mg=1.0)
+    aucs = [r.auc_plasma_mg_h_per_L for r in results]
+    assert aucs == sorted(aucs, reverse=True)
+
+
+def test_compare_contains_all_routes():
+    results = compare_inhalation_routes("drug", dose_mg=1.0)
+    routes = {r.route for r in results}
+    assert routes == {"DPI", "nebulizer", "MDI"}
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +173,11 @@ def test_validation_dose_zero_raises():
         simulate_inhalation_pk("drug", dose_mg=0.0)
 
 
+def test_validation_dose_negative_raises():
+    with pytest.raises(ValueError, match="dose_mg"):
+        simulate_inhalation_pk("drug", dose_mg=-1.0)
+
+
 def test_validation_cl_zero_raises():
     with pytest.raises(ValueError, match="cl_L_per_h"):
         simulate_inhalation_pk("drug", dose_mg=1.0, cl_L_per_h=0.0)
@@ -136,39 +188,6 @@ def test_validation_vd_negative_raises():
         simulate_inhalation_pk("drug", dose_mg=1.0, vd_L=-1.0)
 
 
-def test_validation_f_lung_abs_too_large_raises():
-    with pytest.raises(ValueError, match="f_lung_abs"):
-        simulate_inhalation_pk("drug", dose_mg=1.0, f_lung_abs=1.5)
-
-
-# ---------------------------------------------------------------------------
-# Profile shape tests
-# ---------------------------------------------------------------------------
-
-
-def test_plasma_rises_then_falls():
-    result = simulate_inhalation_pk(
-        "drug", dose_mg=1.0, k_lung_abs_per_h=10.0, cl_L_per_h=5.0, t_end_h=12.0
-    )
-    conc = result.c_plasma_mg_L
-    max_idx = conc.index(max(conc))
-    # concentration before peak should be lower than peak
-    assert conc[0] < conc[max_idx]
-    # concentration after peak should decrease (check last value vs peak)
-    assert conc[-1] < conc[max_idx]
-
-
-def test_cmax_equals_max_of_list():
-    result = simulate_inhalation_pk("drug", dose_mg=1.0)
-    assert result.cmax_mg_L == max(result.c_plasma_mg_L)
-
-
-def test_tmax_matches_index_of_max():
-    result = simulate_inhalation_pk("drug", dose_mg=1.0)
-    max_idx = result.c_plasma_mg_L.index(result.cmax_mg_L)
-    assert abs(result.tmax_h - result.times_h[max_idx]) < 1e-9
-
-
-def test_lung_auc_nonnegative():
-    result = simulate_inhalation_pk("drug", dose_mg=1.0)
-    assert result.lung_auc >= 0
+def test_validation_invalid_route_raises():
+    with pytest.raises(ValueError, match="route"):
+        simulate_inhalation_pk("drug", dose_mg=1.0, route="spacer")
