@@ -12,7 +12,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-
 # ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
@@ -25,17 +24,17 @@ class MetabolicLiabilityResult:
     compound_name: str
     logP: float
     mw: float
-    n_metabolic_soft_spots: int         # estimated number of CYP-labile groups
-    n_reactive_alerts: int              # alerts for reactive metabolite formation
-    clint_predicted_uL_per_min: float   # predicted microsomal CLint (µL/min/mg protein)
-    hepatic_er_predicted: float         # predicted hepatic extraction ratio [0, 1]
-    t_half_in_vitro_min: float          # predicted in vitro t½ (min)
-    liability_score: float              # 0–100 (higher = more liable)
-    liability_class: str                # "low" / "moderate" / "high" / "very_high"
-    rapid_clearance_risk: bool          # True if ER > 0.7
-    reactive_metabolite_risk: bool      # True if n_reactive_alerts > 0
-    primary_liability: str              # "rapid_clearance", "reactive_metabolite", "both", "none"
-    optimization_suggestions: str       # human-readable notes on how to reduce liability
+    n_metabolic_soft_spots: int  # estimated number of CYP-labile groups
+    n_reactive_alerts: int  # alerts for reactive metabolite formation
+    clint_predicted_uL_per_min: float  # predicted microsomal CLint (µL/min/mg protein)
+    hepatic_er_predicted: float  # predicted hepatic extraction ratio [0, 1]
+    t_half_in_vitro_min: float  # predicted in vitro t½ (min)
+    liability_score: float  # 0–100 (higher = more liable)
+    liability_class: str  # "low" / "moderate" / "high" / "very_high"
+    rapid_clearance_risk: bool  # True if ER > 0.7
+    reactive_metabolite_risk: bool  # True if n_reactive_alerts > 0
+    primary_liability: str  # "rapid_clearance", "reactive_metabolite", "both", "none"
+    optimization_suggestions: str  # human-readable notes on how to reduce liability
     notes: str
 
 
@@ -153,9 +152,7 @@ def _optimization_suggestions(
             "Replace nitro group with isostere (e.g., CN, CF3) to prevent nitroreduction."
         )
     if has_michael_acceptor:
-        suggestions.append(
-            "Remove or cap Michael acceptor to reduce covalent protein binding."
-        )
+        suggestions.append("Remove or cap Michael acceptor to reduce covalent protein binding.")
     if has_epoxide_precursor:
         suggestions.append(
             "Modify epoxide-forming substructure (e.g., block oxidation site) to prevent "
