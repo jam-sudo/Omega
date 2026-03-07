@@ -1,4 +1,4 @@
-"""Tests for neonatal_pk module — Phase 197."""
+"""Tests for neonatal_pk module — Phase 197 and Phase 744."""
 
 from __future__ import annotations
 
@@ -6,9 +6,12 @@ import pytest
 
 from omega_pbpk.clinical.neonatal_pk import (
     NeonatalDoseResult,
+    NeonatalPKResult744,
     NeonatalScalingFactors,
     adjust_dose_neonatal,
+    compute_maturation_factors,
     neonatal_scaling,
+    simulate_neonatal_pk_744,
 )
 
 # ---------------------------------------------------------------------------
@@ -231,3 +234,117 @@ def test_invalid_dose_raises():
             age_days=7.0,
             weight_kg=3.0,
         )
+
+
+# ===========================================================================
+# Phase 744 — simulate_neonatal_pk_744 and compute_maturation_factors tests
+# ===========================================================================
+
+
+def test_744_returns_dataclass():
+    res = simulate_neonatal_pk_744("TestDrug", dose_mg_per_kg=10.0)
+    assert isinstance(res, NeonatalPKResult744)
+
+
+def test_744_cmax_positive():
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=5.0, route="iv")
+    assert res.cmax_mg_L > 0
+
+
+def test_744_premature_lower_cl_than_term():
+    """Premature neonate (28w) → lower CL than term neonate (40w)."""
+    premature = simulate_neonatal_pk_744(
+        "Drug", dose_mg_per_kg=10.0, pma_weeks=28.0, cl_adult_L_per_h=5.0
+    )
+    term = simulate_neonatal_pk_744(
+        "Drug", dose_mg_per_kg=10.0, pma_weeks=40.0, cl_adult_L_per_h=5.0
+    )
+    assert premature.cl_neonate_L_per_h < term.cl_neonate_L_per_h
+
+
+def test_744_term_neonate_lower_cl_than_adult():
+    """Term neonate CL should be lower than adult CL."""
+    res = simulate_neonatal_pk_744(
+        "Drug", dose_mg_per_kg=10.0, pma_weeks=40.0, cl_adult_L_per_h=5.0
+    )
+    assert res.cl_neonate_L_per_h < res.cl_adult_L_per_h
+
+
+def test_744_vd_neonate_greater_than_adult():
+    """Neonatal Vd is scaled up due to higher body water fraction."""
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, vd_adult_L=50.0, pma_weeks=40.0)
+    assert res.vd_neonate_L > res.vd_adult_L
+
+
+def test_744_cyp_maturation_between_0_and_1():
+    for pma in (25.0, 32.0, 40.0, 50.0, 60.0):
+        res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=5.0, pma_weeks=pma)
+        assert 0.0 <= res.cyp_maturation_fraction <= 1.0
+
+
+def test_744_renal_maturation_between_0_and_1():
+    for pma in (25.0, 32.0, 40.0, 52.0, 60.0):
+        res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=5.0, pma_weeks=pma)
+        assert 0.0 <= res.renal_maturation_fraction <= 1.0
+
+
+def test_compute_maturation_factors_keys():
+    factors = compute_maturation_factors(40.0)
+    assert "cyp_maturation" in factors
+    assert "renal_maturation" in factors
+    assert "vd_scaling" in factors
+
+
+def test_744_auc_positive():
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, route="iv")
+    assert res.auc_mg_h_per_L > 0
+
+
+def test_744_t_half_positive():
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, route="iv")
+    assert res.t_half_h > 0
+
+
+def test_744_higher_pma_higher_cl():
+    """More mature neonate (higher PMA) → higher CL."""
+    res28 = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, pma_weeks=28.0)
+    res44 = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, pma_weeks=44.0)
+    assert res44.cl_neonate_L_per_h > res28.cl_neonate_L_per_h
+
+
+def test_744_fup_neonate_gte_fup_adult():
+    """Reduced protein binding → fup_neonate >= fup_adult for neonates."""
+    fup_adult = 0.5
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, pma_weeks=38.0, fup_adult=fup_adult)
+    assert res.fup_neonate >= fup_adult
+
+
+def test_744_dose_zero_raises():
+    with pytest.raises(ValueError, match="dose_mg_per_kg"):
+        simulate_neonatal_pk_744("Drug", dose_mg_per_kg=0.0)
+
+
+def test_744_dose_negative_raises():
+    with pytest.raises(ValueError, match="dose_mg_per_kg"):
+        simulate_neonatal_pk_744("Drug", dose_mg_per_kg=-5.0)
+
+
+def test_744_pma_too_low_raises():
+    with pytest.raises(ValueError, match="pma_weeks"):
+        simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, pma_weeks=20.0)
+
+
+def test_744_notes_nonempty():
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0)
+    assert len(res.notes) > 0
+
+
+def test_744_dose_mg_consistent():
+    """dose_mg should equal dose_mg_per_kg * weight_kg."""
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, weight_kg=3.5)
+    assert abs(res.dose_mg - 10.0 * 3.5) < 1e-9
+
+
+def test_744_oral_route_cmax_positive():
+    res = simulate_neonatal_pk_744("Drug", dose_mg_per_kg=10.0, route="oral", ka_per_h=0.5)
+    assert res.cmax_mg_L > 0

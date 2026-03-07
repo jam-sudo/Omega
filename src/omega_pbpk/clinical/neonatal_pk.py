@@ -23,6 +23,10 @@ __all__ = [
     "NeonatalPKScalingResult",
     "scale_neonatal_pk",
     "neonatal_dose_recommendation",
+    # Phase 744 additions
+    "NeonatalPKResult744",
+    "compute_maturation_factors",
+    "simulate_neonatal_pk_744",
 ]
 
 
@@ -781,3 +785,246 @@ def neonatal_dose_recommendation(
         "warnings": result.warnings,
         "notes": result.notes,
     }
+
+
+# ===========================================================================
+# Phase 744 — Neonatal PK Model (PMA-weeks-based, pure Python, no numpy)
+# ===========================================================================
+
+
+@dataclass
+class NeonatalPKResult744:
+    """Result of neonatal PK simulation using PMA-weeks maturation model (Phase 744)."""
+
+    drug_name: str
+    dose_mg_per_kg: float
+    weight_kg: float
+    pma_weeks: float
+    times_h: list
+    c_plasma_mg_L: list
+    dose_mg: float
+    cl_adult_L_per_h: float
+    cl_neonate_L_per_h: float
+    vd_adult_L: float
+    vd_neonate_L: float
+    cyp_maturation_fraction: float
+    renal_maturation_fraction: float
+    vd_scaling: float
+    fup_neonate: float
+    cmax_mg_L: float
+    tmax_h: float
+    auc_mg_h_per_L: float
+    t_half_h: float
+    notes: str
+
+
+def _cyp_maturation_744(pma_weeks: float) -> float:
+    """CYP maturation fraction based on post-menstrual age (PMA) in weeks."""
+    if pma_weeks < 28.0:
+        return 0.05
+    elif pma_weeks < 32.0:
+        return 0.15
+    elif pma_weeks < 36.0:
+        return 0.30
+    elif pma_weeks < 40.0:
+        return 0.55
+    elif pma_weeks <= 44.0:
+        return 0.75
+    else:
+        return min(1.0, 0.75 + (pma_weeks - 44.0) * 0.02)
+
+
+def _renal_maturation_744(pma_weeks: float) -> float:
+    """Renal maturation fraction based on PMA in weeks."""
+    if pma_weeks < 28.0:
+        return 0.03
+    elif pma_weeks < 32.0:
+        return 0.10
+    elif pma_weeks < 36.0:
+        return 0.20
+    elif pma_weeks < 40.0:
+        return 0.35
+    elif pma_weeks <= 44.0:
+        return 0.50
+    elif pma_weeks <= 50.0:
+        return 0.70
+    else:
+        return min(1.0, 0.70 + (pma_weeks - 50.0) * 0.015)
+
+
+def _vd_scaling_744(pma_weeks: float) -> float:
+    """Vd scaling factor based on body water fraction."""
+    if pma_weeks < 36.0:
+        return 1.42  # premature: 0.85 L/kg vs adult 0.6 L/kg
+    else:
+        return 1.25  # term: 0.75 L/kg vs adult 0.6 L/kg
+
+
+def compute_maturation_factors(pma_weeks: float) -> dict:
+    """Compute neonatal maturation factors for a given PMA (post-menstrual age).
+
+    Parameters
+    ----------
+    pma_weeks:
+        Post-menstrual age in weeks.
+
+    Returns
+    -------
+    dict with keys: cyp_maturation, renal_maturation, vd_scaling
+    """
+    return {
+        "cyp_maturation": _cyp_maturation_744(pma_weeks),
+        "renal_maturation": _renal_maturation_744(pma_weeks),
+        "vd_scaling": _vd_scaling_744(pma_weeks),
+    }
+
+
+def simulate_neonatal_pk_744(
+    drug_name: str,
+    dose_mg_per_kg: float,
+    weight_kg: float = 3.0,
+    pma_weeks: float = 40.0,
+    cl_adult_L_per_h: float = 5.0,
+    vd_adult_L: float = 50.0,
+    fm_hepatic: float = 0.7,
+    fup_adult: float = 0.5,
+    route: str = "iv",
+    ka_per_h: float = 0.5,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.1,
+) -> NeonatalPKResult744:
+    """Simulate neonatal PK using PMA-weeks-based maturation scaling.
+
+    Uses pure Python (no numpy), forward Euler ODE integration,
+    manual trapezoidal AUC.
+
+    Parameters
+    ----------
+    drug_name:
+        Name of the drug.
+    dose_mg_per_kg:
+        Weight-based dose in mg/kg. Must be > 0.
+    weight_kg:
+        Neonatal body weight in kg. Must be > 0.
+    pma_weeks:
+        Post-menstrual age in weeks. Must be > 20.
+    cl_adult_L_per_h:
+        Adult clearance in L/h. Must be > 0.
+    vd_adult_L:
+        Adult volume of distribution in L.
+    fm_hepatic:
+        Fraction eliminated hepatically (0–1).
+    fup_adult:
+        Adult unbound fraction in plasma (0–1).
+    route:
+        Route of administration: "iv" or "oral".
+    ka_per_h:
+        First-order absorption rate constant for oral route (h⁻¹).
+    t_end_h:
+        Simulation end time in hours.
+    dt_h:
+        Forward Euler time step in hours.
+
+    Returns
+    -------
+    NeonatalPKResult744
+    """
+    if dose_mg_per_kg <= 0:
+        raise ValueError("dose_mg_per_kg must be > 0")
+    if weight_kg <= 0:
+        raise ValueError("weight_kg must be > 0")
+    if pma_weeks <= 20.0:
+        raise ValueError("pma_weeks must be > 20")
+    if cl_adult_L_per_h <= 0:
+        raise ValueError("cl_adult_L_per_h must be > 0")
+
+    cyp_mat = _cyp_maturation_744(pma_weeks)
+    renal_mat = _renal_maturation_744(pma_weeks)
+    vd_scale = _vd_scaling_744(pma_weeks)
+
+    # Effective CL for neonates (per-patient, not per-kg)
+    # Scale adult per-kg CL to patient CL first, then apply maturation
+    cl_adult_patient = cl_adult_L_per_h  # already given as total (not per-kg) per spec
+    cl_neonate = cl_adult_patient * (fm_hepatic * cyp_mat + (1.0 - fm_hepatic) * renal_mat)
+
+    # Vd
+    vd_neonate = vd_adult_L * vd_scale
+
+    # Unbound fraction in neonate (reduced protein binding)
+    fup_neo = min(0.99, fup_adult * (1.0 + 0.3 * max(0.0, (44.0 - pma_weeks) / 44.0)))
+
+    # Dose
+    dose_mg = dose_mg_per_kg * weight_kg
+
+    # Elimination rate constant
+    ke = cl_neonate / max(vd_neonate, 1e-12)
+
+    # Forward Euler simulation
+    n_steps = max(1, int(t_end_h / dt_h))
+    times_h: list = []
+    c_plasma_mg_L: list = []
+
+    if route == "iv":
+        c = dose_mg / max(vd_neonate, 1e-12)
+        a_gut = 0.0
+    else:
+        c = 0.0
+        a_gut = dose_mg
+
+    cmax_mg_L = 0.0
+    tmax_h = 0.0
+
+    for i in range(n_steps + 1):
+        t = i * dt_h
+        c_cur = max(c, 0.0)
+        times_h.append(t)
+        c_plasma_mg_L.append(c_cur)
+        if c_cur > cmax_mg_L:
+            cmax_mg_L = c_cur
+            tmax_h = t
+
+        if i < n_steps:
+            if route == "oral":
+                abs_rate = ka_per_h * a_gut
+                dc_abs = abs_rate / max(vd_neonate, 1e-12)
+                a_gut = max(a_gut - abs_rate * dt_h, 0.0)
+            else:
+                dc_abs = 0.0
+            dc = (dc_abs - ke * c) * dt_h
+            c = max(c + dc, 0.0)
+
+    # Trapezoidal AUC
+    auc_mg_h_per_L = 0.0
+    for i in range(len(times_h) - 1):
+        auc_mg_h_per_L += (c_plasma_mg_L[i] + c_plasma_mg_L[i + 1]) * dt_h / 2.0
+
+    t_half_h = math.log(2.0) / max(ke, 1e-12)
+
+    notes = (
+        f"PMA={pma_weeks:.1f}w; CYP_mat={cyp_mat:.2f}; renal_mat={renal_mat:.2f}; "
+        f"Vd_scale={vd_scale:.2f}; CL_neo={cl_neonate:.3f} L/h; Vd_neo={vd_neonate:.2f} L; "
+        f"fup_neo={fup_neo:.3f}; route={route}"
+    )
+
+    return NeonatalPKResult744(
+        drug_name=drug_name,
+        dose_mg_per_kg=dose_mg_per_kg,
+        weight_kg=weight_kg,
+        pma_weeks=pma_weeks,
+        times_h=times_h,
+        c_plasma_mg_L=c_plasma_mg_L,
+        dose_mg=dose_mg,
+        cl_adult_L_per_h=cl_adult_L_per_h,
+        cl_neonate_L_per_h=cl_neonate,
+        vd_adult_L=vd_adult_L,
+        vd_neonate_L=vd_neonate,
+        cyp_maturation_fraction=cyp_mat,
+        renal_maturation_fraction=renal_mat,
+        vd_scaling=vd_scale,
+        fup_neonate=fup_neo,
+        cmax_mg_L=cmax_mg_L,
+        tmax_h=tmax_h,
+        auc_mg_h_per_L=auc_mg_h_per_L,
+        t_half_h=t_half_h,
+        notes=notes,
+    )
