@@ -1,272 +1,200 @@
-"""Tests for skeletal muscle pharmacokinetics module (Phase 421)."""
-
-from __future__ import annotations
+"""
+Tests for Phase 893 — Muscle Drug Distribution (core/muscle_pk.py)
+"""
 
 import pytest
 
-from omega_pbpk.core.muscle_pk import MusclePKResult, exercise_effect, simulate_muscle_pk
-
-# ---------------------------------------------------------------------------
-# Shared baseline parameters
-# ---------------------------------------------------------------------------
-BASE = dict(
-    drug_name="TestDrug",
-    dose_mg=100.0,
-    cl_L_per_h=5.0,
-    vd_L=50.0,
-    muscle_blood_flow_L_per_h=15.0,
-    kp_muscle=2.0,
-    t_end_h=12.0,
-    dt_h=0.05,
-    route="iv",
-    ka_per_h=1.0,
+from omega_pbpk.core.muscle_pk import (
+    MusclePKResult,
+    compare_statin_kp,
+    simulate_muscle_pk,
 )
 
 
 # ---------------------------------------------------------------------------
-# Dataclass tests
+# Basic instantiation / return type
 # ---------------------------------------------------------------------------
-class TestMusclePKResult:
-    def test_result_type(self):
-        result = simulate_muscle_pk(**BASE)
-        assert isinstance(result, MusclePKResult)
 
-    def test_has_required_fields(self):
-        result = simulate_muscle_pk(**BASE)
-        fields = [
-            "drug_name",
-            "dose_mg",
-            "kp_muscle",
-            "muscle_blood_flow_L_per_h",
-            "times_h",
-            "c_plasma_mg_L",
-            "c_muscle_mg_L",
-            "cmax_plasma",
-            "auc_plasma",
-            "muscle_plasma_ss_ratio",
-            "notes",
-        ]
-        for f in fields:
-            assert hasattr(result, f), f"Missing field: {f}"
 
-    def test_drug_name_stored(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.drug_name == "TestDrug"
+def test_returns_muscle_pk_result():
+    result = simulate_muscle_pk("Simvastatin", 40.0)
+    assert isinstance(result, MusclePKResult)
 
-    def test_dose_stored(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.dose_mg == pytest.approx(100.0)
 
-    def test_kp_stored(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.kp_muscle == pytest.approx(2.0)
+def test_drug_name_and_dose_stored():
+    result = simulate_muscle_pk("Atorvastatin", 80.0)
+    assert result.drug_name == "Atorvastatin"
+    assert result.dose_mg == 80.0
 
 
 # ---------------------------------------------------------------------------
-# IV bolus simulation tests
+# Time series shape
 # ---------------------------------------------------------------------------
-class TestIVBolus:
-    def test_times_increasing(self):
-        result = simulate_muscle_pk(**BASE)
-        for i in range(1, len(result.times_h)):
-            assert result.times_h[i] > result.times_h[i - 1]
 
-    def test_times_length_matches_concentrations(self):
-        result = simulate_muscle_pk(**BASE)
-        assert len(result.times_h) == len(result.c_plasma_mg_L)
-        assert len(result.times_h) == len(result.c_muscle_mg_L)
 
-    def test_plasma_starts_positive(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.c_plasma_mg_L[0] > 0
+def test_time_series_length_matches():
+    result = simulate_muscle_pk("DrugA", 10.0, t_end_h=10.0, dt_h=0.5)
+    n = len(result.times_h)
+    assert n == len(result.c_plasma_mg_L)
+    assert n == len(result.c_muscle_interstitial_mg_L)
+    assert n == len(result.c_muscle_intracell_mg_L)
 
-    def test_plasma_declines_over_time(self):
-        result = simulate_muscle_pk(**BASE)
-        # Plasma should generally decline (terminal phase)
-        assert result.c_plasma_mg_L[-1] < result.c_plasma_mg_L[0]
 
-    def test_muscle_starts_zero(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.c_muscle_mg_L[0] == pytest.approx(0.0, abs=1e-10)
+def test_time_series_starts_at_zero():
+    result = simulate_muscle_pk("DrugA", 10.0)
+    assert result.times_h[0] == pytest.approx(0.0)
 
-    def test_muscle_rises_then_falls(self):
-        result = simulate_muscle_pk(**BASE)
-        cm = result.c_muscle_mg_L
-        # Should not be monotonically zero
-        assert max(cm) > 0
 
-    def test_cmax_plasma_positive(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.cmax_plasma > 0
-
-    def test_auc_plasma_positive(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.auc_plasma > 0
-
-    def test_iv_cmax_equals_initial_conc(self):
-        result = simulate_muscle_pk(**BASE)
-        # For IV, Cmax should be near t=0
-        assert result.cmax_plasma == pytest.approx(result.c_plasma_mg_L[0], rel=0.01)
-
-    def test_all_plasma_nonneg(self):
-        result = simulate_muscle_pk(**BASE)
-        assert all(c >= 0 for c in result.c_plasma_mg_L)
-
-    def test_all_muscle_nonneg(self):
-        result = simulate_muscle_pk(**BASE)
-        assert all(c >= 0 for c in result.c_muscle_mg_L)
-
-    def test_muscle_plasma_ss_ratio_positive(self):
-        result = simulate_muscle_pk(**BASE)
-        assert result.muscle_plasma_ss_ratio > 0
-
-    def test_notes_nonempty(self):
-        result = simulate_muscle_pk(**BASE)
-        assert len(result.notes) > 0
+def test_time_series_ends_near_t_end():
+    result = simulate_muscle_pk("DrugA", 10.0, t_end_h=12.0, dt_h=0.1)
+    assert result.times_h[-1] == pytest.approx(12.0, abs=0.2)
 
 
 # ---------------------------------------------------------------------------
-# Oral route tests
+# Initial conditions
 # ---------------------------------------------------------------------------
-class TestOralRoute:
-    def test_oral_plasma_starts_zero(self):
-        result = simulate_muscle_pk(**{**BASE, "route": "oral"})
-        assert result.c_plasma_mg_L[0] == pytest.approx(0.0, abs=1e-10)
-
-    def test_oral_has_tmax_greater_zero(self):
-        result = simulate_muscle_pk(**{**BASE, "route": "oral"})
-        cp = result.c_plasma_mg_L
-        tmax_idx = cp.index(max(cp))
-        assert tmax_idx > 0
-
-    def test_oral_auc_positive(self):
-        result = simulate_muscle_pk(**{**BASE, "route": "oral"})
-        assert result.auc_plasma > 0
-
-    def test_oral_muscle_rises(self):
-        result = simulate_muscle_pk(**{**BASE, "route": "oral"})
-        assert max(result.c_muscle_mg_L) > 0
 
 
-# ---------------------------------------------------------------------------
-# Parameter sensitivity tests
-# ---------------------------------------------------------------------------
-class TestParameterSensitivity:
-    def test_higher_cl_reduces_auc(self):
-        low_cl = simulate_muscle_pk(**{**BASE, "cl_L_per_h": 2.0})
-        high_cl = simulate_muscle_pk(**{**BASE, "cl_L_per_h": 20.0})
-        assert high_cl.auc_plasma < low_cl.auc_plasma
+def test_initial_plasma_concentration():
+    dose = 50.0
+    vd = 50.0
+    result = simulate_muscle_pk("DrugB", dose, vd_sys_L=vd)
+    assert result.c_plasma_mg_L[0] == pytest.approx(dose / vd)
 
-    def test_higher_flow_increases_muscle_cmax(self):
-        low_flow = simulate_muscle_pk(**{**BASE, "muscle_blood_flow_L_per_h": 5.0})
-        high_flow = simulate_muscle_pk(**{**BASE, "muscle_blood_flow_L_per_h": 40.0})
-        assert max(high_flow.c_muscle_mg_L) > max(low_flow.c_muscle_mg_L)
 
-    def test_higher_kp_increases_ss_ratio(self):
-        # Higher kp_muscle → higher muscle-to-plasma ratio at steady state
-        low_kp = simulate_muscle_pk(**{**BASE, "kp_muscle": 0.5})
-        high_kp = simulate_muscle_pk(**{**BASE, "kp_muscle": 5.0})
-        assert high_kp.muscle_plasma_ss_ratio > low_kp.muscle_plasma_ss_ratio
+def test_initial_interstitial_zero():
+    result = simulate_muscle_pk("DrugB", 50.0)
+    assert result.c_muscle_interstitial_mg_L[0] == pytest.approx(0.0)
+
+
+def test_initial_intracell_zero():
+    result = simulate_muscle_pk("DrugB", 50.0)
+    assert result.c_muscle_intracell_mg_L[0] == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
-# Input validation tests
+# Decay and accumulation dynamics
 # ---------------------------------------------------------------------------
-class TestInputValidation:
-    def test_empty_drug_name_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "drug_name": ""})
 
-    def test_zero_dose_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "dose_mg": 0})
 
-    def test_negative_cl_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "cl_L_per_h": -1})
+def test_plasma_declines_over_time():
+    result = simulate_muscle_pk("DrugC", 100.0)
+    # Plasma should decline monotonically after t=0
+    assert result.c_plasma_mg_L[-1] < result.c_plasma_mg_L[0]
 
-    def test_zero_vd_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "vd_L": 0})
 
-    def test_zero_muscle_flow_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "muscle_blood_flow_L_per_h": 0})
+def test_intracell_rises_initially():
+    result = simulate_muscle_pk("DrugC", 100.0, t_end_h=5.0)
+    # Intracellular should rise from 0
+    assert result.c_muscle_intracell_mg_L[-1] > 0.0
 
-    def test_zero_kp_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "kp_muscle": 0})
 
-    def test_zero_t_end_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "t_end_h": 0})
-
-    def test_invalid_route_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "route": "subcutaneous"})
-
-    def test_zero_ka_raises(self):
-        with pytest.raises(ValueError):
-            simulate_muscle_pk(**{**BASE, "ka_per_h": 0})
+def test_cmax_plasma_equals_initial():
+    dose = 100.0
+    vd = 50.0
+    result = simulate_muscle_pk("DrugD", dose, vd_sys_L=vd)
+    expected_cmax = dose / vd
+    assert result.cmax_plasma == pytest.approx(expected_cmax)
 
 
 # ---------------------------------------------------------------------------
-# Exercise effect tests
+# AUC metrics
 # ---------------------------------------------------------------------------
-class TestExerciseEffect:
-    BASE_EX = dict(
-        drug_name="TestDrug",
-        dose_mg=100.0,
-        cl_L_per_h=5.0,
-        vd_L=50.0,
-        kp_muscle=2.0,
-        muscle_flow_normal=15.0,
-        muscle_flow_exercise=60.0,
-        t_end_h=12.0,
-        dt_h=0.05,
+
+
+def test_auc_plasma_positive():
+    result = simulate_muscle_pk("DrugE", 50.0)
+    assert result.auc_plasma > 0.0
+
+
+def test_auc_muscle_intracell_positive():
+    result = simulate_muscle_pk("DrugE", 50.0)
+    assert result.auc_muscle_intracell > 0.0
+
+
+def test_muscle_plasma_kp_is_ratio():
+    result = simulate_muscle_pk("DrugF", 50.0)
+    if result.auc_plasma > 0:
+        expected = result.auc_muscle_intracell / result.auc_plasma
+        assert result.muscle_plasma_kp == pytest.approx(expected, rel=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# Risk scoring
+# ---------------------------------------------------------------------------
+
+
+def test_risk_score_in_range():
+    result = simulate_muscle_pk("DrugG", 50.0)
+    assert 0.0 <= result.myopathy_risk_score <= 100.0
+
+
+def test_high_kp_gives_higher_risk():
+    low_kp = simulate_muscle_pk("Drug", 50.0, kp_muscle=1.0)
+    high_kp = simulate_muscle_pk("Drug", 50.0, kp_muscle=10.0)
+    assert high_kp.myopathy_risk_score >= low_kp.myopathy_risk_score
+
+
+def test_risk_level_low():
+    result = simulate_muscle_pk("LowRisk", 5.0, kp_muscle=0.5, k_uptake_per_h=0.01)
+    assert result.myopathy_risk_level == "low"
+
+
+def test_risk_level_high():
+    result = simulate_muscle_pk(
+        "HighRisk", 100.0, kp_muscle=10.0, k_uptake_per_h=1.0, cl_sys_L_per_h=2.0
     )
+    assert result.myopathy_risk_level == "high"
 
-    def test_returns_dict(self):
-        result = exercise_effect(**self.BASE_EX)
-        assert isinstance(result, dict)
 
-    def test_has_expected_keys(self):
-        result = exercise_effect(**self.BASE_EX)
-        for key in [
-            "auc_plasma_normal",
-            "auc_plasma_exercise",
-            "cmax_plasma_normal",
-            "cmax_plasma_exercise",
-            "cmax_muscle_normal",
-            "cmax_muscle_exercise",
-            "auc_ratio_exercise_vs_normal",
-            "flow_ratio",
-            "notes",
-        ]:
-            assert key in result, f"Missing key: {key}"
+def test_notes_low_risk():
+    result = simulate_muscle_pk("LowRisk", 5.0, kp_muscle=0.5, k_uptake_per_h=0.01)
+    assert result.notes == "Low myopathy risk."
 
-    def test_flow_ratio_correct(self):
-        result = exercise_effect(**self.BASE_EX)
-        assert result["flow_ratio"] == pytest.approx(60.0 / 15.0)
 
-    def test_exercise_increases_muscle_cmax(self):
-        result = exercise_effect(**self.BASE_EX)
-        assert result["cmax_muscle_exercise"] > result["cmax_muscle_normal"]
+# ---------------------------------------------------------------------------
+# Validation errors
+# ---------------------------------------------------------------------------
 
-    def test_plasma_auc_similar_under_exercise(self):
-        # AUC plasma should be similar (clearance unchanged); slight difference from distribution
-        result = exercise_effect(**self.BASE_EX)
-        assert result["auc_plasma_normal"] > 0
-        assert result["auc_plasma_exercise"] > 0
 
-    def test_invalid_zero_normal_flow_raises(self):
-        with pytest.raises(ValueError):
-            exercise_effect(**{**self.BASE_EX, "muscle_flow_normal": 0})
+def test_invalid_dose_raises():
+    with pytest.raises(ValueError, match="dose_mg"):
+        simulate_muscle_pk("Drug", -10.0)
 
-    def test_invalid_zero_exercise_flow_raises(self):
-        with pytest.raises(ValueError):
-            exercise_effect(**{**self.BASE_EX, "muscle_flow_exercise": 0})
 
-    def test_notes_nonempty(self):
-        result = exercise_effect(**self.BASE_EX)
-        assert len(result["notes"]) > 0
+def test_zero_dose_raises():
+    with pytest.raises(ValueError, match="dose_mg"):
+        simulate_muscle_pk("Drug", 0.0)
+
+
+def test_invalid_kp_raises():
+    with pytest.raises(ValueError, match="kp_muscle"):
+        simulate_muscle_pk("Drug", 10.0, kp_muscle=-1.0)
+
+
+def test_invalid_v_muscle_raises():
+    with pytest.raises(ValueError, match="v_muscle_L"):
+        simulate_muscle_pk("Drug", 10.0, v_muscle_L=0.0)
+
+
+def test_invalid_cl_raises():
+    with pytest.raises(ValueError, match="cl_sys_L_per_h"):
+        simulate_muscle_pk("Drug", 10.0, cl_sys_L_per_h=-5.0)
+
+
+# ---------------------------------------------------------------------------
+# compare_statin_kp
+# ---------------------------------------------------------------------------
+
+
+def test_compare_statin_kp_returns_sorted():
+    kp_values = [1.0, 3.0, 5.0, 2.0]
+    results = compare_statin_kp("Statin", 40.0, kp_values)
+    scores = [r.myopathy_risk_score for r in results]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_compare_statin_kp_count():
+    kp_values = [1.0, 2.0, 4.0]
+    results = compare_statin_kp("Statin", 40.0, kp_values)
+    assert len(results) == 3

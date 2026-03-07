@@ -1,7 +1,9 @@
-"""Prodrug → active drug conversion and pharmacokinetic simulation.
+"""
+Phase 889 — Prodrug Activation Kinetics
 
-Models two-compartment prodrug/active-drug PK using forward-Euler ODEs.
-Supports oral and IV routes with configurable conversion and elimination rates.
+Models pharmacokinetics of prodrug-to-active metabolite conversion.
+Pure Python / stdlib only (math, dataclasses). No numpy, no scipy.
+Forward Euler ODE integration. Manual trapezoidal AUC.
 """
 
 from __future__ import annotations
@@ -9,225 +11,180 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-__all__ = [
-    "ProdrugPKResult",
-    "simulate_prodrug_pk",
-    "compare_prodrug_strategies",
-]
+_VALID_ACTIVATION_SITES = {"plasma", "liver", "intestine", "gut_wall"}
 
 
 @dataclass
 class ProdrugPKResult:
-    """Result of prodrug activation PK simulation."""
+    """Result of a prodrug activation PK simulation."""
 
-    prodrug_name: str
-    active_drug_name: str
+    drug_name: str
+    active_metabolite_name: str
     dose_mg: float
-    route: str  # "oral" or "iv"
-    f_conversion: float  # fraction converted to active drug
-    ka_prodrug_per_h: float  # absorption rate of prodrug
-    kconv_per_h: float  # conversion rate prodrug->active
-    ke_prodrug_per_h: float  # elimination rate of prodrug
-    ke_active_per_h: float  # elimination rate of active drug
-    # Time-course arrays
+    activation_site: str
     times_h: list
     c_prodrug_mg_L: list
     c_active_mg_L: list
-    # Summary metrics (active drug)
-    cmax_active_mg_L: float
-    tmax_active_h: float
-    auc_active_mg_h_per_L: float
-    t_half_active_h: float
-    # Summary metrics (prodrug)
-    cmax_prodrug_mg_L: float
+    cmax_prodrug: float
     tmax_prodrug_h: float
-    auc_prodrug_mg_h_per_L: float
+    auc_prodrug: float
+    cmax_active: float
+    tmax_active_h: float
+    auc_active: float
+    f_activation: float
     active_to_prodrug_auc_ratio: float
     notes: str
 
 
-def _trapz(times: list, values: list) -> float:
-    """Manual trapezoidal integration."""
+def _trapezoidal_auc(times: list, concs: list) -> float:
+    """Compute AUC via the trapezoidal rule."""
     auc = 0.0
     for i in range(1, len(times)):
         dt = times[i] - times[i - 1]
-        auc += 0.5 * (values[i] + values[i - 1]) * dt
+        auc += 0.5 * (concs[i - 1] + concs[i]) * dt
     return auc
 
 
+def _find_cmax_tmax(times: list, concs: list) -> tuple:
+    """Return (cmax, tmax_h) for the given concentration profile."""
+    cmax = 0.0
+    tmax_h = 0.0
+    for t, c in zip(times, concs):
+        if c > cmax:
+            cmax = c
+            tmax_h = t
+    return cmax, tmax_h
+
+
 def simulate_prodrug_pk(
-    prodrug_name: str,
-    active_drug_name: str,
+    drug_name: str,
+    active_metabolite_name: str,
     dose_mg: float,
-    vd_prodrug_L: float = 30.0,
-    vd_active_L: float = 50.0,
-    ka_prodrug_per_h: float = 1.0,
-    kconv_per_h: float = 0.5,
-    ke_prodrug_per_h: float = 0.3,
-    ke_active_per_h: float = 0.15,
-    f_oral_prodrug: float = 0.8,
-    f_conversion: float = 0.8,
-    route: str = "oral",
+    activation_site: str = "liver",
+    k_abs_per_h: float = 1.0,
+    k_act_per_h: float = 0.5,
+    f_activation: float = 0.7,
+    cl_prodrug_L_per_h: float = 8.0,
+    cl_active_L_per_h: float = 5.0,
+    vd_L: float = 30.0,
     t_end_h: float = 24.0,
-    dt_h: float = 0.05,
+    dt_h: float = 0.1,
 ) -> ProdrugPKResult:
-    """Simulate prodrug → active drug PK using forward-Euler ODEs.
+    """
+    Simulate 3-compartment prodrug->active metabolite PK using Forward Euler.
 
-    Compartments
-    ------------
-    - gut_depot (mg): oral only; initial dose * f_oral_prodrug
-    - prodrug_plasma (mg/L)
-    - active_plasma (mg/L)
-
-    ODEs
-    ----
-    d(gut)/dt   = -ka * gut
-    d(prod)/dt  = ka * gut / vd_prodrug  [oral]
-                  OR dose/vd_prodrug at t=0 [iv]
-                  - (kconv + ke_prodrug) * prodrug
-    d(active)/dt = kconv * prodrug * vd_prodrug * f_conversion / vd_active
-                  - ke_active * active
+    Compartments:
+        a_gut       -- amount in GI tract (mg)
+        A_prodrug   -- amount of prodrug in plasma (mg)
+        A_active    -- amount of active metabolite in plasma (mg)
     """
     # --- Validation ---
-    if dose_mg <= 0.0:
-        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
-    if vd_prodrug_L <= 0.0:
-        raise ValueError(f"vd_prodrug_L must be > 0, got {vd_prodrug_L}")
-    if vd_active_L <= 0.0:
-        raise ValueError(f"vd_active_L must be > 0, got {vd_active_L}")
-    if kconv_per_h < 0.0:
-        raise ValueError(f"kconv_per_h must be >= 0, got {kconv_per_h}")
-    if ke_prodrug_per_h < 0.0:
-        raise ValueError(f"ke_prodrug_per_h must be >= 0, got {ke_prodrug_per_h}")
-    if ke_active_per_h < 0.0:
-        raise ValueError(f"ke_active_per_h must be >= 0, got {ke_active_per_h}")
-    if route not in ("oral", "iv"):
-        raise ValueError(f"route must be 'oral' or 'iv', got {route!r}")
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
+    if not (0.0 <= f_activation <= 1.0):
+        raise ValueError("f_activation must be in [0, 1]")
+    if cl_prodrug_L_per_h <= 0:
+        raise ValueError("cl_prodrug_L_per_h must be > 0")
+    if vd_L <= 0:
+        raise ValueError("vd_L must be > 0")
+    if activation_site not in _VALID_ACTIVATION_SITES:
+        raise ValueError(
+            f"activation_site must be one of {_VALID_ACTIVATION_SITES}, got '{activation_site}'"
+        )
+
+    # --- Derived rate constants ---
+    ke_prodrug = cl_prodrug_L_per_h / vd_L
+    ke_active = cl_active_L_per_h / vd_L
 
     # --- Initial conditions ---
-    if route == "oral":
-        gut = dose_mg * f_oral_prodrug
-        prodrug = 0.0
-    else:
-        # IV: bolus directly into plasma at t=0
-        gut = 0.0
-        prodrug = dose_mg / vd_prodrug_L
+    a_gut = dose_mg
+    A_prodrug = 0.0
+    A_active = 0.0
 
-    active = 0.0
+    times = []
+    c_prodrug_list = []
+    c_active_list = []
 
-    times: list[float] = []
-    c_prodrug: list[float] = []
-    c_active: list[float] = []
+    n_steps = int(math.ceil(t_end_h / dt_h))
 
-    n_steps = int(round(t_end_h / dt_h))
-    t = 0.0
-
-    for step in range(n_steps + 1):
+    for i in range(n_steps + 1):
+        t = i * dt_h
         times.append(t)
-        c_prodrug.append(prodrug)
-        c_active.append(active)
+        c_prodrug_list.append(A_prodrug / vd_L)
+        c_active_list.append(A_active / vd_L)
 
-        if step < n_steps:
-            # Derivatives
-            d_gut = -ka_prodrug_per_h * gut
+        if i < n_steps:
+            d_gut = -k_abs_per_h * a_gut
+            d_prod = k_abs_per_h * a_gut - (k_act_per_h + ke_prodrug) * A_prodrug
+            d_active = k_act_per_h * f_activation * A_prodrug - ke_active * A_active
 
-            if route == "oral":
-                absorption_rate_mg_h_per_L = ka_prodrug_per_h * gut / vd_prodrug_L
-            else:
-                absorption_rate_mg_h_per_L = 0.0
+            a_gut += d_gut * dt_h
+            A_prodrug += d_prod * dt_h
+            A_active += d_active * dt_h
 
-            d_prodrug = absorption_rate_mg_h_per_L - (kconv_per_h + ke_prodrug_per_h) * prodrug
+            if a_gut < 0.0:
+                a_gut = 0.0
+            if A_prodrug < 0.0:
+                A_prodrug = 0.0
+            if A_active < 0.0:
+                A_active = 0.0
 
-            # Conversion from prodrug compartment (mg/h) -> active (mg/L/h)
-            rate_conv_mg_h = kconv_per_h * prodrug * vd_prodrug_L
-            d_active = rate_conv_mg_h * f_conversion / vd_active_L - ke_active_per_h * active
+    # --- PK metrics ---
+    cmax_prodrug, tmax_prodrug_h = _find_cmax_tmax(times, c_prodrug_list)
+    cmax_active, tmax_active_h = _find_cmax_tmax(times, c_active_list)
+    auc_prodrug = _trapezoidal_auc(times, c_prodrug_list)
+    auc_active = _trapezoidal_auc(times, c_active_list)
 
-            # Forward Euler update
-            gut = max(0.0, gut + dt_h * d_gut)
-            prodrug = max(0.0, prodrug + dt_h * d_prodrug)
-            active = max(0.0, active + dt_h * d_active)
-            t += dt_h
+    ratio = auc_active / auc_prodrug if auc_prodrug > 0 else 0.0
 
-    # --- Summary metrics: active drug ---
-    cmax_active = max(c_active)
-    tmax_active_idx = c_active.index(cmax_active)
-    tmax_active = times[tmax_active_idx]
-    auc_active = _trapz(times, c_active)
-    t_half_active = math.log(2.0) / ke_active_per_h if ke_active_per_h > 0 else float("inf")
-
-    # --- Summary metrics: prodrug ---
-    cmax_prodrug = max(c_prodrug)
-    tmax_prodrug_idx = c_prodrug.index(cmax_prodrug)
-    tmax_prodrug = times[tmax_prodrug_idx]
-    auc_prodrug = _trapz(times, c_prodrug)
-
-    # Ratio active/prodrug AUC
-    if auc_prodrug > 0.0:
-        ratio = auc_active / auc_prodrug
+    if ratio > 3:
+        notes = "Active metabolite dominant — prodrug highly efficient"
+    elif ratio > 1:
+        notes = "Balanced prodrug/active exposure"
     else:
-        ratio = float("inf")
-
-    notes_parts = [
-        f"Route: {route}",
-        f"f_conversion={f_conversion:.2f}",
-        f"kconv={kconv_per_h:.3f}/h",
-        f"ke_active={ke_active_per_h:.3f}/h",
-        f"t1/2_active={t_half_active:.2f}h",
-    ]
+        notes = "Prodrug-dominant PK — consider activation efficiency"
 
     return ProdrugPKResult(
-        prodrug_name=prodrug_name,
-        active_drug_name=active_drug_name,
+        drug_name=drug_name,
+        active_metabolite_name=active_metabolite_name,
         dose_mg=dose_mg,
-        route=route,
-        f_conversion=f_conversion,
-        ka_prodrug_per_h=ka_prodrug_per_h,
-        kconv_per_h=kconv_per_h,
-        ke_prodrug_per_h=ke_prodrug_per_h,
-        ke_active_per_h=ke_active_per_h,
+        activation_site=activation_site,
         times_h=times,
-        c_prodrug_mg_L=c_prodrug,
-        c_active_mg_L=c_active,
-        cmax_active_mg_L=cmax_active,
-        tmax_active_h=tmax_active,
-        auc_active_mg_h_per_L=auc_active,
-        t_half_active_h=t_half_active,
-        cmax_prodrug_mg_L=cmax_prodrug,
-        tmax_prodrug_h=tmax_prodrug,
-        auc_prodrug_mg_h_per_L=auc_prodrug,
+        c_prodrug_mg_L=c_prodrug_list,
+        c_active_mg_L=c_active_list,
+        cmax_prodrug=cmax_prodrug,
+        tmax_prodrug_h=tmax_prodrug_h,
+        auc_prodrug=auc_prodrug,
+        cmax_active=cmax_active,
+        tmax_active_h=tmax_active_h,
+        auc_active=auc_active,
+        f_activation=f_activation,
         active_to_prodrug_auc_ratio=ratio,
-        notes="; ".join(notes_parts),
+        notes=notes,
     )
 
 
-def compare_prodrug_strategies(
-    prodrug_name: str,
-    active_drug_name: str,
+def compare_activation_sites(
+    drug_name: str,
+    active_metabolite_name: str,
     dose_mg: float,
-    strategies: list[dict],
-) -> list[ProdrugPKResult]:
-    """Compare multiple prodrug conversion strategies.
-
-    Parameters
-    ----------
-    strategies:
-        List of dicts, each with keys: "kconv_per_h", "f_conversion", "route".
-
-    Returns
-    -------
-    List of ProdrugPKResult sorted by auc_active_mg_h_per_L descending.
+    **kwargs,
+) -> list:
     """
-    results: list[ProdrugPKResult] = []
-    for strat in strategies:
-        res = simulate_prodrug_pk(
-            prodrug_name=prodrug_name,
-            active_drug_name=active_drug_name,
-            dose_mg=dose_mg,
-            kconv_per_h=strat["kconv_per_h"],
-            f_conversion=strat["f_conversion"],
-            route=strat["route"],
-        )
-        results.append(res)
+    Simulate prodrug PK for all four activation sites.
 
-    results.sort(key=lambda r: r.auc_active_mg_h_per_L, reverse=True)
+    Returns results sorted by auc_active descending.
+    Extra keyword arguments are forwarded to simulate_prodrug_pk.
+    """
+    results = []
+    for site in _VALID_ACTIVATION_SITES:
+        result = simulate_prodrug_pk(
+            drug_name=drug_name,
+            active_metabolite_name=active_metabolite_name,
+            dose_mg=dose_mg,
+            activation_site=site,
+            **kwargs,
+        )
+        results.append(result)
+    results.sort(key=lambda r: r.auc_active, reverse=True)
     return results

@@ -1,231 +1,224 @@
-"""cardiac_pk.py — 3-compartment cardiac tissue PK model.
+"""
+Phase 894 — Cardiac Drug Distribution (core/cardiac_pk.py)
 
-Models drug distribution to cardiac tissue, critical for antiarrhythmics
-and cardiotoxic drugs.  Uses Forward Euler integration; no numpy/scipy.
+Models drug distribution in heart tissue and cardiac PK/PD for antiarrhythmics.
+
+Compartments:
+  - Plasma (central)
+  - Myocardium (heart muscle)
+  - Cardiac intracellular (ion channel targets)
+
+Relevant for antiarrhythmics, hERG blockers.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-# ---------------------------------------------------------------------------
-# Result dataclass
-# ---------------------------------------------------------------------------
+from dataclasses import dataclass, field
 
 
 @dataclass
 class CardiacPKResult:
-    """Simulation result from simulate_cardiac_pk."""
+    """Result of a cardiac PK simulation."""
 
     drug_name: str
     dose_mg: float
-    logp: float
-    times_h: list[float]
-    c_plasma_mg_L: list[float]
-    c_cardiac_mg_L: list[float]
-    cmax_plasma: float
-    cmax_cardiac: float
-    auc_plasma: float
-    auc_cardiac: float
-    cardiac_to_plasma_auc_ratio: float
-    kp_cardiac: float
-    cardiac_safety_margin: float
-    notes: str
+    times_h: list = field(default_factory=list)
+    c_plasma_mg_L: list = field(default_factory=list)
+    c_myocardium_mg_L: list = field(default_factory=list)
+    cmax_plasma: float = 0.0
+    auc_plasma: float = 0.0
+    cmax_myocardium: float = 0.0
+    auc_myocardium: float = 0.0
+    heart_plasma_kp: float = 0.0
+    cardiac_exposure_score: float = 0.0
+    qtc_risk_level: str = "low"
+    notes: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Helper: Kp calculation
-# ---------------------------------------------------------------------------
-
-
-def _calc_kp_cardiac(logp: float, charge_at_ph74: float) -> float:
-    """Compute cardiac tissue partition coefficient."""
-    charge_effect = 0.5 if charge_at_ph74 > 0 else 0.0
-    kp_base = 1.5 + logp * 0.3 - charge_effect
-    return max(0.1, min(10.0, kp_base))
-
-
-# ---------------------------------------------------------------------------
-# Helper: trapezoidal AUC
-# ---------------------------------------------------------------------------
-
-
-def _trapz_auc(times: list[float], concs: list[float]) -> float:
-    auc = 0.0
+def _trapz(times: list, values: list) -> float:
+    """Manual trapezoidal integration."""
+    total = 0.0
     for i in range(1, len(times)):
-        auc += 0.5 * (concs[i - 1] + concs[i]) * (times[i] - times[i - 1])
-    return auc
-
-
-# ---------------------------------------------------------------------------
-# Main simulation function
-# ---------------------------------------------------------------------------
+        dt = times[i] - times[i - 1]
+        total += 0.5 * (values[i] + values[i - 1]) * dt
+    return total
 
 
 def simulate_cardiac_pk(
     drug_name: str,
     dose_mg: float,
-    logp: float = 2.0,
-    charge_at_ph74: float = 0.0,
-    cl_L_per_h: float = 5.0,
-    vd_plasma_L: float = 5.0,
-    cardiac_output_L_per_h: float = 300.0,
-    v_cardiac_L: float = 0.3,
-    v_periph_L: float = 30.0,
-    q_periph_L_per_h: float = 80.0,
+    kp_heart: float = 3.0,
+    k_uptake_per_h: float = 5.0,
+    k_efflux_per_h: float = 1.0,
+    cl_sys_L_per_h: float = 15.0,
+    vd_sys_L: float = 70.0,
+    v_heart_L: float = 0.3,
+    herg_ic50_uM: float = 10.0,
+    mw_Da: float = 400.0,
     t_end_h: float = 24.0,
-    dt_h: float = 0.05,
+    dt_h: float = 0.1,
 ) -> CardiacPKResult:
-    """Simulate 3-compartment cardiac PK (plasma, cardiac tissue, peripheral).
-
-    IV bolus dosing.  Forward Euler integration.
+    """Simulate drug distribution into cardiac tissue.
 
     Parameters
     ----------
-    drug_name : str
-    dose_mg : float  — IV bolus dose in mg
-    logp : float     — octanol-water partition coefficient (log)
-    charge_at_ph74 : float — net molecular charge at physiological pH 7.4
-    cl_L_per_h : float   — systemic clearance (L/h)
-    vd_plasma_L : float  — plasma / central volume (L)
-    cardiac_output_L_per_h : float — total cardiac output (L/h); default 300 = 5 L/min
-    v_cardiac_L : float  — cardiac tissue volume (L); default 0.3
-    v_periph_L : float   — peripheral volume (L); default 30
-    q_periph_L_per_h : float — peripheral blood flow (L/h); default 80
-    t_end_h : float  — simulation end time (h)
-    dt_h : float     — Forward Euler step (h)
+    drug_name:
+        Name of the drug.
+    dose_mg:
+        Administered dose in mg (IV bolus to plasma).
+    kp_heart:
+        Heart-to-plasma partition coefficient (dimensionless).
+    k_uptake_per_h:
+        First-order rate constant for plasma to myocardium (h^-1).
+    k_efflux_per_h:
+        First-order rate constant for myocardium efflux back to plasma (h^-1).
+    cl_sys_L_per_h:
+        Systemic clearance (L/h).
+    vd_sys_L:
+        Volume of distribution of central compartment (L).
+    v_heart_L:
+        Myocardial volume (L); default 0.3 L (approx 300 mL).
+    herg_ic50_uM:
+        hERG channel IC50 in micromolar for QTc risk assessment.
+    mw_Da:
+        Molecular weight in Daltons for concentration unit conversion.
+    t_end_h:
+        Simulation end time (h).
+    dt_h:
+        Forward Euler time step (h).
 
     Returns
     -------
     CardiacPKResult
     """
-    # --- validation ---
     if dose_mg <= 0:
-        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
-    if vd_plasma_L <= 0:
-        raise ValueError(f"vd_plasma_L must be > 0, got {vd_plasma_L}")
-    if cl_L_per_h <= 0:
-        raise ValueError(f"cl_L_per_h must be > 0, got {cl_L_per_h}")
-    if v_cardiac_L <= 0:
-        raise ValueError(f"v_cardiac_L must be > 0, got {v_cardiac_L}")
+        raise ValueError("dose_mg must be > 0")
+    if kp_heart <= 0:
+        raise ValueError("kp_heart must be > 0")
+    if v_heart_L <= 0:
+        raise ValueError("v_heart_L must be > 0")
+    if herg_ic50_uM <= 0:
+        raise ValueError("herg_ic50_uM must be > 0")
 
-    kp_cardiac = _calc_kp_cardiac(logp, charge_at_ph74)
-    kp_periph = 1.0  # neutral partition for peripheral
+    ke_sys = cl_sys_L_per_h / vd_sys_L
 
-    # Cardiac blood flow = 5 % of cardiac output
-    q_cardiac = cardiac_output_L_per_h * 0.05  # 15 L/h at default CO
+    # Initial amounts (mg)
+    a_plasma = dose_mg
+    a_heart = 0.0
 
-    # Initial conditions — IV bolus into plasma at t = 0
-    c_plasma = dose_mg / vd_plasma_L  # mg/L
-    c_cardiac = 0.0
-    c_periph = 0.0
+    times: list = []
+    c_plasma_list: list = []
+    c_heart_list: list = []
 
-    times: list[float] = [0.0]
-    cp_list: list[float] = [c_plasma]
-    cc_list: list[float] = [c_cardiac]
-
+    t = 0.0
     n_steps = int(round(t_end_h / dt_h))
 
-    for _ in range(n_steps):
-        # --- ODEs ---
-        # Plasma
-        elim = (cl_L_per_h / vd_plasma_L) * c_plasma
-        cardiac_flux = q_cardiac * (c_plasma - c_cardiac / kp_cardiac) / vd_plasma_L
-        periph_flux = q_periph_L_per_h * (c_plasma - c_periph / kp_periph) / vd_plasma_L
-        dc_plasma = -(elim + cardiac_flux + periph_flux)
+    for _step in range(n_steps + 1):
+        c_plasma = a_plasma / vd_sys_L
+        c_heart = a_heart / v_heart_L
 
-        # Cardiac tissue
-        dc_cardiac = q_cardiac * (c_plasma - c_cardiac / kp_cardiac) / v_cardiac_L
-
-        # Peripheral
-        dc_periph = q_periph_L_per_h * (c_plasma - c_periph / kp_periph) / v_periph_L
-
-        # Forward Euler
-        c_plasma = max(0.0, c_plasma + dc_plasma * dt_h)
-        c_cardiac = max(0.0, c_cardiac + dc_cardiac * dt_h)
-        c_periph = max(0.0, c_periph + dc_periph * dt_h)
-
-        t = times[-1] + dt_h
         times.append(t)
-        cp_list.append(c_plasma)
-        cc_list.append(c_cardiac)
+        c_plasma_list.append(c_plasma)
+        c_heart_list.append(c_heart)
 
-    # --- derived metrics ---
-    cmax_plasma = max(cp_list)
-    cmax_cardiac = max(cc_list)
-    auc_plasma = _trapz_auc(times, cp_list)
-    auc_cardiac = _trapz_auc(times, cc_list)
+        # ODEs (Forward Euler)
+        da_plasma = (
+            -ke_sys * a_plasma - k_uptake_per_h * a_plasma + k_efflux_per_h * a_heart
+        ) * dt_h
+        da_heart = (k_uptake_per_h * a_plasma * kp_heart - k_efflux_per_h * a_heart) * dt_h
 
-    ratio = auc_cardiac / auc_plasma if auc_plasma > 0 else 0.0
+        a_plasma += da_plasma
+        a_heart += da_heart
 
-    safety_threshold_mg_L = 10.0
-    cardiac_safety_margin = (
-        safety_threshold_mg_L / cmax_cardiac if cmax_cardiac > 0 else float("inf")
-    )
+        # Clamp to zero (numerical safety)
+        if a_plasma < 0.0:
+            a_plasma = 0.0
+        if a_heart < 0.0:
+            a_heart = 0.0
 
-    notes = (
-        f"Kp_cardiac={kp_cardiac:.3f}; Q_cardiac={q_cardiac:.2f} L/h "
-        f"({100 * 0.05:.0f}% of CO); cardiac/plasma AUC ratio={ratio:.3f}"
-    )
+        t += dt_h
+
+    # PK metrics
+    cmax_plasma = max(c_plasma_list)
+    auc_plasma = _trapz(times, c_plasma_list)
+    cmax_myocardium = max(c_heart_list)
+    auc_myocardium = _trapz(times, c_heart_list)
+
+    heart_plasma_kp = auc_myocardium / auc_plasma if auc_plasma > 0.0 else kp_heart
+
+    # Cardiac exposure score
+    raw_score = heart_plasma_kp * 10.0 + kp_heart * 5.0
+    cardiac_exposure_score = max(0.0, min(100.0, raw_score))
+
+    # QTc risk via hERG occupancy
+    # Convert cmax_myocardium from mg/L to uM: (mg/L) / (g/mol) * 1e3 = mmol/L * 1e3 = uM
+    # (mg/L) / (Da) * 1e6 is equivalent: 1 mg/L / (g/mol) = 1 mmol/m^3 = 1e-3 mmol/L = 1e-3 uM... let us be precise
+    # mg/L * (1 g / 1000 mg) * (1 mol / mw_Da g) * (1e6 umol / mol) * (1 L / 1 L) = mg/L / mw_Da * 1000 = uM
+    cmax_uM = cmax_myocardium / mw_Da * 1000.0 if mw_Da > 0 else 0.0
+    occupancy = cmax_uM / (cmax_uM + herg_ic50_uM) if (cmax_uM + herg_ic50_uM) > 0 else 0.0
+
+    if occupancy > 0.5:
+        qtc_risk_level = "high"
+        notes = "High cardiac exposure — significant hERG occupancy. QTc monitoring required."
+    elif occupancy > 0.2:
+        qtc_risk_level = "moderate"
+        notes = "Moderate cardiac accumulation — baseline ECG recommended."
+    else:
+        qtc_risk_level = "low"
+        notes = "Low cardiac exposure risk."
 
     return CardiacPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        logp=logp,
         times_h=times,
-        c_plasma_mg_L=cp_list,
-        c_cardiac_mg_L=cc_list,
+        c_plasma_mg_L=c_plasma_list,
+        c_myocardium_mg_L=c_heart_list,
         cmax_plasma=cmax_plasma,
-        cmax_cardiac=cmax_cardiac,
         auc_plasma=auc_plasma,
-        auc_cardiac=auc_cardiac,
-        cardiac_to_plasma_auc_ratio=ratio,
-        kp_cardiac=kp_cardiac,
-        cardiac_safety_margin=cardiac_safety_margin,
+        cmax_myocardium=cmax_myocardium,
+        auc_myocardium=auc_myocardium,
+        heart_plasma_kp=heart_plasma_kp,
+        cardiac_exposure_score=cardiac_exposure_score,
+        qtc_risk_level=qtc_risk_level,
         notes=notes,
     )
 
 
-# ---------------------------------------------------------------------------
-# Risk assessment
-# ---------------------------------------------------------------------------
+def compare_cardiac_scenarios(
+    drug_name: str,
+    dose_mg: float,
+    scenarios: list,
+) -> list:
+    """Simulate cardiac PK under multiple parameter scenarios.
 
-
-def assess_cardiac_concentration_risk(result: CardiacPKResult) -> dict:
-    """Assess cardiac concentration risk from a CardiacPKResult.
-
-    Risk stratification is based on cardiac-to-plasma AUC ratio:
-      < 1.5  → "low"
-      1.5–3.0 → "moderate"
-      > 3.0  → "high"
+    Parameters
+    ----------
+    drug_name:
+        Drug name.
+    dose_mg:
+        Default dose in mg (overridden per scenario if provided).
+    scenarios:
+        List of dicts with optional keys: "kp_heart", "dose_mg",
+        "herg_ic50_uM", "name".
 
     Returns
     -------
-    dict with keys: risk_level, cardiac_to_plasma_auc_ratio,
-                    cmax_cardiac, cardiac_safety_margin, recommendation
+    List of CardiacPKResult sorted by cardiac_exposure_score descending.
     """
-    ratio = result.cardiac_to_plasma_auc_ratio
+    results = []
+    for scenario in scenarios:
+        scenario_dose = scenario.get("dose_mg", dose_mg)
+        kp_heart = scenario.get("kp_heart", 3.0)
+        herg_ic50_uM = scenario.get("herg_ic50_uM", 10.0)
+        name = scenario.get("name", drug_name)
 
-    if ratio < 1.5:
-        risk_level = "low"
-        recommendation = "Cardiac accumulation is minimal.  Standard monitoring is appropriate."
-    elif ratio <= 3.0:
-        risk_level = "moderate"
-        recommendation = (
-            "Moderate cardiac accumulation detected.  "
-            "Consider ECG monitoring and dose adjustments in at-risk populations."
+        result = simulate_cardiac_pk(
+            drug_name=name,
+            dose_mg=scenario_dose,
+            kp_heart=kp_heart,
+            herg_ic50_uM=herg_ic50_uM,
         )
-    else:
-        risk_level = "high"
-        recommendation = (
-            "High cardiac accumulation detected.  "
-            "Intensive cardiac monitoring required; evaluate risk-benefit carefully."
-        )
+        results.append(result)
 
-    return {
-        "risk_level": risk_level,
-        "cardiac_to_plasma_auc_ratio": ratio,
-        "cmax_cardiac": result.cmax_cardiac,
-        "cardiac_safety_margin": result.cardiac_safety_margin,
-        "recommendation": recommendation,
-    }
+    results.sort(key=lambda r: r.cardiac_exposure_score, reverse=True)
+    return results
