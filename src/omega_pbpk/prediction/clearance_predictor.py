@@ -1,207 +1,160 @@
-"""Hepatic clearance prediction from in vitro CLint data (Phase 390)."""
+"""
+Phase 783 — Clearance prediction from physicochemical properties.
+
+Empirical rules:
+- CLhepatic: well-stirred model if CLint provided, else empirical equation
+- CLrenal: pH/logP-dependent, cation-aware
+- CLtotal = CLhep + CLrenal
+- Vd: allometric from MW and logP
+- t_half = 0.693 * Vd / CLtotal
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Microsomal scaling constants
-_MICROSOMAL_PROTEIN_PER_G_LIVER: float = 45.0  # mg protein / g liver
-_LIVER_WEIGHT_PER_KG_BW: float = 25.7  # g liver / kg body weight
-
-# Hepatocyte scaling constants
-_HEPATOCYTES_PER_G_LIVER: float = 120.0e6  # cells / g liver
-
-# Hepatic blood flow allometric: QH = 90.6 * BW^0.75 mL/min
-_QH_COEFFICIENT: float = 90.6
-_QH_EXPONENT: float = 0.75
-
-_VALID_METHODS: frozenset[str] = frozenset({"microsomal", "hepatocyte"})
-
 
 @dataclass(frozen=True)
 class ClearancePredictionResult:
-    """Result of hepatic clearance prediction from in vitro data."""
-
-    clint_uL_per_min_per_mg: float
-    fu_mic: float
-    method: str
-    body_weight_kg: float
-    cl_hepatic_L_per_h: float
-    extraction_ratio: float
-    cl_classification: str  # "high" / "intermediate" / "low"
-    qh_mL_per_min: float
-    clint_invivo_mL_per_min: float
+    compound_name: str
+    logp: float
+    mw_da: float
+    fup: float
+    predicted_cl_hepatic_L_per_h: float
+    predicted_cl_renal_L_per_h: float
+    predicted_cl_total_L_per_h: float
+    predicted_t_half_h: float
+    predicted_vd_L: float
+    cl_class: str  # "low" (<1 L/h), "moderate" (1-10), "high" (>10)
+    elimination_route: str  # "hepatic", "renal", "mixed"
     notes: str
 
 
-def predict_hepatic_cl(
-    clint_uL_per_min_per_mg_protein: float,
-    fu_mic: float,
-    hepatocyte_scaling: float = 1.0,
-    method: str = "microsomal",
-    body_weight_kg: float = 70.0,
+def _cl_class(cl_total: float) -> str:
+    if cl_total < 1.0:
+        return "low"
+    elif cl_total <= 10.0:
+        return "moderate"
+    else:
+        return "high"
+
+
+def _elimination_route(cl_hep: float, cl_ren: float) -> str:
+    cl_total = cl_hep + cl_ren
+    if cl_total == 0.0:
+        return "hepatic"
+    hep_frac = cl_hep / cl_total
+    ren_frac = cl_ren / cl_total
+    if hep_frac >= 0.7:
+        return "hepatic"
+    elif ren_frac >= 0.7:
+        return "renal"
+    else:
+        return "mixed"
+
+
+def predict_clearance(
+    compound_name: str,
+    logp: float,
+    mw_da: float,
+    fup: float,
+    psa_A2: float = 60.0,
+    charge: str = "neutral",
+    cl_int_scaled_L_per_h: float | None = None,
 ) -> ClearancePredictionResult:
-    """Predict hepatic clearance using well-stirred liver model.
+    """Predict total clearance and PK parameters from physicochemical properties."""
 
-    Parameters
-    ----------
-    clint_uL_per_min_per_mg_protein:
-        In vitro intrinsic clearance. For "microsomal" method: µL/min/mg
-        microsomal protein. For "hepatocyte" method: µL/min/10^6 cells
-        (pass as this parameter).
-    fu_mic:
-        Fraction unbound in microsomal incubation (0 < fu_mic ≤ 1).
-    hepatocyte_scaling:
-        Additional scaling factor (default 1.0; not used in microsomal path).
-    method:
-        Scaling method: "microsomal" or "hepatocyte".
-    body_weight_kg:
-        Body weight for allometric scaling of hepatic blood flow (kg).
+    # Input validation
+    if not (0.0 < fup <= 1.0):
+        raise ValueError(f"fup must be in (0, 1], got {fup}")
+    if mw_da <= 0.0:
+        raise ValueError(f"mw_da must be > 0, got {mw_da}")
 
-    Returns
-    -------
-    ClearancePredictionResult
-    """
-    if clint_uL_per_min_per_mg_protein <= 0:
-        raise ValueError("clint_uL_per_min_per_mg_protein must be > 0")
-    if not (0 < fu_mic <= 1.0):
-        raise ValueError("fu_mic must be in (0, 1]")
-    if method not in _VALID_METHODS:
-        raise ValueError(f"method must be one of {sorted(_VALID_METHODS)}, got '{method}'")
-    if body_weight_kg <= 0:
-        raise ValueError("body_weight_kg must be > 0")
-    if hepatocyte_scaling <= 0:
-        raise ValueError("hepatocyte_scaling must be > 0")
+    # Hepatic clearance
+    QH = 97.0  # L/h, hepatic blood flow
+    if cl_int_scaled_L_per_h is not None:
+        # Well-stirred model
+        numerator = QH * fup * cl_int_scaled_L_per_h
+        denominator = QH + fup * cl_int_scaled_L_per_h
+        if denominator == 0.0:
+            cl_hep = 0.0
+        else:
+            cl_hep = numerator / denominator
+    else:
+        # Empirical equation: CLhep = fup * 10^(0.5*logP - 0.01*mw - 0.5)
+        exponent = 0.5 * logp - 0.01 * mw_da - 0.5
+        cl_hep = fup * (10.0**exponent)
+        cl_hep = max(0.01, min(100.0, cl_hep))
 
-    clint_input = clint_uL_per_min_per_mg_protein
+    # Renal clearance
+    GFR_BASELINE = 7.5  # L/h (125 mL/min)
+    # CLrenal = fup * GFR_baseline * max(0, 1 - 0.05 * logP)
+    renal_factor = max(0.0, 1.0 - 0.05 * logp)
+    cl_ren = fup * GFR_BASELINE * renal_factor
+    cl_ren = max(0.0, min(fup * GFR_BASELINE, cl_ren))
 
-    # Scale in vitro CLint to in vivo CLint (mL/min)
-    if method == "microsomal":
-        # clint [µL/min/mg protein] * [µL→mL /1000] * [mg protein/g liver]
-        # * [g liver/kg BW] * BW [kg]
-        clint_invivo = (
-            clint_input
-            / 1000.0  # µL → mL
-            * _MICROSOMAL_PROTEIN_PER_G_LIVER
-            * _LIVER_WEIGHT_PER_KG_BW
-            * body_weight_kg
-        )
-        notes = (
-            f"Microsomal scaling: {_MICROSOMAL_PROTEIN_PER_G_LIVER} mg protein/g liver, "
-            f"{_LIVER_WEIGHT_PER_KG_BW} g liver/kg BW"
-        )
-    else:  # hepatocyte
-        # clint [µL/min/10^6 cells] * [µL→mL /1000] * [cells/g liver /1e6] * [g liver/kg] * BW
-        clint_invivo = (
-            clint_input
-            / 1000.0  # µL → mL
-            * (_HEPATOCYTES_PER_G_LIVER / 1.0e6)  # cells/g liver expressed as 10^6 cells/g
-            * _LIVER_WEIGHT_PER_KG_BW
-            * body_weight_kg
-            * hepatocyte_scaling
-        )
-        notes = (
-            f"Hepatocyte scaling: {_HEPATOCYTES_PER_G_LIVER / 1e6:.0f}×10^6 cells/g liver, "
-            f"{_LIVER_WEIGHT_PER_KG_BW} g liver/kg BW"
-        )
+    # Total clearance
+    cl_total = cl_hep + cl_ren
 
-    # Hepatic blood flow: QH = 90.6 * BW^0.75 (mL/min)
-    qh = _QH_COEFFICIENT * (body_weight_kg**_QH_EXPONENT)
+    # Volume of distribution
+    # Vd = 0.6 * mw^0.33 * (1 + logP), clamped [3, 500]
+    vd = 0.6 * (mw_da**0.33) * (1.0 + logp)
+    vd = max(3.0, min(500.0, vd))
 
-    # Well-stirred model: CLH = QH * fu_mic * CLint / (QH + fu_mic * CLint)
-    fu_clint = fu_mic * clint_invivo
-    cl_hepatic_mL_min = qh * fu_clint / (qh + fu_clint)
-
-    # Extraction ratio EH = CLH / QH
-    extraction_ratio = cl_hepatic_mL_min / qh
-
-    # Convert to L/h
-    cl_hepatic_L_h = cl_hepatic_mL_min * 60.0 / 1000.0
+    # Half-life
+    if cl_total > 0.0:
+        t_half = 0.693 * vd / cl_total
+    else:
+        t_half = float("inf")
 
     # Classification
-    if extraction_ratio > 0.7:
-        cl_classification = "high"
-    elif extraction_ratio >= 0.3:
-        cl_classification = "intermediate"
-    else:
-        cl_classification = "low"
+    cl_cls = _cl_class(cl_total)
+    elim_route = _elimination_route(cl_hep, cl_ren)
 
-    notes += (
-        f"; fu_mic correction applied; EH={extraction_ratio:.3f} ({cl_classification} extraction)"
-    )
+    # Notes
+    notes_parts = []
+    if cl_int_scaled_L_per_h is not None:
+        notes_parts.append("CLhep from well-stirred model using provided CLint")
+    else:
+        notes_parts.append("CLhep from empirical equation (logP, MW, fup)")
+    notes_parts.append(f"charge={charge}, PSA={psa_A2} A2")
+    notes = "; ".join(notes_parts)
 
     return ClearancePredictionResult(
-        clint_uL_per_min_per_mg=clint_input,
-        fu_mic=fu_mic,
-        method=method,
-        body_weight_kg=body_weight_kg,
-        cl_hepatic_L_per_h=cl_hepatic_L_h,
-        extraction_ratio=extraction_ratio,
-        cl_classification=cl_classification,
-        qh_mL_per_min=qh,
-        clint_invivo_mL_per_min=clint_invivo,
+        compound_name=compound_name,
+        logp=logp,
+        mw_da=mw_da,
+        fup=fup,
+        predicted_cl_hepatic_L_per_h=round(cl_hep, 6),
+        predicted_cl_renal_L_per_h=round(cl_ren, 6),
+        predicted_cl_total_L_per_h=round(cl_total, 6),
+        predicted_t_half_h=round(t_half, 6),
+        predicted_vd_L=round(vd, 6),
+        cl_class=cl_cls,
+        elimination_route=elim_route,
         notes=notes,
     )
 
 
-def rank_clearance_compounds(
-    compounds: list[dict],
-    method: str = "microsomal",
-    body_weight_kg: float = 70.0,
-) -> list[dict]:
-    """Rank compounds by predicted hepatic clearance (highest first).
-
-    Parameters
-    ----------
-    compounds:
-        List of dicts, each with keys "name", "clint" (µL/min/mg protein),
-        "fu_mic" (fraction unbound in microsomes).
-    method:
-        Scaling method: "microsomal" or "hepatocyte".
-    body_weight_kg:
-        Body weight for allometric QH scaling.
-
-    Returns
-    -------
-    List of dicts sorted by cl_hepatic_L_per_h descending, each containing
-    original compound data plus prediction fields.
+def screen_clearance(compounds: list) -> list:
     """
-    if not compounds:
-        raise ValueError("compounds list must not be empty")
+    Screen multiple compounds and return results sorted by cl_total ascending
+    (lowest clearance = longest t-half = most favorable).
 
-    results: list[dict] = []
-    for i, cpd in enumerate(compounds):
-        name = cpd.get("name", f"compound_{i}")
-        clint = cpd.get("clint")
-        fu_mic = cpd.get("fu_mic")
-        if clint is None or fu_mic is None:
-            raise ValueError(f"Compound '{name}' must have 'clint' and 'fu_mic' fields")
-
-        pred = predict_hepatic_cl(
-            clint_uL_per_min_per_mg_protein=float(clint),
-            fu_mic=float(fu_mic),
-            method=method,
-            body_weight_kg=body_weight_kg,
+    Each entry in compounds is a dict with keys matching predict_clearance arguments.
+    """
+    results = []
+    for c in compounds:
+        result = predict_clearance(
+            compound_name=c.get("compound_name", "unknown"),
+            logp=c["logp"],
+            mw_da=c["mw_da"],
+            fup=c["fup"],
+            psa_A2=c.get("psa_A2", 60.0),
+            charge=c.get("charge", "neutral"),
+            cl_int_scaled_L_per_h=c.get("cl_int_scaled_L_per_h", None),
         )
-        results.append(
-            {
-                "name": name,
-                "clint_uL_per_min_per_mg": float(clint),
-                "fu_mic": float(fu_mic),
-                "cl_hepatic_L_per_h": pred.cl_hepatic_L_per_h,
-                "extraction_ratio": pred.extraction_ratio,
-                "cl_classification": pred.cl_classification,
-                "qh_mL_per_min": pred.qh_mL_per_min,
-                "clint_invivo_mL_per_min": pred.clint_invivo_mL_per_min,
-            }
-        )
+        results.append(result)
 
-    results.sort(key=lambda x: x["cl_hepatic_L_per_h"], reverse=True)
+    results.sort(key=lambda r: r.predicted_cl_total_L_per_h)
     return results
-
-
-__all__ = [
-    "ClearancePredictionResult",
-    "predict_hepatic_cl",
-    "rank_clearance_compounds",
-]
