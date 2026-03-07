@@ -176,4 +176,195 @@ __all__ = [
     "HalfLifeResult",
     "predict_half_life",
     "classify_half_life",
+    "HalfLifePrediction",
+    "predict_half_life_from_props",
+    "screen_half_lives",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Phase 641: QSPR-based half-life prediction from physicochemical properties
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HalfLifePrediction:
+    """QSPR-predicted half-life from physicochemical properties."""
+
+    compound_name: str
+    predicted_t_half_h: float
+    ci_lower_h: float
+    ci_upper_h: float
+    predicted_ke_per_h: float
+    vd_class: str
+    cl_class: str
+    elimination_half_lives_in_24h: float
+    bcs_class: str
+    notes: str
+
+
+def _bcs_class(logP: float, mw: float, psa: float, solubility_mg_mL: float) -> str:
+    """Classify BCS class based on permeability and solubility proxies."""
+    # Permeability proxy: high if logP in 0-3 and PSA < 140 and MW < 500
+    high_perm = logP >= 0.0 and psa < 140.0 and mw < 500.0
+    # Solubility proxy: high if solubility >= 1 mg/mL
+    high_sol = solubility_mg_mL >= 1.0
+    if high_perm and high_sol:
+        return "I"
+    if not high_perm and high_sol:
+        return "III"
+    if high_perm and not high_sol:
+        return "II"
+    return "IV"
+
+
+def _vd_class(logP: float) -> tuple[str, float]:
+    """Return (vd_class, vd_factor) based on logP."""
+    vd_factor = max(0.2, logP * 0.5 + 1.0)
+    # Estimate Vd per kg from vd_factor (rough: vd_factor as L/kg)
+    vd_per_kg = vd_factor
+    if vd_per_kg < 1.0:
+        return "low", vd_factor
+    if vd_per_kg <= 5.0:
+        return "moderate", vd_factor
+    return "high", vd_factor
+
+
+def _cl_class_from_clint(clint: float) -> tuple[str, float]:
+    """Return (cl_class, cl_factor) from CLint."""
+    cl_factor = 1.0 / (clint * 0.001 + 0.5)
+    # Approximate CL as inverse of cl_factor in L/h/kg space
+    # cl_factor ~ 2 for clint=0, smaller for higher clint
+    # low CL: < 5 L/h/kg proxy → cl_factor > 0.1, moderate 5-20, high > 20
+    cl_approx = 1.0 / cl_factor if cl_factor > 0 else float("inf")
+    if cl_approx < 5.0:
+        return "low", cl_factor
+    if cl_approx <= 20.0:
+        return "moderate", cl_factor
+    return "high", cl_factor
+
+
+def predict_half_life_from_props(
+    compound_name: str,
+    logP: float,
+    mw: float,
+    psa: float,
+    clint_uL_min_per_mg: float = 10.0,
+    solubility_mg_mL: float = 1.0,
+    pka_acid: float | None = None,
+    pka_base: float | None = None,
+    body_weight_kg: float = 70.0,
+) -> HalfLifePrediction:
+    """Predict drug half-life from physicochemical properties (QSPR model).
+
+    Parameters
+    ----------
+    compound_name:
+        Name of the compound.
+    logP:
+        Octanol-water partition coefficient.
+    mw:
+        Molecular weight (g/mol). Must be > 0.
+    psa:
+        Polar surface area (Å²). Must be >= 0.
+    clint_uL_min_per_mg:
+        Intrinsic clearance (µL/min/mg protein). Must be >= 0.
+    solubility_mg_mL:
+        Aqueous solubility (mg/mL).
+    pka_acid:
+        Acidic pKa (optional).
+    pka_base:
+        Basic pKa (optional).
+    body_weight_kg:
+        Body weight (kg). Must be > 0.
+
+    Returns
+    -------
+    HalfLifePrediction
+    """
+    if mw <= 0:
+        raise ValueError(f"mw must be positive; got {mw}.")
+    if psa < 0:
+        raise ValueError(f"psa must be non-negative; got {psa}.")
+    if clint_uL_min_per_mg < 0:
+        raise ValueError(f"clint_uL_min_per_mg must be non-negative; got {clint_uL_min_per_mg}.")
+    if body_weight_kg <= 0:
+        raise ValueError(f"body_weight_kg must be positive; got {body_weight_kg}.")
+
+    base_t_half = 6.0
+
+    vd_class_str, vd_factor = _vd_class(logP)
+    cl_class_str, cl_factor = _cl_class_from_clint(clint_uL_min_per_mg)
+
+    # Ionization factor
+    if pka_acid is not None and pka_acid < 4.0:
+        ionization_factor = 1.3
+        ion_note = f"acidic (pKa_acid={pka_acid:.1f} < 4)"
+    elif pka_base is not None and pka_base > 8.0:
+        ionization_factor = 0.9
+        ion_note = f"basic (pKa_base={pka_base:.1f} > 8)"
+    else:
+        ionization_factor = 1.0
+        ion_note = "neutral/typical ionization"
+
+    predicted_t_half_h = base_t_half * vd_factor * cl_factor * ionization_factor
+    predicted_ke_per_h = math.log(2.0) / predicted_t_half_h
+
+    bcs = _bcs_class(logP, mw, psa, solubility_mg_mL)
+
+    # CI based on BCS class
+    if bcs == "I":
+        ci_pct = 0.20
+    elif bcs == "IV":
+        ci_pct = 0.60
+    elif bcs in ("II", "III"):
+        ci_pct = 0.40
+    else:
+        ci_pct = 0.40
+
+    ci_lower_h = predicted_t_half_h * (1.0 - ci_pct)
+    ci_upper_h = predicted_t_half_h * (1.0 + ci_pct)
+
+    elimination_half_lives_in_24h = float(int(24.0 / predicted_t_half_h))
+
+    notes = (
+        f"QSPR model: logP={logP:.2f}, MW={mw:.1f}, CLint={clint_uL_min_per_mg:.1f} µL/min/mg; "
+        f"vd_factor={vd_factor:.3f}, cl_factor={cl_factor:.3f}, ionization={ion_note}; "
+        f"BCS={bcs}, 90% CI ±{ci_pct * 100:.0f}%."
+    )
+
+    return HalfLifePrediction(
+        compound_name=compound_name,
+        predicted_t_half_h=predicted_t_half_h,
+        ci_lower_h=ci_lower_h,
+        ci_upper_h=ci_upper_h,
+        predicted_ke_per_h=predicted_ke_per_h,
+        vd_class=vd_class_str,
+        cl_class=cl_class_str,
+        elimination_half_lives_in_24h=elimination_half_lives_in_24h,
+        bcs_class=bcs,
+        notes=notes,
+    )
+
+
+def screen_half_lives(compounds: list[dict]) -> list[HalfLifePrediction]:
+    """Screen multiple compounds, sorted by predicted_t_half_h ascending.
+
+    Each dict should contain keys matching predict_half_life_from_props parameters.
+    Required: compound_name, logP, mw, psa.
+    """
+    results: list[HalfLifePrediction] = []
+    for c in compounds:
+        result = predict_half_life_from_props(
+            compound_name=c["compound_name"],
+            logP=c["logP"],
+            mw=c["mw"],
+            psa=c["psa"],
+            clint_uL_min_per_mg=c.get("clint_uL_min_per_mg", 10.0),
+            solubility_mg_mL=c.get("solubility_mg_mL", 1.0),
+            pka_acid=c.get("pka_acid", None),
+            pka_base=c.get("pka_base", None),
+            body_weight_kg=c.get("body_weight_kg", 70.0),
+        )
+        results.append(result)
+    return sorted(results, key=lambda r: r.predicted_t_half_h)
