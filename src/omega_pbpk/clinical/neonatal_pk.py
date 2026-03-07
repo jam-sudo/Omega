@@ -19,6 +19,10 @@ __all__ = [
     "neonatal_scaling_factors",
     "scale_neonatal_dose",
     "simulate_neonatal_pk",
+    # Phase 645 additions
+    "NeonatalPKScalingResult",
+    "scale_neonatal_pk",
+    "neonatal_dose_recommendation",
 ]
 
 
@@ -552,3 +556,228 @@ def simulate_neonatal_pk(
         vd_neonatal=vd_neo,
         notes=notes,
     )
+
+
+# ===========================================================================
+# Phase 645 — Neonatal PK Scaling (new API, birth to 2 years)
+# ===========================================================================
+
+
+@dataclass(frozen=True)
+class NeonatalPKScalingResult:
+    """PK scaling result for a neonatal/infant patient (Phase 645)."""
+
+    drug_name: str
+    age_weeks: float
+    weight_kg: float
+    cl_adult_L_per_h: float
+    cl_neonatal_L_per_h: float
+    vd_adult_L: float
+    vd_neonatal_L: float
+    t_half_adult_h: float
+    t_half_neonatal_h: float
+    cyp3a4_maturation_fraction: float
+    cyp2d6_maturation_fraction: float
+    cyp1a2_maturation_fraction: float
+    gfr_fraction: float
+    albumin_fraction: float
+    dose_adjustment_factor: float
+    dose_mg_per_kg: float
+    warnings: str
+    notes: str
+
+
+def _ph645_hill(age_weeks: float, tm50: float, hill: float) -> float:
+    """Hill maturation model; result capped at 1.0."""
+    if age_weeks <= 0.0:
+        return 0.0
+    age_w = min(age_weeks, 52.0)
+    num = age_w**hill
+    den = tm50**hill + age_w**hill
+    return min(1.0, num / den)
+
+
+def scale_neonatal_pk(
+    drug_name: str,
+    age_weeks: float,
+    weight_kg: float,
+    cl_adult_L_per_h: float,
+    vd_adult_L: float,
+    primary_elimination: str = "cyp3a4",
+    adult_dose_mg_per_kg: float = 1.0,
+    f_renal: float = 0.3,
+) -> NeonatalPKScalingResult:
+    """Scale adult PK parameters to neonatal/infant physiology.
+
+    Parameters
+    ----------
+    drug_name:
+        Name of the drug.
+    age_weeks:
+        Postnatal age in weeks (0-104, i.e. birth to 2 years).
+    weight_kg:
+        Patient weight in kg.
+    cl_adult_L_per_h:
+        Adult clearance in L/h.
+    vd_adult_L:
+        Adult volume of distribution in L.
+    primary_elimination:
+        Dominant elimination pathway. One of:
+        "cyp3a4", "cyp2d6", "cyp1a2", "renal", "mixed".
+    adult_dose_mg_per_kg:
+        Adult dose in mg/kg (used to derive neonatal mg/kg recommendation).
+    f_renal:
+        Fraction eliminated renally (relevant for "mixed" mode).
+    """
+    _valid = {"cyp3a4", "cyp2d6", "cyp1a2", "renal", "mixed"}
+    if age_weeks < 0:
+        raise ValueError(f"age_weeks must be >= 0, got {age_weeks}")
+    if age_weeks > 104:
+        raise ValueError(f"age_weeks must be <= 104 (2 years), got {age_weeks}")
+    if weight_kg <= 0:
+        raise ValueError(f"weight_kg must be > 0, got {weight_kg}")
+    if cl_adult_L_per_h <= 0:
+        raise ValueError(f"cl_adult_L_per_h must be > 0, got {cl_adult_L_per_h}")
+    if vd_adult_L <= 0:
+        raise ValueError(f"vd_adult_L must be > 0, got {vd_adult_L}")
+    if primary_elimination not in _valid:
+        raise ValueError(
+            f"primary_elimination must be one of {_valid}, got '{primary_elimination}'"
+        )
+
+    # Maturation fractions
+    f3a4 = _ph645_hill(age_weeks, tm50=3.0, hill=2.0)
+    f2d6 = _ph645_hill(age_weeks, tm50=5.0, hill=2.0)
+    f1a2 = _ph645_hill(age_weeks, tm50=12.0, hill=2.0)
+    f_gfr = min(1.0, age_weeks / 52.0)
+    f_alb = min(1.0, 0.5 + age_weeks / 52.0 * 0.5)
+
+    # CL maturation fraction
+    if primary_elimination == "cyp3a4":
+        cl_maturation = f3a4
+    elif primary_elimination == "cyp2d6":
+        cl_maturation = f2d6
+    elif primary_elimination == "cyp1a2":
+        cl_maturation = f1a2
+    elif primary_elimination == "renal":
+        cl_maturation = f_gfr
+    else:  # mixed
+        f_hepatic = 1.0 - f_renal
+        mean_cyp = (f3a4 + f2d6 + f1a2) / 3.0
+        cl_maturation = f_hepatic * mean_cyp + f_renal * f_gfr
+
+    # Allometric weight scaling (exponent 0.75) + maturation
+    weight_factor = (weight_kg / 70.0) ** 0.75
+    cl_neonatal = cl_adult_L_per_h * weight_factor * cl_maturation
+
+    # Vd scaling — body water factor
+    if age_weeks < 4.0:
+        bw_factor = 1.3
+    elif age_weeks < 26.0:
+        bw_factor = 1.1
+    else:
+        bw_factor = 1.0
+    vd_neonatal = vd_adult_L * (weight_kg / 70.0) * bw_factor
+
+    # Half-lives
+    t_half_adult = 0.693 * vd_adult_L / cl_adult_L_per_h
+    t_half_neonatal = 0.693 * vd_neonatal / cl_neonatal if cl_neonatal > 0 else float("inf")
+
+    # Dose adjustment factor = neonatal CL per kg / adult CL per kg
+    cl_adult_per_kg = cl_adult_L_per_h / 70.0
+    cl_neonatal_per_kg = cl_neonatal / weight_kg
+    dose_adjustment_factor = (
+        min(1.0, cl_neonatal_per_kg / cl_adult_per_kg) if cl_adult_per_kg > 0 else 0.0
+    )
+    dose_mg_per_kg = adult_dose_mg_per_kg * dose_adjustment_factor
+
+    # Warnings
+    warning_parts = []
+    if age_weeks < 4:
+        warning_parts.append("Preterm/term neonate: extreme caution, immature BBB.")
+    if f3a4 < 0.2:
+        warning_parts.append(
+            "CYP3A4 severely immature (<20%): avoid CYP3A4 substrates if possible."
+        )
+    if f_gfr < 0.3:
+        warning_parts.append("GFR critically low (<30%): renally-cleared drugs may accumulate.")
+    if f_alb < 0.7:
+        warning_parts.append("Low albumin: increased free fraction of highly protein-bound drugs.")
+    warnings = " ".join(warning_parts) if warning_parts else "No major warnings."
+
+    notes = (
+        f"CL scaled by maturation ({primary_elimination}) factor {cl_maturation:.3f} "
+        f"and allometric weight factor {weight_factor:.3f}. "
+        f"Vd increased by body-water factor {bw_factor:.1f}. "
+        f"Dose adjustment factor {dose_adjustment_factor:.3f}."
+    )
+
+    return NeonatalPKScalingResult(
+        drug_name=drug_name,
+        age_weeks=age_weeks,
+        weight_kg=weight_kg,
+        cl_adult_L_per_h=cl_adult_L_per_h,
+        cl_neonatal_L_per_h=cl_neonatal,
+        vd_adult_L=vd_adult_L,
+        vd_neonatal_L=vd_neonatal,
+        t_half_adult_h=t_half_adult,
+        t_half_neonatal_h=t_half_neonatal,
+        cyp3a4_maturation_fraction=f3a4,
+        cyp2d6_maturation_fraction=f2d6,
+        cyp1a2_maturation_fraction=f1a2,
+        gfr_fraction=f_gfr,
+        albumin_fraction=f_alb,
+        dose_adjustment_factor=dose_adjustment_factor,
+        dose_mg_per_kg=dose_mg_per_kg,
+        warnings=warnings,
+        notes=notes,
+    )
+
+
+def neonatal_dose_recommendation(
+    drug_name: str,
+    age_weeks: float,
+    weight_kg: float,
+    adult_dose_mg: float,
+    adult_weight_kg: float = 70.0,
+    primary_elimination: str = "cyp3a4",
+) -> dict:
+    """Return dict with recommended_dose_mg, dose_per_kg, adjustment_factor, warnings.
+
+    Parameters
+    ----------
+    drug_name:
+        Name of the drug.
+    age_weeks:
+        Postnatal age in weeks.
+    weight_kg:
+        Neonatal/infant weight in kg.
+    adult_dose_mg:
+        Standard adult total dose in mg.
+    adult_weight_kg:
+        Adult reference weight (default 70 kg).
+    primary_elimination:
+        Dominant elimination pathway.
+    """
+    adult_dose_per_kg = adult_dose_mg / adult_weight_kg
+    result = scale_neonatal_pk(
+        drug_name=drug_name,
+        age_weeks=age_weeks,
+        weight_kg=weight_kg,
+        cl_adult_L_per_h=5.0,
+        vd_adult_L=50.0,
+        primary_elimination=primary_elimination,
+        adult_dose_mg_per_kg=adult_dose_per_kg,
+    )
+    recommended_dose_mg = result.dose_mg_per_kg * weight_kg
+
+    return {
+        "drug_name": drug_name,
+        "age_weeks": age_weeks,
+        "weight_kg": weight_kg,
+        "recommended_dose_mg": recommended_dose_mg,
+        "dose_per_kg": result.dose_mg_per_kg,
+        "adjustment_factor": result.dose_adjustment_factor,
+        "warnings": result.warnings,
+        "notes": result.notes,
+    }
