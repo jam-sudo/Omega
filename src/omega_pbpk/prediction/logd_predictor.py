@@ -1,161 +1,259 @@
-"""Phase 559 — logD (distribution coefficient) prediction at physiological pH.
-
-Pure Python, no numpy/scipy.
-"""
+"""Phase 670 — LogD Predictor: predict logD from logP and pKa at physiological pH."""
 
 from __future__ import annotations
 
 import math
-
-_VALID_DRUG_TYPES = {"acid", "base", "neutral", "zwitterion"}
-
-
-def _validate_drug_type(drug_type: str) -> None:
-    if drug_type not in _VALID_DRUG_TYPES:
-        raise ValueError(
-            f"Invalid drug_type '{drug_type}'. Must be one of: {sorted(_VALID_DRUG_TYPES)}"
-        )
+from dataclasses import dataclass
 
 
-def logd_from_logp_pka(logP: float, pka: float, pH: float, drug_type: str) -> float:
-    """Predict logD at a given pH from logP and pKa.
-
-    For acid:      logD = logP - log10(1 + 10^(pH - pKa))
-    For base:      logD = logP - log10(1 + 10^(pKa - pH))
-    For neutral:   logD = logP
-    For zwitterion: average of acid and base corrections.
-    """
-    _validate_drug_type(drug_type)
-
-    if drug_type == "neutral":
-        return logP
-
-    if drug_type == "acid":
-        return logP - math.log10(1.0 + 10.0 ** (pH - pka))
-
-    if drug_type == "base":
-        return logP - math.log10(1.0 + 10.0 ** (pka - pH))
-
-    # zwitterion: average of acid and base corrections
-    logd_acid = logP - math.log10(1.0 + 10.0 ** (pH - pka))
-    logd_base = logP - math.log10(1.0 + 10.0 ** (pka - pH))
-    return (logd_acid + logd_base) / 2.0
-
-
-def ionized_fraction(pka: float, pH: float, drug_type: str) -> float:
-    """Fraction ionized at a given pH.
-
-    For acid:      fi = 1 / (1 + 10^(pKa - pH))
-    For base:      fi = 1 / (1 + 10^(pH - pKa))
-    For neutral:   fi = 0.0
-    For zwitterion: average of acid and base fi.
-
-    Returns value clamped to [0, 1].
-    """
-    _validate_drug_type(drug_type)
-
-    if drug_type == "neutral":
-        return 0.0
-
-    if drug_type == "acid":
-        fi = 1.0 / (1.0 + 10.0 ** (pka - pH))
-        return max(0.0, min(1.0, fi))
-
-    if drug_type == "base":
-        fi = 1.0 / (1.0 + 10.0 ** (pH - pka))
-        return max(0.0, min(1.0, fi))
-
-    # zwitterion
-    fi_acid = 1.0 / (1.0 + 10.0 ** (pka - pH))
-    fi_base = 1.0 / (1.0 + 10.0 ** (pH - pka))
-    return max(0.0, min(1.0, (fi_acid + fi_base) / 2.0))
-
-
-def logd_at_multiple_ph(
+def _logD_at_pH(
     logP: float,
-    pka: float,
-    drug_type: str,
-    ph_values: list[float] | None = None,
-) -> list[dict]:
-    """Compute logD and ionized_fraction at multiple pH values.
-
-    Default pH values represent GI compartments and plasma: [1.2, 4.5, 6.8, 7.4].
-
-    Returns list of dicts with keys: pH, logD, ionized_fraction.
-    """
-    _validate_drug_type(drug_type)
-
-    if ph_values is None:
-        ph_values = [1.2, 4.5, 6.8, 7.4]
-
-    results = []
-    for ph in ph_values:
-        logd = logd_from_logp_pka(logP, pka, ph, drug_type)
-        fi = ionized_fraction(pka, ph, drug_type)
-        results.append({"pH": ph, "logD": logd, "ionized_fraction": fi})
-
-    return results
-
-
-def predict_membrane_permeability(logD_74: float) -> dict:
-    """Estimate membrane permeability from logD at pH 7.4.
-
-    Empirical: Papp (cm/s) = 10^(0.8 * logD_74 - 5.7)
-
-    Classification:
-      high     : Papp > 1e-5 cm/s
-      moderate : 1e-6 <= Papp <= 1e-5 cm/s
-      low      : Papp < 1e-6 cm/s
-
-    Returns: logD_74, papp_cm_s, permeability_class.
-    """
-    papp = 10.0 ** (0.8 * logD_74 - 5.7)
-
-    if papp > 1e-5:
-        perm_class = "high"
-    elif papp >= 1e-6:
-        perm_class = "moderate"
+    pka_acid: float | None,
+    pka_base: float | None,
+    pH: float,
+) -> float:
+    """Compute logD at a given pH for a compound with given logP and pKa values."""
+    if pka_acid is not None and pka_base is None:
+        # Pure acid
+        delta = pH - pka_acid
+        logD = logP - math.log10(1.0 + 10.0**delta)
+    elif pka_base is not None and pka_acid is None:
+        # Pure base
+        delta = pka_base - pH
+        logD = logP - math.log10(1.0 + 10.0**delta)
+    elif pka_acid is not None and pka_base is not None:
+        # Zwitterion: weighted blend
+        logD_acid = logP - math.log10(1.0 + 10.0 ** (pH - pka_acid))
+        logD_base = logP - math.log10(1.0 + 10.0 ** (pka_base - pH))
+        logD = (logD_acid + logD_base) / 2.0
     else:
-        perm_class = "low"
-
-    return {
-        "logD_74": logD_74,
-        "papp_cm_s": papp,
-        "permeability_class": perm_class,
-    }
+        # Neutral compound
+        logD = logP
+    return logD
 
 
-def logd_protein_binding_correction(
-    logD_74: float,
-    protein_conc_g_L: float = 45.0,
-) -> dict:
-    """Estimate plasma protein binding (fu) from logD at pH 7.4.
+def _ionization_at_pH74(
+    pka_acid: float | None,
+    pka_base: float | None,
+) -> tuple[float, float]:
+    """Return (ionized_fraction, net_charge) at pH 7.4."""
+    pH = 7.4
 
-    Empirical model:
-      pKd_ppb = 0.72 * logD_74 + 2.1
-      fu = 1 / (1 + 10^pKd_ppb * protein_conc_g_L / 66500)
+    if pka_acid is not None and pka_base is None:
+        # Acid
+        ionized = 1.0 / (1.0 + 10.0 ** (pka_acid - pH))
+        charge = -ionized  # negative for deprotonated acid
+    elif pka_base is not None and pka_acid is None:
+        # Base
+        ionized = 1.0 / (1.0 + 10.0 ** (pH - pka_base))
+        charge = ionized  # positive for protonated base
+    elif pka_acid is not None and pka_base is not None:
+        # Zwitterion: both ionizations contribute
+        ionized_acid = 1.0 / (1.0 + 10.0 ** (pka_acid - pH))
+        ionized_base = 1.0 / (1.0 + 10.0 ** (pH - pka_base))
+        ionized = (ionized_acid + ionized_base) / 2.0
+        charge = ionized_base - ionized_acid  # net
+    else:
+        ionized = 0.0
+        charge = 0.0
 
-    fu is clamped to (0, 1].
+    return ionized, charge
 
-    Returns: logD_74, fu_predicted, pKd_ppb, notes.
-    """
-    pkd_ppb = 0.72 * logD_74 + 2.1
-    kd = 10.0**pkd_ppb
-    # protein_conc in mol/L: protein_conc_g_L / MW_albumin(66500 g/mol)
-    protein_conc_mol_L = protein_conc_g_L / 66500.0
-    fu = 1.0 / (1.0 + kd * protein_conc_mol_L)
 
-    # Clamp to (0, 1]
-    fu = max(1e-9, min(1.0, fu))
+def _membrane_permeability_class(logD74: float) -> str:
+    if logD74 > 1.0:
+        return "high"
+    elif logD74 >= 0.0:
+        return "moderate"
+    else:
+        return "low"
 
-    notes = (
-        "Rough estimate based on empirical logD-PPB correlation. "
-        "Validate with experimental measurements."
+
+def _cns_penetration_likelihood(logD74: float) -> str:
+    if 1.0 <= logD74 <= 3.0:
+        return "high"
+    elif (0.0 <= logD74 < 1.0) or (3.0 < logD74 <= 5.0):
+        return "moderate"
+    else:
+        return "low"
+
+
+def _gi_absorption_prediction(logD74: float) -> str:
+    if logD74 > -1.0:
+        return "excellent"
+    elif logD74 >= -1.0:
+        return "good"
+    else:
+        return "poor"
+
+
+def _build_logd_notes(
+    logP: float,
+    pka_acid: float | None,
+    pka_base: float | None,
+    logD74: float,
+    ionized: float,
+) -> str:
+    compound_type = "neutral"
+    if pka_acid is not None and pka_base is not None:
+        compound_type = "zwitterion"
+    elif pka_acid is not None:
+        compound_type = f"acid (pKa={pka_acid:.1f})"
+    elif pka_base is not None:
+        compound_type = f"base (pKa={pka_base:.1f})"
+
+    return (
+        f"Compound type: {compound_type}. "
+        f"logP={logP:.2f}, logD(7.4)={logD74:.2f}. "
+        f"Ionized fraction at pH 7.4: {ionized:.2%}. "
+        "LogD calculated using Henderson-Hasselbalch equation."
     )
 
-    return {
-        "logD_74": logD_74,
-        "fu_predicted": fu,
-        "pKd_ppb": pkd_ppb,
-        "notes": notes,
-    }
+
+@dataclass(frozen=True)
+class LogDPrediction:
+    """LogD prediction result at various physiologically relevant pH values."""
+
+    compound_name: str
+    logP: float
+    pka_acid: float | None
+    pka_base: float | None
+    logD_at_pH74: float
+    logD_at_pH_gastric: float
+    logD_at_pH_intestinal: float
+    ionization_at_pH74: float
+    charge_at_pH74: float
+    membrane_permeability_class: str
+    cns_penetration_likelihood: str
+    gi_absorption_prediction: str
+    notes: str
+
+
+def predict_logD(
+    compound_name: str,
+    logP: float,
+    pka_acid: float | None = None,
+    pka_base: float | None = None,
+) -> LogDPrediction:
+    """Predict logD at physiological and GI pH values.
+
+    Parameters
+    ----------
+    compound_name:
+        Name of the compound.
+    logP:
+        Octanol-water partition coefficient (log scale). May be any float.
+    pka_acid:
+        Acid dissociation constant. Must be in [0, 14] if provided.
+    pka_base:
+        Base dissociation constant. Must be in [0, 14] if provided.
+
+    Returns
+    -------
+    LogDPrediction
+    """
+    # --- Validation ---
+    if pka_acid is not None and not (0.0 <= pka_acid <= 14.0):
+        raise ValueError(f"pka_acid must be in [0, 14], got {pka_acid}")
+    if pka_base is not None and not (0.0 <= pka_base <= 14.0):
+        raise ValueError(f"pka_base must be in [0, 14], got {pka_base}")
+
+    # --- Compute logD at key pH values ---
+    logD74 = _logD_at_pH(logP, pka_acid, pka_base, 7.4)
+    logD_gastric = _logD_at_pH(logP, pka_acid, pka_base, 1.5)
+    logD_intestinal = _logD_at_pH(logP, pka_acid, pka_base, 6.5)
+
+    # --- Ionization at pH 7.4 ---
+    ionized, charge = _ionization_at_pH74(pka_acid, pka_base)
+
+    # --- Classification ---
+    perm_class = _membrane_permeability_class(logD74)
+    cns_class = _cns_penetration_likelihood(logD74)
+    gi_class = _gi_absorption_prediction(logD74)
+
+    notes = _build_logd_notes(logP, pka_acid, pka_base, logD74, ionized)
+
+    return LogDPrediction(
+        compound_name=compound_name,
+        logP=logP,
+        pka_acid=pka_acid,
+        pka_base=pka_base,
+        logD_at_pH74=logD74,
+        logD_at_pH_gastric=logD_gastric,
+        logD_at_pH_intestinal=logD_intestinal,
+        ionization_at_pH74=ionized,
+        charge_at_pH74=charge,
+        membrane_permeability_class=perm_class,
+        cns_penetration_likelihood=cns_class,
+        gi_absorption_prediction=gi_class,
+        notes=notes,
+    )
+
+
+def logD_pH_profile(
+    compound_name: str,
+    logP: float,
+    pka_acid: float | None = None,
+    pka_base: float | None = None,
+    pH_range: list[float] | None = None,
+) -> list[tuple[float, float]]:
+    """Return list of (pH, logD) tuples for pH profile visualization.
+
+    Parameters
+    ----------
+    compound_name:
+        Name of the compound (used for context, not computation).
+    logP:
+        Octanol-water partition coefficient.
+    pka_acid:
+        Acid pKa. Must be in [0, 14] if provided.
+    pka_base:
+        Base pKa. Must be in [0, 14] if provided.
+    pH_range:
+        List of pH values. Defaults to [1, 2, ..., 10].
+
+    Returns
+    -------
+    list of (pH, logD) tuples
+    """
+    # Validation
+    if pka_acid is not None and not (0.0 <= pka_acid <= 14.0):
+        raise ValueError(f"pka_acid must be in [0, 14], got {pka_acid}")
+    if pka_base is not None and not (0.0 <= pka_base <= 14.0):
+        raise ValueError(f"pka_base must be in [0, 14], got {pka_base}")
+
+    if pH_range is None:
+        pH_range = [float(i) for i in range(1, 11)]
+
+    return [(pH, _logD_at_pH(logP, pka_acid, pka_base, pH)) for pH in pH_range]
+
+
+def screen_logD(compounds: list[dict]) -> list[LogDPrediction]:
+    """Screen multiple compounds and return sorted by logD_at_pH74 descending.
+
+    Each dict should have keys: compound_name, logP, and optionally pka_acid, pka_base.
+
+    Parameters
+    ----------
+    compounds:
+        List of compound parameter dicts.
+
+    Returns
+    -------
+    list of LogDPrediction sorted by logD_at_pH74 descending
+    """
+    if not compounds:
+        return []
+
+    results: list[LogDPrediction] = []
+    for cmpd in compounds:
+        result = predict_logD(
+            compound_name=cmpd.get("compound_name", "unknown"),
+            logP=cmpd["logP"],
+            pka_acid=cmpd.get("pka_acid"),
+            pka_base=cmpd.get("pka_base"),
+        )
+        results.append(result)
+
+    results.sort(key=lambda r: r.logD_at_pH74, reverse=True)
+    return results
