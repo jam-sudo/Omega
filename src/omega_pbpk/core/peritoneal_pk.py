@@ -1,21 +1,15 @@
-"""Peritoneal pharmacokinetics for intraperitoneal administration (Phase 409).
+"""Peritoneal drug absorption and dialysis pharmacokinetics (Phase 711).
 
-Models PK of drugs administered intraperitoneally for oncology (IP chemotherapy)
-or peritoneal dialysis (PD). Two-compartment peritoneal cavity -> systemic plasma.
+Models intraperitoneal (IP) administration, which bypasses hepatic first-pass via
+lymphatic pathway. Also supports peritoneal dialysis clearance for renally-impaired
+patients.
 """
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
-__all__ = [
-    "PeritonealPKResult",
-    "simulate_peritoneal_pk",
-    "compare_ip_drugs",
-]
-
-_VALID_APPLICATIONS = {"ip_chemo", "pd_dialysis"}
+__all__ = ["PeritonealPKResult", "simulate_peritoneal_pk", "compare_routes_ip_iv"]
 
 
 # ---------------------------------------------------------------------------
@@ -29,16 +23,18 @@ class PeritonealPKResult:
 
     drug_name: str
     dose_mg: float
-    peritoneal_volume_L: float
-    application: str
-    times_h: list[float] = field(default_factory=list)
-    c_peri_mg_L: list[float] = field(default_factory=list)
-    c_sys_mg_L: list[float] = field(default_factory=list)
-    cmax_sys: float = 0.0
-    auc_sys: float = 0.0
-    auc_peri: float = 0.0
-    auc_ratio_peri_sys: float = 0.0
-    notes: list[str] = field(default_factory=list)
+    route: str
+    dialysis: bool
+    times_h: list = field(default_factory=list)
+    a_ip_mg: list = field(default_factory=list)
+    c_plasma_mg_L: list = field(default_factory=list)
+    cmax_mg_L: float = 0.0
+    tmax_h: float = 0.0
+    auc_mg_h_per_L: float = 0.0
+    t_half_h: float = 0.0
+    f_systemic_effective: float = 0.0
+    cl_dialysis_L_per_h: float = 0.0
+    notes: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -46,52 +42,26 @@ class PeritonealPKResult:
 # ---------------------------------------------------------------------------
 
 
-def _validate_peritoneal_inputs(
+def _validate_inputs(
     dose_mg: float,
-    cl_sys_L_per_h: float,
-    vd_sys_L: float,
-    peritoneal_volume_L: float,
-    k_peritoneal_abs_per_h: float,
-    dialysis_flow_L_per_h: float,
-    t_end_h: float,
-    dt_h: float,
-    application: str,
+    f_bypass: float,
+    fh: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    fup: float,
 ) -> None:
     if dose_mg <= 0:
-        raise ValueError("dose_mg must be positive.")
-    if cl_sys_L_per_h <= 0:
-        raise ValueError("cl_sys_L_per_h must be positive.")
-    if vd_sys_L <= 0:
-        raise ValueError("vd_sys_L must be positive.")
-    if peritoneal_volume_L <= 0:
-        raise ValueError("peritoneal_volume_L must be positive.")
-    if k_peritoneal_abs_per_h < 0:
-        raise ValueError("k_peritoneal_abs_per_h must be non-negative.")
-    if dialysis_flow_L_per_h < 0:
-        raise ValueError("dialysis_flow_L_per_h must be non-negative.")
-    if t_end_h <= 0:
-        raise ValueError("t_end_h must be positive.")
-    if dt_h <= 0:
-        raise ValueError("dt_h must be positive.")
-    if dt_h >= t_end_h:
-        raise ValueError("dt_h must be less than t_end_h.")
-    if application not in _VALID_APPLICATIONS:
-        raise ValueError(
-            f"application must be one of {sorted(_VALID_APPLICATIONS)}, got '{application}'."
-        )
-
-
-# ---------------------------------------------------------------------------
-# Trapezoidal AUC
-# ---------------------------------------------------------------------------
-
-
-def _trapz_auc(times: list[float], conc: list[float]) -> float:
-    """Compute AUC via linear trapezoidal rule."""
-    auc = 0.0
-    for i in range(1, len(times)):
-        auc += (conc[i] + conc[i - 1]) * (times[i] - times[i - 1]) / 2.0
-    return auc
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if not (0 < f_bypass < 1):
+        raise ValueError(f"f_bypass must be in (0, 1), got {f_bypass}")
+    if not (0 < fh <= 1):
+        raise ValueError(f"fh must be in (0, 1], got {fh}")
+    if cl_L_per_h <= 0:
+        raise ValueError(f"cl_L_per_h must be > 0, got {cl_L_per_h}")
+    if vd_L <= 0:
+        raise ValueError(f"vd_L must be > 0, got {vd_L}")
+    if not (0 < fup <= 1):
+        raise ValueError(f"fup must be in (0, 1], got {fup}")
 
 
 # ---------------------------------------------------------------------------
@@ -102,221 +72,159 @@ def _trapz_auc(times: list[float], conc: list[float]) -> float:
 def simulate_peritoneal_pk(
     drug_name: str,
     dose_mg: float,
-    cl_sys_L_per_h: float,
-    vd_sys_L: float,
-    peritoneal_volume_L: float,
-    k_peritoneal_abs_per_h: float,
-    dialysis_flow_L_per_h: float,
-    t_end_h: float,
-    dt_h: float,
-    application: str,
+    ka_ip_per_h: float = 0.5,
+    f_bypass: float = 0.5,
+    fh: float = 0.8,
+    cl_L_per_h: float = 5.0,
+    vd_L: float = 50.0,
+    dialysis: bool = False,
+    fup: float = 0.1,
+    dialysate_flow_mL_per_min: float = 2000.0,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.05,
 ) -> PeritonealPKResult:
-    """Simulate peritoneal PK via forward Euler ODE integration.
+    """Simulate peritoneal (IP) drug pharmacokinetics using forward Euler ODE.
 
-    Two-compartment model: peritoneal cavity -> systemic plasma.
+    Model:
+        dA_ip/dt = -ka_ip * A_ip
+        dC_plasma/dt = ka_ip * A_ip * f_effective / Vd - ke * C_plasma
 
-    Peritoneal ODE:
-        dC_peri/dt = -(k_abs + dialysis_flow/V_peri) * C_peri
-
-    Systemic ODE:
-        dC_sys/dt = k_abs * C_peri * V_peri / Vd_sys - ke * C_sys
-
-    where ke = CL_sys / Vd_sys.
-
-    For ip_chemo: dialysis_flow = 0 (no peritoneal removal).
-    For pd_dialysis: dialysis_flow removes drug from peritoneal cavity.
-
-    Parameters
-    ----------
-    drug_name:
-        Identifier for the drug.
-    dose_mg:
-        Intraperitoneally administered dose in mg.
-    cl_sys_L_per_h:
-        Systemic clearance in L/h.
-    vd_sys_L:
-        Systemic volume of distribution in L.
-    peritoneal_volume_L:
-        Volume of peritoneal fluid in L.
-    k_peritoneal_abs_per_h:
-        First-order absorption rate constant from peritoneum to plasma (1/h).
-    dialysis_flow_L_per_h:
-        Dialysis outflow rate in L/h (0 for ip_chemo).
-    t_end_h:
-        Simulation end time in hours.
-    dt_h:
-        Integration time step in hours.
-    application:
-        "ip_chemo" or "pd_dialysis".
-
-    Returns
-    -------
-    PeritonealPKResult
-        Full concentration-time profiles and summary PK metrics.
+    where f_effective = f_bypass + (1 - f_bypass) * fh
+    and ke = (CL_sys + CL_dial) / Vd.
     """
-    _validate_peritoneal_inputs(
-        dose_mg,
-        cl_sys_L_per_h,
-        vd_sys_L,
-        peritoneal_volume_L,
-        k_peritoneal_abs_per_h,
-        dialysis_flow_L_per_h,
-        t_end_h,
-        dt_h,
-        application,
-    )
+    _validate_inputs(dose_mg, f_bypass, fh, cl_L_per_h, vd_L, fup)
 
-    # Effective dialysis removal rate
-    if application == "ip_chemo":
-        effective_dialysis_flow = 0.0
-    else:
-        effective_dialysis_flow = dialysis_flow_L_per_h
+    # Effective systemic bioavailability:
+    # lymphatic fraction (f_bypass) skips liver, portal fraction undergoes hepatic
+    # extraction (fh = hepatic availability = 1 - ER)
+    f_effective = f_bypass + (1.0 - f_bypass) * fh
 
-    # Derived rate constants
-    ke = cl_sys_L_per_h / vd_sys_L
-    k_peri_out = k_peritoneal_abs_per_h + effective_dialysis_flow / peritoneal_volume_L
+    # Peritoneal dialysis clearance (L/h)
+    cl_dialysis = 0.0
+    if dialysis:
+        cl_dialysis = dialysate_flow_mL_per_min * 60.0 * fup / 1000.0
+
+    cl_total = cl_L_per_h + cl_dialysis
+    ke = cl_total / vd_L  # 1/h
 
     # Initial conditions
-    c_peri = dose_mg / peritoneal_volume_L  # mg/L
-    c_sys = 0.0  # mg/L
+    a_ip = dose_mg  # mg in peritoneal cavity
+    c_plasma = 0.0  # mg/L
 
-    # Storage
-    n_steps = int(math.ceil(t_end_h / dt_h)) + 1
-    times: list[float] = []
-    c_peri_arr: list[float] = []
-    c_sys_arr: list[float] = []
+    n_steps = int(t_end_h / dt_h) + 1
+    times_h: list[float] = [0.0]
+    a_ip_mg: list[float] = [a_ip]
+    c_plasma_mg_L: list[float] = [c_plasma]
 
-    t = 0.0
-    for _step in range(n_steps):
-        times.append(t)
-        c_peri_arr.append(c_peri)
-        c_sys_arr.append(c_sys)
-
-        if t >= t_end_h:
-            break
-
+    for i in range(1, n_steps):
         # Forward Euler
-        dc_peri = -k_peri_out * c_peri
-        dc_sys = k_peritoneal_abs_per_h * c_peri * peritoneal_volume_L / vd_sys_L - ke * c_sys
+        da_ip_dt = -ka_ip_per_h * a_ip
+        dc_plasma_dt = (ka_ip_per_h * a_ip * f_effective / vd_L) - ke * c_plasma
 
-        c_peri = max(0.0, c_peri + dc_peri * dt_h)
-        c_sys = max(0.0, c_sys + dc_sys * dt_h)
-        t = min(t + dt_h, t_end_h)
+        a_ip = a_ip + da_ip_dt * dt_h
+        c_plasma = c_plasma + dc_plasma_dt * dt_h
+
+        # Clamp negatives
+        if a_ip < 0.0:
+            a_ip = 0.0
+        if c_plasma < 0.0:
+            c_plasma = 0.0
+
+        times_h.append(i * dt_h)
+        a_ip_mg.append(a_ip)
+        c_plasma_mg_L.append(c_plasma)
 
     # PK metrics
-    cmax_sys = max(c_sys_arr) if c_sys_arr else 0.0
-    auc_sys = _trapz_auc(times, c_sys_arr)
-    auc_peri = _trapz_auc(times, c_peri_arr)
+    cmax_mg_L = max(c_plasma_mg_L)
+    tmax_idx = c_plasma_mg_L.index(cmax_mg_L)
+    tmax_h = times_h[tmax_idx]
 
-    if auc_sys > 0:
-        auc_ratio = auc_peri / auc_sys
-    else:
-        auc_ratio = float("inf")
+    # Trapezoidal AUC
+    auc = 0.0
+    for i in range(1, len(times_h)):
+        auc += 0.5 * (c_plasma_mg_L[i] + c_plasma_mg_L[i - 1]) * (times_h[i] - times_h[i - 1])
 
-    notes: list[str] = []
-    if application == "ip_chemo":
-        notes.append(
-            f"IP chemotherapy: AUC ratio (peritoneal:systemic) = {auc_ratio:.1f}x "
-            "indicates local drug exposure advantage."
-        )
-        if auc_ratio > 10:
-            notes.append("High AUC ratio (>10) suggests favorable IP drug targeting.")
-    else:
-        notes.append(
-            f"Peritoneal dialysis: dialysis_flow = {dialysis_flow_L_per_h:.2f} L/h "
-            "reduces peritoneal drug exposure."
+    t_half_h = 0.693147 / ke if ke > 0.0 else float("inf")
+
+    notes_parts = [
+        f"IP administration with {f_effective:.1%} effective systemic bioavailability.",
+        f"Hepatic extraction ratio: {1.0 - fh:.2f} (fh={fh}).",
+    ]
+    if dialysis:
+        notes_parts.append(
+            f"Peritoneal dialysis CL: {cl_dialysis:.2f} L/h "
+            f"(dialysate flow {dialysate_flow_mL_per_min:.0f} mL/min, fup={fup})."
         )
 
     return PeritonealPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        peritoneal_volume_L=peritoneal_volume_L,
-        application=application,
-        times_h=times,
-        c_peri_mg_L=c_peri_arr,
-        c_sys_mg_L=c_sys_arr,
-        cmax_sys=cmax_sys,
-        auc_sys=auc_sys,
-        auc_peri=auc_peri,
-        auc_ratio_peri_sys=auc_ratio,
-        notes=notes,
+        route="ip",
+        dialysis=dialysis,
+        times_h=times_h,
+        a_ip_mg=a_ip_mg,
+        c_plasma_mg_L=c_plasma_mg_L,
+        cmax_mg_L=cmax_mg_L,
+        tmax_h=tmax_h,
+        auc_mg_h_per_L=auc,
+        t_half_h=t_half_h,
+        f_systemic_effective=f_effective,
+        cl_dialysis_L_per_h=cl_dialysis,
+        notes=" ".join(notes_parts),
     )
 
 
 # ---------------------------------------------------------------------------
-# Comparison utility
+# Route comparison
 # ---------------------------------------------------------------------------
 
 
-def compare_ip_drugs(
+def compare_routes_ip_iv(
+    drug_name: str,
     dose_mg: float,
-    cl_sys_L_per_h: float,
-    vd_sys_L: float,
-    k_abs_values: list[dict],
-) -> list[dict]:
-    """Compare AUC ratios for multiple drugs with different peritoneal absorption rates.
+    fh: float = 0.8,
+    cl_L_per_h: float = 5.0,
+    vd_L: float = 50.0,
+) -> dict:
+    """Compare IP vs IV administration for the same drug and dose.
 
-    Parameters
-    ----------
-    dose_mg:
-        IP dose in mg (same for all drugs).
-    cl_sys_L_per_h:
-        Systemic clearance shared across drugs in L/h.
-    vd_sys_L:
-        Systemic volume of distribution shared across drugs in L.
-    k_abs_values:
-        List of dicts with keys "drug" (str) and "k_abs" (float, 1/h).
-        Example: [{"drug": "cisplatin", "k_abs": 0.1}, ...]
-
-    Returns
-    -------
-    list[dict]
-        Each dict contains "drug", "k_abs", "auc_ratio", "auc_sys", "auc_peri",
-        sorted by auc_ratio descending (higher ratio = better IP targeting).
+    Returns a dict with:
+        ip_result: PeritonealPKResult
+        iv_result: dict with cmax_mg_L, auc_mg_h_per_L, t_half_h
+        auc_ratio: float (IP AUC / IV AUC)
+        notes: str
     """
-    if dose_mg <= 0:
-        raise ValueError("dose_mg must be positive.")
-    if cl_sys_L_per_h <= 0:
-        raise ValueError("cl_sys_L_per_h must be positive.")
-    if vd_sys_L <= 0:
-        raise ValueError("vd_sys_L must be positive.")
-    if not k_abs_values:
-        raise ValueError("k_abs_values must not be empty.")
+    ip_result = simulate_peritoneal_pk(
+        drug_name=drug_name,
+        dose_mg=dose_mg,
+        fh=fh,
+        cl_L_per_h=cl_L_per_h,
+        vd_L=vd_L,
+    )
 
-    results: list[dict] = []
-    for entry in k_abs_values:
-        drug = entry.get("drug", "unknown")
-        k_abs = float(entry.get("k_abs", 0.0))
-        if k_abs < 0:
-            raise ValueError(f"k_abs must be non-negative for drug '{drug}'.")
+    # IV 1-compartment bolus: analytical solution
+    ke_iv = cl_L_per_h / vd_L
+    c0_iv = dose_mg / vd_L  # mg/L at t=0
+    t_half_iv = 0.693147 / ke_iv if ke_iv > 0.0 else float("inf")
+    auc_iv = dose_mg / cl_L_per_h  # theoretical AUC = Dose/CL
 
-        result = simulate_peritoneal_pk(
-            drug_name=drug,
-            dose_mg=dose_mg,
-            cl_sys_L_per_h=cl_sys_L_per_h,
-            vd_sys_L=vd_sys_L,
-            peritoneal_volume_L=2.0,  # standard peritoneal volume
-            k_peritoneal_abs_per_h=k_abs,
-            dialysis_flow_L_per_h=0.0,
-            t_end_h=24.0,
-            dt_h=0.05,
-            application="ip_chemo",
-        )
+    iv_result = {
+        "cmax_mg_L": c0_iv,
+        "auc_mg_h_per_L": auc_iv,
+        "t_half_h": t_half_iv,
+    }
 
-        results.append(
-            {
-                "drug": drug,
-                "k_abs": k_abs,
-                "auc_ratio": result.auc_ratio_peri_sys,
-                "auc_sys": result.auc_sys,
-                "auc_peri": result.auc_peri,
-            }
-        )
+    auc_ratio = ip_result.auc_mg_h_per_L / auc_iv if auc_iv > 0.0 else 0.0
 
-    # Sort by AUC ratio descending (finite values first, then inf)
-    def sort_key(d: dict) -> float:
-        r = d["auc_ratio"]
-        return r if math.isfinite(r) else 1e18
+    notes = (
+        f"IP effective bioavailability: {ip_result.f_systemic_effective:.1%}. "
+        f"AUC ratio IP/IV: {auc_ratio:.3f}. "
+        f"IV bolus Cmax: {c0_iv:.2f} mg/L vs IP Cmax: {ip_result.cmax_mg_L:.2f} mg/L."
+    )
 
-    results.sort(key=sort_key, reverse=True)
-    return results
+    return {
+        "ip_result": ip_result,
+        "iv_result": iv_result,
+        "auc_ratio": auc_ratio,
+        "notes": notes,
+    }

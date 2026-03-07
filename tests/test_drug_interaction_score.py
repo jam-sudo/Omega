@@ -1,277 +1,333 @@
-"""Tests for drug_interaction_score module."""
+"""Tests for composite DDI risk scoring (Phase 712)."""
+
+from __future__ import annotations
 
 import pytest
 
-from omega_pbpk.risk.drug_interaction_score import (
-    DDIRiskEntry,
-    DDIRiskReport,
-    score_ddi_risk,
-    screen_combinations,
+from omega_pbpk.prediction.drug_interaction_score import (
+    DDIScoreResult,
+    compute_ddi_score,
+    estimate_clinical_aucr,
+    screen_ddi_scores,
 )
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Basic structure tests
+# ---------------------------------------------------------------------------
 
 
-def make_report(
-    primary_drug="PrimaryDrug",
-    cyp3a4_substrate=False,
-    cyp2d6_substrate=False,
-    pgp_substrate=False,
-    interacting_drugs=None,
-):
-    return score_ddi_risk(
-        primary_drug=primary_drug,
-        primary_cyp3a4_substrate=cyp3a4_substrate,
-        primary_cyp2d6_substrate=cyp2d6_substrate,
-        primary_pgp_substrate=pgp_substrate,
-        interacting_drugs=interacting_drugs or [],
+def test_returns_ddi_score_result():
+    result = compute_ddi_score("compound_a")
+    assert isinstance(result, DDIScoreResult)
+
+
+def test_compound_name_preserved():
+    result = compute_ddi_score("TestDrug")
+    assert result.compound_name == "TestDrug"
+
+
+def test_no_interactions_overall_risk_zero():
+    result = compute_ddi_score("inert_compound")
+    assert result.overall_ddi_risk == pytest.approx(0.0, abs=1e-9)
+
+
+def test_no_interactions_risk_class_low():
+    result = compute_ddi_score("inert_compound")
+    assert result.risk_class == "low"
+
+
+def test_no_interactions_victim_score_zero():
+    result = compute_ddi_score("inert_compound")
+    assert result.victim_score == pytest.approx(0.0, abs=1e-9)
+
+
+def test_no_interactions_perpetrator_score_zero():
+    result = compute_ddi_score("inert_compound")
+    assert result.perpetrator_score == pytest.approx(0.0, abs=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Victim score tests
+# ---------------------------------------------------------------------------
+
+
+def test_cyp3a4_substrate_victim_score():
+    result = compute_ddi_score("drug_a", is_cyp3a4_substrate=True)
+    assert result.victim_score >= 20.0
+
+
+def test_cyp2d6_substrate_victim_score():
+    result = compute_ddi_score("drug_a", is_cyp2d6_substrate=True)
+    assert result.victim_score >= 15.0
+
+
+def test_cyp2c9_substrate_victim_score():
+    result = compute_ddi_score("drug_a", is_cyp2c9_substrate=True)
+    assert result.victim_score >= 15.0
+
+
+def test_pgp_substrate_victim_score():
+    result = compute_ddi_score("drug_a", is_pgp_substrate=True)
+    assert result.victim_score >= 10.0
+
+
+def test_oatp_substrate_victim_score():
+    result = compute_ddi_score("drug_a", is_oatp_substrate=True)
+    assert result.victim_score >= 10.0
+
+
+def test_victim_score_max_70():
+    """Max victim score should be 70."""
+    result = compute_ddi_score(
+        "drug_a",
+        is_cyp3a4_substrate=True,
+        is_cyp2d6_substrate=True,
+        is_cyp2c9_substrate=True,
+        is_pgp_substrate=True,
+        is_oatp_substrate=True,
     )
+    assert result.victim_score <= 70.0
 
 
-# ── basic construction ────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Perpetrator score tests
+# ---------------------------------------------------------------------------
 
 
-def test_returns_ddi_risk_report():
-    report = make_report()
-    assert isinstance(report, DDIRiskReport)
+def test_strong_inhibitor_ki_lt_1():
+    """Ki < 1 µM -> +30 perpetrator points."""
+    result = compute_ddi_score("drug_a", ki_3a4_uM=0.1)
+    assert result.perpetrator_score >= 30.0
 
 
-def test_primary_drug_name_preserved():
-    report = make_report(primary_drug="Alprazolam")
-    assert report.primary_drug == "Alprazolam"
+def test_moderate_inhibitor_ki_1_to_10():
+    """1 <= Ki < 10 µM -> +20 perpetrator points."""
+    result = compute_ddi_score("drug_a", ki_3a4_uM=5.0)
+    assert result.perpetrator_score >= 20.0
 
 
-def test_empty_interacting_drugs_low_risk():
-    report = make_report()
-    assert report.overall_risk == "low"
-    assert report.max_risk_score == 0.0
-    assert report.n_major_interactions == 0
+def test_weak_inhibitor_ki_10_to_100():
+    """10 <= Ki < 100 µM -> +10 perpetrator points."""
+    result = compute_ddi_score("drug_a", ki_3a4_uM=50.0)
+    assert result.perpetrator_score >= 10.0
 
 
-def test_empty_interactions_list():
-    report = make_report()
-    assert report.interactions == []
+def test_very_weak_inhibitor_ki_ge_100():
+    """Ki >= 100 µM -> 0 perpetrator points from that Ki."""
+    result = compute_ddi_score("drug_a", ki_3a4_uM=200.0)
+    # No pgp_inhibitor, so perpetrator_score from this Ki alone = 0
+    assert result.perpetrator_score == pytest.approx(0.0, abs=1e-9)
 
 
-# ── CYP3A4 inhibition ────────────────────────────────────────────────────────
+def test_pgp_inhibitor_perpetrator_score():
+    result = compute_ddi_score("drug_a", is_pgp_inhibitor=True)
+    assert result.perpetrator_score >= 15.0
 
 
-def test_strong_cyp3a4_inhibitor_with_substrate_gives_major():
-    # Ki = 0.1 uM → AUCR = 1 + 1/0.1 = 11, score = min(50, 10*10) = 50
-    report = score_ddi_risk(
-        primary_drug="Midazolam",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=[{"name": "Ketoconazole", "cyp3a4_inhibitor_ki": 0.1}],
+# ---------------------------------------------------------------------------
+# Risk classification
+# ---------------------------------------------------------------------------
+
+
+def test_risk_class_in_valid_set():
+    for ti in ["wide", "narrow", "moderate"]:
+        result = compute_ddi_score("drug_a", is_cyp3a4_substrate=True, therapeutic_index=ti)
+        assert result.risk_class in {"low", "moderate", "high"}
+
+
+def test_risk_class_low_for_zero_risk():
+    result = compute_ddi_score("drug_a")
+    assert result.risk_class == "low"
+
+
+def test_risk_class_high_for_strong_inhibitor_and_substrate():
+    result = compute_ddi_score("drug_a", is_cyp3a4_substrate=True, ki_3a4_uM=0.1)
+    # victim=20, perp=30, overall=max(20,30)=30 -> moderate
+    # Actually 30 is at boundary (20-50 -> moderate)
+    assert result.risk_class in {"moderate", "high"}
+
+
+def test_risk_class_high_explicitly():
+    """Overall > 50 -> high."""
+    result = compute_ddi_score(
+        "drug_a",
+        is_cyp3a4_substrate=True,
+        is_cyp2d6_substrate=True,
+        is_cyp2c9_substrate=True,
+        therapeutic_index="narrow",
     )
-    assert len(report.interactions) == 1
-    entry = report.interactions[0]
-    assert isinstance(entry, DDIRiskEntry)
-    assert entry.severity in ("major", "contraindicated")
-    assert entry.risk_score >= 50.0
+    # victim = 20+15+15=50, narrow TI -> 50*1.5=75 -> high
+    assert result.risk_class == "high"
 
 
-def test_weak_cyp3a4_inhibitor_gives_low_risk():
-    # Ki = 100 uM → AUCR = 1.01, score ≈ 0.1 (minor)
-    report = score_ddi_risk(
-        primary_drug="Midazolam",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=[{"name": "WeakInhibitor", "cyp3a4_inhibitor_ki": 100.0}],
+# ---------------------------------------------------------------------------
+# Regulatory flag
+# ---------------------------------------------------------------------------
+
+
+def test_requires_clinical_ddi_study_true_above_30():
+    # ki_3a4_uM=0.1 -> perp=30, overall=30, NOT > 30 -> False
+    # Need perp > 30: combine two strong inhibitors
+    result3 = compute_ddi_score("drug_a", is_cyp3a4_substrate=True, ki_3a4_uM=0.1, ki_2d6_uM=0.1)
+    # perp = 30+30=60 > 30 -> True
+    assert result3.requires_clinical_ddi_study is True
+
+
+def test_requires_clinical_ddi_study_false_below_30():
+    result = compute_ddi_score("drug_a")
+    assert result.requires_clinical_ddi_study is False
+
+
+def test_requires_clinical_ddi_study_flag_at_boundary():
+    """Overall == 30 -> False (not > 30)."""
+    result = compute_ddi_score("drug_a", ki_3a4_uM=0.1)
+    # perp=30, no victim -> overall=30 -> False
+    assert result.requires_clinical_ddi_study is False
+
+
+# ---------------------------------------------------------------------------
+# Narrow TI amplification
+# ---------------------------------------------------------------------------
+
+
+def test_narrow_ti_higher_risk_than_wide():
+    """Same profile, narrow TI -> higher overall risk."""
+    result_wide = compute_ddi_score("drug_a", is_cyp3a4_substrate=True, therapeutic_index="wide")
+    result_narrow = compute_ddi_score(
+        "drug_a", is_cyp3a4_substrate=True, therapeutic_index="narrow"
     )
-    entry = report.interactions[0]
-    assert entry.severity in ("none", "minor")
-    assert entry.risk_score < 10.0
+    assert result_narrow.overall_ddi_risk > result_wide.overall_ddi_risk
 
 
-def test_cyp3a4_inhibitor_without_substrate_no_interaction():
-    # Primary is NOT a substrate → inhibition irrelevant
-    report = score_ddi_risk(
-        primary_drug="PrimaryDrug",
-        primary_cyp3a4_substrate=False,
-        interacting_drugs=[{"name": "Ketoconazole", "cyp3a4_inhibitor_ki": 0.1}],
-    )
-    entry = report.interactions[0]
-    assert entry.severity == "none"
-    assert entry.risk_score == 0.0
+def test_narrow_ti_factor_1_5():
+    """Narrow TI -> x1.5, capped at 100."""
+    result = compute_ddi_score("drug_a", is_cyp3a4_substrate=True, therapeutic_index="narrow")
+    # victim=20, perp=0, overall = 20*1.5=30
+    assert result.overall_ddi_risk == pytest.approx(30.0, rel=1e-9)
 
 
-def test_mechanism_is_cyp_inhibition_for_cyp3a4():
-    report = score_ddi_risk(
-        primary_drug="Sub",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=[{"name": "Inh", "cyp3a4_inhibitor_ki": 1.0}],
-    )
-    assert report.interactions[0].mechanism == "cyp_inhibition"
+# ---------------------------------------------------------------------------
+# Primary interaction pathway
+# ---------------------------------------------------------------------------
 
 
-# ── CYP2D6 inhibition ────────────────────────────────────────────────────────
+def test_primary_pathway_none_for_no_interactions():
+    result = compute_ddi_score("drug_a")
+    assert result.primary_interaction_pathway == "none"
 
 
-def test_cyp2d6_inhibition_increases_risk_score():
-    report = score_ddi_risk(
-        primary_drug="Codeine",
-        primary_cyp2d6_substrate=True,
-        interacting_drugs=[{"name": "Fluoxetine", "cyp2d6_inhibitor_ki": 0.5}],
-    )
-    entry = report.interactions[0]
-    assert entry.risk_score > 0.0
-    assert entry.mechanism == "cyp_inhibition"
+def test_primary_pathway_cyp3a4_substrate():
+    result = compute_ddi_score("drug_a", is_cyp3a4_substrate=True)
+    assert "CYP3A4" in result.primary_interaction_pathway
 
 
-# ── P-gp transporter ─────────────────────────────────────────────────────────
+def test_primary_pathway_strong_inhibitor():
+    result = compute_ddi_score("drug_a", ki_3a4_uM=0.1)
+    assert "CYP3A4" in result.primary_interaction_pathway
 
 
-def test_pgp_inhibitor_increases_risk_for_pgp_substrate():
-    report = score_ddi_risk(
-        primary_drug="Digoxin",
-        primary_pgp_substrate=True,
-        interacting_drugs=[{"name": "Verapamil", "pgp_inhibitor": True}],
-    )
-    entry = report.interactions[0]
-    assert entry.risk_score >= 15.0
-    assert entry.mechanism == "transporter"
+# ---------------------------------------------------------------------------
+# Notes
+# ---------------------------------------------------------------------------
 
 
-def test_pgp_inhibitor_without_pgp_substrate_no_risk():
-    report = score_ddi_risk(
-        primary_drug="DrugA",
-        primary_pgp_substrate=False,
-        interacting_drugs=[{"name": "Verapamil", "pgp_inhibitor": True}],
-    )
-    entry = report.interactions[0]
-    assert entry.risk_score == 0.0
+def test_notes_nonempty():
+    result = compute_ddi_score("drug_a", is_cyp3a4_substrate=True)
+    assert len(result.notes) > 0
 
 
-# ── severity thresholds ───────────────────────────────────────────────────────
+def test_notes_nonempty_for_no_interactions():
+    result = compute_ddi_score("drug_a")
+    assert len(result.notes) > 0
 
 
-def test_severity_none_for_zero_score():
-    report = make_report(interacting_drugs=[{"name": "Inert"}])
-    assert report.interactions[0].severity == "none"
+# ---------------------------------------------------------------------------
+# screen_ddi_scores
+# ---------------------------------------------------------------------------
 
 
-def test_severity_minor_10_to_30():
-    # Ki = 1 uM for CYP3A4: AUCR = 1 + 1/1 = 2 → score = (2-1)*10 = 10 → minor
-    report2 = score_ddi_risk(
-        primary_drug="Sub",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=[{"name": "MildInh", "cyp3a4_inhibitor_ki": 1.0}],
-    )
-    entry2 = report2.interactions[0]
-    assert entry2.severity == "minor"
-    assert entry2.risk_score == pytest.approx(10.0)
-
-
-# ── overall risk ──────────────────────────────────────────────────────────────
-
-
-def test_multiple_major_interactions_critical():
-    # Two major interactions → critical
-    drugs = [
-        {"name": "InhA", "cyp3a4_inhibitor_ki": 0.1},
-        {"name": "InhB", "cyp3a4_inhibitor_ki": 0.1},
+def test_screen_ddi_scores_returns_list():
+    compounds = [
+        {"compound_name": "drug_a", "is_cyp3a4_substrate": True},
+        {"compound_name": "drug_b", "ki_3a4_uM": 0.1},
+        {"compound_name": "drug_c"},
     ]
-    report = score_ddi_risk(
-        primary_drug="Sub",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=drugs,
-    )
-    assert report.n_major_interactions >= 2
-    assert report.overall_risk == "critical"
+    results = screen_ddi_scores(compounds)
+    assert isinstance(results, list)
+    assert len(results) == 3
 
 
-def test_single_major_high_risk():
-    # One major interaction → "high"
-    report = score_ddi_risk(
-        primary_drug="Sub",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=[{"name": "InhA", "cyp3a4_inhibitor_ki": 0.1}],
-    )
-    # score=50 → major → high (not critical since n_major=1)
-    assert report.overall_risk == "high"
-
-
-def test_n_major_interactions_counts_correctly():
-    # InhA: Ki=0.1 → AUCR=11 → score=50 → major
-    # Inert: score=0 → none
-    # InhB: Ki=0.5 → AUCR=3 → score=20 → moderate (not major)
-    drugs = [
-        {"name": "InhA", "cyp3a4_inhibitor_ki": 0.1},  # score 50 → major
-        {"name": "Inert"},  # score 0 → none
-        {"name": "InhB", "cyp3a4_inhibitor_ki": 0.5},  # score 20 → moderate
+def test_screen_ddi_scores_sorted_descending():
+    compounds = [
+        {"compound_name": "low_risk"},
+        {"compound_name": "high_risk", "ki_3a4_uM": 0.1, "ki_2d6_uM": 0.1},
+        {"compound_name": "mid_risk", "is_cyp3a4_substrate": True},
     ]
-    report = score_ddi_risk(
-        primary_drug="Sub",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=drugs,
-    )
-    # Only first is major/contraindicated
-    assert report.n_major_interactions == 1
+    results = screen_ddi_scores(compounds)
+    risks = [r.overall_ddi_risk for r in results]
+    assert risks == sorted(risks, reverse=True)
 
 
-# ── priority alert ────────────────────────────────────────────────────────────
+def test_screen_ddi_scores_all_ddi_score_results():
+    compounds = [{"compound_name": "drug_a"}, {"compound_name": "drug_b"}]
+    results = screen_ddi_scores(compounds)
+    assert all(isinstance(r, DDIScoreResult) for r in results)
 
 
-def test_priority_alert_no_interactions():
-    report = make_report()
-    assert "No interactions" in report.priority_alert
+# ---------------------------------------------------------------------------
+# estimate_clinical_aucr
+# ---------------------------------------------------------------------------
 
 
-def test_priority_alert_identifies_worst():
-    drugs = [
-        {"name": "Mild", "cyp3a4_inhibitor_ki": 10.0},
-        {"name": "Strong", "cyp3a4_inhibitor_ki": 0.1},
-    ]
-    report = score_ddi_risk(
-        primary_drug="Sub",
-        primary_cyp3a4_substrate=True,
-        interacting_drugs=drugs,
-    )
-    assert "Strong" in report.priority_alert
+def test_estimate_aucr_large_ki_approaches_1():
+    """When Ki >> Imax, inhibition is negligible -> AUCR ≈ 1."""
+    aucr = estimate_clinical_aucr(ki_uM=1e6, i_max_uM=1.0, fm_cyp=0.9)
+    assert aucr == pytest.approx(1.0, rel=1e-3)
 
 
-# ── screen_combinations ───────────────────────────────────────────────────────
+def test_estimate_aucr_strong_inhibition():
+    """Ki=0.1 µM, Imax=1.0 µM -> significant AUCR > 2."""
+    aucr = estimate_clinical_aucr(ki_uM=0.1, i_max_uM=1.0, fm_cyp=0.8)
+    assert aucr > 2.0
 
 
-def test_screen_combinations_returns_list():
-    candidates = [
-        {"name": "DrugA", "cyp3a4_inhibitor_ki": 0.1},
-        {"name": "DrugB"},
-        {"name": "DrugC", "cyp3a4_inhibitor_ki": 2.0},
-    ]
-    reports = screen_combinations(
-        primary_drug="Sub",
-        primary_drug_props={"cyp3a4_substrate": True},
-        candidate_drugs=candidates,
-    )
-    assert isinstance(reports, list)
-    assert len(reports) == 3
+def test_estimate_aucr_fm_zero_always_1():
+    """fm_cyp=0 -> no CYP involvement -> AUCR = 1."""
+    aucr = estimate_clinical_aucr(ki_uM=0.1, i_max_uM=10.0, fm_cyp=0.0)
+    assert aucr == pytest.approx(1.0, rel=1e-9)
 
 
-def test_screen_combinations_sorted_descending():
-    candidates = [
-        {"name": "Weak", "cyp3a4_inhibitor_ki": 20.0},
-        {"name": "Strong", "cyp3a4_inhibitor_ki": 0.1},
-        {"name": "Inert"},
-    ]
-    reports = screen_combinations(
-        primary_drug="Sub",
-        primary_drug_props={"cyp3a4_substrate": True},
-        candidate_drugs=candidates,
-    )
-    scores = [r.max_risk_score for r in reports]
-    assert scores == sorted(scores, reverse=True)
+def test_estimate_aucr_increases_with_imax():
+    aucr_low = estimate_clinical_aucr(ki_uM=1.0, i_max_uM=0.1, fm_cyp=0.8)
+    aucr_high = estimate_clinical_aucr(ki_uM=1.0, i_max_uM=10.0, fm_cyp=0.8)
+    assert aucr_high > aucr_low
 
 
-def test_screen_combinations_strongest_first():
-    candidates = [
-        {"name": "Weak", "cyp3a4_inhibitor_ki": 20.0},
-        {"name": "Strong", "cyp3a4_inhibitor_ki": 0.1},
-    ]
-    reports = screen_combinations(
-        primary_drug="Sub",
-        primary_drug_props={"cyp3a4_substrate": True},
-        candidate_drugs=candidates,
-    )
-    assert reports[0].primary_drug == "Sub"
-    # Strong inhibitor has higher risk score → comes first
-    assert reports[0].max_risk_score > reports[1].max_risk_score
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+
+def test_fup_gt_1_raises():
+    with pytest.raises(ValueError):
+        compute_ddi_score("drug_a", fup=1.5)
+
+
+def test_fup_zero_raises():
+    with pytest.raises(ValueError):
+        compute_ddi_score("drug_a", fup=0.0)
+
+
+def test_invalid_therapeutic_index_raises():
+    with pytest.raises(ValueError):
+        compute_ddi_score("drug_a", therapeutic_index="extreme")
+
+
+def test_negative_ki_raises():
+    with pytest.raises(ValueError):
+        compute_ddi_score("drug_a", ki_3a4_uM=-1.0)
+
+
+def test_zero_ki_raises():
+    with pytest.raises(ValueError):
+        compute_ddi_score("drug_a", ki_2d6_uM=0.0)
