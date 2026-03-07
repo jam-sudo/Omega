@@ -1,6 +1,5 @@
 """Tests for Phase 643 — drug_accumulation_risk.py"""
 
-
 import pytest
 
 from omega_pbpk.risk.drug_accumulation_risk import (
