@@ -1,193 +1,260 @@
-"""Plasma protein binding kinetics — kon/koff ODE for albumin/AGP drug binding."""
+"""Drug-protein binding kinetics — albumin/AAG Langmuir ODE model with time-dependent fu.
+
+Models time-dependent equilibration between drug and plasma proteins using
+Langmuir binding kinetics (forward Euler ODE integration).
+
+References
+----------
+- Barre J et al. Clin Pharmacokinet 1983; albumin binding kinetics
+- Tillement JP et al. Clin Pharmacokinet 1984; AAG binding
+"""
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-__all__ = [
-    "ProteinBindingResult",
-    "simulate_binding_kinetics",
-    "protein_binding_sensitivity",
-]
+# ---------------------------------------------------------------------------
+# Protein MW database (Da)
+# ---------------------------------------------------------------------------
+
+_PROTEIN_MW_DA: dict[str, float] = {
+    "albumin": 66500.0,
+    "aag": 41000.0,
+    "lipoprotein": 500000.0,
+    "custom": 66500.0,
+}
+
+
+# ---------------------------------------------------------------------------
+# Result dataclass
+# ---------------------------------------------------------------------------
 
 
 @dataclass
-class ProteinBindingResult:
-    """Result of a protein binding kinetics simulation."""
+class ProteinBindingKineticsResult:
+    """Result of a protein binding kinetics simulation.
+
+    Attributes
+    ----------
+    drug_name : Drug identifier.
+    protein_name : Protein name ("albumin", "AAG", "lipoprotein", "custom").
+    initial_drug_conc_mg_L : Initial total drug concentration (mg/L).
+    protein_conc_g_L : Protein concentration (g/L).
+    kd_mg_per_L : Dissociation constant in mg/L (koff / kon).
+    fu_equilibrium : Unbound fraction at equilibrium (C_free_final / initial).
+    fu_time_dependent : List of fu at each time point.
+    times_h : Simulation time points (h).
+    c_free_mg_L : Free drug concentration at each time point (mg/L).
+    c_bound_mg_L : Bound drug concentration at each time point (mg/L).
+    t_half_binding_min : Pseudo-first-order half-life of binding (min).
+    max_binding_sites_mg_per_L : Bmax — total binding capacity (mg/L).
+    notes : Summary string.
+    """
 
     drug_name: str
-    c_total_mg_L: float
-    kon: float  # L/(mg·h)
-    koff: float  # 1/h
-    protein_conc_mg_L: float
-    times_h: list[float] = field(default_factory=list)
-    c_free_mg_L: list[float] = field(default_factory=list)
-    c_bound_mg_L: list[float] = field(default_factory=list)
-    fu_equilibrium: float = 0.0
-    t_half_binding_h: float = 0.0
-    kd_mg_L: float = 0.0
+    protein_name: str
+    initial_drug_conc_mg_L: float
+    protein_conc_g_L: float
+    kd_mg_per_L: float
+    fu_equilibrium: float
+    fu_time_dependent: list
+    times_h: list
+    c_free_mg_L: list
+    c_bound_mg_L: list
+    t_half_binding_min: float
+    max_binding_sites_mg_per_L: float
+    notes: str
 
 
-def simulate_binding_kinetics(
+# ---------------------------------------------------------------------------
+# Core simulation function
+# ---------------------------------------------------------------------------
+
+
+def simulate_protein_binding(
     drug_name: str,
-    c_total_mg_L: float,
-    kon_per_h_per_mg_L: float,
-    koff_per_h: float,
-    protein_conc_mg_L: float,
-    t_end_h: float = 1.0,
+    protein_name: str = "albumin",
+    drug_conc_mg_L: float = 10.0,
+    protein_conc_g_L: float = 45.0,
+    kon_per_mg_per_L_per_h: float = 100.0,
+    koff_per_h: float = 50.0,
+    n_binding_sites: int = 1,
+    drug_mw_da: float = 400.0,
+    t_end_h: float = 0.1,
     dt_h: float = 0.001,
-) -> ProteinBindingResult:
-    """Simulate drug–plasma protein binding kinetics via forward Euler ODE.
+) -> ProteinBindingKineticsResult:
+    """Simulate drug-protein binding kinetics using Langmuir ODE (forward Euler).
 
-    The model tracks bound drug concentration over time:
-
-        d[bound]/dt = kon * [free] * [protein_free] - koff * [bound]
-
-    where:
-        [free]         = c_total - bound          (free drug)
-        [protein_free] = protein_conc - bound     (unbound protein sites)
-
-    At equilibrium:
-        Kd  = koff / kon
-        fu  = Kd / (Kd + protein_conc)
+    Langmuir ODEs:
+        d(C_free)/dt  = -kon * C_free * (Bmax - C_bound) + koff * C_bound
+        d(C_bound)/dt =  kon * C_free * (Bmax - C_bound) - koff * C_bound
 
     Parameters
     ----------
     drug_name : str
-        Name of the drug compound.
-    c_total_mg_L : float
-        Total drug concentration (mg/L). Must be > 0.
-    kon_per_h_per_mg_L : float
-        Association rate constant (L/(mg·h)). Must be > 0.
+        Drug identifier.
+    protein_name : str
+        Plasma protein ("albumin", "AAG", "lipoprotein", "custom").
+    drug_conc_mg_L : float
+        Initial drug concentration (mg/L). Must be >= 0.
+    protein_conc_g_L : float
+        Plasma protein concentration (g/L). Must be > 0.
+    kon_per_mg_per_L_per_h : float
+        Association rate constant (L/mg/h). Must be > 0.
     koff_per_h : float
-        Dissociation rate constant (1/h). Must be > 0.
-    protein_conc_mg_L : float
-        Total plasma protein concentration (mg/L). Must be > 0.
+        Dissociation rate constant (h^-1). Must be > 0.
+    n_binding_sites : int
+        Number of binding sites per protein molecule (>= 1).
+    drug_mw_da : float
+        Drug molecular weight (Da), used for Bmax calculation.
     t_end_h : float
-        Simulation duration (hours). Must be > 0.
+        Simulation duration (h).
     dt_h : float
-        Forward Euler step size (hours). Must be > 0.
+        Time step (h).
 
     Returns
     -------
-    ProteinBindingResult
-        Time courses of free and bound concentrations plus equilibrium metrics.
+    ProteinBindingKineticsResult
     """
-    if not drug_name or not isinstance(drug_name, str):
-        raise ValueError("drug_name must be a non-empty string.")
-    if c_total_mg_L <= 0:
-        raise ValueError(f"c_total_mg_L must be > 0, got {c_total_mg_L}.")
-    if kon_per_h_per_mg_L <= 0:
-        raise ValueError(f"kon_per_h_per_mg_L must be > 0, got {kon_per_h_per_mg_L}.")
-    if koff_per_h <= 0:
-        raise ValueError(f"koff_per_h must be > 0, got {koff_per_h}.")
-    if protein_conc_mg_L <= 0:
-        raise ValueError(f"protein_conc_mg_L must be > 0, got {protein_conc_mg_L}.")
-    if t_end_h <= 0:
-        raise ValueError(f"t_end_h must be > 0, got {t_end_h}.")
-    if dt_h <= 0:
-        raise ValueError(f"dt_h must be > 0, got {dt_h}.")
-    if dt_h >= t_end_h:
-        raise ValueError(f"dt_h ({dt_h}) must be < t_end_h ({t_end_h}).")
+    # --- Validation ---
+    if drug_conc_mg_L < 0.0:
+        raise ValueError("drug_conc_mg_L must be >= 0")
+    if protein_conc_g_L <= 0.0:
+        raise ValueError("protein_conc_g_L must be > 0")
+    if kon_per_mg_per_L_per_h <= 0.0:
+        raise ValueError("kon must be > 0")
+    if koff_per_h <= 0.0:
+        raise ValueError("koff must be > 0")
+    if n_binding_sites < 1:
+        raise ValueError("n_binding_sites must be >= 1")
 
-    # Equilibrium metrics
-    kd_mg_L = koff_per_h / kon_per_h_per_mg_L
-    fu_eq = kd_mg_L / (kd_mg_L + protein_conc_mg_L)
-    t_half_h = math.log(2.0) / koff_per_h
+    protein_key = protein_name.lower()
+    protein_mw_da = _PROTEIN_MW_DA.get(protein_key, 66500.0)
 
-    # Forward Euler integration — initial state: nothing bound
-    bound = 0.0
-    t = 0.0
+    # --- Derived parameters ---
+    # Bmax (mg drug / L):
+    #   moles of protein per L = protein_conc_g_L * 1000 (mg/L) / protein_mw_da
+    #   moles of binding sites = moles_protein * n_binding_sites
+    #   mg of drug bound at saturation = moles_sites * drug_mw_da
+    bmax_mg_per_L = protein_conc_g_L * 1000.0 * n_binding_sites * drug_mw_da / protein_mw_da
+
+    kd_mg_per_L = koff_per_h / kon_per_mg_per_L_per_h
+
+    # Pseudo-first-order approximation for t_half_binding
+    k_app = kon_per_mg_per_L_per_h * drug_conc_mg_L + koff_per_h
+    t_half_binding_h = math.log(2.0) / k_app if k_app > 0.0 else float("inf")
+    t_half_binding_min = t_half_binding_h * 60.0
+
+    # --- Forward Euler ODE ---
+    # Track only c_bound; derive c_free = drug_conc_mg_L - c_bound to enforce
+    # exact drug mass conservation: c_free + c_bound = drug_conc_mg_L at all times.
+    n_steps = max(int(round(t_end_h / dt_h)), 1)
 
     times: list[float] = []
     c_free_list: list[float] = []
     c_bound_list: list[float] = []
+    fu_list: list[float] = []
 
-    n_steps = int(round(t_end_h / dt_h))
-    for _ in range(n_steps + 1):
-        free = c_total_mg_L - bound
-        # Clamp to physical bounds
-        free = max(free, 0.0)
-        protein_free = protein_conc_mg_L - bound
-        protein_free = max(protein_free, 0.0)
+    c_bound = 0.0
+    t = 0.0
+
+    # Record initial state
+    c_free = float(drug_conc_mg_L) - c_bound
+    times.append(t)
+    c_free_list.append(c_free)
+    c_bound_list.append(c_bound)
+    fu_list.append(c_free / drug_conc_mg_L if drug_conc_mg_L > 0.0 else 0.0)
+
+    for _ in range(n_steps):
+        c_free = max(drug_conc_mg_L - c_bound, 0.0)
+        available_sites = max(bmax_mg_per_L - c_bound, 0.0)
+        dbound_dt = kon_per_mg_per_L_per_h * c_free * available_sites - koff_per_h * c_bound
+
+        c_bound_new = c_bound + dbound_dt * dt_h
+        # Clamp to physically valid range [0, min(drug_conc, bmax)]
+        c_bound = min(max(c_bound_new, 0.0), min(drug_conc_mg_L, bmax_mg_per_L))
+
+        c_free = max(drug_conc_mg_L - c_bound, 0.0)
+        t += dt_h
 
         times.append(t)
-        c_free_list.append(free)
-        c_bound_list.append(bound)
+        c_free_list.append(c_free)
+        c_bound_list.append(c_bound)
+        fu_list.append(c_free / drug_conc_mg_L if drug_conc_mg_L > 0.0 else 0.0)
 
-        # ODE derivative
-        d_bound = kon_per_h_per_mg_L * free * protein_free - koff_per_h * bound
-        bound = bound + dt_h * d_bound
-        # Clamp after update
-        bound = max(0.0, min(bound, min(c_total_mg_L, protein_conc_mg_L)))
-        t = t + dt_h
+    # fu_equilibrium: free fraction relative to initial drug dose
+    fu_eq = c_free / drug_conc_mg_L if drug_conc_mg_L > 0.0 else 0.0
 
-    return ProteinBindingResult(
+    notes = (
+        f"Kd={kd_mg_per_L:.3f} mg/L; Bmax={bmax_mg_per_L:.2f} mg/L; "
+        f"fu_eq={fu_eq:.3f}; t_half_bind={t_half_binding_min:.1f} min"
+    )
+
+    return ProteinBindingKineticsResult(
         drug_name=drug_name,
-        c_total_mg_L=c_total_mg_L,
-        kon=kon_per_h_per_mg_L,
-        koff=koff_per_h,
-        protein_conc_mg_L=protein_conc_mg_L,
+        protein_name=protein_name,
+        initial_drug_conc_mg_L=drug_conc_mg_L,
+        protein_conc_g_L=protein_conc_g_L,
+        kd_mg_per_L=kd_mg_per_L,
+        fu_equilibrium=fu_eq,
+        fu_time_dependent=fu_list,
         times_h=times,
         c_free_mg_L=c_free_list,
         c_bound_mg_L=c_bound_list,
-        fu_equilibrium=fu_eq,
-        t_half_binding_h=t_half_h,
-        kd_mg_L=kd_mg_L,
+        t_half_binding_min=t_half_binding_min,
+        max_binding_sites_mg_per_L=bmax_mg_per_L,
+        notes=notes,
     )
 
 
-def protein_binding_sensitivity(
+# ---------------------------------------------------------------------------
+# Compare proteins
+# ---------------------------------------------------------------------------
+
+
+def compare_proteins(
     drug_name: str,
-    c_total_mg_L: float,
-    kon_per_h_per_mg_L: float,
-    koff_values: list[float],
-    protein_conc_mg_L: float,
-) -> list[dict]:
-    """Test multiple koff values and return equilibrium fu for each.
+    drug_conc_mg_L: float,
+    drug_mw_da: float,
+    protein_concentrations: list[dict],
+) -> list[ProteinBindingKineticsResult]:
+    """Compare drug binding across multiple plasma proteins.
 
     Parameters
     ----------
     drug_name : str
-        Name of the drug compound.
-    c_total_mg_L : float
-        Total drug concentration (mg/L). Must be > 0.
-    kon_per_h_per_mg_L : float
-        Association rate constant (L/(mg·h)). Must be > 0.
-    koff_values : list[float]
-        Sequence of dissociation rate constants to test. Each must be > 0.
-    protein_conc_mg_L : float
-        Total plasma protein concentration (mg/L). Must be > 0.
+        Drug identifier.
+    drug_conc_mg_L : float
+        Initial drug concentration (mg/L).
+    drug_mw_da : float
+        Drug molecular weight (Da).
+    protein_concentrations : list[dict]
+        Each dict must contain "protein_name" (str) and "conc_g_L" (float).
 
     Returns
     -------
-    list[dict]
-        One entry per koff value with keys: koff, kd_mg_L, fu_equilibrium.
+    list[ProteinBindingKineticsResult]
+        Sorted by fu_equilibrium ascending (tightest binding first).
     """
-    if not drug_name or not isinstance(drug_name, str):
-        raise ValueError("drug_name must be a non-empty string.")
-    if c_total_mg_L <= 0:
-        raise ValueError(f"c_total_mg_L must be > 0, got {c_total_mg_L}.")
-    if kon_per_h_per_mg_L <= 0:
-        raise ValueError(f"kon_per_h_per_mg_L must be > 0, got {kon_per_h_per_mg_L}.")
-    if not koff_values:
-        raise ValueError("koff_values must be a non-empty list.")
-    if protein_conc_mg_L <= 0:
-        raise ValueError(f"protein_conc_mg_L must be > 0, got {protein_conc_mg_L}.")
-
-    results: list[dict] = []
-    for koff in koff_values:
-        if koff <= 0:
-            raise ValueError(f"All koff values must be > 0, got {koff}.")
-        kd = koff / kon_per_h_per_mg_L
-        fu = kd / (kd + protein_conc_mg_L)
-        results.append(
-            {
-                "drug_name": drug_name,
-                "koff": koff,
-                "kd_mg_L": kd,
-                "fu_equilibrium": fu,
-            }
+    results: list[ProteinBindingKineticsResult] = []
+    for entry in protein_concentrations:
+        pname = str(entry["protein_name"])
+        conc = float(entry["conc_g_L"])
+        result = simulate_protein_binding(
+            drug_name=drug_name,
+            protein_name=pname,
+            drug_conc_mg_L=drug_conc_mg_L,
+            drug_mw_da=drug_mw_da,
+            protein_conc_g_L=conc,
         )
-    return results
+        results.append(result)
+
+    return sorted(results, key=lambda r: r.fu_equilibrium)
+
+
+__all__ = [
+    "ProteinBindingKineticsResult",
+    "simulate_protein_binding",
+    "compare_proteins",
+]

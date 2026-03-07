@@ -1,4 +1,4 @@
-"""Tests for protein_binding_kinetics module (Phase 375)."""
+"""Tests for core/protein_binding_kinetics.py — Phase 841."""
 
 from __future__ import annotations
 
@@ -7,255 +7,261 @@ import math
 import pytest
 
 from omega_pbpk.core.protein_binding_kinetics import (
-    ProteinBindingResult,
-    protein_binding_sensitivity,
-    simulate_binding_kinetics,
+    ProteinBindingKineticsResult,
+    compare_proteins,
+    simulate_protein_binding,
 )
 
-# ── helpers ────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
-def _default_result(**kwargs) -> ProteinBindingResult:
-    """Run simulation with sensible defaults, optionally overriding."""
-    params = dict(
+def _default(**kwargs) -> ProteinBindingKineticsResult:
+    defaults = dict(
         drug_name="TestDrug",
-        c_total_mg_L=10.0,
-        kon_per_h_per_mg_L=0.1,
-        koff_per_h=1.0,
-        protein_conc_mg_L=40.0,
-        t_end_h=5.0,
-        dt_h=0.01,
+        protein_name="albumin",
+        drug_conc_mg_L=10.0,
+        protein_conc_g_L=45.0,
+        kon_per_mg_per_L_per_h=100.0,
+        koff_per_h=50.0,
+        n_binding_sites=1,
+        drug_mw_da=400.0,
+        t_end_h=0.1,
+        dt_h=0.001,
     )
-    params.update(kwargs)
-    return simulate_binding_kinetics(**params)
+    defaults.update(kwargs)
+    return simulate_protein_binding(**defaults)
 
 
-# ── Input validation ────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Return type
+# ---------------------------------------------------------------------------
 
 
-class TestSimulateBindingKineticsValidation:
-    def test_empty_drug_name_raises(self):
-        with pytest.raises(ValueError, match="drug_name"):
-            _default_result(drug_name="")
+class TestReturnType:
+    def test_returns_dataclass(self):
+        r = _default()
+        assert isinstance(r, ProteinBindingKineticsResult)
 
-    def test_non_string_drug_name_raises(self):
-        with pytest.raises((ValueError, TypeError)):
-            simulate_binding_kinetics(
-                drug_name=123,  # type: ignore[arg-type]
-                c_total_mg_L=10.0,
-                kon_per_h_per_mg_L=0.1,
-                koff_per_h=1.0,
-                protein_conc_mg_L=40.0,
-            )
+    def test_drug_name_preserved(self):
+        r = _default(drug_name="Warfarin")
+        assert r.drug_name == "Warfarin"
 
-    def test_zero_c_total_raises(self):
-        with pytest.raises(ValueError, match="c_total"):
-            _default_result(c_total_mg_L=0.0)
+    def test_protein_name_preserved(self):
+        r = _default(protein_name="AAG")
+        assert r.protein_name == "AAG"
 
-    def test_negative_c_total_raises(self):
-        with pytest.raises(ValueError, match="c_total"):
-            _default_result(c_total_mg_L=-5.0)
+    def test_notes_is_nonempty_string(self):
+        r = _default()
+        assert isinstance(r.notes, str)
+        assert len(r.notes) > 0
 
-    def test_zero_kon_raises(self):
-        with pytest.raises(ValueError, match="kon"):
-            _default_result(kon_per_h_per_mg_L=0.0)
 
-    def test_negative_kon_raises(self):
-        with pytest.raises(ValueError, match="kon"):
-            _default_result(kon_per_h_per_mg_L=-1.0)
+# ---------------------------------------------------------------------------
+# List fields same length and valid start
+# ---------------------------------------------------------------------------
 
-    def test_zero_koff_raises(self):
-        with pytest.raises(ValueError, match="koff"):
-            _default_result(koff_per_h=0.0)
 
-    def test_negative_koff_raises(self):
-        with pytest.raises(ValueError, match="koff"):
-            _default_result(koff_per_h=-0.5)
+class TestTimeSeries:
+    def test_times_and_c_free_same_length(self):
+        r = _default()
+        assert len(r.times_h) == len(r.c_free_mg_L)
+
+    def test_times_and_c_bound_same_length(self):
+        r = _default()
+        assert len(r.times_h) == len(r.c_bound_mg_L)
+
+    def test_fu_time_dependent_same_length(self):
+        r = _default()
+        assert len(r.times_h) == len(r.fu_time_dependent)
+
+    def test_times_start_at_zero(self):
+        r = _default()
+        assert r.times_h[0] == pytest.approx(0.0)
+
+    def test_initial_c_free_equals_drug_conc(self):
+        r = _default(drug_conc_mg_L=10.0)
+        assert r.c_free_mg_L[0] == pytest.approx(10.0)
+
+    def test_initial_c_bound_is_zero(self):
+        r = _default()
+        assert r.c_bound_mg_L[0] == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# fu in (0, 1]
+# ---------------------------------------------------------------------------
+
+
+class TestFuRange:
+    def test_fu_equilibrium_in_range(self):
+        r = _default()
+        assert 0.0 < r.fu_equilibrium <= 1.0
+
+    def test_fu_time_dependent_in_range(self):
+        r = _default()
+        for fu in r.fu_time_dependent:
+            assert 0.0 <= fu <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# C_bound increases over time (before equilibrium with fast kon)
+# ---------------------------------------------------------------------------
+
+
+class TestBindingKinetics:
+    def test_c_bound_increases_over_time(self):
+        # Use a short simulation with strong kon relative to koff
+        r = simulate_protein_binding(
+            drug_name="Drug",
+            protein_name="albumin",
+            drug_conc_mg_L=5.0,
+            protein_conc_g_L=45.0,
+            kon_per_mg_per_L_per_h=200.0,
+            koff_per_h=1.0,
+            t_end_h=0.05,
+            dt_h=0.0005,
+        )
+        # Bound should increase from 0 to some positive value
+        assert r.c_bound_mg_L[-1] > r.c_bound_mg_L[0]
+
+    def test_c_free_decreases_over_time_when_binding_favorable(self):
+        r = simulate_protein_binding(
+            drug_name="Drug",
+            protein_name="albumin",
+            drug_conc_mg_L=5.0,
+            protein_conc_g_L=45.0,
+            kon_per_mg_per_L_per_h=200.0,
+            koff_per_h=1.0,
+            t_end_h=0.05,
+            dt_h=0.0005,
+        )
+        assert r.c_free_mg_L[-1] < r.c_free_mg_L[0]
+
+
+# ---------------------------------------------------------------------------
+# Higher kon → faster binding (lower t_half_binding)
+# ---------------------------------------------------------------------------
+
+
+class TestTHalfBinding:
+    def test_higher_kon_lower_t_half(self):
+        r_slow = _default(kon_per_mg_per_L_per_h=10.0, koff_per_h=5.0)
+        r_fast = _default(kon_per_mg_per_L_per_h=1000.0, koff_per_h=5.0)
+        assert r_fast.t_half_binding_min < r_slow.t_half_binding_min
+
+    def test_t_half_formula(self):
+        kon = 100.0
+        koff = 50.0
+        drug = 10.0
+        r = _default(kon_per_mg_per_L_per_h=kon, koff_per_h=koff, drug_conc_mg_L=drug)
+        expected_min = math.log(2.0) / (kon * drug + koff) * 60.0
+        assert r.t_half_binding_min == pytest.approx(expected_min, rel=1e-6)
+
+    def test_t_half_binding_positive(self):
+        r = _default()
+        assert r.t_half_binding_min > 0.0
+
+
+# ---------------------------------------------------------------------------
+# Kd = koff / kon
+# ---------------------------------------------------------------------------
+
+
+class TestKd:
+    def test_kd_formula(self):
+        r = _default(kon_per_mg_per_L_per_h=100.0, koff_per_h=50.0)
+        assert r.kd_mg_per_L == pytest.approx(0.5, rel=1e-9)
+
+    def test_kd_positive(self):
+        r = _default()
+        assert r.kd_mg_per_L > 0.0
+
+
+# ---------------------------------------------------------------------------
+# Bmax calculation
+# ---------------------------------------------------------------------------
+
+
+class TestBmax:
+    def test_bmax_albumin_formula(self):
+        # Bmax = protein_conc_g_L * 1000 * n_sites * drug_mw / protein_mw
+        protein_mw = 66500.0
+        r = _default(protein_conc_g_L=45.0, n_binding_sites=1, drug_mw_da=400.0)
+        expected = 45.0 * 1000.0 * 1 * 400.0 / protein_mw
+        assert r.max_binding_sites_mg_per_L == pytest.approx(expected, rel=1e-6)
+
+    def test_bmax_scales_with_n_sites(self):
+        r1 = _default(n_binding_sites=1)
+        r2 = _default(n_binding_sites=2)
+        assert r2.max_binding_sites_mg_per_L == pytest.approx(
+            2.0 * r1.max_binding_sites_mg_per_L, rel=1e-9
+        )
+
+
+# ---------------------------------------------------------------------------
+# compare_proteins
+# ---------------------------------------------------------------------------
+
+
+class TestCompareProteins:
+    def test_sorted_ascending_by_fu(self):
+        proteins = [
+            {"protein_name": "albumin", "conc_g_L": 45.0},
+            {"protein_name": "AAG", "conc_g_L": 0.6},
+            {"protein_name": "lipoprotein", "conc_g_L": 1.0},
+        ]
+        results = compare_proteins("Drug", 5.0, 400.0, proteins)
+        fus = [r.fu_equilibrium for r in results]
+        assert fus == sorted(fus)
+
+    def test_returns_list_of_results(self):
+        proteins = [
+            {"protein_name": "albumin", "conc_g_L": 45.0},
+            {"protein_name": "AAG", "conc_g_L": 0.6},
+        ]
+        results = compare_proteins("Drug", 5.0, 400.0, proteins)
+        assert isinstance(results, list)
+        assert len(results) == 2
+        assert all(isinstance(r, ProteinBindingKineticsResult) for r in results)
+
+    def test_single_protein_returns_one_result(self):
+        proteins = [{"protein_name": "albumin", "conc_g_L": 45.0}]
+        results = compare_proteins("Drug", 5.0, 400.0, proteins)
+        assert len(results) == 1
+
+
+# ---------------------------------------------------------------------------
+# Validation errors
+# ---------------------------------------------------------------------------
+
+
+class TestValidation:
+    def test_negative_drug_conc_raises(self):
+        with pytest.raises(ValueError):
+            _default(drug_conc_mg_L=-1.0)
 
     def test_zero_protein_conc_raises(self):
-        with pytest.raises(ValueError, match="protein"):
-            _default_result(protein_conc_mg_L=0.0)
-
-    def test_negative_protein_conc_raises(self):
-        with pytest.raises(ValueError, match="protein"):
-            _default_result(protein_conc_mg_L=-10.0)
-
-    def test_zero_t_end_raises(self):
-        with pytest.raises(ValueError, match="t_end"):
-            _default_result(t_end_h=0.0)
-
-    def test_negative_t_end_raises(self):
-        with pytest.raises(ValueError, match="t_end"):
-            _default_result(t_end_h=-1.0)
-
-    def test_zero_dt_raises(self):
-        with pytest.raises(ValueError, match="dt"):
-            _default_result(dt_h=0.0)
-
-    def test_dt_ge_t_end_raises(self):
         with pytest.raises(ValueError):
-            _default_result(t_end_h=1.0, dt_h=1.0)
+            _default(protein_conc_g_L=0.0)
 
-
-# ── Basic output shape ──────────────────────────────────────────────────────
-
-
-class TestSimulateBindingKineticsOutput:
-    def test_returns_protein_binding_result(self):
-        res = _default_result()
-        assert isinstance(res, ProteinBindingResult)
-
-    def test_time_series_same_length(self):
-        res = _default_result()
-        assert len(res.times_h) == len(res.c_free_mg_L) == len(res.c_bound_mg_L)
-
-    def test_time_starts_at_zero(self):
-        res = _default_result()
-        assert res.times_h[0] == pytest.approx(0.0)
-
-    def test_time_ends_near_t_end(self):
-        res = _default_result(t_end_h=2.0, dt_h=0.01)
-        assert res.times_h[-1] == pytest.approx(2.0, abs=0.02)
-
-    def test_field_values_match_inputs(self):
-        res = _default_result(c_total_mg_L=5.0, protein_conc_mg_L=20.0)
-        assert res.c_total_mg_L == pytest.approx(5.0)
-        assert res.protein_conc_mg_L == pytest.approx(20.0)
-
-    def test_drug_name_stored(self):
-        res = _default_result(drug_name="Warfarin")
-        assert res.drug_name == "Warfarin"
-
-
-# ── Mass conservation ────────────────────────────────────────────────────────
-
-
-class TestMassConservation:
-    def test_free_plus_bound_equals_total_at_every_step(self):
-        res = _default_result()
-        total = res.c_total_mg_L
-        for free, bound in zip(res.c_free_mg_L, res.c_bound_mg_L, strict=True):
-            assert free + bound == pytest.approx(total, abs=1e-6)
-
-    def test_initial_all_free(self):
-        res = _default_result()
-        assert res.c_free_mg_L[0] == pytest.approx(res.c_total_mg_L, abs=1e-9)
-        assert res.c_bound_mg_L[0] == pytest.approx(0.0, abs=1e-9)
-
-    def test_concentrations_non_negative(self):
-        res = _default_result()
-        assert all(f >= -1e-9 for f in res.c_free_mg_L)
-        assert all(b >= -1e-9 for b in res.c_bound_mg_L)
-
-
-# ── Equilibrium properties ──────────────────────────────────────────────────
-
-
-class TestEquilibrium:
-    def test_kd_equals_koff_over_kon(self):
-        res = _default_result(kon_per_h_per_mg_L=0.2, koff_per_h=2.0)
-        assert res.kd_mg_L == pytest.approx(2.0 / 0.2)
-
-    def test_fu_equilibrium_formula(self):
-        # fu_eq = Kd / (Kd + protein_conc)
-        kon = 0.1
-        koff = 1.0
-        protein = 40.0
-        kd = koff / kon
-        expected_fu = kd / (kd + protein)
-        res = _default_result(kon_per_h_per_mg_L=kon, koff_per_h=koff, protein_conc_mg_L=protein)
-        assert res.fu_equilibrium == pytest.approx(expected_fu, rel=1e-6)
-
-    def test_t_half_binding_equals_ln2_over_koff(self):
-        koff = 3.0
-        res = _default_result(koff_per_h=koff)
-        assert res.t_half_binding_h == pytest.approx(math.log(2.0) / koff, rel=1e-6)
-
-    def test_simulation_approaches_equilibrium(self):
-        """After many half-lives the simulated fu should be close to fu_eq.
-
-        Use drug << protein (protein excess) so ligand depletion is negligible
-        and the simple Kd/(Kd+protein_conc) formula applies.
-        """
-        kon = 0.05
-        koff = 0.5
-        protein = 200.0  # large protein excess
-        kd = koff / kon
-        fu_eq = kd / (kd + protein)
-        c_total = 0.1  # drug << protein → ligand-depletion negligible
-        # Run for 20 half-lives (well into equilibrium)
-        t_half = math.log(2.0) / koff
-        res = simulate_binding_kinetics(
-            drug_name="X",
-            c_total_mg_L=c_total,
-            kon_per_h_per_mg_L=kon,
-            koff_per_h=koff,
-            protein_conc_mg_L=protein,
-            t_end_h=20 * t_half,
-            dt_h=0.001,
-        )
-        # fu at last time point
-        fu_sim = res.c_free_mg_L[-1] / c_total
-        assert fu_sim == pytest.approx(fu_eq, abs=0.01)
-
-    def test_higher_protein_gives_lower_fu(self):
-        res_low = _default_result(protein_conc_mg_L=10.0)
-        res_high = _default_result(protein_conc_mg_L=80.0)
-        assert res_low.fu_equilibrium > res_high.fu_equilibrium
-
-    def test_higher_koff_gives_higher_fu(self):
-        """Higher koff → higher Kd → weaker binding → higher fu."""
-        res_low = _default_result(koff_per_h=0.5)
-        res_high = _default_result(koff_per_h=5.0)
-        assert res_low.fu_equilibrium < res_high.fu_equilibrium
-
-
-# ── Sensitivity function ────────────────────────────────────────────────────
-
-
-class TestProteinBindingSensitivity:
-    def test_empty_koff_values_raises(self):
+    def test_zero_kon_raises(self):
         with pytest.raises(ValueError):
-            protein_binding_sensitivity("Drug", 10.0, 0.1, [], 40.0)
+            _default(kon_per_mg_per_L_per_h=0.0)
 
-    def test_negative_koff_in_list_raises(self):
+    def test_negative_kon_raises(self):
         with pytest.raises(ValueError):
-            protein_binding_sensitivity("Drug", 10.0, 0.1, [1.0, -0.5], 40.0)
+            _default(kon_per_mg_per_L_per_h=-10.0)
 
-    def test_returns_list_of_dicts(self):
-        result = protein_binding_sensitivity("Drug", 10.0, 0.1, [0.5, 1.0, 2.0], 40.0)
-        assert isinstance(result, list)
-        assert all(isinstance(r, dict) for r in result)
+    def test_zero_koff_raises(self):
+        with pytest.raises(ValueError):
+            _default(koff_per_h=0.0)
 
-    def test_length_matches_koff_values(self):
-        koffs = [0.1, 0.5, 1.0, 2.0, 5.0]
-        result = protein_binding_sensitivity("Drug", 10.0, 0.1, koffs, 40.0)
-        assert len(result) == len(koffs)
+    def test_negative_koff_raises(self):
+        with pytest.raises(ValueError):
+            _default(koff_per_h=-5.0)
 
-    def test_koff_stored_in_result(self):
-        koffs = [0.5, 2.0]
-        result = protein_binding_sensitivity("Drug", 10.0, 0.1, koffs, 40.0)
-        assert result[0]["koff"] == pytest.approx(0.5)
-        assert result[1]["koff"] == pytest.approx(2.0)
-
-    def test_fu_increases_with_koff(self):
-        """Higher koff → higher Kd → higher fu (monotone)."""
-        koffs = [0.1, 0.5, 1.0, 2.0, 5.0]
-        result = protein_binding_sensitivity("Drug", 10.0, 0.1, koffs, 40.0)
-        fus = [r["fu_equilibrium"] for r in result]
-        assert all(fus[i] < fus[i + 1] for i in range(len(fus) - 1))
-
-    def test_kd_equals_koff_over_kon(self):
-        kon = 0.2
-        koffs = [1.0, 2.0]
-        result = protein_binding_sensitivity("Drug", 10.0, kon, koffs, 40.0)
-        for r in result:
-            assert r["kd_mg_L"] == pytest.approx(r["koff"] / kon, rel=1e-9)
-
-    def test_zero_protein_raises(self):
-        with pytest.raises(ValueError, match="protein"):
-            protein_binding_sensitivity("Drug", 10.0, 0.1, [1.0], 0.0)
-
-    def test_empty_drug_name_raises(self):
-        with pytest.raises(ValueError, match="drug_name"):
-            protein_binding_sensitivity("", 10.0, 0.1, [1.0], 40.0)
+    def test_zero_n_binding_sites_raises(self):
+        with pytest.raises(ValueError):
+            _default(n_binding_sites=0)
