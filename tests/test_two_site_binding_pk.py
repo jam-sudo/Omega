@@ -1,201 +1,174 @@
-"""Tests for Phase 693: two-site target-mediated drug disposition (TMDD) model."""
-
-from __future__ import annotations
-
-import math
+"""Tests for Phase 950 — Two-Site Receptor Binding PK Model."""
 
 import pytest
-
 from omega_pbpk.core.two_site_binding_pk import (
     TwoSiteBindingResult,
-    compare_affinity_scenarios,
     simulate_two_site_binding,
+    optimize_selectivity,
 )
 
+
 # ---------------------------------------------------------------------------
-# Basic return type and structure
+# Helpers
 # ---------------------------------------------------------------------------
+def _sim(**kwargs):
+    defaults = dict(drug_name="TestDrug", dose_mg=10.0, mw_Da=300.0, dt_h=0.05)
+    defaults.update(kwargs)
+    return simulate_two_site_binding(**defaults)
 
 
-def test_returns_two_site_binding_result():
-    result = simulate_two_site_binding("TestDrug", dose_mg=100.0)
+# ---------------------------------------------------------------------------
+# Return type
+# ---------------------------------------------------------------------------
+def test_return_type_is_two_site_binding_result():
+    result = _sim()
     assert isinstance(result, TwoSiteBindingResult)
 
 
-def test_drug_name_stored():
-    result = simulate_two_site_binding("Bispecific-mAb", dose_mg=100.0)
-    assert result.drug_name == "Bispecific-mAb"
-
-
-def test_dose_stored():
-    result = simulate_two_site_binding("Drug", dose_mg=200.0)
-    assert result.dose_mg == 200.0
-
-
-def test_mw_stored():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0, mw_kDa=148.0)
-    assert result.mw_kDa == 148.0
-
-
 # ---------------------------------------------------------------------------
-# Initial conditions
+# Initial conditions and lists
 # ---------------------------------------------------------------------------
+def test_c_free_starts_positive():
+    result = _sim()
+    assert result.c_free_nM[0] > 0
 
 
-def test_c_free_initial_equals_dose_over_vd():
-    dose = 300.0
-    vd = 5.0
-    result = simulate_two_site_binding("Drug", dose_mg=dose, vd_L=vd)
-    expected = dose / vd
-    assert result.c_free_mg_L[0] == pytest.approx(expected, rel=0.01)
+def test_peak_free_nM_positive():
+    result = _sim()
+    assert result.peak_free_nM > 0
 
 
-def test_r1_free_starts_at_R1_0():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0, R1_0_nM=8.0)
-    assert result.r1_free_nM[0] == pytest.approx(8.0, rel=1e-6)
+def test_peak_r1_occupancy_range():
+    result = _sim()
+    assert 0.0 <= result.peak_r1_occupancy <= 1.0
 
 
-def test_r2_free_starts_at_R2_0():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0, R2_0_nM=3.0)
-    assert result.r2_free_nM[0] == pytest.approx(3.0, rel=1e-6)
+def test_peak_r2_occupancy_range():
+    result = _sim()
+    assert 0.0 <= result.peak_r2_occupancy <= 1.0
 
 
-def test_c_t1_initial_is_zero():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert result.c_t1_mg_L[0] == pytest.approx(0.0, abs=1e-10)
-
-
-def test_c_t2_initial_is_zero():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert result.c_t2_mg_L[0] == pytest.approx(0.0, abs=1e-10)
-
-
-# ---------------------------------------------------------------------------
-# Time series length and consistency
-# ---------------------------------------------------------------------------
-
-
-def test_time_series_same_length():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0, t_end_h=48.0, dt_h=1.0)
-    n = len(result.times_h)
-    assert len(result.c_free_mg_L) == n
-    assert len(result.c_t1_mg_L) == n
-    assert len(result.c_t2_mg_L) == n
-    assert len(result.r1_free_nM) == n
-    assert len(result.r2_free_nM) == n
-
-
-def test_times_start_at_zero():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert result.times_h[0] == pytest.approx(0.0)
-
-
-# ---------------------------------------------------------------------------
-# Summary metrics
-# ---------------------------------------------------------------------------
-
-
-def test_cmax_free_positive():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert result.cmax_free_mg_L > 0.0
+def test_selectivity_index_positive():
+    result = _sim()
+    assert result.selectivity_index > 0
 
 
 def test_auc_free_positive():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert result.auc_free > 0.0
+    result = _sim()
+    assert result.auc_free_nM_h > 0
 
 
-def test_t_half_apparent_positive():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert result.t_half_apparent_h > 0.0
+def test_time_above_kd1_non_negative():
+    result = _sim()
+    assert result.time_above_kd1_h >= 0
 
 
-def test_target1_occupancy_at_cmax_range():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert 0.0 <= result.target1_occupancy_at_cmax <= 1.0
-
-
-def test_target2_occupancy_at_cmax_range():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert 0.0 <= result.target2_occupancy_at_cmax <= 1.0
-
-
-def test_notes_nonempty():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
+def test_notes_non_empty():
+    result = _sim()
     assert len(result.notes) > 0
 
 
 # ---------------------------------------------------------------------------
-# Pharmacology: higher affinity (lower koff) → higher target1 occupancy
+# List length consistency
 # ---------------------------------------------------------------------------
+def test_times_and_c_free_same_length():
+    result = _sim()
+    assert len(result.times_h) == len(result.c_free_nM)
 
 
-def test_lower_koff_higher_target1_occupancy():
-    # High affinity: low koff
-    high_aff = simulate_two_site_binding("Drug", dose_mg=100.0, koff1_per_h=0.001, t_end_h=168.0)
-    # Low affinity: high koff
-    low_aff = simulate_two_site_binding("Drug", dose_mg=100.0, koff1_per_h=1.0, t_end_h=168.0)
-    assert high_aff.target1_occupancy_at_cmax >= low_aff.target1_occupancy_at_cmax
+def test_c_bound_r1_same_length():
+    result = _sim()
+    assert len(result.c_bound_r1_nM) == len(result.c_free_nM)
 
 
-# ---------------------------------------------------------------------------
-# compare_affinity_scenarios
-# ---------------------------------------------------------------------------
-
-
-def test_compare_affinity_scenarios_returns_correct_length():
-    scenarios = [
-        {"label": "High", "kon1_nM_per_h": 0.5, "koff1_per_h": 0.001},
-        {"label": "Med", "kon1_nM_per_h": 0.1, "koff1_per_h": 0.01},
-        {"label": "Low", "kon1_nM_per_h": 0.05, "koff1_per_h": 0.5},
-    ]
-    results = compare_affinity_scenarios("mAb", 200.0, scenarios)
-    assert len(results) == 3
-
-
-def test_compare_affinity_scenarios_returns_list_of_results():
-    scenarios = [
-        {"label": "S1", "kon1_nM_per_h": 0.1, "koff1_per_h": 0.01},
-        {"label": "S2", "kon1_nM_per_h": 0.2, "koff1_per_h": 0.05},
-    ]
-    results = compare_affinity_scenarios("Drug", 100.0, scenarios)
-    for r in results:
-        assert isinstance(r, TwoSiteBindingResult)
-
-
-def test_compare_affinity_scenarios_labels_stored():
-    scenarios = [
-        {"label": "Scenario-A", "kon1_nM_per_h": 0.1, "koff1_per_h": 0.01},
-    ]
-    results = compare_affinity_scenarios("Drug", 100.0, scenarios)
-    assert results[0].drug_name == "Scenario-A"
+def test_c_bound_r2_same_length():
+    result = _sim()
+    assert len(result.c_bound_r2_nM) == len(result.c_free_nM)
 
 
 # ---------------------------------------------------------------------------
-# Validation
+# Physics / model direction
 # ---------------------------------------------------------------------------
+def test_weaker_site1_gives_lower_r1_occupancy():
+    """Higher Kd1 (weaker affinity) should reduce peak R1 occupancy."""
+    tight = simulate_two_site_binding("drug", dose_mg=10.0, kd1_nM=1.0, dt_h=0.05)
+    weak = simulate_two_site_binding("drug", dose_mg=10.0, kd1_nM=50.0, dt_h=0.05)
+    assert tight.peak_r1_occupancy >= weak.peak_r1_occupancy
 
 
-def test_validation_dose_zero_raises():
+def test_very_high_dose_both_sites_occupied():
+    """Extremely high dose should occupy both sites substantially."""
+    result = simulate_two_site_binding("drug", dose_mg=10000.0, dt_h=0.05)
+    assert result.peak_r1_occupancy > 0.5
+    assert result.peak_r2_occupancy > 0.1
+
+
+def test_low_dose_higher_selectivity():
+    """Low dose should preferentially engage high-affinity site (R1), giving higher selectivity."""
+    low = simulate_two_site_binding("drug", dose_mg=1.0, dt_h=0.05)
+    high = simulate_two_site_binding("drug", dose_mg=500.0, dt_h=0.05)
+    assert low.selectivity_index >= high.selectivity_index
+
+
+def test_high_dose_lower_selectivity():
+    """High dose should saturate off-target, reducing selectivity."""
+    low = simulate_two_site_binding("drug", dose_mg=1.0, dt_h=0.05)
+    high = simulate_two_site_binding("drug", dose_mg=500.0, dt_h=0.05)
+    assert high.selectivity_index <= low.selectivity_index
+
+
+# ---------------------------------------------------------------------------
+# optimize_selectivity
+# ---------------------------------------------------------------------------
+def test_optimize_selectivity_returns_five_by_default():
+    results = optimize_selectivity("drug", mw_Da=300.0, dt_h=0.05)
+    assert len(results) == 5
+
+
+def test_optimize_selectivity_sorted_descending():
+    results = optimize_selectivity("drug", mw_Da=300.0, dt_h=0.05)
+    si = [r.selectivity_index for r in results]
+    assert si == sorted(si, reverse=True)
+
+
+# ---------------------------------------------------------------------------
+# Validation errors
+# ---------------------------------------------------------------------------
+def test_validation_dose_mg_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):
-        simulate_two_site_binding("Drug", dose_mg=0.0)
+        simulate_two_site_binding("drug", dose_mg=0.0)
 
 
-def test_validation_dose_negative_raises():
+def test_validation_dose_mg_negative_raises():
     with pytest.raises(ValueError, match="dose_mg"):
-        simulate_two_site_binding("Drug", dose_mg=-10.0)
+        simulate_two_site_binding("drug", dose_mg=-1.0)
 
 
-def test_validation_mw_zero_raises():
-    with pytest.raises(ValueError, match="mw_kDa"):
-        simulate_two_site_binding("Drug", dose_mg=100.0, mw_kDa=0.0)
+def test_validation_mw_da_zero_raises():
+    with pytest.raises(ValueError, match="mw_Da"):
+        simulate_two_site_binding("drug", dose_mg=10.0, mw_Da=0.0)
 
 
-def test_validation_mw_negative_raises():
-    with pytest.raises(ValueError, match="mw_kDa"):
-        simulate_two_site_binding("Drug", dose_mg=100.0, mw_kDa=-5.0)
+def test_validation_mw_da_negative_raises():
+    with pytest.raises(ValueError, match="mw_Da"):
+        simulate_two_site_binding("drug", dose_mg=10.0, mw_Da=-100.0)
 
 
-def test_t_half_not_nan():
-    result = simulate_two_site_binding("Drug", dose_mg=100.0)
-    assert not math.isnan(result.t_half_apparent_h)
+def test_validation_kd1_zero_raises():
+    with pytest.raises(ValueError, match="kd1_nM"):
+        simulate_two_site_binding("drug", dose_mg=10.0, kd1_nM=0.0)
+
+
+def test_validation_kd2_zero_raises():
+    with pytest.raises(ValueError, match="kd2_nM"):
+        simulate_two_site_binding("drug", dose_mg=10.0, kd2_nM=0.0)
+
+
+def test_validation_cl_zero_raises():
+    with pytest.raises(ValueError, match="cl_free_L_per_h"):
+        simulate_two_site_binding("drug", dose_mg=10.0, cl_free_L_per_h=0.0)
+
+
+def test_validation_vd_zero_raises():
+    with pytest.raises(ValueError, match="vd_L"):
+        simulate_two_site_binding("drug", dose_mg=10.0, vd_L=0.0)
