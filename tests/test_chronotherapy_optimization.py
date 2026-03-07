@@ -1,16 +1,15 @@
 """Tests for Phase 927 — Chronotherapy Optimization."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.chronotherapy_optimization import (
     ChronotherapyResult,
-    optimize_dosing_time,
     compare_chronotherapy_vs_fixed,
+    optimize_dosing_time,
 )
 
-
 # ── Basic return type and structure ──────────────────────────────────────────
+
 
 def test_return_type():
     result = optimize_dosing_time("DrugA", dose_mg=100.0)
@@ -76,6 +75,7 @@ def test_notes_nonempty():
 
 # ── Circadian variation behaviour ─────────────────────────────────────────────
 
+
 def test_no_variation_all_hours_same_auc():
     """With amplitude_cl=0, circadian variation is off — all hours give same AUC."""
     hours = [0.0, 6.0, 12.0, 18.0]
@@ -94,6 +94,7 @@ def test_with_variation_different_aucs():
 
 # ── Route tests ───────────────────────────────────────────────────────────────
 
+
 def test_oral_route_works():
     result = optimize_dosing_time("DrugA", dose_mg=100.0, route="oral")
     assert isinstance(result, ChronotherapyResult)
@@ -105,6 +106,7 @@ def test_iv_route_works():
 
 
 # ── compare_chronotherapy_vs_fixed ────────────────────────────────────────────
+
 
 def test_compare_returns_correct_keys():
     result = compare_chronotherapy_vs_fixed("DrugA", dose_mg=100.0)
@@ -129,6 +131,7 @@ def test_compare_fixed_8am_is_dict():
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
+
 
 def test_validation_dose_mg_zero():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -166,6 +169,7 @@ def test_validation_invalid_route():
 
 
 # ── Default dosing hours ──────────────────────────────────────────────────────
+
 
 def test_default_dosing_hours_uses_12_time_points():
     result = optimize_dosing_time("DrugA", dose_mg=100.0)

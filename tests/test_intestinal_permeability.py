@@ -1,14 +1,15 @@
 """Tests for Phase 931 — intestinal permeability prediction."""
 
 import pytest
+
 from omega_pbpk.prediction.intestinal_permeability import (
     IntestinalPermeabilityResult,
     predict_intestinal_permeability,
     screen_permeability,
 )
 
-
 # --- Basic return type and field checks ---
+
 
 def test_return_type():
     result = predict_intestinal_permeability("DrugA", logp=2.0, mw=300.0, pka=7.0)
@@ -37,7 +38,9 @@ def test_fa_in_range():
 
 
 def test_dose_number_positive():
-    result = predict_intestinal_permeability("DrugA", logp=2.0, mw=300.0, pka=7.0, dose_mg=100.0, cs_mg_mL=1.0)
+    result = predict_intestinal_permeability(
+        "DrugA", logp=2.0, mw=300.0, pka=7.0, dose_mg=100.0, cs_mg_mL=1.0
+    )
     assert result.dose_number > 0
 
 
@@ -58,6 +61,7 @@ def test_absorption_category_valid():
 
 # --- Physicochemical effects ---
 
+
 def test_high_logp_higher_peff_than_low_logp():
     high = predict_intestinal_permeability("HighLogP", logp=4.0, mw=300.0, pka=7.0)
     low = predict_intestinal_permeability("LowLogP", logp=0.0, mw=300.0, pka=7.0)
@@ -72,14 +76,14 @@ def test_high_mw_lower_peff_than_low_mw():
 
 def test_low_solubility_bcs_ii_or_iv():
     result = predict_intestinal_permeability(
-        "PoorSolDrug", logp=4.0, mw=300.0, pka=7.0,
-        dose_mg=500.0, cs_mg_mL=0.01
+        "PoorSolDrug", logp=4.0, mw=300.0, pka=7.0, dose_mg=500.0, cs_mg_mL=0.01
     )
     assert result.bcs_class in {"II", "IV"}
     assert not result.high_solubility
 
 
 # --- Absorption category consistency ---
+
 
 def test_high_fa_excellent_category():
     # Very high logP, low MW → high fa
@@ -111,12 +115,16 @@ def test_absorption_categories_consistent():
 
 # --- Drug name preserved ---
 
+
 def test_drug_name_preserved():
-    result = predict_intestinal_permeability("Metformin", logp=-1.43, mw=129.0, pka=12.4, ionization_type="base")
+    result = predict_intestinal_permeability(
+        "Metformin", logp=-1.43, mw=129.0, pka=12.4, ionization_type="base"
+    )
     assert result.drug_name == "Metformin"
 
 
 # --- Notes ---
+
 
 def test_notes_non_empty():
     result = predict_intestinal_permeability("DrugA", logp=2.0, mw=300.0, pka=7.0)
@@ -124,6 +132,7 @@ def test_notes_non_empty():
 
 
 # --- Validation errors ---
+
 
 def test_mw_zero_raises():
     with pytest.raises(ValueError, match="mw"):
@@ -157,10 +166,13 @@ def test_cs_mg_mL_negative_raises():
 
 def test_invalid_ionization_type_raises():
     with pytest.raises(ValueError, match="ionization_type"):
-        predict_intestinal_permeability("DrugA", logp=2.0, mw=300.0, pka=7.0, ionization_type="zwitterion")
+        predict_intestinal_permeability(
+            "DrugA", logp=2.0, mw=300.0, pka=7.0, ionization_type="zwitterion"
+        )
 
 
 # --- screen_permeability ---
+
 
 def test_screen_returns_correct_length():
     compounds = [
@@ -192,14 +204,22 @@ def test_fa_monotone_with_logp():
 
 def test_neutral_no_ionization_correction():
     """Neutral drug: ionization correction = 0, pKa doesn't matter."""
-    r1 = predict_intestinal_permeability("N1", logp=2.0, mw=300.0, pka=4.0, ionization_type="neutral")
-    r2 = predict_intestinal_permeability("N2", logp=2.0, mw=300.0, pka=10.0, ionization_type="neutral")
+    r1 = predict_intestinal_permeability(
+        "N1", logp=2.0, mw=300.0, pka=4.0, ionization_type="neutral"
+    )
+    r2 = predict_intestinal_permeability(
+        "N2", logp=2.0, mw=300.0, pka=10.0, ionization_type="neutral"
+    )
     assert abs(r1.fa - r2.fa) < 1e-10
 
 
 def test_acid_low_pka_ionization_correction():
     """Acid with pKa < 7.4 has no extra correction; pKa > 7.4 has correction → lower fa."""
-    r_high_pka = predict_intestinal_permeability("AcidHigh", logp=2.0, mw=300.0, pka=9.0, ionization_type="acid")
-    r_neutral = predict_intestinal_permeability("Neutral", logp=2.0, mw=300.0, pka=9.0, ionization_type="neutral")
+    r_high_pka = predict_intestinal_permeability(
+        "AcidHigh", logp=2.0, mw=300.0, pka=9.0, ionization_type="acid"
+    )
+    r_neutral = predict_intestinal_permeability(
+        "Neutral", logp=2.0, mw=300.0, pka=9.0, ionization_type="neutral"
+    )
     # Acid with pKa=9.0 > 7.4: correction = 0.5*(9-7.4)=0.8 → lower fa
     assert r_high_pka.fa < r_neutral.fa

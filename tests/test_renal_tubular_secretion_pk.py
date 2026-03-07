@@ -1,16 +1,17 @@
 """Tests for Phase 969 — renal tubular secretion PK model."""
 
 import pytest
+
 from omega_pbpk.core.renal_tubular_secretion_pk import (
     RenalTubularResult,
-    simulate_renal_tubular_pk,
     screen_dose_nonlinearity,
+    simulate_renal_tubular_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic return type and value checks
 # ---------------------------------------------------------------------------
+
 
 def test_return_type_iv():
     result = simulate_renal_tubular_pk("DrugA", dose_mg=10.0, route="iv")
@@ -61,6 +62,7 @@ def test_saturation_at_cmax_in_range():
 # Dose nonlinearity — saturation behaviour
 # ---------------------------------------------------------------------------
 
+
 def test_high_dose_higher_saturation():
     low = simulate_renal_tubular_pk("DrugA", dose_mg=1.0, route="iv")
     high = simulate_renal_tubular_pk("DrugA", dose_mg=100.0, route="iv")
@@ -98,6 +100,7 @@ def test_secretion_cl_decreases_at_high_dose():
 # Route-specific checks
 # ---------------------------------------------------------------------------
 
+
 def test_iv_c_plasma_first_nonzero():
     result = simulate_renal_tubular_pk("DrugA", dose_mg=10.0, route="iv")
     assert result.c_plasma_mg_L[0] > 0
@@ -111,6 +114,7 @@ def test_oral_c_plasma_first_zero():
 # ---------------------------------------------------------------------------
 # Miscellaneous
 # ---------------------------------------------------------------------------
+
 
 def test_notes_nonempty():
     result = simulate_renal_tubular_pk("DrugA", dose_mg=10.0, route="iv")
@@ -135,6 +139,7 @@ def test_dose_preserved():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_validation_dose_zero():
     with pytest.raises(ValueError):

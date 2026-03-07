@@ -45,6 +45,7 @@ def _acid_drug(**kwargs):
 # Return type tests
 # ---------------------------------------------------------------------------
 
+
 def test_return_type_is_frozen_dataclass():
     result = _base_drug()
     assert isinstance(result, DrugMetabolismPredictionResult)
@@ -59,6 +60,7 @@ def test_result_is_frozen():
 # ---------------------------------------------------------------------------
 # Fraction validity
 # ---------------------------------------------------------------------------
+
 
 def test_cyp_fractions_in_0_1():
     result = _base_drug()
@@ -100,6 +102,7 @@ def test_cyp_fractions_sum_to_1_acid_drug():
 # Primary enzyme
 # ---------------------------------------------------------------------------
 
+
 def test_primary_enzyme_is_valid():
     result = _base_drug()
     assert result.primary_enzyme in VALID_ENZYMES
@@ -120,6 +123,7 @@ def test_primary_enzyme_has_highest_fraction():
 # ---------------------------------------------------------------------------
 # Phase I / II
 # ---------------------------------------------------------------------------
+
 
 def test_phase_i_likely_is_bool():
     result = _base_drug()
@@ -149,6 +153,7 @@ def test_phase_ii_likely_for_large_mw():
 # ---------------------------------------------------------------------------
 # Variability risk
 # ---------------------------------------------------------------------------
+
 
 def test_high_cyp_variability_risk_is_bool():
     result = _base_drug()
@@ -185,6 +190,7 @@ def test_high_variability_flag_when_cyp2d6_above_0p3():
 # Metabolic liability
 # ---------------------------------------------------------------------------
 
+
 def test_metabolic_liability_in_valid_set():
     result = _base_drug()
     assert result.metabolic_liability in VALID_LIABILITIES
@@ -218,6 +224,7 @@ def test_metabolic_liability_logic_consistent():
 # Notes
 # ---------------------------------------------------------------------------
 
+
 def test_notes_is_non_empty():
     result = _base_drug()
     assert isinstance(result.notes, str)
@@ -227,6 +234,7 @@ def test_notes_is_non_empty():
 # ---------------------------------------------------------------------------
 # Drug name preserved
 # ---------------------------------------------------------------------------
+
 
 def test_drug_name_preserved():
     result = predict_metabolism(
@@ -243,6 +251,7 @@ def test_drug_name_preserved():
 # CYP2D6 higher for basic drugs
 # ---------------------------------------------------------------------------
 
+
 def test_base_drug_has_higher_cyp2d6_than_acid():
     base = predict_metabolism("B", logp=2.5, pka=8.5, ionization_type="base", mw=350.0)
     acid = predict_metabolism("A", logp=2.5, pka=4.5, ionization_type="acid", mw=350.0)
@@ -253,6 +262,7 @@ def test_base_drug_has_higher_cyp2d6_than_acid():
 # CYP2C9 higher for acid drugs
 # ---------------------------------------------------------------------------
 
+
 def test_acid_drug_has_higher_cyp2c9_than_base():
     acid = predict_metabolism("A", logp=2.5, pka=4.5, ionization_type="acid", mw=320.0)
     base = predict_metabolism("B", logp=2.5, pka=8.5, ionization_type="base", mw=320.0)
@@ -262,6 +272,7 @@ def test_acid_drug_has_higher_cyp2c9_than_base():
 # ---------------------------------------------------------------------------
 # screen_metabolic_liability
 # ---------------------------------------------------------------------------
+
 
 def test_screen_returns_correct_length():
     compounds = [
@@ -306,6 +317,7 @@ def test_screen_sorted_by_primary_fraction_descending():
 # Validation
 # ---------------------------------------------------------------------------
 
+
 def test_validation_mw_zero():
     with pytest.raises(ValueError, match="mw must be > 0"):
         predict_metabolism("X", logp=2.0, pka=7.0, ionization_type="base", mw=0.0)
@@ -325,6 +337,7 @@ def test_validation_invalid_ionization_type():
 # Low logP base drug: CYP2D6 high
 # ---------------------------------------------------------------------------
 
+
 def test_low_logp_base_drug_high_cyp2d6():
     result = predict_metabolism(
         drug_name="LowLogPBase",
@@ -340,6 +353,7 @@ def test_low_logp_base_drug_high_cyp2d6():
 # ---------------------------------------------------------------------------
 # Large MW -> phase II likely
 # ---------------------------------------------------------------------------
+
 
 def test_large_mw_phase_ii():
     result = predict_metabolism(

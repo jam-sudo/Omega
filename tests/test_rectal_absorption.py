@@ -8,10 +8,10 @@ from omega_pbpk.clinical.rectal_absorption import (
     simulate_rectal_absorption,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic return type and field preservation
 # ---------------------------------------------------------------------------
+
 
 def test_returns_dataclass():
     result = simulate_rectal_absorption("acetaminophen", dose_mg=650.0)
@@ -51,6 +51,7 @@ def test_rectal_ph_custom():
 # ---------------------------------------------------------------------------
 # ODE-derived PK metrics
 # ---------------------------------------------------------------------------
+
 
 def test_cmax_positive():
     result = simulate_rectal_absorption("acetaminophen", dose_mg=650.0)
@@ -108,6 +109,7 @@ def test_compared_to_oral_ratio_clamped():
 # Formulation differences
 # ---------------------------------------------------------------------------
 
+
 def test_enema_higher_auc_than_wax():
     """Enema has higher absorption fraction and faster release."""
     enema = simulate_rectal_absorption("drug", dose_mg=100.0, formulation="enema")
@@ -133,6 +135,7 @@ def test_dose_linearity():
 # Notes
 # ---------------------------------------------------------------------------
 
+
 def test_notes_not_empty():
     result = simulate_rectal_absorption("acetaminophen", dose_mg=650.0)
     assert len(result.notes) > 0
@@ -146,6 +149,7 @@ def test_bypass_note_present():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_dose_raises():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -165,6 +169,7 @@ def test_invalid_formulation_raises():
 # ---------------------------------------------------------------------------
 # compare_rectal_formulations
 # ---------------------------------------------------------------------------
+
 
 def test_compare_returns_four_results():
     results = compare_rectal_formulations("acetaminophen", dose_mg=500.0)

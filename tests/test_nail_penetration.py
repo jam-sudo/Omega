@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.prediction.nail_penetration import (
@@ -52,17 +51,38 @@ class TestPredictNailPenetration:
     def test_kp_formulation_lacquer_modifier(self):
         result_lac = predict_nail_penetration("Drug", logp=4.0, mw_Da=300.0, formulation="lacquer")
         result_sol = predict_nail_penetration("Drug", logp=4.0, mw_Da=300.0, formulation="solution")
-        assert abs(result_lac.nail_permeability_coefficient_cm_h / result_sol.nail_permeability_coefficient_cm_h - 1.5) < 0.01
+        assert (
+            abs(
+                result_lac.nail_permeability_coefficient_cm_h
+                / result_sol.nail_permeability_coefficient_cm_h
+                - 1.5
+            )
+            < 0.01
+        )
 
     def test_kp_formulation_patch_modifier(self):
         result_pat = predict_nail_penetration("Drug", logp=4.0, mw_Da=300.0, formulation="patch")
         result_sol = predict_nail_penetration("Drug", logp=4.0, mw_Da=300.0, formulation="solution")
-        assert abs(result_pat.nail_permeability_coefficient_cm_h / result_sol.nail_permeability_coefficient_cm_h - 2.0) < 0.01
+        assert (
+            abs(
+                result_pat.nail_permeability_coefficient_cm_h
+                / result_sol.nail_permeability_coefficient_cm_h
+                - 2.0
+            )
+            < 0.01
+        )
 
     def test_kp_formulation_cream_modifier(self):
         result_cre = predict_nail_penetration("Drug", logp=4.0, mw_Da=300.0, formulation="cream")
         result_sol = predict_nail_penetration("Drug", logp=4.0, mw_Da=300.0, formulation="solution")
-        assert abs(result_cre.nail_permeability_coefficient_cm_h / result_sol.nail_permeability_coefficient_cm_h - 0.5) < 0.01
+        assert (
+            abs(
+                result_cre.nail_permeability_coefficient_cm_h
+                / result_sol.nail_permeability_coefficient_cm_h
+                - 0.5
+            )
+            < 0.01
+        )
 
     def test_kp_clamped_min(self):
         result = predict_nail_penetration("Drug", logp=-20.0, mw_Da=3000.0)
@@ -109,9 +129,7 @@ class TestPredictNailPenetration:
 
     def test_antifungal_target_achievable_false(self):
         # Very low kp
-        result = predict_nail_penetration(
-            "Drug", logp=-20.0, mw_Da=3000.0, formulation="cream"
-        )
+        result = predict_nail_penetration("Drug", logp=-20.0, mw_Da=3000.0, formulation="cream")
         assert result.antifungal_target_achievable is False
 
     def test_estimated_treatment_duration_min(self):
@@ -147,15 +165,11 @@ class TestPredictNailPenetration:
 
     def test_notes_occlusive_formulation(self):
         # Low logp so antifungal not achievable, but lacquer
-        result = predict_nail_penetration(
-            "Drug", logp=-20.0, mw_Da=3000.0, formulation="lacquer"
-        )
+        result = predict_nail_penetration("Drug", logp=-20.0, mw_Da=3000.0, formulation="lacquer")
         assert "occlusive" in result.notes.lower()
 
     def test_notes_standard_penetration(self):
-        result = predict_nail_penetration(
-            "Drug", logp=-20.0, mw_Da=3000.0, formulation="solution"
-        )
+        result = predict_nail_penetration("Drug", logp=-20.0, mw_Da=3000.0, formulation="solution")
         assert "lacquer" in result.notes.lower() or "standard" in result.notes.lower()
 
     def test_validation_mw_zero(self):

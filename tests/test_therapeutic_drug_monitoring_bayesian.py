@@ -3,6 +3,7 @@ Tests for Phase 942: Bayesian TDM dose individualization.
 """
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.therapeutic_drug_monitoring_bayesian import (
@@ -18,6 +19,7 @@ _LN2 = math.log(2.0)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_obs(cl=10.0, vd=50.0, dose=100.0, times=None):
     """Generate synthetic observations from 1-cpt IV bolus model."""
     if times is None:
@@ -30,6 +32,7 @@ def _make_obs(cl=10.0, vd=50.0, dose=100.0, times=None):
 # ---------------------------------------------------------------------------
 # Basic return type and value checks
 # ---------------------------------------------------------------------------
+
 
 def test_return_type():
     times, conc = _make_obs()
@@ -101,11 +104,15 @@ def test_notes_non_empty():
 # Behavioural checks
 # ---------------------------------------------------------------------------
 
+
 def test_pop_consistent_obs_cl_fold_within_2x():
     """When observations match population PK, estimated CL should be near pop."""
     times, conc = _make_obs(cl=10.0, vd=50.0, dose=100.0)
     result = run_bayesian_tdm(
-        "TestDrug", 100.0, times, conc,
+        "TestDrug",
+        100.0,
+        times,
+        conc,
         cl_pop_L_per_h=10.0,
         vd_pop_L=50.0,
     )
@@ -121,7 +128,10 @@ def test_high_conc_lower_cl():
     _, normal_conc = _make_obs(cl=10.0, vd=50.0, dose=100.0, times=times)
     high_conc = [c * 5.0 for c in normal_conc]
     result = run_bayesian_tdm(
-        "TestDrug", 100.0, times, high_conc,
+        "TestDrug",
+        100.0,
+        times,
+        high_conc,
         cl_pop_L_per_h=10.0,
         vd_pop_L=50.0,
     )
@@ -135,7 +145,10 @@ def test_low_conc_higher_cl():
     _, normal_conc = _make_obs(cl=10.0, vd=50.0, dose=100.0, times=times)
     low_conc = [c * 0.2 for c in normal_conc]
     result = run_bayesian_tdm(
-        "TestDrug", 100.0, times, low_conc,
+        "TestDrug",
+        100.0,
+        times,
+        low_conc,
         cl_pop_L_per_h=10.0,
         vd_pop_L=50.0,
     )
@@ -163,6 +176,7 @@ def test_deterministic_same_result():
 # ---------------------------------------------------------------------------
 # simulate_tdm_guided_dosing
 # ---------------------------------------------------------------------------
+
 
 def test_simulate_returns_list_length():
     times, conc = _make_obs()
@@ -192,6 +206,7 @@ def test_simulate_n_adjustments_5():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_validation_dose_mg_zero():
     with pytest.raises(ValueError, match="dose_mg"):

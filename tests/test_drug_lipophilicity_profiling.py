@@ -1,5 +1,7 @@
 """Tests for Phase 962 — drug_lipophilicity_profiling module."""
+
 import pytest
+
 from omega_pbpk.prediction.drug_lipophilicity_profiling import (
     LipophilicityProfileResult,
     profile_lipophilicity,

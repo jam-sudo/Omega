@@ -2,22 +2,20 @@
 Tests for Phase 890 — Enterohepatic Circulation
 """
 
-import math
 import pytest
 
 from omega_pbpk.core.enterohepatic_circulation import (
     EHCResult,
-    simulate_ehc,
     compare_ehc_scenarios,
+    simulate_ehc,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic smoke tests
 # ---------------------------------------------------------------------------
 
-class TestSimulateEHC:
 
+class TestSimulateEHC:
     def test_returns_ehc_result(self):
         result = simulate_ehc("naproxen", 500.0)
         assert isinstance(result, EHCResult)
@@ -80,7 +78,8 @@ class TestSimulateEHC:
 
     def test_ehc_observed_with_high_recycling(self):
         result = simulate_ehc(
-            "naproxen", 500.0,
+            "naproxen",
+            500.0,
             f_bile=0.5,
             k_bile_per_h=0.5,
             t_bile_transit_h=2.0,
@@ -108,8 +107,8 @@ class TestSimulateEHC:
 # Validation tests
 # ---------------------------------------------------------------------------
 
-class TestValidation:
 
+class TestValidation:
     def test_zero_dose_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
             simulate_ehc("X", 0.0)
@@ -139,8 +138,8 @@ class TestValidation:
 # Compare EHC scenarios
 # ---------------------------------------------------------------------------
 
-class TestCompareEHCScenarios:
 
+class TestCompareEHCScenarios:
     def test_returns_same_count_as_scenarios(self):
         scenarios = [
             {"f_bile": 0.1, "f_reabs": 0.3},

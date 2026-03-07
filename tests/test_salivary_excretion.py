@@ -1,6 +1,5 @@
 """Tests for Phase 897 — Salivary Drug Excretion."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.salivary_excretion import (
@@ -8,7 +7,6 @@ from omega_pbpk.clinical.salivary_excretion import (
     predict_salivary_excretion,
     screen_salivary_tdm,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -288,9 +286,6 @@ def test_screen_default_ionization_neutral():
 
 
 def test_screen_returns_all():
-    candidates = [
-        {"name": f"D{i}", "pka": 7.0, "logp": float(i)}
-        for i in range(5)
-    ]
+    candidates = [{"name": f"D{i}", "pka": 7.0, "logp": float(i)} for i in range(5)]
     results = screen_salivary_tdm(candidates)
     assert len(results) == 5

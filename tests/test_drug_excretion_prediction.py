@@ -1,6 +1,7 @@
 """Tests for Phase 952 — Drug excretion route prediction."""
 
 import pytest
+
 from omega_pbpk.prediction.drug_excretion_prediction import (
     DrugExcretionPredictionResult,
     predict_excretion,
@@ -12,6 +13,7 @@ _VALID_SENSITIVITIES = {"high", "moderate", "low"}
 
 
 # ── Basic return type and structure ──────────────────────────────────────────
+
 
 def test_return_type():
     r = predict_excretion("DrugX", logp=1.0, mw=250.0, pka=7.4, ionization_type="neutral")
@@ -63,11 +65,11 @@ def test_notes_nonempty():
 
 # ── Physicochemical rules ─────────────────────────────────────────────────────
 
+
 def test_low_mw_low_logp_renal_dominant():
     """MW=150, logP=-1, neutral, fu=0.8 → high renal score."""
     r = predict_excretion(
-        "SmallHydrophilic", logp=-1.0, mw=150.0, pka=7.4,
-        ionization_type="neutral", fu_plasma=0.8
+        "SmallHydrophilic", logp=-1.0, mw=150.0, pka=7.4, ionization_type="neutral", fu_plasma=0.8
     )
     assert r.primary_excretion_route == "renal"
 
@@ -75,8 +77,7 @@ def test_low_mw_low_logp_renal_dominant():
 def test_high_mw_high_logp_biliary_dominant():
     """MW=600, logP=3.5 → biliary dominant."""
     r = predict_excretion(
-        "BigLipophilic", logp=3.5, mw=600.0, pka=7.4,
-        ionization_type="neutral", fu_plasma=0.1
+        "BigLipophilic", logp=3.5, mw=600.0, pka=7.4, ionization_type="neutral", fu_plasma=0.1
     )
     assert r.primary_excretion_route == "biliary"
 
@@ -87,6 +88,7 @@ def test_drug_name_preserved():
 
 
 # ── screen_excretion_routes ───────────────────────────────────────────────────
+
 
 def test_screen_returns_correct_length():
     compounds = [
@@ -113,8 +115,7 @@ def test_renal_sensitivity_high_when_above_threshold():
     """fe_renal > 0.7 → renal_sensitivity == 'high'."""
     # Very small MW, low logP, high fu, ionized base → maximum renal score
     r = predict_excretion(
-        "TinyHydrophilic", logp=-2.0, mw=100.0, pka=10.0,
-        ionization_type="base", fu_plasma=0.9
+        "TinyHydrophilic", logp=-2.0, mw=100.0, pka=10.0, ionization_type="base", fu_plasma=0.9
     )
     if r.fe_renal > 0.7:
         assert r.renal_sensitivity == "high"
@@ -123,8 +124,7 @@ def test_renal_sensitivity_high_when_above_threshold():
 def test_renal_sensitivity_high_explicit():
     """Force a scenario where fe_renal > 0.7 and confirm sensitivity."""
     r = predict_excretion(
-        "TinyBase", logp=-2.0, mw=100.0, pka=10.0,
-        ionization_type="base", fu_plasma=0.9
+        "TinyBase", logp=-2.0, mw=100.0, pka=10.0, ionization_type="base", fu_plasma=0.9
     )
     # Confirm the rule: if result shows high, then fe_renal > 0.7
     if r.renal_sensitivity == "high":
@@ -134,13 +134,19 @@ def test_renal_sensitivity_high_explicit():
 def test_cl_renal_equals_fe_times_cl_total():
     cl_total = 15.0
     r = predict_excretion(
-        "DrugY", logp=0.0, mw=200.0, pka=7.0, ionization_type="neutral",
-        fu_plasma=0.5, cl_total_L_per_h=cl_total
+        "DrugY",
+        logp=0.0,
+        mw=200.0,
+        pka=7.0,
+        ionization_type="neutral",
+        fu_plasma=0.5,
+        cl_total_L_per_h=cl_total,
     )
     assert r.cl_renal_predicted_L_per_h == pytest.approx(r.fe_renal * cl_total, rel=1e-6)
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
+
 
 def test_validation_mw_zero():
     with pytest.raises(ValueError, match="mw"):
@@ -154,23 +160,25 @@ def test_validation_mw_negative():
 
 def test_validation_fu_plasma_zero():
     with pytest.raises(ValueError, match="fu_plasma"):
-        predict_excretion("DrugX", logp=1.0, mw=300.0, pka=7.0, ionization_type="neutral",
-                          fu_plasma=0.0)
+        predict_excretion(
+            "DrugX", logp=1.0, mw=300.0, pka=7.0, ionization_type="neutral", fu_plasma=0.0
+        )
 
 
 def test_validation_fu_plasma_above_one():
     with pytest.raises(ValueError, match="fu_plasma"):
-        predict_excretion("DrugX", logp=1.0, mw=300.0, pka=7.0, ionization_type="neutral",
-                          fu_plasma=1.5)
+        predict_excretion(
+            "DrugX", logp=1.0, mw=300.0, pka=7.0, ionization_type="neutral", fu_plasma=1.5
+        )
 
 
 def test_validation_cl_total_zero():
     with pytest.raises(ValueError, match="cl_total"):
-        predict_excretion("DrugX", logp=1.0, mw=300.0, pka=7.0, ionization_type="neutral",
-                          cl_total_L_per_h=0.0)
+        predict_excretion(
+            "DrugX", logp=1.0, mw=300.0, pka=7.0, ionization_type="neutral", cl_total_L_per_h=0.0
+        )
 
 
 def test_validation_invalid_ionization_type():
     with pytest.raises(ValueError, match="ionization_type"):
-        predict_excretion("DrugX", logp=1.0, mw=300.0, pka=7.0,
-                          ionization_type="zwitterion")
+        predict_excretion("DrugX", logp=1.0, mw=300.0, pka=7.0, ionization_type="zwitterion")

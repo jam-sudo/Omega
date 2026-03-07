@@ -2,22 +2,20 @@
 Tests for Phase 889 — Prodrug Activation Kinetics
 """
 
-import math
 import pytest
 
 from omega_pbpk.core.prodrug_activation_pk import (
     ProdrugPKResult,
-    simulate_prodrug_pk,
     compare_activation_sites,
+    simulate_prodrug_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic smoke tests
 # ---------------------------------------------------------------------------
 
-class TestSimulateProdrugPK:
 
+class TestSimulateProdrugPK:
     def test_returns_prodrug_pk_result(self):
         result = simulate_prodrug_pk("enalapril", "enalaprilat", 10.0)
         assert isinstance(result, ProdrugPKResult)
@@ -36,9 +34,7 @@ class TestSimulateProdrugPK:
         assert result.activation_site == "liver"
 
     def test_activation_site_plasma(self):
-        result = simulate_prodrug_pk(
-            "enalapril", "enalaprilat", 10.0, activation_site="plasma"
-        )
+        result = simulate_prodrug_pk("enalapril", "enalaprilat", 10.0, activation_site="plasma")
         assert result.activation_site == "plasma"
 
     def test_times_starts_at_zero(self):
@@ -46,9 +42,7 @@ class TestSimulateProdrugPK:
         assert result.times_h[0] == pytest.approx(0.0)
 
     def test_times_ends_at_t_end(self):
-        result = simulate_prodrug_pk(
-            "enalapril", "enalaprilat", 10.0, t_end_h=12.0
-        )
+        result = simulate_prodrug_pk("enalapril", "enalaprilat", 10.0, t_end_h=12.0)
         assert result.times_h[-1] == pytest.approx(12.0, abs=0.2)
 
     def test_concentrations_non_negative(self):
@@ -80,15 +74,11 @@ class TestSimulateProdrugPK:
         assert result.auc_active > 0
 
     def test_f_activation_stored(self):
-        result = simulate_prodrug_pk(
-            "enalapril", "enalaprilat", 10.0, f_activation=0.85
-        )
+        result = simulate_prodrug_pk("enalapril", "enalaprilat", 10.0, f_activation=0.85)
         assert result.f_activation == pytest.approx(0.85)
 
     def test_f_activation_zero_gives_no_active(self):
-        result = simulate_prodrug_pk(
-            "enalapril", "enalaprilat", 10.0, f_activation=0.0
-        )
+        result = simulate_prodrug_pk("enalapril", "enalaprilat", 10.0, f_activation=0.0)
         assert result.auc_active == pytest.approx(0.0, abs=1e-6)
 
     def test_active_to_prodrug_ratio_computed(self):
@@ -99,7 +89,9 @@ class TestSimulateProdrugPK:
     def test_notes_dominant_active(self):
         # Very high activation rate → active dominates
         result = simulate_prodrug_pk(
-            "enalapril", "enalaprilat", 10.0,
+            "enalapril",
+            "enalaprilat",
+            10.0,
             k_act_per_h=5.0,
             f_activation=1.0,
             cl_prodrug_L_per_h=20.0,
@@ -110,7 +102,9 @@ class TestSimulateProdrugPK:
     def test_notes_prodrug_dominant(self):
         # Very low activation → prodrug dominates
         result = simulate_prodrug_pk(
-            "enalapril", "enalaprilat", 10.0,
+            "enalapril",
+            "enalaprilat",
+            10.0,
             k_act_per_h=0.01,
             f_activation=0.05,
         )
@@ -127,8 +121,8 @@ class TestSimulateProdrugPK:
 # Validation tests
 # ---------------------------------------------------------------------------
 
-class TestValidation:
 
+class TestValidation:
     def test_zero_dose_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
             simulate_prodrug_pk("X", "Y", 0.0)
@@ -162,8 +156,8 @@ class TestValidation:
 # Compare activation sites
 # ---------------------------------------------------------------------------
 
-class TestCompareActivationSites:
 
+class TestCompareActivationSites:
     def test_returns_four_results(self):
         results = compare_activation_sites("enalapril", "enalaprilat", 10.0)
         assert len(results) == 4
@@ -179,8 +173,6 @@ class TestCompareActivationSites:
         assert sites == {"plasma", "liver", "intestine", "gut_wall"}
 
     def test_kwargs_forwarded(self):
-        results = compare_activation_sites(
-            "enalapril", "enalaprilat", 10.0, f_activation=0.9
-        )
+        results = compare_activation_sites("enalapril", "enalaprilat", 10.0, f_activation=0.9)
         for r in results:
             assert r.f_activation == pytest.approx(0.9)

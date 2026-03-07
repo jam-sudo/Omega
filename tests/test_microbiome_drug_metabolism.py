@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.microbiome_drug_metabolism import (
     MicrobiomePKResult,
-    simulate_microbiome_pk,
     compare_microbiome_activities,
+    simulate_microbiome_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic result structure tests
 # ---------------------------------------------------------------------------
+
 
 class TestMicrobiomePKResultStructure:
     def test_returns_correct_type(self):
@@ -52,11 +51,10 @@ class TestMicrobiomePKResultStructure:
 # Microbiome activity scaling tests
 # ---------------------------------------------------------------------------
 
+
 class TestMicrobiomeActivityScaling:
     def test_none_activity_no_metabolite(self):
-        result = simulate_microbiome_pk(
-            "Drug", dose_mg=100.0, microbiome_activity="none"
-        )
+        result = simulate_microbiome_pk("Drug", dose_mg=100.0, microbiome_activity="none")
         assert result.auc_metabolite == pytest.approx(0.0, abs=1e-6)
         assert result.cmax_metabolite == pytest.approx(0.0, abs=1e-6)
 
@@ -89,6 +87,7 @@ class TestMicrobiomeActivityScaling:
 # PK metric tests
 # ---------------------------------------------------------------------------
 
+
 class TestPKMetrics:
     def test_cmax_parent_matches_max_concentration(self):
         result = simulate_microbiome_pk("Drug", dose_mg=100.0)
@@ -107,8 +106,9 @@ class TestPKMetrics:
         assert result.metabolite_ratio == pytest.approx(0.0, abs=1e-9)
 
     def test_metabolite_ratio_positive_for_high_activity(self):
-        result = simulate_microbiome_pk("Drug", dose_mg=100.0, microbiome_activity="high",
-                                        k_microb_per_h=2.0, f_microb=0.8)
+        result = simulate_microbiome_pk(
+            "Drug", dose_mg=100.0, microbiome_activity="high", k_microb_per_h=2.0, f_microb=0.8
+        )
         assert result.metabolite_ratio >= 0.0
 
     def test_dose_scaling_auc(self):
@@ -121,6 +121,7 @@ class TestPKMetrics:
 # Notes / interpretation tests
 # ---------------------------------------------------------------------------
 
+
 class TestNotes:
     def test_notes_minimal_for_none_activity(self):
         result = simulate_microbiome_pk("Drug", dose_mg=100.0, microbiome_activity="none")
@@ -129,9 +130,13 @@ class TestNotes:
     def test_notes_extensive_for_dominant_metabolite(self):
         # High microbiome activity with very high metabolite production
         result = simulate_microbiome_pk(
-            "Drug", dose_mg=100.0, microbiome_activity="high",
-            k_microb_per_h=5.0, f_microb=1.0,
-            cl_parent_L_per_h=5.0, cl_met_L_per_h=1.0
+            "Drug",
+            dose_mg=100.0,
+            microbiome_activity="high",
+            k_microb_per_h=5.0,
+            f_microb=1.0,
+            cl_parent_L_per_h=5.0,
+            cl_met_L_per_h=1.0,
         )
         # metabolite_ratio > 1 should trigger "Extensive"
         if result.metabolite_ratio > 1.0:
@@ -151,6 +156,7 @@ class TestNotes:
 # Validation tests
 # ---------------------------------------------------------------------------
 
+
 class TestValidation:
     def test_invalid_dose_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
@@ -168,6 +174,7 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 # compare_microbiome_activities tests
 # ---------------------------------------------------------------------------
+
 
 class TestCompareMicrobiomeActivities:
     def test_returns_four_results(self):

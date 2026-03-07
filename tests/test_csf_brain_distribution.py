@@ -1,6 +1,5 @@
 """Tests for Phase 903 — CSF vs Brain Parenchyma Distribution Predictor."""
 
-import math
 import pytest
 
 from omega_pbpk.prediction.csf_brain_distribution import (
@@ -9,10 +8,10 @@ from omega_pbpk.prediction.csf_brain_distribution import (
     screen_cns_penetration,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic smoke tests
 # ---------------------------------------------------------------------------
+
 
 class TestPredictBasicDefaults:
     def test_returns_dataclass(self):
@@ -39,6 +38,7 @@ class TestPredictBasicDefaults:
 # BBB permeability class
 # ---------------------------------------------------------------------------
 
+
 class TestBBBPermeabilityClass:
     def test_high_permeability(self):
         # score = logp - psa/100 - mw/500 = 4 - 0.2 - 0.4 = 3.4 > 1
@@ -59,6 +59,7 @@ class TestBBBPermeabilityClass:
 # ---------------------------------------------------------------------------
 # fu_brain calculation
 # ---------------------------------------------------------------------------
+
 
 class TestFuBrain:
     def test_fu_brain_in_range(self):
@@ -84,6 +85,7 @@ class TestFuBrain:
 # ---------------------------------------------------------------------------
 # kp_uu_brain and efflux
 # ---------------------------------------------------------------------------
+
 
 class TestKpUuBrain:
     def test_kp_uu_brain_in_range(self):
@@ -122,11 +124,14 @@ class TestKpUuBrain:
 # CSF metrics
 # ---------------------------------------------------------------------------
 
+
 class TestCSFMetrics:
     def test_csf_plasma_ratio_is_70_percent_kp_uu(self):
         result = predict_csf_brain_distribution("X", logp=4.0)
         expected = result.kp_uu_brain * 0.7
-        assert abs(result.csf_plasma_ratio - expected) < 1e-9 or result.csf_plasma_ratio == pytest.approx(expected, abs=1e-6)
+        assert abs(
+            result.csf_plasma_ratio - expected
+        ) < 1e-9 or result.csf_plasma_ratio == pytest.approx(expected, abs=1e-6)
 
     def test_csf_brain_ratio_approx_0_7(self):
         # csf_brain_ratio = csf_plasma_ratio / kp_uu_brain = 0.7 (when not clamped)
@@ -143,6 +148,7 @@ class TestCSFMetrics:
 # kp_brain
 # ---------------------------------------------------------------------------
 
+
 class TestKpBrain:
     def test_kp_brain_in_range(self):
         result = predict_csf_brain_distribution("X")
@@ -158,6 +164,7 @@ class TestKpBrain:
 # Target site exposure
 # ---------------------------------------------------------------------------
 
+
 class TestTargetSiteExposure:
     def test_adequate_when_kp_uu_above_03(self):
         result = predict_csf_brain_distribution("X", logp=4.0)
@@ -172,6 +179,7 @@ class TestTargetSiteExposure:
 # ---------------------------------------------------------------------------
 # Notes content
 # ---------------------------------------------------------------------------
+
 
 class TestNotes:
     def test_adequate_note_when_high_kp_uu(self):
@@ -194,6 +202,7 @@ class TestNotes:
 # Validation errors
 # ---------------------------------------------------------------------------
 
+
 class TestValidation:
     def test_negative_psa_raises(self):
         with pytest.raises(ValueError, match="psa_A2"):
@@ -211,6 +220,7 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 # screen_cns_penetration
 # ---------------------------------------------------------------------------
+
 
 class TestScreenCNSPenetration:
     def test_returns_list(self):

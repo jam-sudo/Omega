@@ -13,6 +13,7 @@ _VALID_LIMITING_FACTORS = {"cyp3a4_metabolism", "pgp_efflux", "poor_permeability
 
 # ── Basic return-type and structure ──────────────────────────────────────────
 
+
 def test_return_type_is_correct():
     result = predict_gut_wall_extraction("TestDrug", logp=2.0, pka=7.0)
     assert isinstance(result, GutWallExtractionResult)
@@ -71,17 +72,14 @@ def test_drug_name_preserved():
 
 # ── Model behaviour ──────────────────────────────────────────────────────────
 
+
 def test_high_clint_gives_low_fg():
-    result = predict_gut_wall_extraction(
-        "Drug", logp=2.0, pka=7.0, clint_gut_L_per_h=200.0
-    )
+    result = predict_gut_wall_extraction("Drug", logp=2.0, pka=7.0, clint_gut_L_per_h=200.0)
     assert result.fg < 0.5
 
 
 def test_low_clint_gives_high_fg():
-    result = predict_gut_wall_extraction(
-        "Drug", logp=2.0, pka=7.0, clint_gut_L_per_h=0.1
-    )
+    result = predict_gut_wall_extraction("Drug", logp=2.0, pka=7.0, clint_gut_L_per_h=0.1)
     assert result.fg > 0.8
 
 
@@ -116,6 +114,7 @@ def test_high_clint_limiting_factor_cyp3a4():
 
 # ── Validation errors ─────────────────────────────────────────────────────────
 
+
 def test_fa_input_negative_raises():
     with pytest.raises(ValueError, match="fa_input"):
         predict_gut_wall_extraction("Drug", logp=2.0, pka=7.0, fa_input=-0.1)
@@ -147,6 +146,7 @@ def test_qent_negative_raises():
 
 
 # ── screen_gut_extraction ────────────────────────────────────────────────────
+
 
 def test_screen_returns_correct_length():
     compounds = [

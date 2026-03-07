@@ -42,9 +42,7 @@ class TestIntrapericardialSimulation:
         assert abs(r.c_peritoneal_mg_L[0] - 100.0 / 1.5) < 0.01
 
     def test_ip_initial_plasma_zero(self):
-        r = simulate_peritoneal_distribution(
-            "Drug", dose_mg=100.0, route="intraperitoneal"
-        )
+        r = simulate_peritoneal_distribution("Drug", dose_mg=100.0, route="intraperitoneal")
         assert r.c_plasma_mg_L[0] == pytest.approx(0.0)
 
     def test_ip_drug_absorbed_over_time(self):
@@ -62,7 +60,9 @@ class TestIntrapericardialSimulation:
         assert r.cmax_plasma > 0.0
 
     def test_ip_time_points_positive(self):
-        r = simulate_peritoneal_distribution("Drug", dose_mg=10.0, route="intraperitoneal", t_end_h=5.0)
+        r = simulate_peritoneal_distribution(
+            "Drug", dose_mg=10.0, route="intraperitoneal", t_end_h=5.0
+        )
         assert len(r.times_h) > 0
         assert r.times_h[0] == pytest.approx(0.0)
 
@@ -100,9 +100,7 @@ class TestIntrapericardialSimulation:
 class TestSystemicSimulation:
     def test_systemic_initial_conc(self):
         # Systemic: a_plasma = dose_mg, c_plasma[0] = dose/vd
-        r = simulate_peritoneal_distribution(
-            "Drug", dose_mg=100.0, route="systemic", vd_sys_L=50.0
-        )
+        r = simulate_peritoneal_distribution("Drug", dose_mg=100.0, route="systemic", vd_sys_L=50.0)
         assert abs(r.c_plasma_mg_L[0] - 100.0 / 50.0) < 0.01
 
     def test_systemic_initial_peri_zero(self):
@@ -110,16 +108,12 @@ class TestSystemicSimulation:
         assert r.c_peritoneal_mg_L[0] == pytest.approx(0.0)
 
     def test_systemic_plasma_declines(self):
-        r = simulate_peritoneal_distribution(
-            "Drug", dose_mg=100.0, route="systemic", t_end_h=24.0
-        )
+        r = simulate_peritoneal_distribution("Drug", dose_mg=100.0, route="systemic", t_end_h=24.0)
         assert r.c_plasma_mg_L[-1] < r.c_plasma_mg_L[0]
 
     def test_systemic_peri_rises(self):
         # Passive transfer should cause peritoneal to accumulate
-        r = simulate_peritoneal_distribution(
-            "Drug", dose_mg=100.0, route="systemic", t_end_h=24.0
-        )
+        r = simulate_peritoneal_distribution("Drug", dose_mg=100.0, route="systemic", t_end_h=24.0)
         assert r.cmax_peritoneal > 0.0
 
 

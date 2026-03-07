@@ -3,14 +3,15 @@ Tests for Phase 875: Osmotic Drug Delivery Model
 """
 
 import pytest
+
 from omega_pbpk.core.osmotic_drug_delivery import (
     OsmoticDrugDeliveryResult,
-    simulate_osmotic_delivery,
     compare_osmotic_designs,
+    simulate_osmotic_delivery,
 )
 
-
 # --- Return type and basic field tests ---
+
 
 def test_returns_correct_type():
     result = simulate_osmotic_delivery("DrugA", 100.0)
@@ -18,8 +19,9 @@ def test_returns_correct_type():
 
 
 def test_fields_preserved():
-    result = simulate_osmotic_delivery("TestDrug", 200.0, t_release_h=6.0, lag_h=0.5,
-                                        osmotic_type="single_layer")
+    result = simulate_osmotic_delivery(
+        "TestDrug", 200.0, t_release_h=6.0, lag_h=0.5, osmotic_type="single_layer"
+    )
     assert result.drug_name == "TestDrug"
     assert result.total_dose_mg == 200.0
     assert result.t_release_h == 6.0
@@ -56,6 +58,7 @@ def test_fraction_released_positive():
 
 # --- Lag time behavior ---
 
+
 def test_longer_lag_later_tmax():
     short_lag = simulate_osmotic_delivery("DrugA", 100.0, lag_h=0.5)
     long_lag = simulate_osmotic_delivery("DrugA", 100.0, lag_h=3.0)
@@ -70,10 +73,12 @@ def test_zero_lag_releases_earlier():
 
 # --- Zero-order duration ---
 
+
 def test_zero_order_duration_approx_t_release():
     # For single_layer, the zero-order release duration should be close to t_release_h
-    result = simulate_osmotic_delivery("DrugA", 100.0, t_release_h=8.0, lag_h=1.0,
-                                        t_end_h=24.0, dt_h=0.05)
+    result = simulate_osmotic_delivery(
+        "DrugA", 100.0, t_release_h=8.0, lag_h=1.0, t_end_h=24.0, dt_h=0.05
+    )
     # Allow 10% tolerance
     assert abs(result.zero_order_duration_h - 8.0) < 1.0
 
@@ -84,6 +89,7 @@ def test_zero_order_duration_positive():
 
 
 # --- Osmotic type effects ---
+
 
 def test_push_pull_later_peak_than_single_layer():
     single = simulate_osmotic_delivery("DrugA", 100.0, lag_h=1.0, osmotic_type="single_layer")
@@ -108,6 +114,7 @@ def test_push_pull_osmotic_type():
 
 # --- t_half_effective ---
 
+
 def test_t_half_effective_before_end():
     result = simulate_osmotic_delivery("DrugA", 100.0, t_end_h=24.0)
     # 50% of dose should be released well before 24h
@@ -122,6 +129,7 @@ def test_t_half_effective_after_lag():
 
 # --- Notes ---
 
+
 def test_notes_is_string():
     result = simulate_osmotic_delivery("DrugA", 100.0)
     assert isinstance(result.notes, str)
@@ -129,6 +137,7 @@ def test_notes_is_string():
 
 
 # --- compare_osmotic_designs ---
+
 
 def test_compare_osmotic_designs_returns_list():
     designs = [
@@ -158,6 +167,7 @@ def test_compare_osmotic_designs_single_design():
 
 
 # --- Validation ---
+
 
 def test_validation_negative_dose():
     with pytest.raises(ValueError, match="total_dose_mg must be > 0"):

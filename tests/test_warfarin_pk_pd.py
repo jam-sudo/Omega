@@ -1,10 +1,11 @@
 """Tests for Phase 965 — Warfarin PK/PD model."""
 
 import pytest
+
 from omega_pbpk.clinical.warfarin_pk_pd import (
     WarfarinPKPDResult,
-    simulate_warfarin_pkpd,
     compare_cyp2c9_phenotypes,
+    simulate_warfarin_pkpd,
 )
 
 

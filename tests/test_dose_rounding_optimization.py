@@ -1,12 +1,11 @@
 """Tests for Phase 953 — Dose Rounding Optimization."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.dose_rounding_optimization import (
     DoseRoundingResult,
-    optimize_dose_rounding,
     compare_dosing_regimens,
+    optimize_dose_rounding,
 )
 
 # Default test parameters

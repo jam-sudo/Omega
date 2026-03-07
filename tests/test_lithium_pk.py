@@ -1,9 +1,13 @@
 """Tests for Phase 967 — Lithium PK model."""
 
 import math
+
 import pytest
+
 from omega_pbpk.clinical.lithium_pk import (
-    LithiumPKResult, simulate_lithium_pk, find_therapeutic_dose
+    LithiumPKResult,
+    find_therapeutic_dose,
+    simulate_lithium_pk,
 )
 
 

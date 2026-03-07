@@ -8,7 +8,6 @@ from omega_pbpk.core.bone_distribution_pk import (
     simulate_bone_distribution,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic structure tests
 # ---------------------------------------------------------------------------
@@ -59,24 +58,18 @@ def test_initial_plasma_is_zero():
 
 
 def test_plasma_rises_then_falls():
-    result = simulate_bone_distribution(
-        "drug", dose_mg=10.0, t_end_h=168.0, dt_h=0.5
-    )
+    result = simulate_bone_distribution("drug", dose_mg=10.0, t_end_h=168.0, dt_h=0.5)
     # Cmax plasma should be after t=0 and before t_end
     assert result.cmax_plasma > 0.0
 
 
 def test_cortical_bone_accumulates():
-    result = simulate_bone_distribution(
-        "drug", dose_mg=10.0, t_end_h=168.0, dt_h=0.5
-    )
+    result = simulate_bone_distribution("drug", dose_mg=10.0, t_end_h=168.0, dt_h=0.5)
     assert result.cmax_cortical > 0.0
 
 
 def test_trabecular_bone_accumulates():
-    result = simulate_bone_distribution(
-        "drug", dose_mg=10.0, t_end_h=168.0, dt_h=0.5
-    )
+    result = simulate_bone_distribution("drug", dose_mg=10.0, t_end_h=168.0, dt_h=0.5)
     assert result.cmax_trabecular > 0.0
 
 

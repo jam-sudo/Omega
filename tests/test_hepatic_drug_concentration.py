@@ -3,16 +3,17 @@ Tests for Phase 929: hepatic drug concentration prediction.
 """
 
 import pytest
+
 from omega_pbpk.prediction.hepatic_drug_concentration import (
     HepaticDrugConcentrationResult,
     predict_hepatic_concentration,
     screen_hepatic_risk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _base_result(**kwargs):
     defaults = dict(
@@ -33,6 +34,7 @@ def _base_result(**kwargs):
 # Return type
 # ---------------------------------------------------------------------------
 
+
 class TestReturnType:
     def test_returns_correct_type(self):
         result = _base_result()
@@ -47,6 +49,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # Basic values
 # ---------------------------------------------------------------------------
+
 
 class TestBasicValues:
     def test_kp_liver_positive(self):
@@ -83,6 +86,7 @@ class TestBasicValues:
 # Drug property effects
 # ---------------------------------------------------------------------------
 
+
 class TestDrugPropertyEffects:
     def test_high_logp_increases_kp_liver(self):
         low = _base_result(logp=0.0)
@@ -99,6 +103,7 @@ class TestDrugPropertyEffects:
 # ---------------------------------------------------------------------------
 # DILI risk
 # ---------------------------------------------------------------------------
+
 
 class TestDiliRisk:
     def test_dili_risk_valid_value(self):
@@ -119,6 +124,7 @@ class TestDiliRisk:
 # Notes
 # ---------------------------------------------------------------------------
 
+
 class TestNotes:
     def test_notes_non_empty(self):
         result = _base_result()
@@ -128,6 +134,7 @@ class TestNotes:
 # ---------------------------------------------------------------------------
 # Ionization type effects
 # ---------------------------------------------------------------------------
+
 
 class TestIonizationEffects:
     def test_neutral_hepatocyte_equals_liver(self):
@@ -149,6 +156,7 @@ class TestIonizationEffects:
 # Drug name preserved
 # ---------------------------------------------------------------------------
 
+
 class TestDrugNamePreserved:
     def test_drug_name_preserved(self):
         result = _base_result(drug_name="Acetaminophen")
@@ -158,6 +166,7 @@ class TestDrugNamePreserved:
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_fu_plasma_zero_raises(self):
@@ -198,9 +207,30 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 
 COMPOUNDS = [
-    dict(drug_name="DrugA", logp=1.0, fu_plasma=0.5, pka=7.0, ionization_type="neutral", c_plasma_mg_L=1.0),
-    dict(drug_name="DrugB", logp=3.0, fu_plasma=0.1, pka=8.0, ionization_type="base", c_plasma_mg_L=1.0),
-    dict(drug_name="DrugC", logp=0.5, fu_plasma=0.8, pka=4.0, ionization_type="acid", c_plasma_mg_L=1.0),
+    dict(
+        drug_name="DrugA",
+        logp=1.0,
+        fu_plasma=0.5,
+        pka=7.0,
+        ionization_type="neutral",
+        c_plasma_mg_L=1.0,
+    ),
+    dict(
+        drug_name="DrugB",
+        logp=3.0,
+        fu_plasma=0.1,
+        pka=8.0,
+        ionization_type="base",
+        c_plasma_mg_L=1.0,
+    ),
+    dict(
+        drug_name="DrugC",
+        logp=0.5,
+        fu_plasma=0.8,
+        pka=4.0,
+        ionization_type="acid",
+        c_plasma_mg_L=1.0,
+    ),
 ]
 
 

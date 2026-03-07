@@ -1,5 +1,7 @@
 """Tests for Phase 972 — Drug chemical stability prediction."""
+
 import pytest
+
 from omega_pbpk.prediction.drug_stability_prediction import (
     DrugStabilityResult,
     predict_drug_stability,
@@ -76,9 +78,15 @@ def test_catechol_high_oxidation_index():
 
 def test_no_labile_groups_neutral_stable():
     result = predict_drug_stability(
-        "StableMol", logp=1.0, mw=300.0,
-        has_ester=False, has_lactam=False, has_amide_primary=False,
-        has_catechol=False, has_thiol=False, has_aldehyde=False,
+        "StableMol",
+        logp=1.0,
+        mw=300.0,
+        has_ester=False,
+        has_lactam=False,
+        has_amide_primary=False,
+        has_catechol=False,
+        has_thiol=False,
+        has_aldehyde=False,
         ionization_type="neutral",
     )
     assert result.stability_category == "stable"
@@ -86,8 +94,11 @@ def test_no_labile_groups_neutral_stable():
 
 def test_ester_catechol_high_oxidation_and_short_shelf_life():
     result = predict_drug_stability(
-        "Drug", logp=1.0, mw=300.0,
-        has_ester=True, has_catechol=True,
+        "Drug",
+        logp=1.0,
+        mw=300.0,
+        has_ester=True,
+        has_catechol=True,
     )
     assert result.oxidation_index >= 40
     assert result.shelf_life_months_25c < 24.0
@@ -136,9 +147,15 @@ def test_has_thiol_high_oxidation_index():
 
 def test_stable_drug_shelf_life_over_24_months():
     result = predict_drug_stability(
-        "StableDrug", logp=0.5, mw=200.0,
-        has_ester=False, has_lactam=False, has_amide_primary=False,
-        has_catechol=False, has_thiol=False, has_aldehyde=False,
+        "StableDrug",
+        logp=0.5,
+        mw=200.0,
+        has_ester=False,
+        has_lactam=False,
+        has_amide_primary=False,
+        has_catechol=False,
+        has_thiol=False,
+        has_aldehyde=False,
         ionization_type="neutral",
     )
     assert result.shelf_life_months_25c > 24.0

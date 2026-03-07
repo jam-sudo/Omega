@@ -1,14 +1,15 @@
 """Tests for Phase 938 — Crystal Form Solubility (crystal_form_solubility.py)."""
+
 import pytest
 
 from omega_pbpk.prediction.crystal_form_solubility import (
     CrystalFormSolubilityResult,
-    predict_crystal_form_solubility,
     compare_crystal_forms,
+    predict_crystal_form_solubility,
 )
 
-
 # ── Basic return type ──────────────────────────────────────────────────────────
+
 
 def test_return_type():
     result = predict_crystal_form_solubility(
@@ -76,6 +77,7 @@ def test_drug_name_preserved():
 
 # ── Form-specific properties ───────────────────────────────────────────────────
 
+
 def test_amorphous_highest_in_compare():
     results = compare_crystal_forms("DrugX", logp=2.0, pka=4.5, ionization_type="neutral")
     assert results[0].crystal_form == "amorphous"
@@ -119,6 +121,7 @@ def test_hydrate_lower_solubility_than_form_I():
 
 # ── pH effects ─────────────────────────────────────────────────────────────────
 
+
 def test_acid_high_ph_higher_solubility_than_low_ph():
     """Acid dissolves better at high pH (more ionized)."""
     high_ph = predict_crystal_form_solubility(
@@ -155,6 +158,7 @@ def test_neutral_ph_independent():
 
 # ── compare_crystal_forms ──────────────────────────────────────────────────────
 
+
 def test_compare_returns_7_results():
     results = compare_crystal_forms("DrugX", logp=2.0, pka=4.5, ionization_type="acid")
     assert len(results) == 7
@@ -167,6 +171,7 @@ def test_compare_sorted_by_ph_adjusted_solubility_descending():
 
 
 # ── Validation ─────────────────────────────────────────────────────────────────
+
 
 def test_validation_invalid_crystal_form():
     with pytest.raises(ValueError, match="crystal_form"):

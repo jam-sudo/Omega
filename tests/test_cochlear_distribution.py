@@ -8,7 +8,6 @@ from omega_pbpk.prediction.cochlear_distribution import (
     screen_ototoxic_drugs,
 )
 
-
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
@@ -136,8 +135,7 @@ def test_hair_cell_factor_clamped_low():
 def test_ototoxicity_high_risk():
     # Use MET channel + high BLB to drive score high
     r = predict_cochlear_distribution(
-        "Gentamicin", logp=3.0, mw_Da=400.0,
-        route="intratympanic", has_met_channel_entry=True
+        "Gentamicin", logp=3.0, mw_Da=400.0, route="intratympanic", has_met_channel_entry=True
     )
     assert r.ototoxicity_risk_level == "high"
 
@@ -154,8 +152,7 @@ def test_ototoxicity_low_risk():
 
 def test_notes_high_risk():
     r = predict_cochlear_distribution(
-        "ToxicDrug", logp=3.0, mw_Da=400.0,
-        route="intratympanic", has_met_channel_entry=True
+        "ToxicDrug", logp=3.0, mw_Da=400.0, route="intratympanic", has_met_channel_entry=True
     )
     assert "audiometry" in r.notes.lower()
 
@@ -164,14 +161,15 @@ def test_notes_met_channel_moderate():
     # MET channel but not high risk → notes about MET
     # low BLB, systemic, MET → ratio = 0.005*2 = 0.01, score = 0.01*100 + 50*0.5 = 1+25 = 26 → low
     r = predict_cochlear_distribution(
-        "Aminoglycoside", logp=-2.0, mw_Da=800.0,
-        route="systemic", has_met_channel_entry=True
+        "Aminoglycoside", logp=-2.0, mw_Da=800.0, route="systemic", has_met_channel_entry=True
     )
     assert "MET channel" in r.notes
 
 
 def test_notes_low_cochlear():
-    r = predict_cochlear_distribution("SafeDrug", logp=-2.0, mw_Da=800.0, has_met_channel_entry=False)
+    r = predict_cochlear_distribution(
+        "SafeDrug", logp=-2.0, mw_Da=800.0, has_met_channel_entry=False
+    )
     assert "Low cochlear" in r.notes
 
 

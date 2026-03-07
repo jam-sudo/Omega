@@ -10,7 +10,6 @@ from omega_pbpk.core.cardiac_pk import (
     simulate_cardiac_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic instantiation / return type
 # ---------------------------------------------------------------------------
@@ -145,32 +144,25 @@ def test_higher_kp_gives_higher_exposure_score():
 
 def test_qtc_risk_low_by_default_small_dose():
     # Very small dose => cmax_uM very small => occupancy low
-    result = simulate_cardiac_pk(
-        "Safe", 0.01, kp_heart=1.0, herg_ic50_uM=100.0, mw_Da=400.0
-    )
+    result = simulate_cardiac_pk("Safe", 0.01, kp_heart=1.0, herg_ic50_uM=100.0, mw_Da=400.0)
     assert result.qtc_risk_level == "low"
 
 
 def test_qtc_risk_high_with_large_dose_low_ic50():
     # Large dose, low IC50 => high occupancy
     result = simulate_cardiac_pk(
-        "Dangerous", 5000.0, kp_heart=5.0, herg_ic50_uM=0.1, mw_Da=300.0,
-        v_heart_L=0.3
+        "Dangerous", 5000.0, kp_heart=5.0, herg_ic50_uM=0.1, mw_Da=300.0, v_heart_L=0.3
     )
     assert result.qtc_risk_level == "high"
 
 
 def test_notes_low_risk():
-    result = simulate_cardiac_pk(
-        "Safe", 0.01, kp_heart=1.0, herg_ic50_uM=100.0, mw_Da=400.0
-    )
+    result = simulate_cardiac_pk("Safe", 0.01, kp_heart=1.0, herg_ic50_uM=100.0, mw_Da=400.0)
     assert result.notes == "Low cardiac exposure risk."
 
 
 def test_notes_high_risk():
-    result = simulate_cardiac_pk(
-        "Dangerous", 5000.0, kp_heart=5.0, herg_ic50_uM=0.1, mw_Da=300.0
-    )
+    result = simulate_cardiac_pk("Dangerous", 5000.0, kp_heart=5.0, herg_ic50_uM=0.1, mw_Da=300.0)
     assert "QTc monitoring required" in result.notes
 
 

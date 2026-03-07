@@ -1,10 +1,11 @@
 """Tests for Phase 950 — Two-Site Receptor Binding PK Model."""
 
 import pytest
+
 from omega_pbpk.core.two_site_binding_pk import (
     TwoSiteBindingResult,
-    simulate_two_site_binding,
     optimize_selectivity,
+    simulate_two_site_binding,
 )
 
 

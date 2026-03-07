@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.plasma_stability import (
@@ -66,8 +67,13 @@ class TestPredictPlasmaStability:
     def test_esterase_lability_score_clamped_to_100(self):
         # All flags + high logp → clamped to 100
         result = predict_plasma_stability(
-            "X", logp=10.0, has_ester=True, has_thioester=True,
-            has_lactone=True, has_carbonate=True, has_amide=True
+            "X",
+            logp=10.0,
+            has_ester=True,
+            has_thioester=True,
+            has_lactone=True,
+            has_carbonate=True,
+            has_amide=True,
         )
         assert result.esterase_lability_score == pytest.approx(100.0)
 
@@ -121,7 +127,10 @@ class TestPredictPlasmaStability:
 
     def test_high_lability_handling_notes(self):
         result = predict_plasma_stability("X", logp=5.0, has_ester=True, has_thioester=True)
-        assert "PMSF" in result.in_vitro_handling_notes or "esterase inhibitor" in result.in_vitro_handling_notes
+        assert (
+            "PMSF" in result.in_vitro_handling_notes
+            or "esterase inhibitor" in result.in_vitro_handling_notes
+        )
 
     def test_moderate_lability_handling_notes(self):
         result = predict_plasma_stability("X", logp=2.0, has_ester=True)

@@ -132,9 +132,7 @@ class TestPlacentalClearance:
 
     def test_clearance_clamped_below_maximum(self):
         # Very high transfer rate — should not exceed 100 mL/min
-        result = simulate_placental_transfer(
-            k_placenta_transfer_per_h=10000.0, vd_maternal_L=30.0
-        )
+        result = simulate_placental_transfer(k_placenta_transfer_per_h=10000.0, vd_maternal_L=30.0)
         assert result.placental_clearance_mL_min <= 100.0
 
 

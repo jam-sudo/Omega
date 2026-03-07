@@ -1,16 +1,17 @@
 """Tests for Phase 939 — neonatal_dosing module."""
 
 import pytest
+
 from omega_pbpk.clinical.neonatal_dosing import (
     NeonatalDosingResult,
-    simulate_neonatal_dosing,
     compare_age_groups,
+    simulate_neonatal_dosing,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic return type and structure
 # ---------------------------------------------------------------------------
+
 
 def test_return_type_iv():
     r = simulate_neonatal_dosing("drug_A", 5.0, "term_neonate")
@@ -36,12 +37,15 @@ def test_t_half_positive():
 # Clinical correctness
 # ---------------------------------------------------------------------------
 
+
 def test_t_half_fold_increase_greater_than_1_all_groups():
     """All neonatal age groups should have longer t_half than adult."""
     groups = ["premature", "term_neonate", "infant_1_6m", "infant_6_12m", "toddler_1_2y"]
     for ag in groups:
         r = simulate_neonatal_dosing("drug_A", 5.0, ag)
-        assert r.t_half_fold_increase > 1.0, f"Expected fold > 1 for {ag}, got {r.t_half_fold_increase}"
+        assert r.t_half_fold_increase > 1.0, (
+            f"Expected fold > 1 for {ag}, got {r.t_half_fold_increase}"
+        )
 
 
 def test_premature_longer_than_toddler():
@@ -79,6 +83,7 @@ def test_adult_t_half_positive():
 # compare_age_groups
 # ---------------------------------------------------------------------------
 
+
 def test_compare_age_groups_returns_5():
     results = compare_age_groups("drug_A", 5.0)
     assert len(results) == 5
@@ -94,6 +99,7 @@ def test_compare_age_groups_sorted_descending():
 # Notes
 # ---------------------------------------------------------------------------
 
+
 def test_notes_nonempty():
     r = simulate_neonatal_dosing("drug_A", 5.0, "term_neonate")
     assert isinstance(r.notes, str) and len(r.notes) > 0
@@ -102,6 +108,7 @@ def test_notes_nonempty():
 # ---------------------------------------------------------------------------
 # Route-specific behaviour
 # ---------------------------------------------------------------------------
+
 
 def test_iv_initial_concentration_positive():
     """IV bolus: first concentration should be > 0."""
@@ -119,6 +126,7 @@ def test_oral_initial_concentration_zero():
 # Multi-dose
 # ---------------------------------------------------------------------------
 
+
 def test_n_doses_3_runs():
     """n_doses=3 should run without error."""
     r = simulate_neonatal_dosing(
@@ -130,6 +138,7 @@ def test_n_doses_3_runs():
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_dose_mg_per_kg():
     with pytest.raises(ValueError, match="dose_mg_per_kg"):
@@ -180,6 +189,7 @@ def test_invalid_n_doses():
 # Vd scaling
 # ---------------------------------------------------------------------------
 
+
 def test_vd_premature_less_than_toddler():
     """Premature (1 kg) has smaller absolute Vd than toddler (12 kg)."""
     r_premature = simulate_neonatal_dosing("drug_A", 5.0, "premature")
@@ -190,6 +200,7 @@ def test_vd_premature_less_than_toddler():
 # ---------------------------------------------------------------------------
 # Times list
 # ---------------------------------------------------------------------------
+
 
 def test_times_nonempty():
     r = simulate_neonatal_dosing("drug_A", 5.0, "term_neonate", t_end_h=24.0)

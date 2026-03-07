@@ -1,6 +1,5 @@
 """Tests for Phase 911 — Drug Vaginal Distribution."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.vaginal_distribution import (
@@ -9,10 +8,10 @@ from omega_pbpk.clinical.vaginal_distribution import (
     screen_vaginal_drugs,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic instantiation / return type
 # ---------------------------------------------------------------------------
+
 
 def test_returns_dataclass():
     result = predict_vaginal_distribution("clotrimazole", dose_mg=100.0, pka=5.0, logp=3.0)
@@ -50,15 +49,14 @@ def test_vaginal_ph_default():
 
 
 def test_vaginal_ph_custom():
-    result = predict_vaginal_distribution(
-        "drugE", dose_mg=50.0, pka=4.5, logp=1.0, vaginal_ph=3.8
-    )
+    result = predict_vaginal_distribution("drugE", dose_mg=50.0, pka=4.5, logp=1.0, vaginal_ph=3.8)
     assert result.vaginal_ph == 3.8
 
 
 # ---------------------------------------------------------------------------
 # Henderson-Hasselbalch ratio logic
 # ---------------------------------------------------------------------------
+
 
 def test_acid_ratio_higher_than_neutral():
     """Acid with pKa above vaginal pH has less ionization locally → smaller local retention."""
@@ -109,6 +107,7 @@ def test_ratio_clamped_max():
 # Systemic absorption fraction
 # ---------------------------------------------------------------------------
 
+
 def test_acid_lower_systemic_absorption_than_base():
     acid = predict_vaginal_distribution(
         "acid", dose_mg=100.0, pka=5.0, logp=1.0, ionization_type="acid"
@@ -140,6 +139,7 @@ def test_absorption_fraction_clamped():
 # ---------------------------------------------------------------------------
 # Concentration and selectivity
 # ---------------------------------------------------------------------------
+
 
 def test_vaginal_conc_positive():
     result = predict_vaginal_distribution("clotrimazole", dose_mg=100.0, pka=5.0, logp=3.0)
@@ -174,6 +174,7 @@ def test_notes_not_empty():
 # Validation errors
 # ---------------------------------------------------------------------------
 
+
 def test_invalid_dose_raises():
     with pytest.raises(ValueError, match="dose_mg"):
         predict_vaginal_distribution("drug", dose_mg=-1.0, pka=5.0, logp=1.0)
@@ -204,6 +205,7 @@ def test_invalid_ionization_type_raises():
 # ---------------------------------------------------------------------------
 # Screen function
 # ---------------------------------------------------------------------------
+
 
 def test_screen_returns_list():
     candidates = [

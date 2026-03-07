@@ -1,6 +1,5 @@
 """Tests for Phase 918 — Drug Adipokine Modulation Score."""
 
-import math
 import pytest
 
 from omega_pbpk.prediction.adipokine_modulation import (

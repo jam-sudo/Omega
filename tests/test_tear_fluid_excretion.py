@@ -3,6 +3,7 @@ Tests for Phase 899 — Tear Fluid Drug Excretion
 """
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.tear_fluid_excretion import (
@@ -10,7 +11,6 @@ from omega_pbpk.clinical.tear_fluid_excretion import (
     predict_tear_fluid_excretion,
     screen_tear_tdm,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic result structure
@@ -140,8 +140,7 @@ def test_fu_plasma_estimated_from_logp():
 
 def test_drug_amount_in_tears_ng():
     result = predict_tear_fluid_excretion(
-        "Drug", pka=7.0, logp=0.0, ionization_type="neutral",
-        plasma_conc_mg_L=1.0, fu_plasma=1.0
+        "Drug", pka=7.0, logp=0.0, ionization_type="neutral", plasma_conc_mg_L=1.0, fu_plasma=1.0
     )
     # T/P=1, fu=1, conc = 1.0*1*1000 = 1000 µg/mL
     # amount = 1000 * 7.0 * 1000 = 7,000,000 ng
@@ -188,8 +187,12 @@ def test_therapeutic_potential_true_when_conc_high():
 
 def test_therapeutic_potential_false_when_conc_low():
     result = predict_tear_fluid_excretion(
-        "Drug", pka=7.0, logp=5.0, plasma_conc_mg_L=0.0001, fu_plasma=0.01,
-        ionization_type="neutral"
+        "Drug",
+        pka=7.0,
+        logp=5.0,
+        plasma_conc_mg_L=0.0001,
+        fu_plasma=0.01,
+        ionization_type="neutral",
     )
     assert result.therapeutic_ocular_potential is False
 
@@ -209,10 +212,16 @@ def test_notes_therapeutic_monitoring():
 def test_notes_tdm_feasible():
     # very low tear concentration, logp < 0 → no lens accumulation
     result = predict_tear_fluid_excretion(
-        "Drug", pka=7.0, logp=-2.0, plasma_conc_mg_L=0.00001, fu_plasma=0.001,
-        ionization_type="neutral"
+        "Drug",
+        pka=7.0,
+        logp=-2.0,
+        plasma_conc_mg_L=0.00001,
+        fu_plasma=0.001,
+        ionization_type="neutral",
     )
-    assert "TDM" in result.notes or "tdm" in result.notes.lower() or "systemic" in result.notes.lower()
+    assert (
+        "TDM" in result.notes or "tdm" in result.notes.lower() or "systemic" in result.notes.lower()
+    )
 
 
 # ---------------------------------------------------------------------------

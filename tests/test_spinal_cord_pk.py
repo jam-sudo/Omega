@@ -1,13 +1,11 @@
 """Tests for Phase 919 — Drug Spinal Cord Distribution."""
 
-import math
 import pytest
 
 from omega_pbpk.core.spinal_cord_pk import (
     SpinalCordPKResult,
     simulate_spinal_cord_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic structure tests
@@ -81,9 +79,7 @@ def test_intrathecal_csf_decays():
 def test_intrathecal_cmax_csf_equals_initial():
     v_csf_L = 0.14
     dose_mg = 2.0
-    result = simulate_spinal_cord_pk(
-        "drug", dose_mg=dose_mg, route="intrathecal", v_csf_L=v_csf_L
-    )
+    result = simulate_spinal_cord_pk("drug", dose_mg=dose_mg, route="intrathecal", v_csf_L=v_csf_L)
     assert result.cmax_csf == pytest.approx(dose_mg / v_csf_L, rel=1e-6)
 
 
@@ -116,9 +112,7 @@ def test_systemic_initial_csf_zero():
 
 
 def test_systemic_csf_rises_then_falls():
-    result = simulate_spinal_cord_pk(
-        "gabapentin", dose_mg=10.0, route="systemic", t_end_h=24.0
-    )
+    result = simulate_spinal_cord_pk("gabapentin", dose_mg=10.0, route="systemic", t_end_h=24.0)
     assert result.cmax_csf > 0.0
     assert result.tmax_csf_h > 0.0
 
@@ -150,9 +144,7 @@ def test_analgesic_duration_positive_intrathecal():
 
 def test_analgesic_duration_bounded_by_simulation():
     t_end = 12.0
-    result = simulate_spinal_cord_pk(
-        "morphine", dose_mg=1.0, route="intrathecal", t_end_h=t_end
-    )
+    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0, route="intrathecal", t_end_h=t_end)
     assert result.analgesic_duration_h <= t_end + 0.1
 
 

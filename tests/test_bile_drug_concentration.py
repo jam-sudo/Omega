@@ -1,6 +1,5 @@
 """Tests for Phase 901 — Bile Drug Concentration Prediction."""
 
-import math
 import pytest
 
 from omega_pbpk.prediction.bile_drug_concentration import (
@@ -8,7 +7,6 @@ from omega_pbpk.prediction.bile_drug_concentration import (
     predict_bile_concentration,
     screen_biliary_excretion,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic instantiation and field types
@@ -108,16 +106,12 @@ class TestTransporterMediatedTransport:
         assert abs(result.bile_plasma_ratio - 4.0) < 1e-9
 
     def test_mrp2_and_pgp_combined_label_is_mrp2(self):
-        result = predict_bile_concentration(
-            "Drug", has_pgp_substrate=True, has_mrp2_substrate=True
-        )
+        result = predict_bile_concentration("Drug", has_pgp_substrate=True, has_mrp2_substrate=True)
         assert result.transporter_contribution == "MRP2"
 
     def test_mrp2_and_pgp_combined_ratio(self):
         # 1.0 * 3.0 * 5.0 = 15.0
-        result = predict_bile_concentration(
-            "Drug", has_pgp_substrate=True, has_mrp2_substrate=True
-        )
+        result = predict_bile_concentration("Drug", has_pgp_substrate=True, has_mrp2_substrate=True)
         assert abs(result.bile_plasma_ratio - 15.0) < 1e-9
 
     def test_all_three_transporters_clamped(self):

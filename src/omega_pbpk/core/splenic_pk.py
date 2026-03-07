@@ -136,8 +136,7 @@ def simulate_splenic_pk(
 
             # dC_spleen/dt = k_ps_eff * (Vpl/Vsp) * C_plasma - k_sp_eff * C_spleen
             dC_spleen = (
-                k_ps_eff * (v_plasma_L / v_spleen_L) * c_plasma
-                - k_sp_eff * c_spleen
+                k_ps_eff * (v_plasma_L / v_spleen_L) * c_plasma - k_sp_eff * c_spleen
             ) * dt_sub
 
             c_plasma = max(0.0, c_plasma + dC_plasma)

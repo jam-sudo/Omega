@@ -1,10 +1,11 @@
 """Tests for Phase 968 — Nanoparticle surface interaction prediction."""
 
 import pytest
+
 from omega_pbpk.prediction.nanoparticle_surface_interaction import (
     NanoparticleSurfaceResult,
-    predict_surface_interaction,
     compare_surface_modifications,
+    predict_surface_interaction,
 )
 
 

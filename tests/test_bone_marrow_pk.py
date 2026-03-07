@@ -8,7 +8,6 @@ from omega_pbpk.core.bone_marrow_pk import (
     simulate_bone_marrow_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
@@ -162,7 +161,14 @@ def test_notes_high_risk():
 
 
 def test_notes_low_risk():
-    r = simulate_bone_marrow_pk("SafeDrug", dose_mg=10.0, cl_L_per_h=100.0, vd_L=200.0, k_marrow_uptake_per_h=0.01, k_marrow_release_per_h=5.0)
+    r = simulate_bone_marrow_pk(
+        "SafeDrug",
+        dose_mg=10.0,
+        cl_L_per_h=100.0,
+        vd_L=200.0,
+        k_marrow_uptake_per_h=0.01,
+        k_marrow_release_per_h=5.0,
+    )
     assert "Low myelosuppression" in r.notes
 
 

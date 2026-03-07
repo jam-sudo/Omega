@@ -1,16 +1,17 @@
 """Tests for Phase 960 — drug_protein_binding_sites."""
 
 import pytest
+
 from omega_pbpk.prediction.drug_protein_binding_sites import (
     ProteinBindingSitesResult,
     predict_protein_binding_sites,
     screen_protein_binding,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic return type
 # ---------------------------------------------------------------------------
+
 
 def test_return_type():
     r = predict_protein_binding_sites("Warfarin", logp=2.7, pka=5.0, ionization_type="acid")
@@ -26,6 +27,7 @@ def test_result_is_frozen():
 # ---------------------------------------------------------------------------
 # Value ranges
 # ---------------------------------------------------------------------------
+
 
 def test_fraction_bound_hsa_range():
     r = predict_protein_binding_sites("DrugA", logp=2.0, pka=7.0, ionization_type="neutral")
@@ -61,6 +63,7 @@ def test_fu_plus_total_bound_approx_one():
 # Categorical outputs
 # ---------------------------------------------------------------------------
 
+
 def test_dominant_binding_protein_valid():
     r = predict_protein_binding_sites("DrugA", logp=2.0, pka=7.0, ionization_type="neutral")
     assert r.dominant_binding_protein in {"HSA", "AGP", "lipoprotein"}
@@ -80,6 +83,7 @@ def test_displacement_risk_valid():
 # Notes
 # ---------------------------------------------------------------------------
 
+
 def test_notes_nonempty():
     r = predict_protein_binding_sites("DrugA", logp=2.0, pka=7.0, ionization_type="neutral")
     assert isinstance(r.notes, str) and len(r.notes) > 0
@@ -89,6 +93,7 @@ def test_notes_nonempty():
 # Drug name preserved
 # ---------------------------------------------------------------------------
 
+
 def test_drug_name_preserved():
     r = predict_protein_binding_sites("MyDrug", logp=1.0, pka=4.0, ionization_type="acid")
     assert r.drug_name == "MyDrug"
@@ -97,6 +102,7 @@ def test_drug_name_preserved():
 # ---------------------------------------------------------------------------
 # Acid dominant binding protein == HSA
 # ---------------------------------------------------------------------------
+
 
 def test_acid_dominant_hsa():
     # Acidic drugs strongly bound to HSA
@@ -108,6 +114,7 @@ def test_acid_dominant_hsa():
 # Base dominant binding protein == AGP
 # ---------------------------------------------------------------------------
 
+
 def test_base_dominant_agp():
     # Basic drugs strongly bound to AGP — use low logP to keep HSA binding low
     r = predict_protein_binding_sites("BaseDrug", logp=-1.0, pka=9.0, ionization_type="base")
@@ -117,6 +124,7 @@ def test_base_dominant_agp():
 # ---------------------------------------------------------------------------
 # High logP → higher lipoprotein binding
 # ---------------------------------------------------------------------------
+
 
 def test_high_logp_higher_lipo_binding():
     r_lo = predict_protein_binding_sites("DrugLo", logp=0.0, pka=7.0, ionization_type="neutral")
@@ -128,6 +136,7 @@ def test_high_logp_higher_lipo_binding():
 # Low logP → lower total binding
 # ---------------------------------------------------------------------------
 
+
 def test_low_logp_lower_total_binding():
     r_lo = predict_protein_binding_sites("DrugLo", logp=-2.0, pka=7.0, ionization_type="neutral")
     r_hi = predict_protein_binding_sites("DrugHi", logp=4.0, pka=7.0, ionization_type="neutral")
@@ -137,6 +146,7 @@ def test_low_logp_lower_total_binding():
 # ---------------------------------------------------------------------------
 # Binding category consistency
 # ---------------------------------------------------------------------------
+
 
 def test_high_binding_category_when_fu_lt_01():
     # High logP acid should have high binding
@@ -161,6 +171,7 @@ def test_fu_below_01_gives_high_category():
 # Displacement risk
 # ---------------------------------------------------------------------------
 
+
 def test_high_hsa_fraction_gives_high_displacement_risk():
     r = predict_protein_binding_sites("AcidDrug", logp=4.0, pka=4.0, ionization_type="acid")
     if r.fraction_bound_hsa > 0.70:
@@ -176,6 +187,7 @@ def test_low_hsa_fraction_gives_low_displacement_risk():
 # ---------------------------------------------------------------------------
 # screen_protein_binding
 # ---------------------------------------------------------------------------
+
 
 def test_screen_returns_correct_length():
     compounds = [
@@ -202,6 +214,7 @@ def test_screen_sorted_by_fu_ascending():
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
+
 
 def test_validation_invalid_ionization_type():
     with pytest.raises(ValueError, match="ionization_type"):

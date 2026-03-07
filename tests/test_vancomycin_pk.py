@@ -1,13 +1,15 @@
 """Tests for Phase 963 — Vancomycin PK model."""
+
 import pytest
+
 from omega_pbpk.clinical.vancomycin_pk import (
     VancomycinPKResult,
-    simulate_vancomycin_pk,
     recommend_vancomycin_dose,
+    simulate_vancomycin_pk,
 )
 
-
 # ── Basic return-type and value tests ───────────────────────────────────────
+
 
 def test_return_type():
     result = simulate_vancomycin_pk(dose_mg=1500.0)
@@ -71,6 +73,7 @@ def test_notes_nonempty():
 
 # ── Pharmacological relationships ───────────────────────────────────────────
 
+
 def test_higher_scr_lower_crcl():
     r1 = simulate_vancomycin_pk(dose_mg=1500.0, scr_mg_dL=1.0)
     r2 = simulate_vancomycin_pk(dose_mg=1500.0, scr_mg_dL=3.0)
@@ -96,6 +99,7 @@ def test_female_lower_crcl_than_male():
 
 
 # ── recommend_vancomycin_dose ───────────────────────────────────────────────
+
 
 def test_recommend_returns_dict():
     result = recommend_vancomycin_dose(weight_kg=70.0, age_years=50.0, sex="male", scr_mg_dL=1.0)
@@ -124,6 +128,7 @@ def test_recommend_target_attained_is_bool():
 
 
 # ── Validation ───────────────────────────────────────────────────────────────
+
 
 def test_validation_dose_zero():
     with pytest.raises(ValueError, match="dose_mg"):

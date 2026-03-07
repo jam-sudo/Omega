@@ -1,6 +1,5 @@
 """Tests for Phase 902 — Drug Pancreatic Secretion."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.pancreatic_secretion import (
@@ -8,7 +7,6 @@ from omega_pbpk.clinical.pancreatic_secretion import (
     predict_pancreatic_secretion,
     screen_pancreatic_secretion,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic instantiation and field types
@@ -96,9 +94,7 @@ class TestBaseDrug:
 
     def test_base_low_pka_no_accumulation(self):
         # pKa << pH → mostly neutral, less accumulation
-        result = predict_pancreatic_secretion(
-            "WeakBase", pka=4.0, logp=1.0, ionization_type="base"
-        )
+        result = predict_pancreatic_secretion("WeakBase", pka=4.0, logp=1.0, ionization_type="base")
         # num=1+10^(4-8)=1+0.0001≈1; den=1+10^(4-7.4)≈1; ratio≈1.0
         assert result.pancreatic_plasma_ratio == pytest.approx(1.0, rel=0.05)
 
@@ -168,8 +164,12 @@ class TestPancreaticConcentration:
 class TestFuPlasmaEstimation:
     def test_provided_fu_plasma_used(self):
         result = predict_pancreatic_secretion(
-            "Drug", pka=9.0, logp=2.0, ionization_type="base",
-            plasma_conc_mg_L=1.0, fu_plasma=0.5,
+            "Drug",
+            pka=9.0,
+            logp=2.0,
+            ionization_type="base",
+            plasma_conc_mg_L=1.0,
+            fu_plasma=0.5,
         )
         expected_conc = result.pancreatic_plasma_ratio * 1.0 * 0.5
         assert result.predicted_pancreatic_conc_mg_L == pytest.approx(expected_conc, rel=1e-6)
@@ -188,8 +188,12 @@ class TestFuPlasmaEstimation:
 class TestLocalEnzymeInhibitionRisk:
     def test_risk_false_when_low_conc(self):
         result = predict_pancreatic_secretion(
-            "Drug", pka=7.0, logp=1.0, ionization_type="neutral",
-            plasma_conc_mg_L=1.0, fu_plasma=0.1,
+            "Drug",
+            pka=7.0,
+            logp=1.0,
+            ionization_type="neutral",
+            plasma_conc_mg_L=1.0,
+            fu_plasma=0.1,
         )
         # pp_ratio=1.0; conc=0.1; 0.1 > 5*1.0 → False
         assert result.local_enzyme_inhibition_risk is False
@@ -198,16 +202,25 @@ class TestLocalEnzymeInhibitionRisk:
         # Need conc > plasma*5; pp_ratio=1, fu=1 → conc = plasma → 1 > 5? No.
         # Use base with high pKa + fu=1 → pp_ratio high
         result = predict_pancreatic_secretion(
-            "Drug", pka=10.0, logp=1.0, ionization_type="base",
-            plasma_conc_mg_L=1.0, fu_plasma=1.0,
+            "Drug",
+            pka=10.0,
+            logp=1.0,
+            ionization_type="base",
+            plasma_conc_mg_L=1.0,
+            fu_plasma=1.0,
         )
         # pp_ratio for pKa=10, pan_pH=8, pla_pH=7.4
         # num=1+10^(10-8)=101; den=1+10^(10-7.4)=1+10^2.6≈399; ratio≈0.25
         # conc = 0.25 * 1.0 * 1.0 = 0.25 < 5 → False
         # Try neutral with high fu
-        result2 = predict_pancreatic_secretion(
-            "Drug", pka=7.0, logp=1.0, ionization_type="base",
-            plasma_conc_mg_L=1.0, pancreatic_ph=8.0, fu_plasma=1.0,
+        _ = predict_pancreatic_secretion(
+            "Drug",
+            pka=7.0,
+            logp=1.0,
+            ionization_type="base",
+            plasma_conc_mg_L=1.0,
+            pancreatic_ph=8.0,
+            fu_plasma=1.0,
         )
         # pKa=7.0, pan=8.0 num=1+10^(7-8)=1.1; den=1+10^(7-7.4)=1+0.398=1.398; ratio≈0.786
         # conc=0.786 < 5 → False
@@ -223,7 +236,10 @@ class TestLocalEnzymeInhibitionRisk:
 class TestNotes:
     def test_normal_secretion_note(self):
         result = predict_pancreatic_secretion(
-            "Drug", pka=7.0, logp=1.0, ionization_type="neutral",
+            "Drug",
+            pka=7.0,
+            logp=1.0,
+            ionization_type="neutral",
             fu_plasma=0.1,
         )
         assert "Normal pancreatic drug secretion" in result.notes
@@ -236,26 +252,43 @@ class TestNotes:
         # Let's try acid with logP boosted pancreatic pH
         # For this test, use custom pancreatic_ph
         result = predict_pancreatic_secretion(
-            "Acid", pka=7.0, logp=1.0, ionization_type="acid",
-            pancreatic_ph=8.0, fu_plasma=0.1,
+            "Acid",
+            pka=7.0,
+            logp=1.0,
+            ionization_type="acid",
+            pancreatic_ph=8.0,
+            fu_plasma=0.1,
         )
         # num=1+10^(8-7)=11; den=1+10^(7.4-7)=1+2.51=3.51; ratio≈3.13 < 5
         # Try pKa=6, acid
-        result2 = predict_pancreatic_secretion(
-            "Acid", pka=6.0, logp=1.0, ionization_type="acid",
-            pancreatic_ph=8.0, fu_plasma=0.1,
+        _ = predict_pancreatic_secretion(
+            "Acid",
+            pka=6.0,
+            logp=1.0,
+            ionization_type="acid",
+            pancreatic_ph=8.0,
+            fu_plasma=0.1,
         )
         # num=1+10^(8-6)=101; den=1+10^(7.4-6)=1+25.1=26.1; ratio≈3.87
         # Try pKa=4
-        result3 = predict_pancreatic_secretion(
-            "Acid", pka=4.0, logp=1.0, ionization_type="acid",
-            pancreatic_ph=8.0, fu_plasma=0.1,
+        _ = predict_pancreatic_secretion(
+            "Acid",
+            pka=4.0,
+            logp=1.0,
+            ionization_type="acid",
+            pancreatic_ph=8.0,
+            fu_plasma=0.1,
         )
         # num=1+10^(8-4)=10001; den=1+10^(7.4-4)=1+2512=2513; ratio≈3.98 < 5
         # Use fu=1.0 and pKa=4
-        result4 = predict_pancreatic_secretion(
-            "Acid", pka=4.0, logp=1.0, ionization_type="acid",
-            pancreatic_ph=8.0, fu_plasma=1.0, plasma_conc_mg_L=1.0,
+        _ = predict_pancreatic_secretion(
+            "Acid",
+            pka=4.0,
+            logp=1.0,
+            ionization_type="acid",
+            pancreatic_ph=8.0,
+            fu_plasma=1.0,
+            plasma_conc_mg_L=1.0,
         )
         # ratio=3.98; conc=3.98 < 5 → "Normal..." no. ratio<5 too
         # Just verify notes field is a string

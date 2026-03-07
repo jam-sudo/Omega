@@ -1,17 +1,16 @@
 """Dosing regimen optimizer.
 
 Finds optimal dose and dosing interval to meet therapeutic targets
-(Cmin, Cmax, AUC) at steady state using multi-dose PK simulation.
+(Cmin, Cmax, AUC) at steady state using analytical 1-cpt approximations
+for fast grid search, then evaluates top candidates with full simulation.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
-
-import numpy as np
-from scipy.optimize import minimize_scalar
 
 from omega_pbpk.adapters import spec_to_drug
 from omega_pbpk.clinical.dose_optimization import MultiDoseSimulator
@@ -41,40 +40,6 @@ class RegimenResult:
     feasible: bool
     warnings: list[str] = field(default_factory=list)
     all_regimens: list[dict[str, Any]] = field(default_factory=list)
-
-
-def _compute_regimen_metrics(
-    sim: MultiDoseSimulator,
-    drug: Any,
-    dose_mg: float,
-    interval_h: float,
-    n_doses: int,
-    body_weight: float,
-) -> dict[str, float]:
-    """Simulate multi-dose and extract steady-state metrics from last interval."""
-    n_days = max(1, int(np.ceil(n_doses * interval_h / 24.0)))
-    result = sim.simulate(
-        drug=drug,
-        dose_mg=dose_mg,
-        interval_h=interval_h,
-        n_days=n_days,
-        body_weight=body_weight,
-    )
-
-    # Extract metrics from the last dosing interval
-    css_max = float(result.css_max)
-    css_min = float(result.css_min)
-    css_avg = float(result.css_avg)
-
-    # AUC at steady state ≈ Css_avg × interval
-    auc_ss = css_avg * interval_h
-
-    return {
-        "css_max": css_max,
-        "css_min": css_min,
-        "css_avg": css_avg,
-        "auc_ss": auc_ss,
-    }
 
 
 def _penalty(
@@ -128,6 +93,105 @@ def _check_feasibility(
     return True
 
 
+def _analytical_ss(
+    spec: DrugSpec,
+    dose_mg: float,
+    interval_h: float,
+    route: str,
+    body_weight: float,
+) -> dict[str, float]:
+    """Fast analytical 1-compartment steady-state approximation.
+
+    Uses well-stirred liver model and 1-cpt superposition to estimate
+    Css_max/min/avg without running the full PBPK ODE.
+    """
+    # Estimate PK parameters from spec
+    # Hepatic clearance via well-stirred model
+    q_h = 80.0  # hepatic blood flow L/h (70 kg human)
+    cl_h = (
+        q_h * spec.fup * spec.clint_hepatic_L_per_h / (q_h + spec.fup * spec.clint_hepatic_L_per_h)
+    )
+    cl_r = spec.clr_L_per_h if spec.clr_L_per_h > 0 else 0.0
+    cl_total = (cl_h + cl_r) * (body_weight / 70.0) ** 0.75
+
+    # Apparent volume of distribution estimate (rough)
+    # Using logP-based tissue partitioning
+    log_p = spec.logP
+    vd_L_kg = 0.5 + 3.5 * max(0.0, math.tanh(log_p / 2.0))
+    vd = vd_L_kg * body_weight  # L
+
+    # Half-life and rate constant
+    ke = cl_total / max(vd, 0.001)  # h-1
+
+    # Bioavailability for oral
+    if route == "oral":
+        # First-pass hepatic extraction
+        e_h = cl_h / q_h
+        fa = 1.0  # assume complete absorption for simplicity
+        f = fa * (1.0 - e_h)
+    else:
+        f = 1.0
+
+    effective_dose_mg = dose_mg * f
+
+    # Steady-state metrics (1-cpt analytical)
+    # Css_avg = dose * F / (CL * tau)
+    css_avg = effective_dose_mg / max(cl_total * interval_h, 1e-12)
+
+    # Css_max and Css_min via accumulation factor
+    # For IV bolus-like: Css_max = D/(Vd * (1 - exp(-ke*tau)))
+    # For oral (flip-flop or absorption-limited), use approximation
+    if ke * interval_h < 0.01:
+        # Extremely slow elimination — css_max ≈ css_avg
+        css_max = css_avg * 1.05
+        css_min = css_avg * 0.95
+    else:
+        acc_factor = 1.0 / (1.0 - math.exp(-ke * interval_h))
+        if route == "iv":
+            css_max = (effective_dose_mg / vd) * acc_factor
+        else:
+            # Oral: absorption-limited, ka >> ke assumed
+            ka = 2.0  # typical ka estimate h-1
+            css_max = effective_dose_mg / vd * (ka / (ka - ke)) * acc_factor
+            # Clip to reasonable values
+            css_max = min(css_max, effective_dose_mg / vd * acc_factor * 5)
+
+        css_min = css_max * math.exp(-ke * interval_h)
+
+    auc_ss = css_avg * interval_h
+
+    return {
+        "css_max": max(css_max, 0.0),
+        "css_min": max(css_min, 0.0),
+        "css_avg": max(css_avg, 0.0),
+        "auc_ss": max(auc_ss, 0.0),
+    }
+
+
+def _golden_section_min(
+    f: Any,
+    lo: float,
+    hi: float,
+    tol: float = 5.0,
+    max_iter: int = 20,
+) -> float:
+    """Pure-Python golden-section search for minimum of f on [lo, hi]."""
+    gr = (math.sqrt(5.0) + 1.0) / 2.0
+    a, b = lo, hi
+    c = b - (b - a) / gr
+    d = a + (b - a) / gr
+    for _ in range(max_iter):
+        if abs(b - a) < tol:
+            break
+        if f(c) < f(d):
+            b = d
+        else:
+            a = c
+        c = b - (b - a) / gr
+        d = a + (b - a) / gr
+    return (a + b) / 2.0
+
+
 def optimize_regimen(
     spec: DrugSpec,
     target: TherapeuticTarget,
@@ -139,8 +203,9 @@ def optimize_regimen(
 ) -> RegimenResult:
     """Find optimal dosing regimen to meet therapeutic targets.
 
-    For each candidate interval, uses scipy.optimize.minimize_scalar to
-    find the dose that minimizes penalty against Cmin/Cmax/AUC constraints.
+    For each candidate interval, uses a pure-Python golden-section search
+    with fast analytical 1-cpt approximations to find the optimal dose,
+    then evaluates top candidates with the full multi-dose simulator.
 
     Args:
         spec: Drug specification.
@@ -163,22 +228,38 @@ def optimize_regimen(
     for tau in intervals_h:
         tau = float(tau)
 
-        def objective(dose: float, _tau: float = tau) -> float:
+        def fast_objective(dose: float, _tau: float = tau) -> float:
             try:
-                m = _compute_regimen_metrics(sim, drug, dose, _tau, n_doses, body_weight)
+                m = _analytical_ss(spec, dose, _tau, route, body_weight)
                 return _penalty(m, target)
             except Exception:
                 return 1e12
 
-        result = minimize_scalar(
-            objective,
-            bounds=dose_range_mg,
-            method="bounded",
+        opt_dose = _golden_section_min(
+            fast_objective,
+            dose_range_mg[0],
+            dose_range_mg[1],
+            tol=max(1.0, (dose_range_mg[1] - dose_range_mg[0]) / 100.0),
         )
+        # Clip to bounds
+        opt_dose = max(dose_range_mg[0], min(dose_range_mg[1], opt_dose))
 
-        opt_dose = float(result.x)
+        # Evaluate optimal dose with full simulation
+        n_days_sim = max(1, int(math.ceil(n_doses * tau / 24.0)))
         try:
-            metrics = _compute_regimen_metrics(sim, drug, opt_dose, tau, n_doses, body_weight)
+            ss = sim.simulate(
+                drug=drug,
+                dose_mg=opt_dose,
+                interval_h=tau,
+                n_days=n_days_sim,
+                body_weight=body_weight,
+            )
+            metrics = {
+                "css_max": float(ss.css_max),
+                "css_min": float(ss.css_min),
+                "css_avg": float(ss.css_avg),
+                "auc_ss": float(ss.css_avg) * tau,
+            }
         except Exception as exc:
             warnings.append(f"Simulation failed for interval {tau}h: {exc}")
             continue

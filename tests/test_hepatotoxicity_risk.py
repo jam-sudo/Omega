@@ -10,7 +10,6 @@ from omega_pbpk.prediction.hepatotoxicity_risk import (
     screen_hepatotoxicity,
 )
 
-
 # ---------------------------------------------------------------------------
 # Return type and basic fields
 # ---------------------------------------------------------------------------
@@ -105,23 +104,17 @@ def test_slightly_above_100mg_dose_dependent_true():
 
 
 def test_bsep_flag_gives_high_risk():
-    r = predict_hepatotoxicity_risk(
-        "drug_a", logp=2.0, mw=300.0, has_bsep_inhibition=True
-    )
+    r = predict_hepatotoxicity_risk("drug_a", logp=2.0, mw=300.0, has_bsep_inhibition=True)
     assert r.bsep_inhibition_risk == "high"
 
 
 def test_acidic_lipophilic_moderate_bsep():
-    r = predict_hepatotoxicity_risk(
-        "drug_a", logp=4.0, mw=300.0, ionization_type="acid"
-    )
+    r = predict_hepatotoxicity_risk("drug_a", logp=4.0, mw=300.0, ionization_type="acid")
     assert r.bsep_inhibition_risk == "moderate"
 
 
 def test_neutral_low_logp_low_bsep():
-    r = predict_hepatotoxicity_risk(
-        "drug_a", logp=1.0, mw=200.0, ionization_type="neutral"
-    )
+    r = predict_hepatotoxicity_risk("drug_a", logp=1.0, mw=200.0, ionization_type="neutral")
     assert r.bsep_inhibition_risk == "low"
 
 
@@ -131,9 +124,7 @@ def test_neutral_low_logp_low_bsep():
 
 
 def test_mito_flag_gives_high_mito_risk():
-    r = predict_hepatotoxicity_risk(
-        "drug_a", logp=2.0, mw=300.0, has_mitochondrial_liability=True
-    )
+    r = predict_hepatotoxicity_risk("drug_a", logp=2.0, mw=300.0, has_mitochondrial_liability=True)
     assert r.mitochondrial_liability_risk == "high"
 
 
@@ -204,8 +195,7 @@ def test_screen_sorted_descending():
 
 def test_screen_returns_correct_count():
     compounds = [
-        {"drug_name": f"drug_{i}", "logp": float(i), "mw": 200.0 + i * 50}
-        for i in range(5)
+        {"drug_name": f"drug_{i}", "logp": float(i), "mw": 200.0 + i * 50} for i in range(5)
     ]
     results = screen_hepatotoxicity(compounds)
     assert len(results) == 5
@@ -233,6 +223,4 @@ def test_invalid_dose_raises():
 
 def test_invalid_ionization_raises():
     with pytest.raises(ValueError, match="ionization_type"):
-        predict_hepatotoxicity_risk(
-            "drug_a", logp=2.0, mw=300.0, ionization_type="zwitterion"
-        )
+        predict_hepatotoxicity_risk("drug_a", logp=2.0, mw=300.0, ionization_type="zwitterion")

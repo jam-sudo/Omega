@@ -3,10 +3,10 @@
 import pytest
 
 from omega_pbpk.prediction.salt_form_pk import (
-    SaltFormPKResult,
-    predict_salt_form_pk,
-    compare_salt_forms,
     SALT_FORMS,
+    SaltFormPKResult,
+    compare_salt_forms,
+    predict_salt_form_pk,
 )
 
 DRUG = "TestDrug"

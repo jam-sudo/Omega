@@ -40,26 +40,36 @@ class TestSystemicRoute:
 
     def test_pericardial_ratio_low_logp(self):
         # logp=0: ratio = 0.05 + 0*0.02 = 0.05
-        r = predict_pericardial_distribution("Drug", logp=0.0, route="systemic", plasma_conc_mg_L=1.0)
+        r = predict_pericardial_distribution(
+            "Drug", logp=0.0, route="systemic", plasma_conc_mg_L=1.0
+        )
         assert abs(r.pericardial_plasma_ratio - 0.05) < 1e-9
 
     def test_pericardial_ratio_positive_logp(self):
         # logp=2: ratio = 0.05 + 2*0.02 = 0.09
-        r = predict_pericardial_distribution("Drug", logp=2.0, route="systemic", plasma_conc_mg_L=1.0)
+        r = predict_pericardial_distribution(
+            "Drug", logp=2.0, route="systemic", plasma_conc_mg_L=1.0
+        )
         assert abs(r.pericardial_plasma_ratio - 0.09) < 1e-9
 
     def test_pericardial_ratio_clamped_max(self):
         # logp very high should clamp ratio to 0.5
-        r = predict_pericardial_distribution("Drug", logp=100.0, route="systemic", plasma_conc_mg_L=1.0)
+        r = predict_pericardial_distribution(
+            "Drug", logp=100.0, route="systemic", plasma_conc_mg_L=1.0
+        )
         assert r.pericardial_plasma_ratio == pytest.approx(0.5, abs=1e-9)
 
     def test_pericardial_ratio_clamped_min(self):
         # logp very negative: 0.05 + (-100)*0.02 = -1.95 -> clamp to 0.01
-        r = predict_pericardial_distribution("Drug", logp=-100.0, route="systemic", plasma_conc_mg_L=1.0)
+        r = predict_pericardial_distribution(
+            "Drug", logp=-100.0, route="systemic", plasma_conc_mg_L=1.0
+        )
         assert r.pericardial_plasma_ratio == pytest.approx(0.01, abs=1e-9)
 
     def test_predicted_conc_systemic(self):
-        r = predict_pericardial_distribution("Drug", logp=0.0, route="systemic", plasma_conc_mg_L=2.0)
+        r = predict_pericardial_distribution(
+            "Drug", logp=0.0, route="systemic", plasma_conc_mg_L=2.0
+        )
         # ratio = 0.05, conc = 0.05 * 2.0 = 0.1
         assert abs(r.predicted_pericardial_conc_mg_L - 0.1) < 1e-9
 
@@ -78,7 +88,9 @@ class TestSystemicRoute:
 
     def test_notes_limited_distribution(self):
         # logp=0 systemic -> penetration=0.05, no high advantage, no good penetration
-        r = predict_pericardial_distribution("Drug", logp=0.0, route="systemic", plasma_conc_mg_L=1.0)
+        r = predict_pericardial_distribution(
+            "Drug", logp=0.0, route="systemic", plasma_conc_mg_L=1.0
+        )
         assert "Limited pericardial distribution" in r.notes
 
 
@@ -140,7 +152,9 @@ class TestEpicardialPenetration:
 
     def test_notes_good_epicardial_penetration(self):
         # logp=3 systemic: penetration=0.3 > 0.2 -> good penetration note
-        r = predict_pericardial_distribution("Drug", logp=3.0, route="systemic", plasma_conc_mg_L=0.01)
+        r = predict_pericardial_distribution(
+            "Drug", logp=3.0, route="systemic", plasma_conc_mg_L=0.01
+        )
         assert "Good epicardial penetration" in r.notes
 
 

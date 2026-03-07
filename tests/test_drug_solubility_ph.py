@@ -2,7 +2,6 @@
 Tests for Phase 941: pH-solubility profile prediction.
 """
 
-import math
 import pytest
 
 from omega_pbpk.prediction.drug_solubility_ph import (
@@ -11,10 +10,10 @@ from omega_pbpk.prediction.drug_solubility_ph import (
     screen_solubility_profiles,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def acid_result():
@@ -52,6 +51,7 @@ def neutral_result():
 # ---------------------------------------------------------------------------
 # Return type and structure
 # ---------------------------------------------------------------------------
+
 
 def test_return_type(acid_result):
     assert isinstance(acid_result, SolubilityPhProfileResult)
@@ -97,6 +97,7 @@ def test_solubility_at_colonic_ph_positive(acid_result):
 # Acid / Base / Neutral behavior
 # ---------------------------------------------------------------------------
 
+
 def test_acid_higher_solubility_at_high_ph(acid_result):
     """Acid drug: higher solubility at high pH (more ionized)."""
     assert acid_result.solubility_at_colonic_ph > acid_result.solubility_at_gastric_ph
@@ -123,6 +124,7 @@ def test_neutral_gut_solubility_ratio_approx_1(neutral_result):
 # Metadata fields
 # ---------------------------------------------------------------------------
 
+
 def test_gut_solubility_ratio_positive(acid_result):
     assert acid_result.gut_solubility_ratio > 0
 
@@ -142,6 +144,7 @@ def test_drug_name_preserved(acid_result):
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_validation_dose_mg_zero():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -176,6 +179,7 @@ def test_validation_ph_range_equal():
 # ---------------------------------------------------------------------------
 # screen_solubility_profiles
 # ---------------------------------------------------------------------------
+
 
 def test_screen_returns_correct_length():
     compounds = [

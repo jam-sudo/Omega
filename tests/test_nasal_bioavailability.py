@@ -1,6 +1,5 @@
 """Tests for Phase 904 — Nasal Bioavailability Calculator."""
 
-import math
 import pytest
 
 from omega_pbpk.prediction.nasal_bioavailability import (
@@ -9,10 +8,10 @@ from omega_pbpk.prediction.nasal_bioavailability import (
     screen_nasal_candidates,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic smoke tests
 # ---------------------------------------------------------------------------
+
 
 class TestPredictBasicDefaults:
     def test_returns_dataclass(self):
@@ -44,6 +43,7 @@ class TestPredictBasicDefaults:
 # Permeation coefficient
 # ---------------------------------------------------------------------------
 
+
 class TestPermeationCoefficient:
     def test_in_clamped_range(self):
         result = predict_nasal_bioavailability("X")
@@ -63,6 +63,7 @@ class TestPermeationCoefficient:
 # ---------------------------------------------------------------------------
 # Mucociliary clearance
 # ---------------------------------------------------------------------------
+
 
 class TestMucociliaryClearance:
     def test_small_mw_baseline(self):
@@ -89,6 +90,7 @@ class TestMucociliaryClearance:
 # f_nasal
 # ---------------------------------------------------------------------------
 
+
 class TestFNasal:
     def test_in_valid_range(self):
         result = predict_nasal_bioavailability("X")
@@ -109,6 +111,7 @@ class TestFNasal:
 # Oral bioavailability estimate
 # ---------------------------------------------------------------------------
 
+
 class TestFOralEstimate:
     def test_in_valid_range(self):
         result = predict_nasal_bioavailability("X")
@@ -123,6 +126,7 @@ class TestFOralEstimate:
 # ---------------------------------------------------------------------------
 # Nasal vs oral advantage
 # ---------------------------------------------------------------------------
+
 
 class TestNasalVsOralAdvantage:
     def test_in_clamped_range(self):
@@ -139,6 +143,7 @@ class TestNasalVsOralAdvantage:
 # ---------------------------------------------------------------------------
 # Absorption rate class
 # ---------------------------------------------------------------------------
+
 
 class TestAbsorptionRateClass:
     def test_fast_for_high_papp(self):
@@ -161,6 +166,7 @@ class TestAbsorptionRateClass:
 # Suitability flag
 # ---------------------------------------------------------------------------
 
+
 class TestSuitabilityFlag:
     def test_suitable_when_f_nasal_above_03(self):
         result = predict_nasal_bioavailability("X", logp=3.0, mw_Da=200.0)
@@ -175,6 +181,7 @@ class TestSuitabilityFlag:
 # ---------------------------------------------------------------------------
 # Notes
 # ---------------------------------------------------------------------------
+
 
 class TestNotes:
     def test_advantageous_note_high_ratio(self):
@@ -197,6 +204,7 @@ class TestNotes:
 # Validation errors
 # ---------------------------------------------------------------------------
 
+
 class TestValidation:
     def test_zero_mw_raises(self):
         with pytest.raises(ValueError, match="mw_Da"):
@@ -215,6 +223,7 @@ class TestValidation:
 # Ionization type stored
 # ---------------------------------------------------------------------------
 
+
 class TestIonizationType:
     def test_acid_stored(self):
         result = predict_nasal_bioavailability("X", ionization_type="acid")
@@ -232,6 +241,7 @@ class TestIonizationType:
 # ---------------------------------------------------------------------------
 # screen_nasal_candidates
 # ---------------------------------------------------------------------------
+
 
 class TestScreenNasalCandidates:
     def test_returns_list(self):

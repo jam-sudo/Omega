@@ -1,6 +1,5 @@
 """Tests for Phase 917 — Drug Thyroid Gland Distribution."""
 
-import math
 import pytest
 
 from omega_pbpk.prediction.thyroid_distribution import (
@@ -132,37 +131,51 @@ class TestSmallPolarMolecule:
     """Small, polar molecule (mw < 300, logp < 0) gets extra NIS probability."""
 
     def test_nis_boost_small_polar(self):
-        result = predict_thyroid_distribution("Iodide", logp=-1.0, mw_Da=127.0, iodine_content_pct=0.0)
+        result = predict_thyroid_distribution(
+            "Iodide", logp=-1.0, mw_Da=127.0, iodine_content_pct=0.0
+        )
         # base 0.05 + 0.2 = 0.25 (no iodine bonus)
         assert result.nis_substrate_probability == pytest.approx(0.25)
 
     def test_nis_boost_plus_iodine(self):
-        result = predict_thyroid_distribution("IodideSalt", logp=-1.0, mw_Da=200.0, iodine_content_pct=15.0)
+        result = predict_thyroid_distribution(
+            "IodideSalt", logp=-1.0, mw_Da=200.0, iodine_content_pct=15.0
+        )
         # base 0.05 + 0.5 + 0.2 = 0.75
         assert result.nis_substrate_probability == pytest.approx(0.75)
 
     def test_nis_clamped_at_1(self):
         # Make sure clamping works
-        result = predict_thyroid_distribution("MaxNIS", logp=-2.0, mw_Da=100.0, iodine_content_pct=50.0)
+        result = predict_thyroid_distribution(
+            "MaxNIS", logp=-2.0, mw_Da=100.0, iodine_content_pct=50.0
+        )
         assert result.nis_substrate_probability <= 1.0
 
     def test_moderate_nis_multiplier(self):
         # nis_prob = 0.25 > 0.3? No. So no multiplier.
-        result = predict_thyroid_distribution("Iodide", logp=-1.0, mw_Da=127.0, iodine_content_pct=0.0)
+        result = predict_thyroid_distribution(
+            "Iodide", logp=-1.0, mw_Da=127.0, iodine_content_pct=0.0
+        )
         assert result.thyroid_plasma_ratio == pytest.approx(0.5)
 
 
 class TestLowRiskDrug:
     def test_low_disruption_score(self):
-        result = predict_thyroid_distribution("LowRisk", logp=1.0, mw_Da=300.0, iodine_content_pct=0.0)
+        result = predict_thyroid_distribution(
+            "LowRisk", logp=1.0, mw_Da=300.0, iodine_content_pct=0.0
+        )
         assert result.thyroid_disruption_score < 40.0
 
     def test_no_toxicity_concern(self):
-        result = predict_thyroid_distribution("LowRisk", logp=1.0, mw_Da=300.0, iodine_content_pct=0.0)
+        result = predict_thyroid_distribution(
+            "LowRisk", logp=1.0, mw_Da=300.0, iodine_content_pct=0.0
+        )
         assert result.thyroid_toxicity_concern is False
 
     def test_low_risk_notes(self):
-        result = predict_thyroid_distribution("LowRisk", logp=1.0, mw_Da=300.0, iodine_content_pct=0.0)
+        result = predict_thyroid_distribution(
+            "LowRisk", logp=1.0, mw_Da=300.0, iodine_content_pct=0.0
+        )
         assert result.notes == "Low thyroid distribution risk"
 
 
@@ -173,7 +186,9 @@ class TestBoundaryConditions:
 
     def test_thyroid_ratio_min_clamped(self):
         # Very low logp, no iodine — ratio should be >= 0.1
-        result = predict_thyroid_distribution("Drug", logp=-10.0, mw_Da=1000.0, iodine_content_pct=0.0)
+        result = predict_thyroid_distribution(
+            "Drug", logp=-10.0, mw_Da=1000.0, iodine_content_pct=0.0
+        )
         assert result.thyroid_plasma_ratio >= 0.1
 
     def test_thyroid_conc_non_negative(self):

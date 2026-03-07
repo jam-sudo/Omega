@@ -1,14 +1,15 @@
 """Tests for Phase 933: Burn Patient PK Model."""
 
 import pytest
+
 from omega_pbpk.clinical.burn_patient_pk import (
     BurnPatientPKResult,
-    simulate_burn_pk,
     compare_burn_severity,
+    simulate_burn_pk,
 )
 
-
 # ---- Basic return type and shape ----
+
 
 def test_return_type():
     result = simulate_burn_pk("VancomycinA", dose_mg=1000.0, tbsa_pct=30.0)
@@ -76,8 +77,7 @@ def test_notes_nonempty():
 
 def test_n_doses_3_no_error():
     result = simulate_burn_pk(
-        "DrugL", dose_mg=500.0, tbsa_pct=20.0,
-        n_doses=3, dosing_interval_h=24.0, t_end_h=168.0
+        "DrugL", dose_mg=500.0, tbsa_pct=20.0, n_doses=3, dosing_interval_h=24.0, t_end_h=168.0
     )
     assert result.cmax_mg_L > 0
 
@@ -93,6 +93,7 @@ def test_times_h_nonempty():
 
 
 # ---- Validation errors ----
+
 
 def test_validation_dose_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -146,12 +147,14 @@ def test_validation_n_doses_negative_raises():
 
 # ---- compare_burn_severity custom levels ----
 
+
 def test_compare_custom_tbsa_levels():
     results = compare_burn_severity("DrugX", dose_mg=500.0, tbsa_levels=[20.0, 40.0])
     assert len(results) == 2
 
 
 # ---- Additional checks ----
+
 
 def test_drug_name_preserved():
     result = simulate_burn_pk("Vancomycin", dose_mg=1000.0, tbsa_pct=25.0)

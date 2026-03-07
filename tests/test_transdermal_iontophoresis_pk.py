@@ -4,12 +4,12 @@ import pytest
 
 from omega_pbpk.core.transdermal_iontophoresis_pk import (
     TransdermalIontophoresisPKResult,
-    simulate_iontophoresis,
     compare_modes,
+    simulate_iontophoresis,
 )
 
-
 # ── Basic return-type and structure ──────────────────────────────────────────
+
 
 def test_return_type_is_correct():
     result = simulate_iontophoresis("TestDrug", dose_mg=10.0)
@@ -54,6 +54,7 @@ def test_notes_non_empty_string():
 
 # ── Enhancement factor behaviour ─────────────────────────────────────────────
 
+
 def test_iontophoresis_enhancement_factor_greater_than_one():
     result = simulate_iontophoresis(
         "TestDrug", dose_mg=10.0, route="iontophoresis", current_mA=0.5, charge_type="cationic"
@@ -62,9 +63,7 @@ def test_iontophoresis_enhancement_factor_greater_than_one():
 
 
 def test_passive_enhancement_factor_equals_one():
-    result = simulate_iontophoresis(
-        "TestDrug", dose_mg=10.0, route="passive", current_mA=0.0
-    )
+    result = simulate_iontophoresis("TestDrug", dose_mg=10.0, route="passive", current_mA=0.0)
     assert result.enhancement_factor == pytest.approx(1.0)
 
 
@@ -72,9 +71,7 @@ def test_iontophoresis_gives_higher_auc_than_passive():
     ionto = simulate_iontophoresis(
         "Drug", dose_mg=10.0, route="iontophoresis", current_mA=1.0, charge_type="cationic"
     )
-    passive = simulate_iontophoresis(
-        "Drug", dose_mg=10.0, route="passive", current_mA=0.0
-    )
+    passive = simulate_iontophoresis("Drug", dose_mg=10.0, route="passive", current_mA=0.0)
     assert ionto.auc_plasma_mg_h_per_L > passive.auc_plasma_mg_h_per_L
 
 
@@ -100,17 +97,18 @@ def test_higher_current_higher_enhancement_factor():
 
 # ── Amount compartment behaviour ─────────────────────────────────────────────
 
+
 def test_a_skin_decreases_monotonically():
     result = simulate_iontophoresis("Drug", dose_mg=10.0, t_end_h=12.0, dt_h=0.5)
     skin = result.a_skin_mg
     for i in range(1, len(skin)):
         assert skin[i] <= skin[i - 1] + 1e-9, (
-            f"a_skin not monotonically decreasing at step {i}: "
-            f"{skin[i - 1]} -> {skin[i]}"
+            f"a_skin not monotonically decreasing at step {i}: {skin[i - 1]} -> {skin[i]}"
         )
 
 
 # ── compare_modes ────────────────────────────────────────────────────────────
+
 
 def test_compare_modes_returns_two_results():
     results = compare_modes("Drug", dose_mg=10.0, current_mA=1.0, charge_type="cationic")
@@ -140,6 +138,7 @@ def test_compare_modes_both_correct_route_fields():
 
 # ── Linearity / dose proportionality ─────────────────────────────────────────
 
+
 def test_double_dose_approximately_doubles_cmax():
     r1 = simulate_iontophoresis("Drug", dose_mg=10.0, route="passive")
     r2 = simulate_iontophoresis("Drug", dose_mg=20.0, route="passive")
@@ -148,6 +147,7 @@ def test_double_dose_approximately_doubles_cmax():
 
 
 # ── Validation errors ─────────────────────────────────────────────────────────
+
 
 def test_validation_dose_mg_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):

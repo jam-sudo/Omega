@@ -1,6 +1,7 @@
 """Tests for Phase 949 — BBB Transport Prediction."""
 
 import pytest
+
 from omega_pbpk.prediction.blood_brain_barrier_transport import (
     BBBTransportResult,
     predict_bbb_transport,
@@ -89,7 +90,9 @@ def test_notes_non_empty():
 # ---------------------------------------------------------------------------
 def test_low_logp_low_mw_neutral_gives_higher_kp_uu():
     """Small neutral molecule should have higher CNS penetration than large base."""
-    small_neutral = predict_bbb_transport("small", logp=1.0, mw=150.0, pka=7.0, ionization_type="neutral")
+    small_neutral = predict_bbb_transport(
+        "small", logp=1.0, mw=150.0, pka=7.0, ionization_type="neutral"
+    )
     large_base = predict_bbb_transport("large", logp=4.0, mw=600.0, pka=9.0, ionization_type="base")
     assert small_neutral.kp_uu_brain >= large_base.kp_uu_brain
 

@@ -1,16 +1,17 @@
 """Tests for Phase 940 — perioperative_pk module."""
 
 import pytest
+
 from omega_pbpk.core.perioperative_pk import (
     PerioperativePKResult,
-    simulate_perioperative_pk,
     compare_hypothermia_levels,
+    simulate_perioperative_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic return type and structure
 # ---------------------------------------------------------------------------
+
 
 def test_return_type():
     r = simulate_perioperative_pk("drug_B", 100.0)
@@ -36,6 +37,7 @@ def test_auc_intraop_nonnegative():
 # Surgical phase effects
 # ---------------------------------------------------------------------------
 
+
 def test_cl_fold_intraop_less_than_1():
     """CL during surgery should be reduced below normal."""
     r = simulate_perioperative_pk("drug_B", 100.0, hypothermia_temp_C=37.0)
@@ -51,6 +53,7 @@ def test_cl_fold_intraop_normothermia():
 # ---------------------------------------------------------------------------
 # Hypothermia
 # ---------------------------------------------------------------------------
+
 
 def test_hypothermia_reduction_nonnegative():
     r = simulate_perioperative_pk("drug_B", 100.0, hypothermia_temp_C=37.0)
@@ -72,6 +75,7 @@ def test_mild_hypothermia_14_pct():
 # ---------------------------------------------------------------------------
 # compare_hypothermia_levels
 # ---------------------------------------------------------------------------
+
 
 def test_compare_hypothermia_returns_4():
     results = compare_hypothermia_levels("drug_B", 100.0)
@@ -95,6 +99,7 @@ def test_deeper_hypothermia_higher_auc():
 # Route-specific behaviour
 # ---------------------------------------------------------------------------
 
+
 def test_iv_bolus_initial_concentration_positive():
     """IV bolus: concentration at t=0 should be > 0."""
     r = simulate_perioperative_pk("drug_B", 100.0, route="iv_bolus")
@@ -103,15 +108,14 @@ def test_iv_bolus_initial_concentration_positive():
 
 def test_iv_infusion_initial_concentration_zero():
     """IV infusion: concentration at t=0 should be 0 (infusion builds from 0)."""
-    r = simulate_perioperative_pk(
-        "drug_B", 100.0, route="iv_infusion", infusion_rate_mg_h=10.0
-    )
+    r = simulate_perioperative_pk("drug_B", 100.0, route="iv_infusion", infusion_rate_mg_h=10.0)
     assert r.c_plasma_mg_L[0] == 0.0
 
 
 # ---------------------------------------------------------------------------
 # Blood loss
 # ---------------------------------------------------------------------------
+
 
 def test_blood_loss_reduces_concentration():
     """Blood loss should produce a lower or equal concentration compared to no blood loss."""
@@ -125,6 +129,7 @@ def test_blood_loss_reduces_concentration():
 # Notes
 # ---------------------------------------------------------------------------
 
+
 def test_notes_nonempty():
     r = simulate_perioperative_pk("drug_B", 100.0)
     assert isinstance(r.notes, str) and len(r.notes) > 0
@@ -134,6 +139,7 @@ def test_notes_nonempty():
 # tmax
 # ---------------------------------------------------------------------------
 
+
 def test_tmax_nonnegative():
     r = simulate_perioperative_pk("drug_B", 100.0)
     assert r.tmax_h >= 0
@@ -142,6 +148,7 @@ def test_tmax_nonnegative():
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_dose_mg():
     with pytest.raises(ValueError, match="dose_mg"):

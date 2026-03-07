@@ -70,8 +70,11 @@ class TestPlasmaKinetics:
     def test_initial_plasma_concentration(self):
         """At t=0, c_plasma = dose / vd."""
         result = simulate_lymphocyte_distribution(
-            dose_mg=100.0, vd_L=50.0, kp_lymphocyte=1.0,
-            k_lymph_uptake_per_h=0.0, k_lymph_release_per_h=0.0
+            dose_mg=100.0,
+            vd_L=50.0,
+            kp_lymphocyte=1.0,
+            k_lymph_uptake_per_h=0.0,
+            k_lymph_release_per_h=0.0,
         )
         assert result.c_plasma_mg_L[0] == pytest.approx(2.0, rel=1e-6)
 

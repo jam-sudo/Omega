@@ -1,6 +1,5 @@
 """Tests for Phase 896 — Adipocyte Cellular Drug Uptake."""
 
-import math
 import pytest
 
 from omega_pbpk.prediction.adipocyte_uptake import (
@@ -8,7 +7,6 @@ from omega_pbpk.prediction.adipocyte_uptake import (
     predict_adipocyte_uptake,
     screen_adipocyte_uptake,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic smoke tests

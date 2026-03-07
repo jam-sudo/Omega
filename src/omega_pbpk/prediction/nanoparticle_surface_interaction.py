@@ -19,6 +19,7 @@ __all__ = [
 @dataclass(frozen=True)
 class NanoparticleSurfaceResult:
     """Result of nanoparticle surface interaction prediction."""
+
     nanoparticle_name: str
     diameter_nm: float
     zeta_mV: float

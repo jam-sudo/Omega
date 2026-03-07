@@ -1,14 +1,15 @@
 """Tests for Phase 934: Drug Permeability Classifier."""
 
 import pytest
+
 from omega_pbpk.prediction.drug_permeability_classifier import (
     DrugPermeabilityClassResult,
     classify_permeability,
     screen_permeability_class,
 )
 
-
 # ---- Basic return type and properties ----
+
 
 def test_return_type():
     result = classify_permeability("AspIrin", logp=1.5, mw=180.0, hbd=1, hba=4, rotatable_bonds=3)
@@ -68,6 +69,7 @@ def test_drug_name_preserved():
 
 # ---- Classification correctness ----
 
+
 def test_high_logp_high_mw_fails_ro5():
     # logP=6 (>5 violation), MW=600 (>500 violation) → 2 violations → fails_ro5
     result = classify_permeability("BigDrug", logp=6.0, mw=600.0, hbd=2, hba=5, rotatable_bonds=5)
@@ -115,6 +117,7 @@ def test_bbb_unlikely_high_mw():
 
 # ---- screen_permeability_class ----
 
+
 def test_screen_correct_length():
     compounds = [
         {"drug_name": "A", "logp": 2.0, "mw": 200.0, "hbd": 1, "hba": 3, "rotatable_bonds": 3},
@@ -139,6 +142,7 @@ def test_screen_sorted_high_before_low():
 
 
 # ---- Validation errors ----
+
 
 def test_validation_mw_zero_raises():
     with pytest.raises(ValueError, match="mw"):
@@ -167,11 +171,13 @@ def test_validation_rotatable_bonds_negative_raises():
 
 def test_validation_invalid_ionization_type_raises():
     with pytest.raises(ValueError, match="ionization_type"):
-        classify_permeability("X", logp=1.0, mw=300.0, hbd=1, hba=2, rotatable_bonds=3,
-                              ionization_type="zwitterion")
+        classify_permeability(
+            "X", logp=1.0, mw=300.0, hbd=1, hba=2, rotatable_bonds=3, ionization_type="zwitterion"
+        )
 
 
 # ---- Ro5 / oral risk consistency ----
+
 
 def test_fails_ro5_when_2_violations():
     # logP=6 (>5) and MW=600 (>500) → 2 violations
@@ -181,6 +187,8 @@ def test_fails_ro5_when_2_violations():
 
 
 def test_oral_risk_high_when_fails_ro5():
-    result = classify_permeability("RiskyDrug", logp=6.0, mw=600.0, hbd=6, hba=11, rotatable_bonds=12)
+    result = classify_permeability(
+        "RiskyDrug", logp=6.0, mw=600.0, hbd=6, hba=11, rotatable_bonds=12
+    )
     assert result.fails_ro5 is True
     assert result.oral_bioavailability_risk == "high"

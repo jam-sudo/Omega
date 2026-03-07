@@ -1,9 +1,13 @@
 """Tests for Phase 945 — Renal Replacement Therapy PK."""
 
 import math
+
 import pytest
+
 from omega_pbpk.clinical.renal_replacement_therapy_pk import (
-    CRRTPKResult, simulate_crrt_pk, compare_crrt_modes,
+    CRRTPKResult,
+    compare_crrt_modes,
+    simulate_crrt_pk,
 )
 
 
@@ -28,12 +32,14 @@ def make_default(**kwargs):
 
 # --- Return type ---
 
+
 def test_return_type():
     result = make_default()
     assert isinstance(result, CRRTPKResult)
 
 
 # --- Basic PK metrics ---
+
 
 def test_cmax_positive():
     result = make_default()
@@ -51,6 +57,7 @@ def test_t_half_positive():
 
 
 # --- CRRT clearance ---
+
 
 def test_cl_crrt_positive_for_cvvhdf():
     result = make_default(crrt_mode="CVVHDF")
@@ -74,6 +81,7 @@ def test_cl_crrt_zero_for_none():
 
 # --- Fraction removed ---
 
+
 def test_fraction_removed_in_range():
     result = make_default()
     assert 0.0 <= result.fraction_removed_by_crrt <= 1.0
@@ -86,6 +94,7 @@ def test_fraction_removed_zero_for_none():
 
 # --- High fu_plasma → higher CL_CRRT ---
 
+
 def test_high_fu_higher_cl_crrt():
     low = make_default(fu_plasma=0.1)
     high = make_default(fu_plasma=0.9)
@@ -93,6 +102,7 @@ def test_high_fu_higher_cl_crrt():
 
 
 # --- compare_crrt_modes ---
+
 
 def test_compare_returns_four_results():
     results = compare_crrt_modes("Vancomycin", dose_mg=1000.0)
@@ -115,12 +125,14 @@ def test_compare_none_has_lowest_fraction():
 
 # --- IV infusion starts at 0 ---
 
+
 def test_iv_infusion_starts_at_zero():
     result = make_default(route="iv_infusion", infusion_rate_mg_h=50.0)
     assert result.c_plasma_mg_L[0] == 0.0
 
 
 # --- IV bolus starts > 0 ---
+
 
 def test_iv_bolus_starts_positive():
     result = make_default(route="iv_bolus")
@@ -129,6 +141,7 @@ def test_iv_bolus_starts_positive():
 
 # --- Notes non-empty ---
 
+
 def test_notes_non_empty():
     result = make_default()
     assert len(result.notes) > 0
@@ -136,12 +149,14 @@ def test_notes_non_empty():
 
 # --- Lengths match ---
 
+
 def test_time_concentration_same_length():
     result = make_default()
     assert len(result.times_h) == len(result.c_plasma_mg_L)
 
 
 # --- t_half validation ---
+
 
 def test_t_half_matches_formula():
     result = make_default(
@@ -162,6 +177,7 @@ def test_t_half_matches_formula():
 
 
 # --- Validation errors ---
+
 
 def test_validation_dose_zero():
     with pytest.raises(ValueError, match="dose_mg"):

@@ -11,6 +11,7 @@ VALID_OSMOTIC_TYPES = {"single_layer", "dual_layer", "push_pull"}
 @dataclass
 class OsmoticDrugDeliveryResult:
     """Result from osmotic drug delivery simulation."""
+
     drug_name: str
     total_dose_mg: float
     osmotic_type: str
@@ -179,7 +180,7 @@ def simulate_osmotic_delivery(
         notes_parts.append("Dual-layer design: same zero-order pump rate.")
     if fraction_released < 0.95:
         notes_parts.append(
-            f"Only {100*fraction_released:.1f}% released within simulation window."
+            f"Only {100 * fraction_released:.1f}% released within simulation window."
         )
     notes = " ".join(notes_parts) if notes_parts else "Standard osmotic delivery."
 

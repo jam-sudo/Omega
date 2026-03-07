@@ -1,6 +1,7 @@
 """Tests for mitochondrial drug accumulation model (Phase 881)."""
 
 import math
+
 import pytest
 
 from omega_pbpk.core.mitochondrial_accumulation import (
@@ -54,8 +55,12 @@ class TestPredictMitochondrialAccumulation:
         assert abs(result.nernst_ratio - expected) < 1e-3
 
     def test_higher_charge_higher_nernst(self):
-        r1 = predict_mitochondrial_accumulation("Drug", dose_mg=100.0, charge=1, delta_psi_mV=-180.0)
-        r2 = predict_mitochondrial_accumulation("Drug", dose_mg=100.0, charge=2, delta_psi_mV=-180.0)
+        r1 = predict_mitochondrial_accumulation(
+            "Drug", dose_mg=100.0, charge=1, delta_psi_mV=-180.0
+        )
+        r2 = predict_mitochondrial_accumulation(
+            "Drug", dose_mg=100.0, charge=2, delta_psi_mV=-180.0
+        )
         assert r2.nernst_ratio > r1.nernst_ratio
 
     def test_logp_increases_conc_factor(self):

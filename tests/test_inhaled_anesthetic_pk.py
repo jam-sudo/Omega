@@ -4,14 +4,14 @@ import pytest
 
 from omega_pbpk.core.inhaled_anesthetic_pk import (
     InhaledAnestheticPKResult,
-    simulate_inhaled_anesthetic,
     compare_agents,
+    simulate_inhaled_anesthetic,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _simulate_default(**kwargs):
     """Simulate with default sevoflurane params, allow overrides."""
@@ -32,6 +32,7 @@ def _simulate_default(**kwargs):
 # Return type
 # ---------------------------------------------------------------------------
 
+
 def test_return_type_is_result():
     result = _simulate_default()
     assert isinstance(result, InhaledAnestheticPKResult)
@@ -40,6 +41,7 @@ def test_return_type_is_result():
 # ---------------------------------------------------------------------------
 # Initial conditions
 # ---------------------------------------------------------------------------
+
 
 def test_p_blood_starts_at_zero():
     result = _simulate_default()
@@ -54,6 +56,7 @@ def test_p_brain_starts_at_zero():
 # ---------------------------------------------------------------------------
 # Range checks
 # ---------------------------------------------------------------------------
+
 
 def test_p_blood_all_in_0_1():
     result = _simulate_default()
@@ -70,6 +73,7 @@ def test_p_brain_all_in_0_1():
 # ---------------------------------------------------------------------------
 # Derived metrics
 # ---------------------------------------------------------------------------
+
 
 def test_cmax_brain_positive():
     result = _simulate_default()
@@ -89,6 +93,7 @@ def test_recovery_half_time_positive():
 # ---------------------------------------------------------------------------
 # Lambda_bg effect on equilibration speed
 # ---------------------------------------------------------------------------
+
 
 def test_lower_lambda_bg_faster_equilibrium():
     """Desflurane (low lambda_bg) should equilibrate faster than isoflurane (high)."""
@@ -117,6 +122,7 @@ def test_lower_lambda_bg_faster_equilibrium():
 # compare_agents
 # ---------------------------------------------------------------------------
 
+
 def test_compare_agents_returns_3_by_default():
     results = compare_agents()
     assert len(results) == 3
@@ -138,6 +144,7 @@ def test_compare_agents_desflurane_fastest_recovery():
 # ---------------------------------------------------------------------------
 # Physiological behavior
 # ---------------------------------------------------------------------------
+
 
 def test_p_brain_increases_during_induction():
     result = _simulate_default(dt_h=1.0 / 60.0)  # coarser for speed
@@ -165,6 +172,7 @@ def test_p_brain_decreases_during_recovery():
 # Notes
 # ---------------------------------------------------------------------------
 
+
 def test_notes_non_empty():
     result = _simulate_default()
     assert isinstance(result.notes, str)
@@ -174,6 +182,7 @@ def test_notes_non_empty():
 # ---------------------------------------------------------------------------
 # Lambda preserved
 # ---------------------------------------------------------------------------
+
 
 def test_lambda_bg_preserved():
     result = simulate_inhaled_anesthetic(
@@ -186,6 +195,7 @@ def test_lambda_bg_preserved():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_validation_inspired_fraction_zero():
     with pytest.raises(ValueError, match="inspired_fraction"):
@@ -225,6 +235,7 @@ def test_validation_t_maintenance_zero():
 # ---------------------------------------------------------------------------
 # List length consistency
 # ---------------------------------------------------------------------------
+
 
 def test_times_len_equals_p_brain_len():
     result = _simulate_default()

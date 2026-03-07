@@ -1,5 +1,7 @@
 """Tests for Phase 964 — ROS burden prediction."""
+
 import pytest
+
 from omega_pbpk.prediction.reactive_oxygen_species_burden import (
     ROSBurdenResult,
     predict_ros_burden,
@@ -30,6 +32,7 @@ def _make_basic(**kwargs):
 
 
 # ── Return-type checks ───────────────────────────────────────────────────────
+
 
 def test_return_type():
     result = _make_basic()
@@ -85,6 +88,7 @@ def test_drug_name_preserved():
 
 # ── Scoring logic ────────────────────────────────────────────────────────────
 
+
 def test_quinone_raises_score():
     result = _make_basic(has_quinone=True)
     # base 10 + quinone 35 = 45 minimum
@@ -121,6 +125,7 @@ def test_dili_risk_false_when_score_low():
 
 # ── Mechanism assignment ─────────────────────────────────────────────────────
 
+
 def test_quinone_mechanism():
     result = _make_basic(has_quinone=True)
     assert result.oxidative_stress_mechanism == "quinone_redox_cycling"
@@ -134,8 +139,12 @@ def test_nitro_mechanism_no_quinone():
 def test_cyp_mechanism_when_score_above_30():
     # logP=4 + mw=300 + base pKa=10 → +15+10+10 = 35 → score 45
     result = _make_basic(
-        logp=4.0, mw=300.0, ionization_type="base", pka=10.0,
-        has_quinone=False, has_nitro_group=False
+        logp=4.0,
+        mw=300.0,
+        ionization_type="base",
+        pka=10.0,
+        has_quinone=False,
+        has_nitro_group=False,
     )
     assert result.ros_score > 30
     assert result.oxidative_stress_mechanism == "cyp_oxidative_metabolism"
@@ -143,13 +152,26 @@ def test_cyp_mechanism_when_score_above_30():
 
 # ── screen_ros_risk ───────────────────────────────────────────────────────────
 
+
 def _sample_compounds():
     return [
         {"drug_name": "A", "logp": 1.0, "mw": 300.0, "pka": 7.0, "ionization_type": "neutral"},
-        {"drug_name": "B", "logp": 4.0, "mw": 250.0, "pka": 7.0, "ionization_type": "neutral",
-         "has_quinone": True},
-        {"drug_name": "C", "logp": 2.0, "mw": 350.0, "pka": 9.5, "ionization_type": "base",
-         "has_nitro_group": True},
+        {
+            "drug_name": "B",
+            "logp": 4.0,
+            "mw": 250.0,
+            "pka": 7.0,
+            "ionization_type": "neutral",
+            "has_quinone": True,
+        },
+        {
+            "drug_name": "C",
+            "logp": 2.0,
+            "mw": 350.0,
+            "pka": 9.5,
+            "ionization_type": "base",
+            "has_nitro_group": True,
+        },
     ]
 
 
@@ -174,6 +196,7 @@ def test_screen_returns_ros_burden_results():
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
+
 
 def test_validation_mw_zero():
     with pytest.raises(ValueError, match="mw"):

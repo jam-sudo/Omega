@@ -1,11 +1,11 @@
 """Tests for Phase 975 — Methotrexate PK model."""
 
 import pytest
+
 from omega_pbpk.clinical.methotrexate_pk import (
     MethotrexatePKResult,
     simulate_methotrexate_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic return type and structure
@@ -128,9 +128,7 @@ def test_high_dose_high_toxicity():
 
 
 def test_low_dose_low_toxicity():
-    result = simulate_methotrexate_pk(
-        dose_mg=50.0, infusion_duration_h=0.5, gfr_mL_min=100.0
-    )
+    result = simulate_methotrexate_pk(dose_mg=50.0, infusion_duration_h=0.5, gfr_mL_min=100.0)
     assert result.toxicity_risk == "low"
 
 

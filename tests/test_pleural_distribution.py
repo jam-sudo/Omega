@@ -1,6 +1,7 @@
 """Tests for prediction/pleural_distribution.py (Phase 923)."""
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.pleural_distribution import (
@@ -8,7 +9,6 @@ from omega_pbpk.prediction.pleural_distribution import (
     compare_pleural_conditions,
     predict_pleural_distribution,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic smoke tests

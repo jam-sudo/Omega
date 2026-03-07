@@ -8,7 +8,6 @@ from omega_pbpk.core.dermal_absorption_pbpk import (
     simulate_dermal_absorption,
 )
 
-
 # ---------------------------------------------------------------------------
 # Smoke tests
 # ---------------------------------------------------------------------------

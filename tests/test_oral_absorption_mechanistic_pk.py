@@ -1,14 +1,15 @@
 """Tests for Phase 951 — Mechanistic oral absorption model."""
 
 import pytest
+
 from omega_pbpk.core.oral_absorption_mechanistic_pk import (
     MechanisticOralAbsorptionResult,
-    simulate_mechanistic_oral_absorption,
     sensitivity_analysis,
+    simulate_mechanistic_oral_absorption,
 )
 
-
 # ── Basic return type and structure ──────────────────────────────────────────
+
 
 def test_return_type():
     r = simulate_mechanistic_oral_absorption("DrugA", dose_mg=100.0)
@@ -82,55 +83,55 @@ def test_higher_kdiss_higher_cmax():
 
 
 def test_higher_fg_higher_bioavailability():
-    r_low = simulate_mechanistic_oral_absorption(
-        "DrugA", dose_mg=100.0, fg=0.2, t_end_h=48.0
-    )
-    r_high = simulate_mechanistic_oral_absorption(
-        "DrugA", dose_mg=100.0, fg=0.9, t_end_h=48.0
-    )
+    r_low = simulate_mechanistic_oral_absorption("DrugA", dose_mg=100.0, fg=0.2, t_end_h=48.0)
+    r_high = simulate_mechanistic_oral_absorption("DrugA", dose_mg=100.0, fg=0.9, t_end_h=48.0)
     assert r_high.bioavailability_pct > r_low.bioavailability_pct
 
 
 # ── Sensitivity analysis ──────────────────────────────────────────────────────
 
+
 def test_sensitivity_returns_correct_length():
     values = [0.1, 0.5, 1.0, 2.0]
-    results = sensitivity_analysis("DrugA", dose_mg=100.0, param_name="kdiss_per_h",
-                                   param_values=values)
+    results = sensitivity_analysis(
+        "DrugA", dose_mg=100.0, param_name="kdiss_per_h", param_values=values
+    )
     assert len(results) == len(values)
 
 
 def test_sensitivity_sorted_by_auc_descending():
     values = [0.1, 0.5, 1.0, 2.0]
-    results = sensitivity_analysis("DrugA", dose_mg=100.0, param_name="kdiss_per_h",
-                                   param_values=values)
+    results = sensitivity_analysis(
+        "DrugA", dose_mg=100.0, param_name="kdiss_per_h", param_values=values
+    )
     aucs = [r.auc_mg_h_per_L for r in results]
     assert aucs == sorted(aucs, reverse=True)
 
 
 def test_sensitivity_on_ka():
     values = [0.5, 1.0, 2.0]
-    results = sensitivity_analysis("DrugA", dose_mg=100.0, param_name="ka_per_h",
-                                   param_values=values)
+    results = sensitivity_analysis(
+        "DrugA", dose_mg=100.0, param_name="ka_per_h", param_values=values
+    )
     assert len(results) == 3
 
 
 def test_sensitivity_on_fg():
     values = [0.3, 0.6, 0.9]
-    results = sensitivity_analysis("DrugA", dose_mg=100.0, param_name="fg",
-                                   param_values=values)
+    results = sensitivity_analysis("DrugA", dose_mg=100.0, param_name="fg", param_values=values)
     assert all(isinstance(r, MechanisticOralAbsorptionResult) for r in results)
 
 
 def test_sensitivity_on_clint():
     values = [1.0, 5.0, 20.0]
-    results = sensitivity_analysis("DrugA", dose_mg=100.0,
-                                   param_name="clint_hepatic_L_per_h",
-                                   param_values=values)
+    results = sensitivity_analysis(
+        "DrugA", dose_mg=100.0, param_name="clint_hepatic_L_per_h", param_values=values
+    )
     assert len(results) == 3
 
 
 # ── Notes ─────────────────────────────────────────────────────────────────────
+
 
 def test_notes_nonempty():
     r = simulate_mechanistic_oral_absorption("DrugA", dose_mg=100.0)
@@ -138,6 +139,7 @@ def test_notes_nonempty():
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
+
 
 def test_validation_dose_zero():
     with pytest.raises(ValueError, match="dose_mg"):

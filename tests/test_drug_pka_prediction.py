@@ -1,17 +1,17 @@
 """Tests for Phase 970 — drug pKa prediction."""
 
 import pytest
+
 from omega_pbpk.prediction.drug_pka_prediction import (
     PKAPredictionResult,
     predict_pka,
     screen_pka_profiles,
-    FUNCTIONAL_GROUP_PKA,
 )
-
 
 # ---------------------------------------------------------------------------
 # Return type and basic checks
 # ---------------------------------------------------------------------------
+
 
 def test_return_type():
     result = predict_pka("DrugA", logp=1.5, mw=300.0, functional_group="carboxylic_acid")
@@ -68,6 +68,7 @@ def test_drug_name_preserved():
 # Functional group specific behaviour
 # ---------------------------------------------------------------------------
 
+
 def test_carboxylic_acid_type():
     result = predict_pka("DrugA", logp=0.0, mw=200.0, functional_group="carboxylic_acid")
     assert result.pka_type == "acid"
@@ -94,6 +95,7 @@ def test_aliphatic_amine_mostly_ionized_at_gastric_ph():
 # screen_pka_profiles
 # ---------------------------------------------------------------------------
 
+
 def test_screen_pka_profiles_length():
     compounds = [
         {"drug_name": "A", "logp": 1.0, "mw": 200.0, "functional_group": "carboxylic_acid"},
@@ -118,6 +120,7 @@ def test_screen_pka_profiles_sorted():
 # ---------------------------------------------------------------------------
 # Corrections
 # ---------------------------------------------------------------------------
+
 
 def test_logp_correction_shifts_pka():
     """Higher logP → higher predicted pKa."""
@@ -147,6 +150,7 @@ def test_unknown_is_neutral():
 # charge_at_physiological_ph
 # ---------------------------------------------------------------------------
 
+
 def test_charge_at_physiological_ph_is_float():
     result = predict_pka("DrugA", logp=1.0, mw=250.0, functional_group="carboxylic_acid")
     assert isinstance(result.charge_at_physiological_ph, float)
@@ -168,6 +172,7 @@ def test_base_charge_positive_at_physiological_low_pka():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_validation_mw_zero():
     with pytest.raises(ValueError, match="mw"):

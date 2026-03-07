@@ -1,6 +1,5 @@
 """Tests for Phase 898 — Sweat Drug Excretion."""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.sweat_excretion import (
@@ -8,7 +7,6 @@ from omega_pbpk.clinical.sweat_excretion import (
     predict_sweat_excretion,
     screen_sweat_excretion,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -143,9 +141,7 @@ def test_predicted_sweat_conc():
 
 def test_drug_flux():
     r = predict_sweat_excretion("Drug", 8.0, 1.0, "base", sweat_rate_mL_h=1.0)
-    assert r.drug_flux_ug_per_h == pytest.approx(
-        r.predicted_sweat_conc_ug_mL * 1.0, rel=1e-6
-    )
+    assert r.drug_flux_ug_per_h == pytest.approx(r.predicted_sweat_conc_ug_mL * 1.0, rel=1e-6)
 
 
 # ---------------------------------------------------------------------------
@@ -321,9 +317,6 @@ def test_screen_default_ionization():
 
 
 def test_screen_returns_all():
-    candidates = [
-        {"name": f"D{i}", "pka": 7.0, "logp": float(i)}
-        for i in range(6)
-    ]
+    candidates = [{"name": f"D{i}", "pka": 7.0, "logp": float(i)} for i in range(6)]
     results = screen_sweat_excretion(candidates)
     assert len(results) == 6

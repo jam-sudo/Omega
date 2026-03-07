@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.prediction.sebum_skin_distribution import (
@@ -105,9 +104,7 @@ class TestPredictSebumDistribution:
         assert abs(result.predicted_sebum_conc_ug_g - expected) < 0.01
 
     def test_predicted_sebum_conc_clamped_max(self):
-        result = predict_sebum_distribution(
-            "Drug", logp=20.0, plasma_conc_mg_L=1000.0
-        )
+        result = predict_sebum_distribution("Drug", logp=20.0, plasma_conc_mg_L=1000.0)
         assert result.predicted_sebum_conc_ug_g <= 1e6
 
     def test_acne_target_achievable_true(self):
@@ -115,9 +112,7 @@ class TestPredictSebumDistribution:
         assert result.acne_target_conc_achievable is True
 
     def test_acne_target_achievable_false(self):
-        result = predict_sebum_distribution(
-            "Drug", logp=-5.0, plasma_conc_mg_L=0.0001
-        )
+        result = predict_sebum_distribution("Drug", logp=-5.0, plasma_conc_mg_L=0.0001)
         assert result.acne_target_conc_achievable is False
 
     def test_notes_acne_achievable(self):

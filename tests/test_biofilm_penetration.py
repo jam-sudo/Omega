@@ -1,6 +1,7 @@
 """Tests for Phase 966 — Biofilm penetration predictor."""
 
 import pytest
+
 from omega_pbpk.prediction.biofilm_penetration import (
     BiofilmPenetrationResult,
     predict_biofilm_penetration,
@@ -118,7 +119,13 @@ def test_screen_biofilm_activity_sorted_descending():
     compounds = [
         {"drug_name": "drug_a", "logp": 5.0, "mw": 800.0, "pka": 7.0, "ionization_type": "base"},
         {"drug_name": "drug_b", "logp": 1.0, "mw": 300.0, "pka": 7.0, "ionization_type": "neutral"},
-        {"drug_name": "drug_c", "logp": -2.0, "mw": 400.0, "pka": 9.0, "ionization_type": "neutral"},
+        {
+            "drug_name": "drug_c",
+            "logp": -2.0,
+            "mw": 400.0,
+            "pka": 9.0,
+            "ionization_type": "neutral",
+        },
     ]
     results = screen_biofilm_activity(compounds)
     for i in range(len(results) - 1):

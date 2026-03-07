@@ -1,14 +1,15 @@
 """Tests for Phase 948 — Drug-target binding kinetics."""
-import math
+
 import pytest
+
 from omega_pbpk.prediction.drug_target_binding import (
     DrugTargetBindingResult,
-    simulate_target_binding,
     compare_binding_kinetics,
+    simulate_target_binding,
 )
 
-
 # --- Basic return type ---
+
 
 def test_return_type():
     result = simulate_target_binding("Drug", dose_mg=100.0, mw_Da=300.0, ic50_nM=10.0)
@@ -80,8 +81,7 @@ def test_cmax_plasma_positive():
 def test_cmax_equals_dose_over_vd():
     dose = 200.0
     vd = 80.0
-    result = simulate_target_binding("Drug", dose_mg=dose, mw_Da=300.0, ic50_nM=10.0,
-                                      vd_L=vd)
+    result = simulate_target_binding("Drug", dose_mg=dose, mw_Da=300.0, ic50_nM=10.0, vd_L=vd)
     assert abs(result.cmax_plasma_mg_L - dose / vd) < 1e-9
 
 
@@ -98,18 +98,19 @@ def test_receptor_occupancy_is_list_of_floats():
 
 # --- Pharmacology checks ---
 
+
 def test_low_ic50_higher_peak_occupancy():
     """Lower IC50 (higher potency) → higher peak occupancy.
 
     Use a small dose so drug concentration is sub-saturating for the weak binder.
     Cmax = dose/Vd / MW * 1e6 nM = 0.01/50 / 300 * 1e6 ≈ 0.67 nM << IC50=1000 nM.
     """
-    low_ic50 = simulate_target_binding("Potent", dose_mg=0.01, mw_Da=300.0,
-                                        ic50_nM=0.1, vd_L=50.0, cl_L_per_h=1.0,
-                                        t_end_h=48.0)
-    high_ic50 = simulate_target_binding("Weak", dose_mg=0.01, mw_Da=300.0,
-                                         ic50_nM=100.0, vd_L=50.0, cl_L_per_h=1.0,
-                                         t_end_h=48.0)
+    low_ic50 = simulate_target_binding(
+        "Potent", dose_mg=0.01, mw_Da=300.0, ic50_nM=0.1, vd_L=50.0, cl_L_per_h=1.0, t_end_h=48.0
+    )
+    high_ic50 = simulate_target_binding(
+        "Weak", dose_mg=0.01, mw_Da=300.0, ic50_nM=100.0, vd_L=50.0, cl_L_per_h=1.0, t_end_h=48.0
+    )
     assert low_ic50.peak_occupancy > high_ic50.peak_occupancy
 
 
@@ -121,6 +122,7 @@ def test_large_mw_lower_kon():
 
 
 # --- compare_binding_kinetics ---
+
 
 def test_compare_binding_kinetics_correct_length():
     compounds = [
@@ -145,6 +147,7 @@ def test_compare_binding_kinetics_sorted_descending():
 
 # --- Validation ---
 
+
 def test_validation_dose_zero():
     with pytest.raises(ValueError, match="dose_mg"):
         simulate_target_binding("Drug", dose_mg=0.0, mw_Da=300.0, ic50_nM=10.0)
@@ -162,17 +165,14 @@ def test_validation_ic50_zero():
 
 def test_validation_vd_zero():
     with pytest.raises(ValueError, match="vd_L"):
-        simulate_target_binding("Drug", dose_mg=100.0, mw_Da=300.0, ic50_nM=10.0,
-                                  vd_L=0.0)
+        simulate_target_binding("Drug", dose_mg=100.0, mw_Da=300.0, ic50_nM=10.0, vd_L=0.0)
 
 
 def test_validation_cl_zero():
     with pytest.raises(ValueError, match="cl_L_per_h"):
-        simulate_target_binding("Drug", dose_mg=100.0, mw_Da=300.0, ic50_nM=10.0,
-                                  cl_L_per_h=0.0)
+        simulate_target_binding("Drug", dose_mg=100.0, mw_Da=300.0, ic50_nM=10.0, cl_L_per_h=0.0)
 
 
 def test_validation_r_total_zero():
     with pytest.raises(ValueError, match="r_total_nM"):
-        simulate_target_binding("Drug", dose_mg=100.0, mw_Da=300.0, ic50_nM=10.0,
-                                  r_total_nM=0.0)
+        simulate_target_binding("Drug", dose_mg=100.0, mw_Da=300.0, ic50_nM=10.0, r_total_nM=0.0)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.prediction.pulmonary_surfactant_interaction import (
@@ -11,10 +10,10 @@ from omega_pbpk.prediction.pulmonary_surfactant_interaction import (
     screen_inhaled_drugs,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic result structure tests
 # ---------------------------------------------------------------------------
+
 
 class TestSurfactantInteractionResultStructure:
     def test_returns_correct_type(self):
@@ -50,6 +49,7 @@ class TestSurfactantInteractionResultStructure:
 # ---------------------------------------------------------------------------
 # Surfactant binding fraction tests
 # ---------------------------------------------------------------------------
+
 
 class TestSurfactantBindingFraction:
     def test_binding_at_logp_2_is_half(self):
@@ -91,6 +91,7 @@ class TestSurfactantBindingFraction:
 # ---------------------------------------------------------------------------
 # Derived property tests
 # ---------------------------------------------------------------------------
+
 
 class TestDerivedProperties:
     def test_dissolution_rate_factor_ge_1(self):
@@ -139,6 +140,7 @@ class TestDerivedProperties:
 # Notes tests
 # ---------------------------------------------------------------------------
 
+
 class TestNotes:
     def test_high_retention_note(self):
         """logP=5, large MW should give high retention note."""
@@ -159,6 +161,7 @@ class TestNotes:
 # ---------------------------------------------------------------------------
 # Validation tests
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_invalid_mw_raises(self):
@@ -182,6 +185,7 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 # screen_inhaled_drugs tests
 # ---------------------------------------------------------------------------
+
 
 class TestScreenInhaledDrugs:
     def test_returns_list(self):

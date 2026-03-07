@@ -9,6 +9,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class ProteinBindingDisplacementResult:
     """Result from protein binding displacement prediction."""
+
     drug_name_victim: str
     drug_name_displacer: str
     fup_victim_baseline: float
@@ -137,13 +138,9 @@ def predict_protein_binding_displacement(
 
     notes_parts = []
     if er_class == "high":
-        notes_parts.append(
-            "High hepatic ER: total AUC unchanged (flow-limited clearance)."
-        )
+        notes_parts.append("High hepatic ER: total AUC unchanged (flow-limited clearance).")
     elif er_class == "low":
-        notes_parts.append(
-            "Low hepatic ER: total AUC may decrease due to higher unbound CL."
-        )
+        notes_parts.append("Low hepatic ER: total AUC may decrease due to higher unbound CL.")
     else:
         notes_parts.append("Intermediate hepatic ER: partial AUC effect.")
 

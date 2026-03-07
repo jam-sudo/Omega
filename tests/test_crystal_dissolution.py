@@ -12,7 +12,6 @@ from omega_pbpk.biopharmaceutics.crystal_dissolution import (
     predict_crystal_dissolution,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic smoke tests
 # ---------------------------------------------------------------------------
@@ -30,14 +29,22 @@ def test_basic_anhydrous():
 
 
 def test_amorphous_has_highest_solubility():
-    r_amorphous = predict_crystal_dissolution("DrugB", dose_mg=100.0, crystal_form="amorphous", logp=2.0)
-    r_anhydrous = predict_crystal_dissolution("DrugB", dose_mg=100.0, crystal_form="anhydrous", logp=2.0)
+    r_amorphous = predict_crystal_dissolution(
+        "DrugB", dose_mg=100.0, crystal_form="amorphous", logp=2.0
+    )
+    r_anhydrous = predict_crystal_dissolution(
+        "DrugB", dose_mg=100.0, crystal_form="anhydrous", logp=2.0
+    )
     assert r_amorphous.solubility_mg_mL > r_anhydrous.solubility_mg_mL
 
 
 def test_amorphous_3x_solubility_vs_anhydrous():
-    r_amorphous = predict_crystal_dissolution("DrugC", dose_mg=100.0, crystal_form="amorphous", logp=2.0)
-    r_anhydrous = predict_crystal_dissolution("DrugC", dose_mg=100.0, crystal_form="anhydrous", logp=2.0)
+    r_amorphous = predict_crystal_dissolution(
+        "DrugC", dose_mg=100.0, crystal_form="amorphous", logp=2.0
+    )
+    r_anhydrous = predict_crystal_dissolution(
+        "DrugC", dose_mg=100.0, crystal_form="anhydrous", logp=2.0
+    )
     ratio = r_amorphous.solubility_mg_mL / r_anhydrous.solubility_mg_mL
     assert abs(ratio - 3.0) < 1e-9
 
@@ -117,21 +124,25 @@ def test_f60_ge_f30():
 
 def test_f_abs_predicted_max_085():
     # When 100% dissolved, f_abs should cap at 0.85
-    r = predict_crystal_dissolution("DrugN", dose_mg=1.0, crystal_form="amorphous", surface_area_cm2=10000.0)
+    r = predict_crystal_dissolution(
+        "DrugN", dose_mg=1.0, crystal_form="amorphous", surface_area_cm2=10000.0
+    )
     assert r.f_abs_predicted <= 0.85
 
 
 def test_dissolution_limited_flag():
     # High dose, low surface area, low solubility → dissolution limited
-    r = predict_crystal_dissolution("DrugO", dose_mg=1000.0, crystal_form="anhydrous",
-                                    surface_area_cm2=1.0, logp=5.0)
+    r = predict_crystal_dissolution(
+        "DrugO", dose_mg=1000.0, crystal_form="anhydrous", surface_area_cm2=1.0, logp=5.0
+    )
     assert r.dissolution_limited is True
 
 
 def test_not_dissolution_limited_for_amorphous_low_dose():
     # Very small dose with amorphous form should dissolve quickly
-    r = predict_crystal_dissolution("DrugP", dose_mg=1.0, crystal_form="amorphous",
-                                    surface_area_cm2=500.0, logp=1.0)
+    r = predict_crystal_dissolution(
+        "DrugP", dose_mg=1.0, crystal_form="amorphous", surface_area_cm2=500.0, logp=1.0
+    )
     assert r.dissolution_limited is False
 
 
@@ -146,8 +157,9 @@ def test_amorphous_notes():
 
 
 def test_dissolution_limited_notes():
-    r = predict_crystal_dissolution("DrugR", dose_mg=10000.0, crystal_form="anhydrous",
-                                    surface_area_cm2=1.0, logp=6.0)
+    r = predict_crystal_dissolution(
+        "DrugR", dose_mg=10000.0, crystal_form="anhydrous", surface_area_cm2=1.0, logp=6.0
+    )
     assert r.dissolution_limited
     assert "dissolution-limited" in r.notes.lower()
 

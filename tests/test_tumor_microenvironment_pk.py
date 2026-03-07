@@ -10,7 +10,6 @@ from omega_pbpk.core.tumor_microenvironment_pk import (
     simulate_tumor_microenv_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic structure / type checks
 # ---------------------------------------------------------------------------
@@ -85,15 +84,15 @@ def test_tv_rises_from_zero():
 
 
 def test_ti_receives_drug_from_tv():
-    r = simulate_tumor_microenv_pk("X", dose_mg=10.0, ps_per_h=1.0,
-                                    k_ifp_factor=0.5, t_end_h=48.0)
+    r = simulate_tumor_microenv_pk("X", dose_mg=10.0, ps_per_h=1.0, k_ifp_factor=0.5, t_end_h=48.0)
     assert r.cmax_ti > 0.0
     assert r.auc_ti > 0.0
 
 
 def test_tc_receives_drug_from_ti():
-    r = simulate_tumor_microenv_pk("X", dose_mg=10.0, ps_per_h=1.0,
-                                    k_ifp_factor=0.5, k_intracell_per_h=0.5, t_end_h=48.0)
+    r = simulate_tumor_microenv_pk(
+        "X", dose_mg=10.0, ps_per_h=1.0, k_ifp_factor=0.5, k_intracell_per_h=0.5, t_end_h=48.0
+    )
     assert r.cmax_tc > 0.0
     assert r.auc_tc > 0.0
 
@@ -129,10 +128,12 @@ def test_high_ps_increases_tv_auc():
 
 def test_low_ifp_increases_ti_auc():
     """Lower IFP factor means less resistance, so more drug in TI."""
-    r_low_ifp = simulate_tumor_microenv_pk("X", dose_mg=10.0, ps_per_h=1.0,
-                                            k_ifp_factor=0.1, t_end_h=48.0)
-    r_high_ifp = simulate_tumor_microenv_pk("X", dose_mg=10.0, ps_per_h=1.0,
-                                             k_ifp_factor=0.9, t_end_h=48.0)
+    r_low_ifp = simulate_tumor_microenv_pk(
+        "X", dose_mg=10.0, ps_per_h=1.0, k_ifp_factor=0.1, t_end_h=48.0
+    )
+    r_high_ifp = simulate_tumor_microenv_pk(
+        "X", dose_mg=10.0, ps_per_h=1.0, k_ifp_factor=0.9, t_end_h=48.0
+    )
     # Both should show some TI penetration — just check both are positive
     assert r_low_ifp.auc_ti > 0.0
     assert r_high_ifp.auc_ti > 0.0
@@ -145,17 +146,31 @@ def test_low_ifp_increases_ti_auc():
 
 def test_notes_poor_tumor_penetration():
     """Very high systemic clearance → most drug gone before reaching TC."""
-    r = simulate_tumor_microenv_pk("X", dose_mg=1.0, ps_per_h=0.01, k_ifp_factor=0.01,
-                                    k_intracell_per_h=0.01, cl_sys_L_per_h=100.0, t_end_h=48.0)
+    r = simulate_tumor_microenv_pk(
+        "X",
+        dose_mg=1.0,
+        ps_per_h=0.01,
+        k_ifp_factor=0.01,
+        k_intracell_per_h=0.01,
+        cl_sys_L_per_h=100.0,
+        t_end_h=48.0,
+    )
     assert r.notes == "Poor tumor penetration"
 
 
 def test_notes_excellent_tumor_accumulation():
     """High PS, low IFP, high intracellular uptake → excellent accumulation."""
-    r = simulate_tumor_microenv_pk("X", dose_mg=100.0, ps_per_h=5.0,
-                                    k_ifp_factor=0.8, k_intracell_per_h=2.0,
-                                    k_efflux_per_h=0.01, cl_sys_L_per_h=2.0,
-                                    vd_sys_L=50.0, t_end_h=48.0)
+    r = simulate_tumor_microenv_pk(
+        "X",
+        dose_mg=100.0,
+        ps_per_h=5.0,
+        k_ifp_factor=0.8,
+        k_intracell_per_h=2.0,
+        k_efflux_per_h=0.01,
+        cl_sys_L_per_h=2.0,
+        vd_sys_L=50.0,
+        t_end_h=48.0,
+    )
     assert r.tumor_plasma_ratio > 0.0  # drug does accumulate
 
 

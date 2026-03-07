@@ -118,7 +118,9 @@ def simulate_renal_tubular_pk(
 
     # Fixed CL components
     cl_filt = gfr_L_per_h * fu_plasma  # L/h — filtration
-    cl_reabs = _compute_cl_reabsorption(logp, vd_L)  # L/h — reabsorption (removes drug from urine back to plasma)
+    cl_reabs = _compute_cl_reabsorption(
+        logp, vd_L
+    )  # L/h — reabsorption (removes drug from urine back to plasma)
     ke_hepatic = cl_hepatic_L_per_h / vd_L  # /h
 
     # Initial conditions

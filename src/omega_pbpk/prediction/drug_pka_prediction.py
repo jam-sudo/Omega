@@ -86,7 +86,7 @@ def _charge_at_ph(pka: float, pka_type: str, ph: float = 7.4) -> float:
     if pka_type == "acid":
         return -fi  # ionized acid carries -1 charge
     elif pka_type == "base":
-        return fi   # ionized base carries +1 charge
+        return fi  # ionized base carries +1 charge
     return 0.0
 
 

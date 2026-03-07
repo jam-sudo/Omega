@@ -1,12 +1,12 @@
 """Tests for Phase 976 — Drug Membrane Partitioning Prediction."""
 
 import pytest
+
 from omega_pbpk.prediction.drug_membrane_partitioning import (
     MembranePartitioningResult,
     compare_membrane_partitioning,
     predict_membrane_partitioning,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic return type and structure
@@ -45,9 +45,7 @@ def test_accumulation_risk_valid_values():
 
 def test_basic_lipophilic_higher_kp_than_neutral():
     """Basic drug (base) with same logP has higher kp_mem than neutral drug."""
-    basic = predict_membrane_partitioning(
-        "BasicDrug", logp=3.0, pka=9.0, ionization_type="base"
-    )
+    basic = predict_membrane_partitioning("BasicDrug", logp=3.0, pka=9.0, ionization_type="base")
     neutral = predict_membrane_partitioning(
         "NeutralDrug", logp=3.0, pka=9.0, ionization_type="neutral"
     )
@@ -76,33 +74,25 @@ def test_log_kp_mem_monotone_with_logp():
 
 def test_lysosomal_trapping_true_for_basic_lipophilic():
     """Basic drug with logP > 1 → trapping risk True."""
-    result = predict_membrane_partitioning(
-        "BasicLipo", logp=2.0, pka=9.0, ionization_type="base"
-    )
+    result = predict_membrane_partitioning("BasicLipo", logp=2.0, pka=9.0, ionization_type="base")
     assert result.lysosomal_trapping_risk is True
 
 
 def test_lysosomal_trapping_false_for_neutral():
     """Neutral drug → no lysosomal trapping."""
-    result = predict_membrane_partitioning(
-        "Neutral", logp=3.0, pka=7.0, ionization_type="neutral"
-    )
+    result = predict_membrane_partitioning("Neutral", logp=3.0, pka=7.0, ionization_type="neutral")
     assert result.lysosomal_trapping_risk is False
 
 
 def test_lysosomal_trapping_false_for_basic_hydrophilic():
     """Basic drug with logP <= 1 → no lysosomal trapping risk."""
-    result = predict_membrane_partitioning(
-        "BasicHydro", logp=0.5, pka=9.0, ionization_type="base"
-    )
+    result = predict_membrane_partitioning("BasicHydro", logp=0.5, pka=9.0, ionization_type="base")
     assert result.lysosomal_trapping_risk is False
 
 
 def test_lysosomal_trapping_false_for_acid():
     """Acid drug → no lysosomal trapping."""
-    result = predict_membrane_partitioning(
-        "AcidDrug", logp=3.0, pka=4.5, ionization_type="acid"
-    )
+    result = predict_membrane_partitioning("AcidDrug", logp=3.0, pka=4.5, ionization_type="acid")
     assert result.lysosomal_trapping_risk is False
 
 
@@ -113,17 +103,13 @@ def test_lysosomal_trapping_false_for_acid():
 
 def test_high_accumulation_risk():
     """Very lipophilic basic drug → high accumulation risk."""
-    result = predict_membrane_partitioning(
-        "VeryLipo", logp=8.0, pka=9.0, ionization_type="base"
-    )
+    result = predict_membrane_partitioning("VeryLipo", logp=8.0, pka=9.0, ionization_type="base")
     assert result.accumulation_risk == "high"
 
 
 def test_low_accumulation_risk():
     """Hydrophilic drug → low accumulation risk."""
-    result = predict_membrane_partitioning(
-        "Hydro", logp=-1.0, pka=7.0, ionization_type="neutral"
-    )
+    result = predict_membrane_partitioning("Hydro", logp=-1.0, pka=7.0, ionization_type="neutral")
     assert result.accumulation_risk == "low"
 
 

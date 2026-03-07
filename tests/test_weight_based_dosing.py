@@ -3,16 +3,17 @@ Tests for Phase 930: weight-based dosing strategy comparison.
 """
 
 import pytest
+
 from omega_pbpk.clinical.weight_based_dosing import (
     WeightBasedDosingResult,
     compare_dosing_strategies,
     recommend_dosing_strategy,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _compare(**kwargs):
     defaults = dict(
@@ -33,6 +34,7 @@ def _compare(**kwargs):
 # ---------------------------------------------------------------------------
 # Return structure
 # ---------------------------------------------------------------------------
+
 
 class TestReturnStructure:
     def test_returns_3_results(self):
@@ -58,6 +60,7 @@ class TestReturnStructure:
 # ---------------------------------------------------------------------------
 # Statistical expectations
 # ---------------------------------------------------------------------------
+
 
 class TestStatisticalExpectations:
     def test_flat_has_highest_cv_auc(self):
@@ -104,6 +107,7 @@ class TestStatisticalExpectations:
 # Recommended flag
 # ---------------------------------------------------------------------------
 
+
 class TestRecommendedFlag:
     def test_exactly_one_recommended(self):
         results = _compare()
@@ -120,6 +124,7 @@ class TestRecommendedFlag:
 # ---------------------------------------------------------------------------
 # recommend_dosing_strategy
 # ---------------------------------------------------------------------------
+
 
 class TestRecommendDosingStrategy:
     def test_returns_single_result(self):
@@ -140,6 +145,7 @@ class TestRecommendDosingStrategy:
 # ---------------------------------------------------------------------------
 # Metadata fields
 # ---------------------------------------------------------------------------
+
 
 class TestMetadataFields:
     def test_n_patients_preserved(self):
@@ -162,6 +168,7 @@ class TestMetadataFields:
 # Determinism
 # ---------------------------------------------------------------------------
 
+
 class TestDeterminism:
     def test_same_seed_same_results(self):
         r1 = _compare(seed=42)
@@ -180,6 +187,7 @@ class TestDeterminism:
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_cl_ref_zero_raises(self):

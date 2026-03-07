@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.core.csf_pk import CSFPKResult, compare_csf_routes, simulate_csf_pk
-
 
 # ---------------------------------------------------------------------------
 # Basic structure / type checks
@@ -75,8 +75,9 @@ def test_systemic_initial_plasma_concentration():
 
 def test_systemic_csf_rises_from_zero():
     """For systemic route, CSF concentration should rise from 0 and become positive."""
-    r = simulate_csf_pk("X", dose_mg=10.0, route="systemic", bbb_perm_per_h=0.05,
-                         t_end_h=24.0, dt_h=0.05)
+    r = simulate_csf_pk(
+        "X", dose_mg=10.0, route="systemic", bbb_perm_per_h=0.05, t_end_h=24.0, dt_h=0.05
+    )
     assert r.cmax_csf_mg_L > 0.0
 
 

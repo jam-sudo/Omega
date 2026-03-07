@@ -1,6 +1,5 @@
 """Tests for Phase 895 — Adipose Tissue Drug Distribution."""
 
-import math
 import pytest
 
 from omega_pbpk.core.adipose_distribution_pk import (
@@ -8,7 +7,6 @@ from omega_pbpk.core.adipose_distribution_pk import (
     compare_bmi_groups,
     simulate_adipose_distribution,
 )
-
 
 # ---------------------------------------------------------------------------
 # Basic smoke tests

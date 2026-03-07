@@ -1,9 +1,11 @@
 """Tests for Phase 946 — Drug Plasma Stability PK."""
 
-import math
 import pytest
+
 from omega_pbpk.prediction.drug_plasma_stability_pk import (
-    PlasmaStabilityPKResult, predict_plasma_stability_pk, screen_plasma_stability,
+    PlasmaStabilityPKResult,
+    predict_plasma_stability_pk,
+    screen_plasma_stability,
 )
 
 
@@ -27,6 +29,7 @@ def make_default(**kwargs):
 
 # --- Return type ---
 
+
 def test_return_type():
     result = make_default()
     assert isinstance(result, PlasmaStabilityPKResult)
@@ -39,6 +42,7 @@ def test_frozen_dataclass():
 
 
 # --- Basic positive metrics ---
+
 
 def test_t_half_plasma_stability_positive():
     result = make_default()
@@ -82,6 +86,7 @@ def test_notes_non_empty():
 
 # --- Structural alert categories ---
 
+
 def test_ester_labile_or_unstable():
     result = make_default(has_ester=True)
     # t_half=60 min → boundary: < 60 unstable, >=60 & <240 labile
@@ -103,6 +108,7 @@ def test_no_alerts_stable():
 
 # --- Experimental t_half override ---
 
+
 def test_experimental_t_half_used():
     result = make_default(experimental_t_half_min=30.0)
     assert result.t_half_plasma_stability_min == 30.0
@@ -116,6 +122,7 @@ def test_experimental_overrides_structural():
 
 # --- Ester faster than amide ---
 
+
 def test_ester_faster_deg_than_amide():
     ester = make_default(has_ester=True)
     amide = make_default(has_amide=True)
@@ -124,6 +131,7 @@ def test_ester_faster_deg_than_amide():
 
 # --- Fraction degraded comparison ---
 
+
 def test_ester_higher_fraction_than_stable():
     ester = make_default(has_ester=True)
     stable = make_default()
@@ -131,6 +139,7 @@ def test_ester_higher_fraction_than_stable():
 
 
 # --- screen_plasma_stability ---
+
 
 def test_screen_correct_length():
     compounds = [
@@ -144,7 +153,7 @@ def test_screen_correct_length():
 
 def test_screen_sorted_ascending():
     compounds = [
-        {"drug_name": "DrugA", "logp": 1.0, "mw": 200.0},           # stable, t=10000
+        {"drug_name": "DrugA", "logp": 1.0, "mw": 200.0},  # stable, t=10000
         {"drug_name": "DrugB", "logp": 2.0, "mw": 300.0, "has_ester": True},  # t=60
         {"drug_name": "DrugC", "logp": 3.0, "mw": 400.0, "has_carbonate": True},  # t=30
     ]
@@ -162,6 +171,7 @@ def test_screen_drug_name_preserved():
 
 
 # --- Validation errors ---
+
 
 def test_validation_cl_hepatic_negative():
     with pytest.raises(ValueError, match="cl_hepatic_L_per_h"):

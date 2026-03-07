@@ -24,8 +24,7 @@ _LI2CO3_MW = 73.89
 _LI_MW = 6.941
 
 
-def _calc_crcl_ml_min(age_years: float, weight_kg: float, sex: str,
-                       scr_mg_dL: float) -> float:
+def _calc_crcl_ml_min(age_years: float, weight_kg: float, sex: str, scr_mg_dL: float) -> float:
     """Cockcroft-Gault CrCl in mL/min."""
     crcl = (140.0 - age_years) * weight_kg / (72.0 * scr_mg_dL)
     if sex == "female":
@@ -42,6 +41,7 @@ def _dose_mg_carbonate_to_mg_li(dose_mg: float) -> float:
 @dataclass
 class LithiumPKResult:
     """Result of lithium PK simulation."""
+
     drug_name: str
     dose_mg: float
     weight_kg: float
@@ -169,8 +169,8 @@ def simulate_lithium_pk(
         # tmax_ss = ln(ka/ke) / (ka - ke)
         tmax_ss = math.log(ka_per_h / ke) / (ka_per_h - ke)
         css_max_mg_L = (F * dose_mg_Li * ka_per_h / (vd_L * (ka_per_h - ke))) * (
-            math.exp(-ke * tmax_ss) / (1.0 - math.exp(-ke * tau)) -
-            math.exp(-ka_per_h * tmax_ss) / (1.0 - math.exp(-ka_per_h * tau))
+            math.exp(-ke * tmax_ss) / (1.0 - math.exp(-ke * tau))
+            - math.exp(-ka_per_h * tmax_ss) / (1.0 - math.exp(-ka_per_h * tau))
         )
         css_max_mg_L = max(css_max_mg_L, css_min_mg_L)
 

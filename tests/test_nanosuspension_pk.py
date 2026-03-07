@@ -1,16 +1,15 @@
 """Tests for Phase 928 — Nanosuspension PK Model."""
 
-import math
 import pytest
 
 from omega_pbpk.core.nanosuspension_pk import (
     NanosuspensionPKResult,
-    simulate_nanosuspension,
     compare_particle_sizes,
+    simulate_nanosuspension,
 )
 
-
 # ── Basic return type and structure ──────────────────────────────────────────
+
 
 def test_return_type():
     result = simulate_nanosuspension("NanoA", dose_mg=100.0)
@@ -60,6 +59,7 @@ def test_fraction_absorbed_in_range():
 
 # ── Particle size effect ──────────────────────────────────────────────────────
 
+
 def test_smaller_particle_faster_dissolution():
     result_nano = simulate_nanosuspension("NanoA", dose_mg=100.0, particle_radius_um=0.2)
     result_conv = simulate_nanosuspension("NanoA", dose_mg=100.0, particle_radius_um=50.0)
@@ -73,6 +73,7 @@ def test_smaller_particle_higher_auc():
 
 
 # ── compare_particle_sizes ────────────────────────────────────────────────────
+
 
 def test_compare_returns_4_results_default():
     results = compare_particle_sizes("NanoA", dose_mg=100.0)
@@ -93,6 +94,7 @@ def test_compare_smallest_radius_highest_auc():
 
 # ── Dose linearity ────────────────────────────────────────────────────────────
 
+
 def test_double_dose_approx_double_cmax():
     r1 = simulate_nanosuspension("NanoA", dose_mg=100.0, particle_radius_um=0.5)
     r2 = simulate_nanosuspension("NanoA", dose_mg=200.0, particle_radius_um=0.5)
@@ -101,6 +103,7 @@ def test_double_dose_approx_double_cmax():
 
 
 # ── Other attributes ──────────────────────────────────────────────────────────
+
 
 def test_dissolution_rate_constant_positive():
     result = simulate_nanosuspension("NanoA", dose_mg=100.0)
@@ -114,6 +117,7 @@ def test_notes_nonempty():
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
+
 
 def test_validation_dose_mg_zero():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -157,12 +161,14 @@ def test_validation_vgut_zero():
 
 # ── Custom radii ──────────────────────────────────────────────────────────────
 
+
 def test_compare_custom_radii_returns_3():
     results = compare_particle_sizes("NanoA", dose_mg=100.0, radii_um=[0.1, 1.0, 10.0])
     assert len(results) == 3
 
 
 # ── Times length ──────────────────────────────────────────────────────────────
+
 
 def test_times_h_length_matches_ode_steps():
     t_end_h = 24.0

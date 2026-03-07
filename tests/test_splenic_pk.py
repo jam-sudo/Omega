@@ -1,9 +1,11 @@
 """Tests for Phase 971 — Splenic PK model."""
+
 import pytest
+
 from omega_pbpk.core.splenic_pk import (
     SplenicPKResult,
-    simulate_splenic_pk,
     screen_spleen_trapping,
+    simulate_splenic_pk,
 )
 
 

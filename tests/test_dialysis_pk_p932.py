@@ -1,14 +1,15 @@
 """Tests for Phase 932 — hemodialysis PK simulation (core/dialysis_pk.py)."""
 
 import pytest
+
 from omega_pbpk.core.dialysis_pk import (
     DialysisPKResult,
-    simulate_dialysis_pk,
     compare_dialysis_vs_normal,
+    simulate_dialysis_pk,
 )
 
-
 # --- Basic return type and field checks ---
+
 
 def test_return_type_iv():
     result = simulate_dialysis_pk("DrugA", dose_mg=100.0, route="iv")
@@ -53,7 +54,9 @@ def test_fraction_removed_in_range():
 
 def test_dialysis_sessions_at_least_one():
     # 168h simulation, sessions every 48h starting at t=0 → sessions at 0, 48, 96, 144 (4 sessions)
-    result = simulate_dialysis_pk("DrugA", dose_mg=100.0, route="iv", t_end_h=168.0, dialysis_interval_h=48.0)
+    result = simulate_dialysis_pk(
+        "DrugA", dose_mg=100.0, route="iv", t_end_h=168.0, dialysis_interval_h=48.0
+    )
     assert result.dialysis_sessions_simulated >= 1
 
 
@@ -75,6 +78,7 @@ def test_notes_non_empty():
 
 # --- Route-specific initial conditions ---
 
+
 def test_iv_initial_concentration_near_dose_over_vd():
     dose = 100.0
     vd = 20.0
@@ -91,6 +95,7 @@ def test_oral_initial_concentration_is_zero():
 
 # --- Dialyzer clearance effect ---
 
+
 def test_high_dialyzer_cl_higher_fraction_removed():
     high = simulate_dialysis_pk("DrugA", dose_mg=100.0, dialyzer_cl_L_per_h=20.0)
     low = simulate_dialysis_pk("DrugA", dose_mg=100.0, dialyzer_cl_L_per_h=5.0)
@@ -103,6 +108,7 @@ def test_zero_dialyzer_cl_no_removal():
 
 
 # --- compare_dialysis_vs_normal ---
+
 
 def test_compare_returns_dict_with_keys():
     result = compare_dialysis_vs_normal("DrugA", dose_mg=100.0)
@@ -124,7 +130,8 @@ def test_compare_normal_key_is_result():
 def test_compare_auc_ratio_less_than_or_equal_one():
     """Dialysis removes extra drug → AUC_dialysis <= AUC_normal → ratio <= 1."""
     result = compare_dialysis_vs_normal(
-        "DrugA", dose_mg=100.0,
+        "DrugA",
+        dose_mg=100.0,
         cl_hepatic_L_per_h=5.0,
         dialyzer_cl_L_per_h=12.0,
         normal_renal_cl_L_per_h=5.0,
@@ -133,6 +140,7 @@ def test_compare_auc_ratio_less_than_or_equal_one():
 
 
 # --- Validation errors ---
+
 
 def test_dose_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):
