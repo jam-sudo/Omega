@@ -1,17 +1,12 @@
-"""
-Phase 893 — Muscle Drug Distribution (core/muscle_pk.py)
+"""Phase 293 — Muscle Tissue PK Model.
 
-Models drug distribution into skeletal muscle using a 3-compartment system:
-  - Plasma (central)
-  - Muscle interstitium
-  - Muscle intracellular
-
-Relevant for statins, aminoglycosides, local anesthetics.
+2-compartment perfusion-limited model: plasma + skeletal muscle.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass
 
 
 @dataclass
@@ -20,193 +15,220 @@ class MusclePKResult:
 
     drug_name: str
     dose_mg: float
-    times_h: list = field(default_factory=list)
-    c_plasma_mg_L: list = field(default_factory=list)
-    c_muscle_interstitial_mg_L: list = field(default_factory=list)
-    c_muscle_intracell_mg_L: list = field(default_factory=list)
-    cmax_plasma: float = 0.0
-    auc_plasma: float = 0.0
-    cmax_muscle_intracell: float = 0.0
-    auc_muscle_intracell: float = 0.0
-    muscle_plasma_kp: float = 0.0
-    myopathy_risk_score: float = 0.0
-    myopathy_risk_level: str = "low"
-    notes: str = ""
+    route: str
+    kp_muscle: float
+    times_h: list
+    c_plasma_mg_L: list
+    c_muscle_mg_L: list
+    auc_plasma_mg_h_per_L: float
+    cmax_plasma_mg_L: float
+    auc_muscle_mg_h_per_L: float
+    cmax_muscle_mg_L: float
+    tmax_muscle_h: float
+    muscle_to_plasma_ratio: float
+    notes: str
 
 
-def _trapz(times: list, values: list) -> float:
-    """Manual trapezoidal integration."""
-    total = 0.0
-    for i in range(1, len(times)):
-        dt = times[i] - times[i - 1]
-        total += 0.5 * (values[i] + values[i - 1]) * dt
-    return total
+def _trapezoidal_auc(x: list, y: list) -> float:
+    """Manual trapezoidal AUC."""
+    return sum(0.5 * (y[i] + y[i - 1]) * (x[i] - x[i - 1]) for i in range(1, len(x)))
+
+
+def _validate_inputs(
+    dose_mg: float,
+    cl_sys_L_per_h: float,
+    vd_plasma_L: float,
+    kp_muscle: float,
+    muscle_volume_L: float,
+    muscle_blood_flow_L_per_h: float,
+    t_end_h: float,
+    route: str,
+) -> None:
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
+    if cl_sys_L_per_h <= 0:
+        raise ValueError("cl_sys_L_per_h must be > 0")
+    if vd_plasma_L <= 0:
+        raise ValueError("vd_plasma_L must be > 0")
+    if kp_muscle <= 0:
+        raise ValueError("kp_muscle must be > 0")
+    if muscle_volume_L <= 0:
+        raise ValueError("muscle_volume_L must be > 0")
+    if muscle_blood_flow_L_per_h <= 0:
+        raise ValueError("muscle_blood_flow_L_per_h must be > 0")
+    if t_end_h <= 0:
+        raise ValueError("t_end_h must be > 0")
+    if route not in {"iv_bolus", "oral"}:
+        raise ValueError("route must be 'iv_bolus' or 'oral'")
 
 
 def simulate_muscle_pk(
     drug_name: str,
     dose_mg: float,
-    kp_muscle: float = 2.0,
-    k_uptake_per_h: float = 0.3,
-    k_release_per_h: float = 0.1,
-    cl_sys_L_per_h: float = 10.0,
-    vd_sys_L: float = 50.0,
-    v_muscle_L: float = 28.0,
+    route: str,
+    cl_sys_L_per_h: float,
+    vd_plasma_L: float,
+    kp_muscle: float,
+    muscle_volume_L: float = 28.0,
+    muscle_blood_flow_L_per_h: float = 75.0,
     t_end_h: float = 24.0,
-    dt_h: float = 0.1,
+    dt_h: float = 0.05,
 ) -> MusclePKResult:
-    """Simulate drug distribution into skeletal muscle.
+    """Simulate drug distribution into skeletal muscle tissue.
 
     Parameters
     ----------
     drug_name:
         Name of the drug.
     dose_mg:
-        Administered dose in mg (IV bolus to plasma).
-    kp_muscle:
-        Muscle-to-plasma partition coefficient (dimensionless).
-    k_uptake_per_h:
-        First-order rate constant for plasma to interstitium (h^-1).
-    k_release_per_h:
-        First-order rate constant for interstitium efflux (h^-1).
+        Dose in milligrams.
+    route:
+        'iv_bolus' or 'oral' (F=0.8, ka=1.0/h).
     cl_sys_L_per_h:
         Systemic clearance (L/h).
-    vd_sys_L:
-        Volume of distribution of central compartment (L).
-    v_muscle_L:
-        Total skeletal muscle volume (L); default 28 L for 70 kg human.
+    vd_plasma_L:
+        Plasma/central volume of distribution (L).
+    kp_muscle:
+        Muscle-to-plasma partition coefficient.
+    muscle_volume_L:
+        Volume of skeletal muscle (L). Default 28.0.
+    muscle_blood_flow_L_per_h:
+        Muscle blood flow (L/h). Default 75.0.
     t_end_h:
-        Simulation end time (h).
+        Simulation end time (h). Default 24.0.
     dt_h:
-        Forward Euler time step (h).
+        Time step (h). Default 0.05.
 
     Returns
     -------
     MusclePKResult
     """
-    if dose_mg <= 0:
-        raise ValueError("dose_mg must be > 0")
-    if kp_muscle <= 0:
-        raise ValueError("kp_muscle must be > 0")
-    if v_muscle_L <= 0:
-        raise ValueError("v_muscle_L must be > 0")
-    if cl_sys_L_per_h <= 0:
-        raise ValueError("cl_sys_L_per_h must be > 0")
+    _validate_inputs(
+        dose_mg,
+        cl_sys_L_per_h,
+        vd_plasma_L,
+        kp_muscle,
+        muscle_volume_L,
+        muscle_blood_flow_L_per_h,
+        t_end_h,
+        route,
+    )
 
-    # Derived volumes
-    v_interstitial_L = v_muscle_L * 0.1  # 10% interstitial
-    v_intracell_L = v_muscle_L * 0.7  # 70% intracellular
+    ka = 1.0  # h^-1 (oral absorption rate)
+    f_oral = 0.8
 
     # Rate constants
-    ke_sys = cl_sys_L_per_h / vd_sys_L
-    k_ic_per_h = k_uptake_per_h * kp_muscle * 0.5  # intracellular uptake
+    k_elim = cl_sys_L_per_h / vd_plasma_L  # h^-1
+    k_in = muscle_blood_flow_L_per_h / vd_plasma_L  # plasma -> muscle (per h)
+    k_out = muscle_blood_flow_L_per_h / (kp_muscle * muscle_volume_L)  # muscle -> plasma (per h)
 
-    # Initial amounts (mg)
-    a_plasma = dose_mg
-    a_inter = 0.0
-    a_intracell = 0.0
+    # Initial conditions
+    if route == "iv_bolus":
+        a_plasma = dose_mg
+        a_muscle = 0.0
+        a_gut = 0.0
+    else:  # oral
+        a_plasma = 0.0
+        a_muscle = 0.0
+        a_gut = dose_mg * f_oral
 
-    times: list = []
+    times_h: list = []
     c_plasma_list: list = []
-    c_inter_list: list = []
-    c_ic_list: list = []
+    c_muscle_list: list = []
 
+    n_steps = int(math.ceil(t_end_h / dt_h))
     t = 0.0
-    n_steps = int(round(t_end_h / dt_h))
 
-    for _step in range(n_steps + 1):
-        c_plasma = a_plasma / vd_sys_L
-        c_inter = a_inter / v_interstitial_L if v_interstitial_L > 0 else 0.0
-        c_ic = a_intracell / v_intracell_L if v_intracell_L > 0 else 0.0
+    for step in range(n_steps + 1):
+        c_plasma = a_plasma / vd_plasma_L
+        c_muscle = a_muscle / muscle_volume_L
 
-        times.append(t)
+        times_h.append(t)
         c_plasma_list.append(c_plasma)
-        c_inter_list.append(c_inter)
-        c_ic_list.append(c_ic)
+        c_muscle_list.append(c_muscle)
 
-        # ODEs (Forward Euler)
-        da_plasma = (-ke_sys * a_plasma - k_uptake_per_h * a_plasma) * dt_h
-        da_inter = (
-            k_uptake_per_h * a_plasma - k_release_per_h * a_inter - k_ic_per_h * a_inter
-        ) * dt_h
-        da_intracell = (k_ic_per_h * a_inter - k_release_per_h * 0.3 * a_intracell) * dt_h
+        if step == n_steps:
+            break
 
-        a_plasma += da_plasma
-        a_inter += da_inter
-        a_intracell += da_intracell
+        # Derivatives
+        d_a_plasma = -k_elim * a_plasma - k_in * a_plasma + k_out * a_muscle
+        d_a_muscle = k_in * a_plasma - k_out * a_muscle
+        d_a_gut = 0.0
 
-        # Clamp to zero (numerical safety)
-        if a_plasma < 0.0:
-            a_plasma = 0.0
-        if a_inter < 0.0:
-            a_inter = 0.0
-        if a_intracell < 0.0:
-            a_intracell = 0.0
+        if route == "oral":
+            d_a_plasma += ka * a_gut
+            d_a_gut = -ka * a_gut
 
-        t += dt_h
+        # Forward Euler
+        a_plasma = max(0.0, a_plasma + dt_h * d_a_plasma)
+        a_muscle = max(0.0, a_muscle + dt_h * d_a_muscle)
+        a_gut = max(0.0, a_gut + dt_h * d_a_gut)
+        t = round(t + dt_h, 10)
 
-    # PK metrics
+    auc_plasma = _trapezoidal_auc(times_h, c_plasma_list)
+    auc_muscle = _trapezoidal_auc(times_h, c_muscle_list)
     cmax_plasma = max(c_plasma_list)
-    auc_plasma = _trapz(times, c_plasma_list)
-    cmax_muscle_intracell = max(c_ic_list)
-    auc_muscle_intracell = _trapz(times, c_ic_list)
+    cmax_muscle = max(c_muscle_list)
+    tmax_muscle_h = times_h[c_muscle_list.index(cmax_muscle)]
 
-    muscle_plasma_kp = auc_muscle_intracell / auc_plasma if auc_plasma > 0.0 else 0.0
-
-    # Risk scoring
-    raw_score = muscle_plasma_kp * 20.0 + kp_muscle * 5.0
-    myopathy_risk_score = max(0.0, min(100.0, raw_score))
-
-    if myopathy_risk_score > 60.0:
-        myopathy_risk_level = "high"
-        notes = "High myopathy risk — monitor CK levels. Consider dose reduction."
-    elif myopathy_risk_score > 30.0:
-        myopathy_risk_level = "moderate"
-        notes = "Moderate muscle accumulation — routine CK monitoring recommended."
+    if cmax_plasma > 0:
+        muscle_to_plasma_ratio = cmax_muscle / cmax_plasma
     else:
-        myopathy_risk_level = "low"
-        notes = "Low myopathy risk."
+        muscle_to_plasma_ratio = 0.0
+
+    notes = (
+        f"Perfusion-limited 2-cpt model; kp_muscle={kp_muscle:.3f}; "
+        f"route={route}; muscle_blood_flow={muscle_blood_flow_L_per_h} L/h"
+    )
 
     return MusclePKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        times_h=times,
+        route=route,
+        kp_muscle=kp_muscle,
+        times_h=times_h,
         c_plasma_mg_L=c_plasma_list,
-        c_muscle_interstitial_mg_L=c_inter_list,
-        c_muscle_intracell_mg_L=c_ic_list,
-        cmax_plasma=cmax_plasma,
-        auc_plasma=auc_plasma,
-        cmax_muscle_intracell=cmax_muscle_intracell,
-        auc_muscle_intracell=auc_muscle_intracell,
-        muscle_plasma_kp=muscle_plasma_kp,
-        myopathy_risk_score=myopathy_risk_score,
-        myopathy_risk_level=myopathy_risk_level,
+        c_muscle_mg_L=c_muscle_list,
+        auc_plasma_mg_h_per_L=auc_plasma,
+        cmax_plasma_mg_L=cmax_plasma,
+        auc_muscle_mg_h_per_L=auc_muscle,
+        cmax_muscle_mg_L=cmax_muscle,
+        tmax_muscle_h=tmax_muscle_h,
+        muscle_to_plasma_ratio=muscle_to_plasma_ratio,
         notes=notes,
     )
 
 
-def compare_statin_kp(
+def compare_muscle_distribution(
     drug_name: str,
     dose_mg: float,
-    kp_values: list,
+    kp_muscle_list: list,
+    cl_sys_L_per_h: float,
+    vd_plasma_L: float,
+    muscle_volume_L: float = 28.0,
+    muscle_blood_flow_L_per_h: float = 75.0,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.05,
+    route: str = "iv_bolus",
 ) -> list:
-    """Simulate across a range of Kp values and sort by myopathy risk.
+    """Compare muscle distribution for different kp_muscle values.
 
-    Parameters
-    ----------
-    drug_name:
-        Drug name.
-    dose_mg:
-        Dose in mg.
-    kp_values:
-        List of kp_muscle values to compare.
-
-    Returns
-    -------
-    List of MusclePKResult sorted by myopathy_risk_score descending.
+    Returns a list of MusclePKResult sorted by auc_muscle descending.
     """
-    results = [
-        simulate_muscle_pk(drug_name=drug_name, dose_mg=dose_mg, kp_muscle=kp) for kp in kp_values
-    ]
-    results.sort(key=lambda r: r.myopathy_risk_score, reverse=True)
+    results = []
+    for kp in kp_muscle_list:
+        result = simulate_muscle_pk(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            route=route,
+            cl_sys_L_per_h=cl_sys_L_per_h,
+            vd_plasma_L=vd_plasma_L,
+            kp_muscle=kp,
+            muscle_volume_L=muscle_volume_L,
+            muscle_blood_flow_L_per_h=muscle_blood_flow_L_per_h,
+            t_end_h=t_end_h,
+            dt_h=dt_h,
+        )
+        results.append(result)
+    results.sort(key=lambda r: r.auc_muscle_mg_h_per_L, reverse=True)
     return results
