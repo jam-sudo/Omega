@@ -1,329 +1,235 @@
-"""Immunosuppressant PK/PD Modeling — Phase 254.
+"""Immunosuppressant (calcineurin inhibitor) PK/PD model — Phase 254.
 
-Models PK/PD of immunosuppressant drugs (cyclosporine, tacrolimus, mycophenolate).
-Used in transplant patients — requires narrow therapeutic window monitoring.
-
-For cyclosporine (prototypical immunosuppressant):
-- Cyclosporine binds cyclophilin -> inhibits calcineurin -> reduces IL-2 production
-- PD model: Inhibition of IL-2 = Imax * C / (IC50 + C)
+Models cyclosporine A (CsA) and tacrolimus (Tac) 1-compartment PK
+with IL-2 inhibition pharmacodynamics for transplant immunosuppression.
 
 References
 ----------
-- Kahan BD. N Engl J Med. 1989;321(25):1725-38 (cyclosporine pharmacology)
-- Staatz CE, Tett SE. Clin Pharmacokinet. 2004;43(10):623-53 (tacrolimus PK)
-- Shipkova M et al. Ther Drug Monit. 2016;38(S1):S1-5 (MPA TDM)
+- Serkova N et al., Clin Pharmacokinet. 2004;43(2):83-105
+- Staatz CE & Tett SE, Clin Pharmacokinet. 2004;43(10):623-53
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-import numpy as np
-
-from omega_pbpk._compat import np_trapz
-
-# ---------------------------------------------------------------------------
-# Therapeutic ranges (ng/mL) for supported drugs
-# ---------------------------------------------------------------------------
-
-_THERAPEUTIC_RANGES: dict[str, dict[str, float]] = {
-    "cyclosporine": {"low": 100.0, "high": 300.0},
-    "tacrolimus": {"low": 5.0, "high": 15.0},
-    "mycophenolate": {"low": 1000.0, "high": 3500.0},  # ng/mL (MPA AUC proxy)
-}
-
-_VALID_DRUGS = set(_THERAPEUTIC_RANGES.keys())
+import math
+from dataclasses import dataclass, field
 
 
-# ---------------------------------------------------------------------------
-# Result dataclass
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ImmunoSuppResult:
-    """Result from immunosuppressant PK/PD simulation.
-
-    Attributes
-    ----------
-    drug_name : Name of the immunosuppressant.
-    dose_mg : Administered dose (mg).
-    patient_weight_kg : Patient body weight (kg).
-    route : Administration route ('oral' or 'iv').
-    times_h : Simulation time points (h).
-    c_plasma_ng_mL : Plasma concentration time-course (ng/mL).
-    il2_inhibition_pct : IL-2 inhibition percentage time-course (%).
-    cmax_ng_mL : Peak plasma concentration (ng/mL).
-    trough_12h_ng_mL : Trough concentration at 12 h (C0, ng/mL).
-    auc_0_12h_ng_mL_h : AUC from 0 to 12 h (ng·h/mL).
-    therapeutic_status : Trough-based status ('subtherapeutic', 'therapeutic',
-                         'supratherapeutic').
-    notes : Simulation summary notes.
-    """
+@dataclass
+class ImmunosuppressantPKResult:
+    """Result from immunosuppressant PK/PD simulation."""
 
     drug_name: str
     dose_mg: float
-    patient_weight_kg: float
-    route: str
-    times_h: list[float]
-    c_plasma_ng_mL: list[float]
-    il2_inhibition_pct: list[float]
-    cmax_ng_mL: float
-    trough_12h_ng_mL: float
-    auc_0_12h_ng_mL_h: float
-    therapeutic_status: str
-    notes: str
+    interval_h: float
+    n_doses: int
+    cl_L_per_h: float
+    vd_L: float
 
+    times_h: list[float] = field(default_factory=list)
+    c_whole_blood_ng_mL: list[float] = field(default_factory=list)  # whole-blood conc
+    il2_inhibition_pct: list[float] = field(default_factory=list)   # % IL-2 inhibition
 
-# ---------------------------------------------------------------------------
-# Core functions
-# ---------------------------------------------------------------------------
+    c_trough_ng_mL: float = 0.0    # Pre-dose trough at steady state
+    c_peak_ng_mL: float = 0.0     # Peak whole-blood concentration
+    auc_tau_ng_h_mL: float = 0.0  # AUC over last dosing interval
+    in_therapeutic_range: bool = False
+    therapeutic_range_ng_mL: tuple[float, float] = (0.0, 0.0)
+    avg_il2_inhibition_pct: float = 0.0
+    notes: str = ""
 
 
 def simulate_immunosuppressant_pk(
     drug_name: str,
     dose_mg: float,
-    patient_weight_kg: float = 70.0,
-    cl_L_per_h: float = 25.0,
-    vd_L: float = 600.0,
+    cl_L_per_h: float,
+    vd_L: float,
     ka_per_h: float = 1.5,
     f_oral: float = 0.3,
-    route: str = "oral",
-    imax: float = 0.9,
-    ic50_ng_mL: float = 200.0,
-    tac_dose: bool = False,
-    t_end_h: float = 24.0,
+    interval_h: float = 12.0,
+    n_doses: int = 10,
+    ec50_ng_mL: float = 200.0,
+    emax_il2: float = 100.0,
+    therapeutic_range: tuple[float, float] = (100.0, 300.0),
     dt_h: float = 0.1,
-) -> ImmunoSuppResult:
-    """Simulate immunosuppressant PK and IL-2 inhibition PD.
-
-    Uses a one-compartment model:
-    - Oral: first-order absorption with bioavailability
-    - IV: bolus into central compartment
-
-    PD model (inhibitory Emax):
-        IL-2_inhibition_pct = 100 * Imax * C / (IC50 + C)
-
-    Therapeutic monitoring based on 12-h trough (C0):
-    - Cyclosporine: 100-300 ng/mL
-    - Tacrolimus: 5-15 ng/mL
-    - Mycophenolate: 1000-3500 ng/mL
+) -> ImmunosuppressantPKResult:
+    """Simulate multiple-dose PK/PD of a calcineurin inhibitor.
 
     Parameters
     ----------
-    drug_name : Drug name. Must be one of 'cyclosporine', 'tacrolimus',
-                'mycophenolate'.
-    dose_mg : Oral dose (mg). Must be > 0.
-    patient_weight_kg : Patient body weight (kg). Must be > 0.
-    cl_L_per_h : Total clearance (L/h). Must be > 0.
+    drug_name : Drug name (e.g., 'cyclosporine', 'tacrolimus').
+    dose_mg : Dose per administration (mg).
+    cl_L_per_h : Systemic clearance (L/h). Must be > 0.
     vd_L : Volume of distribution (L). Must be > 0.
-    ka_per_h : First-order absorption rate constant (1/h). Used for oral route.
-    f_oral : Oral bioavailability fraction [0, 1].
-    route : 'oral' or 'iv'.
-    imax : Maximum fractional inhibition of IL-2 (0, 1].
-    ic50_ng_mL : Drug concentration producing 50% of Imax (ng/mL). Must be > 0.
-    tac_dose : Unused legacy flag (kept for API compatibility).
-    t_end_h : Simulation duration (h).
-    dt_h : Time step (h).
+    ka_per_h : Oral absorption rate constant (h^-1). Must be > 0.
+    f_oral : Oral bioavailability fraction (0, 1]. Must be in (0, 1].
+    interval_h : Dosing interval (h). Must be > 0.
+    n_doses : Number of doses to simulate. Must be >= 1.
+    ec50_ng_mL : Concentration producing 50% IL-2 inhibition (ng/mL).
+    emax_il2 : Maximum IL-2 inhibition (%). Default 100.
+    therapeutic_range : (lower, upper) trough target in ng/mL.
+    dt_h : Integration time step (h).
 
     Returns
     -------
-    ImmunoSuppResult
-
-    Raises
-    ------
-    ValueError
-        If input validation fails.
+    ImmunosuppressantPKResult
     """
-    # --- Validation ---
     if dose_mg <= 0:
-        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
-    if patient_weight_kg <= 0:
-        raise ValueError(f"patient_weight_kg must be > 0, got {patient_weight_kg}")
+        raise ValueError("dose_mg must be > 0")
     if cl_L_per_h <= 0:
-        raise ValueError(f"cl_L_per_h must be > 0, got {cl_L_per_h}")
+        raise ValueError("cl_L_per_h must be > 0")
     if vd_L <= 0:
-        raise ValueError(f"vd_L must be > 0, got {vd_L}")
-    if imax <= 0 or imax > 1:
-        raise ValueError(f"imax must be in (0, 1], got {imax}")
-    if ic50_ng_mL <= 0:
-        raise ValueError(f"ic50_ng_mL must be > 0, got {ic50_ng_mL}")
-    if drug_name.lower() not in _VALID_DRUGS:
-        raise ValueError(f"drug_name must be one of {sorted(_VALID_DRUGS)}, got {drug_name!r}")
+        raise ValueError("vd_L must be > 0")
+    if ka_per_h <= 0:
+        raise ValueError("ka_per_h must be > 0")
+    if not (0 < f_oral <= 1):
+        raise ValueError("f_oral must be in (0, 1]")
+    if interval_h <= 0:
+        raise ValueError("interval_h must be > 0")
+    if n_doses < 1:
+        raise ValueError("n_doses must be >= 1")
 
-    drug_key = drug_name.lower()
-    route_lower = route.lower()
+    ke = cl_L_per_h / vd_L
 
-    # --- PK simulation ---
-    ke = cl_L_per_h / vd_L  # elimination rate constant (1/h)
+    # Convert dose to ng (whole blood units: 1 mg = 1e6 ng; Vd in L)
+    # Whole blood conc [ng/mL] = amount [ng] / (Vd [L] * 1000 [mL/L])
+    dose_ng = dose_mg * 1e6  # mg -> ng
+    bioavail_dose_ng = dose_ng * f_oral
 
-    times = np.arange(0.0, t_end_h + dt_h / 2.0, dt_h)
-    n = len(times)
+    t_end_h = n_doses * interval_h
+    n_steps = int(t_end_h / dt_h) + 1
+    times = [i * dt_h for i in range(n_steps)]
 
-    # Concentration in mg/L (plasma)
-    c_mg_L = np.zeros(n)
+    c_blood = [0.0] * n_steps  # ng/mL
+    a_gut = [0.0] * n_steps    # ng in gut depot
 
-    if route_lower == "iv":
-        # Bolus: C(t) = (Dose / Vd) * exp(-ke * t)
-        c0_mg_L = dose_mg / vd_L  # mg/L
-        c_mg_L = c0_mg_L * np.exp(-ke * times)
-    else:
-        # Oral: C(t) = (F * Dose * ka) / (Vd * (ka - ke)) * (exp(-ke*t) - exp(-ka*t))
-        # Avoid numerical issue if ka == ke
-        absorbed_dose_mg = f_oral * dose_mg
-        if abs(ka_per_h - ke) < 1e-6:
-            # Degenerate case: use small offset
-            ka_eff = ka_per_h + 1e-6
-        else:
-            ka_eff = ka_per_h
+    # Administer first dose at t=0
+    a_gut[0] = bioavail_dose_ng
+    dose_times = set()
+    for d in range(n_doses):
+        dose_times.add(round(d * interval_h / dt_h))
 
-        coeff = (absorbed_dose_mg * ka_eff) / (vd_L * (ka_eff - ke))
-        c_mg_L = coeff * (np.exp(-ke * times) - np.exp(-ka_eff * times))
-        c_mg_L = np.maximum(c_mg_L, 0.0)
+    for i in range(1, n_steps):
+        cb = c_blood[i - 1]
+        ag = a_gut[i - 1]
 
-    # Convert mg/L -> ng/mL: 1 mg/L = 1000 ng/mL
-    c_ng_mL = c_mg_L * 1000.0
+        absorption = ka_per_h * ag
+        elimination = ke * cb * vd_L * 1000.0  # ng/h (Vd * 1000 mL/L * conc_ng/mL)
 
-    # --- PD: IL-2 inhibition ---
-    # Inhibitory Emax: inhibition_frac = Imax * C / (IC50 + C)
-    il2_inhibition = 100.0 * imax * c_ng_mL / (ic50_ng_mL + c_ng_mL)
+        da_gut = -absorption * dt_h
+        dc_blood = (absorption - elimination) / (vd_L * 1000.0) * dt_h
 
-    # --- Derived PK metrics ---
-    cmax_ng_mL = float(np.max(c_ng_mL))
+        a_gut[i] = max(0.0, ag + da_gut)
+        c_blood[i] = max(0.0, cb + dc_blood)
 
-    # Trough at 12 h (or closest time point)
-    idx_12h = int(round(12.0 / dt_h))
-    idx_12h = min(idx_12h, n - 1)
-    trough_12h_ng_mL = float(c_ng_mL[idx_12h])
+        # Administer dose at start of each interval
+        if i in dose_times and i > 0:
+            a_gut[i] += bioavail_dose_ng
 
-    # AUC 0 -> 12 h
-    times_12 = times[: idx_12h + 1]
-    c_12 = c_ng_mL[: idx_12h + 1]
-    auc_0_12h = float(np_trapz(c_12, times_12))
+    # IL-2 inhibition via Emax model
+    il2_inhib = [emax_il2 * c / (ec50_ng_mL + c) if c > 0 else 0.0 for c in c_blood]
 
-    # --- Therapeutic monitoring ---
-    tm_status = therapeutic_monitoring_assessment(
-        trough_ng_mL=trough_12h_ng_mL,
-        drug_name=drug_key,
-    )
-    therapeutic_status = tm_status["status"]
+    # Trough = concentration at end of last interval (just before last dose)
+    last_dose_idx = round((n_doses - 1) * interval_h / dt_h)
+    c_trough = c_blood[last_dose_idx] if last_dose_idx < n_steps else c_blood[-1]
+    c_peak = max(c_blood[last_dose_idx:]) if last_dose_idx < n_steps else max(c_blood)
+
+    # AUC over last dosing interval
+    last_start = last_dose_idx
+    last_end = min(n_steps, last_dose_idx + int(interval_h / dt_h) + 1)
+    auc_tau = 0.0
+    for i in range(last_start + 1, last_end):
+        auc_tau += 0.5 * (c_blood[i - 1] + c_blood[i]) * dt_h
+
+    in_range = therapeutic_range[0] <= c_trough <= therapeutic_range[1]
+    avg_il2 = sum(il2_inhib[last_start:last_end]) / max(1, last_end - last_start)
 
     notes = (
-        f"{drug_name} {dose_mg} mg {route}: "
-        f"Cmax={cmax_ng_mL:.1f} ng/mL, "
-        f"C_trough(12h)={trough_12h_ng_mL:.1f} ng/mL, "
-        f"AUC(0-12h)={auc_0_12h:.0f} ng·h/mL, "
-        f"status={therapeutic_status}."
+        f"{drug_name}: {dose_mg} mg q{interval_h:.0f}h x{n_doses} doses. "
+        f"Trough={c_trough:.1f} ng/mL "
+        f"({'in' if in_range else 'outside'} target "
+        f"{therapeutic_range[0]}-{therapeutic_range[1]} ng/mL). "
+        f"Avg IL-2 inhibition={avg_il2:.1f}%."
     )
 
-    return ImmunoSuppResult(
+    return ImmunosuppressantPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        patient_weight_kg=patient_weight_kg,
-        route=route,
-        times_h=times.tolist(),
-        c_plasma_ng_mL=c_ng_mL.tolist(),
-        il2_inhibition_pct=il2_inhibition.tolist(),
-        cmax_ng_mL=cmax_ng_mL,
-        trough_12h_ng_mL=trough_12h_ng_mL,
-        auc_0_12h_ng_mL_h=auc_0_12h,
-        therapeutic_status=therapeutic_status,
+        interval_h=interval_h,
+        n_doses=n_doses,
+        cl_L_per_h=cl_L_per_h,
+        vd_L=vd_L,
+        times_h=times,
+        c_whole_blood_ng_mL=c_blood,
+        il2_inhibition_pct=il2_inhib,
+        c_trough_ng_mL=c_trough,
+        c_peak_ng_mL=c_peak,
+        auc_tau_ng_h_mL=auc_tau,
+        in_therapeutic_range=in_range,
+        therapeutic_range_ng_mL=therapeutic_range,
+        avg_il2_inhibition_pct=avg_il2,
         notes=notes,
     )
 
 
-def therapeutic_monitoring_assessment(
-    trough_ng_mL: float,
-    drug_name: str = "cyclosporine",
-) -> dict[str, str]:
-    """Assess therapeutic drug monitoring status from trough concentration.
+def recommend_dose(
+    drug_name: str,
+    observed_trough_ng_mL: float,
+    current_dose_mg: float,
+    target_trough_ng_mL: float,
+    cl_L_per_h: float,
+    vd_L: float,
+) -> dict:
+    """Recommend a dose adjustment to achieve target trough.
+
+    Uses linear proportionality assumption: trough ∝ dose.
 
     Parameters
     ----------
-    trough_ng_mL : Measured trough concentration (ng/mL).
-    drug_name : Drug name (case-insensitive). Must be one of 'cyclosporine',
-                'tacrolimus', 'mycophenolate'.
+    drug_name : Drug name.
+    observed_trough_ng_mL : Current observed trough (ng/mL). Must be > 0.
+    current_dose_mg : Current dose (mg). Must be > 0.
+    target_trough_ng_mL : Target trough (ng/mL). Must be > 0.
+    cl_L_per_h : Clearance (L/h). Used to compute t_half.
+    vd_L : Volume of distribution (L).
 
     Returns
     -------
     dict with keys:
-        - 'status': 'subtherapeutic', 'therapeutic', or 'supratherapeutic'
-        - 'recommendation': dosing recommendation string
-
-    Raises
-    ------
-    ValueError
-        If drug_name is not recognised.
+        recommended_dose_mg (float): New recommended dose.
+        dose_change_pct (float): Percent change from current.
+        t_half_h (float): Elimination half-life.
+        time_to_new_ss_h (float): ~3.3 * t_half to reach 90% of new SS.
     """
-    drug_key = drug_name.lower()
-    if drug_key not in _VALID_DRUGS:
-        raise ValueError(f"drug_name must be one of {sorted(_VALID_DRUGS)}, got {drug_name!r}")
-
-    ranges = _THERAPEUTIC_RANGES[drug_key]
-    low = ranges["low"]
-    high = ranges["high"]
-
-    if trough_ng_mL < low:
-        status = "subtherapeutic"
-        recommendation = (
-            f"Trough {trough_ng_mL:.1f} ng/mL is below the target range "
-            f"({low:.0f}-{high:.0f} ng/mL). Consider dose increase."
-        )
-    elif trough_ng_mL <= high:
-        status = "therapeutic"
-        recommendation = (
-            f"Trough {trough_ng_mL:.1f} ng/mL is within the target range "
-            f"({low:.0f}-{high:.0f} ng/mL). Continue current dose."
-        )
-    else:
-        status = "supratherapeutic"
-        recommendation = (
-            f"Trough {trough_ng_mL:.1f} ng/mL exceeds the target range "
-            f"({low:.0f}-{high:.0f} ng/mL). Consider dose reduction and "
-            "monitor for toxicity."
-        )
-
-    return {"status": status, "recommendation": recommendation}
-
-
-def dose_adjustment_by_trough(
-    current_dose_mg: float,
-    current_trough_ng_mL: float,
-    target_trough_ng_mL: float,
-    drug_name: str = "cyclosporine",
-) -> float:
-    """Compute a proportional dose adjustment to reach a target trough.
-
-    Assumes linear (first-order) PK:
-        new_dose = current_dose * target_trough / current_trough
-
-    Parameters
-    ----------
-    current_dose_mg : Current dose (mg). Must be > 0.
-    current_trough_ng_mL : Measured trough under current dose (ng/mL).
-                           Must be > 0.
-    target_trough_ng_mL : Desired trough concentration (ng/mL). Must be > 0.
-    drug_name : Drug name (case-insensitive).
-
-    Returns
-    -------
-    float
-        Recommended new dose (mg).
-
-    Raises
-    ------
-    ValueError
-        If any parameter fails validation.
-    """
+    if observed_trough_ng_mL <= 0:
+        raise ValueError("observed_trough_ng_mL must be > 0")
     if current_dose_mg <= 0:
-        raise ValueError(f"current_dose_mg must be > 0, got {current_dose_mg}")
-    if current_trough_ng_mL <= 0:
-        raise ValueError(f"current_trough_ng_mL must be > 0, got {current_trough_ng_mL}")
+        raise ValueError("current_dose_mg must be > 0")
     if target_trough_ng_mL <= 0:
-        raise ValueError(f"target_trough_ng_mL must be > 0, got {target_trough_ng_mL}")
-    drug_key = drug_name.lower()
-    if drug_key not in _VALID_DRUGS:
-        raise ValueError(f"drug_name must be one of {sorted(_VALID_DRUGS)}, got {drug_name!r}")
+        raise ValueError("target_trough_ng_mL must be > 0")
+    if cl_L_per_h <= 0:
+        raise ValueError("cl_L_per_h must be > 0")
+    if vd_L <= 0:
+        raise ValueError("vd_L must be > 0")
 
-    new_dose = current_dose_mg * (target_trough_ng_mL / current_trough_ng_mL)
-    return float(new_dose)
+    ratio = target_trough_ng_mL / observed_trough_ng_mL
+    new_dose = current_dose_mg * ratio
+    change_pct = (ratio - 1.0) * 100.0
+    ke = cl_L_per_h / vd_L
+    t_half = math.log(2) / ke
+    time_to_ss = 3.3 * t_half  # ~90% of new SS
+
+    return {
+        "drug_name": drug_name,
+        "recommended_dose_mg": new_dose,
+        "dose_change_pct": change_pct,
+        "t_half_h": t_half,
+        "time_to_new_ss_h": time_to_ss,
+    }
+
+
+__all__ = [
+    "ImmunosuppressantPKResult",
+    "simulate_immunosuppressant_pk",
+    "recommend_dose",
+]
