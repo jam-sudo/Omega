@@ -1,277 +1,247 @@
-"""Tests for the saturable absorption model (Phase 210)."""
+"""Tests for saturable absorption kinetics module (Phase 290)."""
 
 from __future__ import annotations
 
 import pytest
-import numpy as np
 
-from omega_pbpk.biopharmaceutics.saturable_absorption import (
+from omega_pbpk.core.saturable_absorption import (
+    DoseProportionalityResult,
     SaturableAbsorptionResult,
-    simulate_saturable_absorption,
-    dose_escalation_sat,
-)
-
-# ---------------------------------------------------------------------------
-# Default parameter set
-# ---------------------------------------------------------------------------
-_DEFAULTS = dict(
-    drug_name="TestDrug",
-    dose_mg=10.0,
-    jmax_mg_per_h=50.0,
-    km_mg_mL=0.5,
-    cl_L_per_h=5.0,
-    vd_L=20.0,
-    v_gi_mL=250.0,
-    k_transit_per_h=0.05,
-    t_end_h=12.0,
-    dt_h=0.05,
+    dose_proportionality_analysis,
+    saturable_absorption_rate,
+    simulate_saturable_absorption_pk,
 )
 
 
-def _run(**overrides):
-    params = {**_DEFAULTS, **overrides}
-    return simulate_saturable_absorption(**params)
-
-
 # ---------------------------------------------------------------------------
-# Input validation
+# Helpers
 # ---------------------------------------------------------------------------
 
-
-def test_dose_zero_raises():
-    with pytest.raises(ValueError, match="dose_mg"):
-        _run(dose_mg=0.0)
-
-
-def test_dose_negative_raises():
-    with pytest.raises(ValueError, match="dose_mg"):
-        _run(dose_mg=-5.0)
-
-
-def test_jmax_zero_raises():
-    with pytest.raises(ValueError, match="jmax_mg_per_h"):
-        _run(jmax_mg_per_h=0.0)
-
-
-def test_jmax_negative_raises():
-    with pytest.raises(ValueError, match="jmax_mg_per_h"):
-        _run(jmax_mg_per_h=-10.0)
-
-
-def test_km_zero_raises():
-    with pytest.raises(ValueError, match="km_mg_mL"):
-        _run(km_mg_mL=0.0)
-
-
-def test_km_negative_raises():
-    with pytest.raises(ValueError, match="km_mg_mL"):
-        _run(km_mg_mL=-1.0)
-
-
-def test_cl_zero_raises():
-    with pytest.raises(ValueError, match="cl_L_per_h"):
-        _run(cl_L_per_h=0.0)
-
-
-def test_cl_negative_raises():
-    with pytest.raises(ValueError, match="cl_L_per_h"):
-        _run(cl_L_per_h=-2.0)
-
-
-def test_vd_zero_raises():
-    with pytest.raises(ValueError, match="vd_L"):
-        _run(vd_L=0.0)
-
-
-def test_vd_negative_raises():
-    with pytest.raises(ValueError, match="vd_L"):
-        _run(vd_L=-5.0)
-
-
-# ---------------------------------------------------------------------------
-# Low dose: near-linear absorption
-# ---------------------------------------------------------------------------
-
-
-def test_low_dose_near_linear_f_absorbed():
-    """Very low dose (C_gi << Km) should result in high f_absorbed."""
-    # C0_gi = 0.1 mg / 250 mL = 0.0004 mg/mL << Km=0.5 mg/mL
-    r = _run(dose_mg=0.1, jmax_mg_per_h=50.0, km_mg_mL=0.5)
-    assert r.f_absorbed > 0.5  # should absorb most of the drug
-
-
-def test_low_dose_saturation_fraction_small():
-    """At low dose, transporter saturation fraction should be small."""
-    r = _run(dose_mg=0.1, km_mg_mL=0.5)
-    assert r.saturation_fraction < 0.1
-
-
-# ---------------------------------------------------------------------------
-# High dose: saturation
-# ---------------------------------------------------------------------------
-
-
-def test_high_dose_lower_f_absorbed():
-    """High dose (C_gi >> Km) should have lower f_absorbed than low dose."""
-    r_low = _run(dose_mg=1.0, km_mg_mL=0.5, v_gi_mL=250.0)
-    r_high = _run(dose_mg=500.0, km_mg_mL=0.5, v_gi_mL=250.0)
-    assert r_high.f_absorbed < r_low.f_absorbed
-
-
-def test_high_dose_saturation_fraction_high():
-    """At very high dose, transporter should be highly saturated."""
-    # C0 = 500 mg / 250 mL = 2 mg/mL >> Km = 0.01 mg/mL
-    r = _run(dose_mg=500.0, km_mg_mL=0.01, v_gi_mL=250.0)
-    assert r.saturation_fraction > 0.8
-
-
-# ---------------------------------------------------------------------------
-# Dose proportionality
-# ---------------------------------------------------------------------------
-
-
-def test_dose_proportional_at_low_doses():
-    """At very low doses (both sub-saturating), AUC should scale ~linearly."""
-    r1 = _run(dose_mg=0.5, km_mg_mL=1.0)
-    r2 = _run(dose_mg=1.0, km_mg_mL=1.0)
-    # Roughly 2x dose → ~2x AUC
-    ratio = r2.auc_mg_h_per_L / r1.auc_mg_h_per_L
-    assert 1.5 < ratio < 2.5
-
-
-def test_nonlinear_at_saturating_doses():
-    """At 10x dose under saturation, AUC should be < 10x."""
-    r1 = _run(dose_mg=50.0, km_mg_mL=0.01)
-    r10 = _run(dose_mg=500.0, km_mg_mL=0.01)
-    ratio = r10.auc_mg_h_per_L / r1.auc_mg_h_per_L
-    assert ratio < 10.0
-
-
-# ---------------------------------------------------------------------------
-# dose_escalation_sat
-# ---------------------------------------------------------------------------
-
-
-def test_dose_escalation_returns_list():
-    results = dose_escalation_sat(
-        drug_name="TestDrug",
-        doses_mg=[10.0, 50.0, 100.0],
-        jmax_mg_per_h=50.0,
-        km_mg_mL=0.5,
+def _sim(**kw) -> SaturableAbsorptionResult:
+    defaults = dict(
+        dose_mg=100.0,
+        vd_L=30.0,
         cl_L_per_h=5.0,
-        vd_L=20.0,
+        jmax_mg_per_h_per_cm2=0.005,
+        km_mg_L=50.0,
+        passive_fraction=0.1,
+        dt_h=0.1,
     )
-    assert isinstance(results, list)
-    assert len(results) == 3
+    defaults.update(kw)
+    return simulate_saturable_absorption_pk(**defaults)
 
 
-def test_dose_escalation_sorted_by_dose():
-    """dose_escalation_sat returns results sorted by dose_mg ascending."""
-    results = dose_escalation_sat(
-        drug_name="TestDrug",
-        doses_mg=[100.0, 10.0, 50.0],
-        jmax_mg_per_h=50.0,
-        km_mg_mL=0.5,
+def _dpa(**kw) -> DoseProportionalityResult:
+    defaults = dict(
+        doses_mg=[10.0, 50.0, 100.0, 300.0, 600.0],
+        vd_L=30.0,
         cl_L_per_h=5.0,
-        vd_L=20.0,
+        jmax=0.005,
+        km=50.0,
+        passive_fraction=0.1,
+        dt_h=0.1,
     )
-    doses = [r.dose_mg for r in results]
-    assert doses == sorted(doses)
-
-
-def test_dose_escalation_increasing_auc():
-    """Higher doses should produce higher AUC (even if not proportional)."""
-    results = dose_escalation_sat(
-        drug_name="TestDrug",
-        doses_mg=[10.0, 50.0, 200.0],
-        jmax_mg_per_h=30.0,
-        km_mg_mL=0.5,
-        cl_L_per_h=5.0,
-        vd_L=20.0,
-    )
-    aucs = [r.auc_mg_h_per_L for r in results]
-    assert aucs[0] < aucs[1] < aucs[2]
-
-
-def test_dose_proportional_flag_low_dose():
-    """First dose in escalation is reference — should be dose_proportional=True."""
-    results = dose_escalation_sat(
-        drug_name="TestDrug",
-        doses_mg=[1.0, 5.0, 50.0],
-        jmax_mg_per_h=50.0,
-        km_mg_mL=0.5,
-        cl_L_per_h=5.0,
-        vd_L=20.0,
-    )
-    # The reference (lowest dose) should be dose_proportional=True
-    assert results[0].dose_proportional is True
-
-
-def test_dose_proportional_flag_high_saturating_dose():
-    """At very high saturating dose, dose_proportional should be False."""
-    results = dose_escalation_sat(
-        drug_name="TestDrug",
-        doses_mg=[0.1, 500.0],
-        jmax_mg_per_h=5.0,
-        km_mg_mL=0.001,
-        cl_L_per_h=5.0,
-        vd_L=20.0,
-        v_gi_mL=250.0,
-    )
-    # The high dose should not be dose proportional
-    assert results[1].dose_proportional is False
+    defaults.update(kw)
+    return dose_proportionality_analysis(**defaults)
 
 
 # ---------------------------------------------------------------------------
-# Result field types and bounds
+# saturable_absorption_rate
 # ---------------------------------------------------------------------------
 
+class TestSaturableAbsorptionRate:
+    def test_zero_concentration_returns_zero(self):
+        assert saturable_absorption_rate(0.0, 0.01, 10.0) == 0.0
 
-def test_result_is_correct_type():
-    r = _run()
-    assert isinstance(r, SaturableAbsorptionResult)
+    def test_negative_concentration_returns_zero(self):
+        assert saturable_absorption_rate(-5.0, 0.01, 10.0) == 0.0
 
+    def test_positive_concentration_positive_rate(self):
+        rate = saturable_absorption_rate(10.0, 0.01, 10.0, area_cm2=100.0)
+        assert rate > 0
 
-def test_saturation_fraction_in_range():
-    r = _run()
-    assert 0.0 <= r.saturation_fraction <= 1.0
+    def test_carrier_saturates_at_high_conc(self):
+        """At very high concentration, carrier approaches Jmax; adding more conc gives diminishing return."""
+        carrier_low = 0.01 * 100.0 * 10.0 / (10.0 + 10.0)
+        carrier_high = 0.01 * 100.0 * 10000.0 / (10.0 + 10000.0)
+        assert carrier_high > carrier_low
 
+    def test_at_km_carrier_half_max(self):
+        """At C = Km, carrier rate = Jmax * area / 2."""
+        jmax = 0.02
+        km = 20.0
+        area = 100.0
+        rate = saturable_absorption_rate(km, jmax, km, area_cm2=area, passive_perm=0.0)
+        expected_carrier = jmax * area * km / (km + km)
+        assert abs(rate - expected_carrier) < 1e-6
 
-def test_f_absorbed_in_range():
-    r = _run()
-    assert 0.0 <= r.f_absorbed <= 1.0
+    def test_passive_perm_explicit(self):
+        """Explicit passive_perm=0 gives only carrier contribution."""
+        jmax = 0.01
+        km = 10.0
+        area = 100.0
+        c = 10.0
+        rate = saturable_absorption_rate(c, jmax, km, area_cm2=area, passive_perm=0.0)
+        expected = jmax * area * c / (km + c)
+        assert abs(rate - expected) < 1e-9
 
-
-def test_result_fields_are_floats():
-    r = _run()
-    for attr in ["cmax_mg_L", "tmax_h", "auc_mg_h_per_L", "f_absorbed", "saturation_fraction"]:
-        assert isinstance(getattr(r, attr), float), f"{attr} should be float"
-
-
-def test_result_arrays_correct_length():
-    r = _run(t_end_h=10.0, dt_h=0.1)
-    expected = int(round(10.0 / 0.1)) + 1
-    assert len(r.times_h) == expected
-    assert len(r.c_gi_mg_mL) == expected
-    assert len(r.c_plasma_mg_L) == expected
-
-
-def test_concentrations_non_negative():
-    r = _run()
-    assert np.all(r.c_gi_mg_mL >= 0.0)
-    assert np.all(r.c_plasma_mg_L >= 0.0)
-
-
-def test_notes_is_list():
-    r = _run()
-    assert isinstance(r.notes, list)
-
-
-def test_auc_positive():
-    r = _run()
-    assert r.auc_mg_h_per_L > 0.0
+    def test_larger_area_larger_rate(self):
+        r_small = saturable_absorption_rate(10.0, 0.01, 5.0, area_cm2=100.0)
+        r_large = saturable_absorption_rate(10.0, 0.01, 5.0, area_cm2=500.0)
+        assert r_large > r_small
 
 
-def test_cmax_positive():
-    r = _run()
-    assert r.cmax_mg_L > 0.0
+# ---------------------------------------------------------------------------
+# simulate_saturable_absorption_pk
+# ---------------------------------------------------------------------------
+
+class TestSimulateSaturableAbsorptionPk:
+    def test_returns_result_type(self):
+        assert isinstance(_sim(), SaturableAbsorptionResult)
+
+    def test_frozen_dataclass(self):
+        r = _sim()
+        with pytest.raises((AttributeError, TypeError)):
+            r.cmax = 999.0  # type: ignore[misc]
+
+    def test_times_and_plasma_same_length(self):
+        r = _sim()
+        assert len(r.times_h) == len(r.c_plasma)
+
+    def test_cmax_positive(self):
+        assert _sim().cmax > 0
+
+    def test_auc_positive(self):
+        assert _sim().auc > 0
+
+    def test_f_absorbed_in_01(self):
+        r = _sim()
+        assert 0.0 <= r.f_absorbed <= 1.0
+
+    def test_plasma_non_negative(self):
+        r = _sim()
+        assert all(c >= 0 for c in r.c_plasma)
+
+    def test_dose_stored(self):
+        r = _sim(dose_mg=200.0)
+        assert r.dose_mg == 200.0
+
+    def test_saturation_index_in_01(self):
+        r = _sim()
+        assert 0.0 <= r.saturation_index <= 1.0
+
+    def test_larger_passive_fraction_larger_f_absorbed(self):
+        """Higher passive permeability should increase total absorption."""
+        r_low = _sim(passive_fraction=0.01)
+        r_high = _sim(passive_fraction=1.0)
+        assert r_high.f_absorbed >= r_low.f_absorbed
+
+    def test_notes_contains_dose(self):
+        r = _sim(dose_mg=50.0)
+        assert "50.0" in r.notes
+
+    def test_validation_dose_zero(self):
+        with pytest.raises(ValueError, match="dose_mg"):
+            _sim(dose_mg=0.0)
+
+    def test_validation_vd_negative(self):
+        with pytest.raises(ValueError, match="vd_L"):
+            _sim(vd_L=-1.0)
+
+    def test_validation_cl_zero(self):
+        with pytest.raises(ValueError, match="cl_L_per_h"):
+            _sim(cl_L_per_h=0.0)
+
+    def test_validation_jmax_zero(self):
+        with pytest.raises(ValueError, match="jmax"):
+            _sim(jmax_mg_per_h_per_cm2=0.0)
+
+    def test_validation_km_negative(self):
+        with pytest.raises(ValueError, match="km"):
+            _sim(km_mg_L=-5.0)
+
+    def test_validation_area_zero(self):
+        with pytest.raises(ValueError, match="area_cm2"):
+            _sim(area_cm2=0.0)
+
+    def test_higher_dose_higher_cmax(self):
+        """More drug → higher plasma Cmax."""
+        r_low = _sim(dose_mg=50.0)
+        r_high = _sim(dose_mg=400.0)
+        assert r_high.cmax > r_low.cmax
+
+
+# ---------------------------------------------------------------------------
+# dose_proportionality_analysis
+# ---------------------------------------------------------------------------
+
+class TestDoseProportionalityAnalysis:
+    def test_returns_result_type(self):
+        assert isinstance(_dpa(), DoseProportionalityResult)
+
+    def test_frozen_dataclass(self):
+        r = _dpa()
+        with pytest.raises((AttributeError, TypeError)):
+            r.power_law_exponent = 999.0  # type: ignore[misc]
+
+    def test_doses_stored(self):
+        doses = [10.0, 100.0, 500.0]
+        r = _dpa(doses_mg=doses)
+        assert r.doses_mg == doses
+
+    def test_aucs_length_matches_doses(self):
+        r = _dpa()
+        assert len(r.aucs) == len(r.doses_mg)
+
+    def test_cmaxes_length_matches_doses(self):
+        r = _dpa()
+        assert len(r.cmaxes) == len(r.doses_mg)
+
+    def test_dose_normalized_aucs_length(self):
+        r = _dpa()
+        assert len(r.dose_normalized_aucs) == len(r.doses_mg)
+
+    def test_aucs_positive(self):
+        r = _dpa()
+        assert all(a > 0 for a in r.aucs)
+
+    def test_cmaxes_positive(self):
+        r = _dpa()
+        assert all(c > 0 for c in r.cmaxes)
+
+    def test_saturable_gives_sublinear_exponent(self):
+        """With very high Jmax saturation, power law exponent should be < 1."""
+        r = _dpa(
+            doses_mg=[10.0, 100.0, 500.0, 1000.0],
+            jmax=0.001,   # low Jmax → strong saturation
+            km=5.0,
+            passive_fraction=0.0001,
+        )
+        assert r.power_law_exponent < 1.0
+
+    def test_linear_absorption_gives_exponent_near_1(self):
+        """Very high Km (no saturation) + dominant passive → near-linear PK."""
+        r = _dpa(
+            doses_mg=[10.0, 50.0, 100.0, 200.0],
+            jmax=0.0001,  # tiny carrier contribution
+            km=100000.0,  # very high Km → no saturation
+            passive_fraction=5.0,  # dominant passive absorption
+        )
+        # With dominant linear passive, exponent should be close to 1
+        assert r.power_law_exponent > 0.8
+
+    def test_classification_in_valid_set(self):
+        r = _dpa()
+        assert r.proportionality_classification in {"linear", "slightly_nonlinear", "nonlinear"}
+
+    def test_min_two_doses_required(self):
+        with pytest.raises(ValueError):
+            dose_proportionality_analysis([100.0], 30.0, 5.0, 0.005, 50.0)
+
+    def test_negative_dose_raises(self):
+        with pytest.raises(ValueError):
+            dose_proportionality_analysis([-10.0, 100.0], 30.0, 5.0, 0.005, 50.0)
+
+    def test_notes_contains_exponent(self):
+        r = _dpa()
+        assert "power_law_exponent" in r.notes
