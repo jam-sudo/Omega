@@ -1,224 +1,163 @@
-"""Renal dose adjustment using CrCl/eGFR.
+"""
+Phase 784 — Renal dose adjustment based on GFR and drug characteristics.
 
-Phase 679: Extends dose_individualization.py with detailed renal dosing guidance
-based on Cockcroft-Gault CrCl and CKD-EPI eGFR.
+Logic:
+- CKD stage from eGFR
+- Drug factor df = 1 - fe_urine * (1 - egfr/normal_egfr), clamped [0.1, 1.0]
+- Three methods: dose_reduction, interval_extension, combined
+- Dialysis supplement flag: egfr < 15 and fe_urine > 0.5
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-
-__all__ = [
-    "RenalDoseAdjResult",
-    "estimate_crcl_cockcroft_gault",
-    "estimate_egfr_ckd_epi",
-    "ckd_stage",
-    "adjust_dose_for_renal",
-]
 
 
 @dataclass(frozen=True)
-class RenalDoseAdjResult:
-    """Result of renal dose adjustment calculation."""
-
-    compound_name: str
-    crcl_mL_per_min: float
-    egfr_estimate: float
-    ckd_stage_str: str
-    cl_adjustment_factor: float
-    recommended_dose_mg: float
-    dosing_interval_h: float
+class RenalDoseAdjustmentResult:
+    drug_name: str
+    egfr_ml_per_min: float
+    ckd_stage: str  # G1, G2, G3a, G3b, G4, G5
+    fe_urine: float  # fraction excreted unchanged in urine
+    normal_dose_mg: float
+    normal_interval_h: float
+    adjusted_dose_mg: float
+    adjusted_interval_h: float
+    dose_fraction: float  # adjusted/normal
     dose_reduction_pct: float
-    warnings: str
+    method: str  # "dose_reduction", "interval_extension", "combined"
+    requires_dialysis_supplement: bool
     notes: str
 
 
-def estimate_crcl_cockcroft_gault(
-    age_years: float,
-    weight_kg: float,
-    serum_creatinine_mg_dL: float,
-    sex: str = "male",
-) -> float:
-    """Estimate CrCl using Cockcroft-Gault equation.
-
-    Parameters
-    ----------
-    age_years:
-        Patient age in years (must be > 0).
-    weight_kg:
-        Patient weight in kg (must be > 0).
-    serum_creatinine_mg_dL:
-        Serum creatinine in mg/dL (must be > 0).
-    sex:
-        "male" or "female".
-
-    Returns
-    -------
-    float
-        Estimated CrCl in mL/min.
-    """
-    if age_years <= 0:
-        raise ValueError(f"age_years must be > 0, got {age_years}")
-    if weight_kg <= 0:
-        raise ValueError(f"weight_kg must be > 0, got {weight_kg}")
-    if serum_creatinine_mg_dL <= 0:
-        raise ValueError(f"serum_creatinine_mg_dL must be > 0, got {serum_creatinine_mg_dL}")
-
-    crcl = (140.0 - age_years) * weight_kg / (72.0 * serum_creatinine_mg_dL)
-    if sex.lower() in ("female", "f"):
-        crcl *= 0.85
-    return max(crcl, 1.0)
-
-
-def estimate_egfr_ckd_epi(
-    age_years: float,
-    serum_creatinine_mg_dL: float,
-    sex: str = "male",
-    race: str = "non_black",
-) -> float:
-    """Estimate eGFR using CKD-EPI 2009 equation.
-
-    Parameters
-    ----------
-    age_years:
-        Patient age in years (must be > 0).
-    serum_creatinine_mg_dL:
-        Serum creatinine in mg/dL (must be > 0).
-    sex:
-        "male" or "female".
-    race:
-        "non_black" or "black" (race-based coefficient, CKD-EPI 2009).
-
-    Returns
-    -------
-    float
-        Estimated eGFR in mL/min/1.73m².
-    """
-    if age_years <= 0:
-        raise ValueError(f"age_years must be > 0, got {age_years}")
-    if serum_creatinine_mg_dL <= 0:
-        raise ValueError(f"serum_creatinine_mg_dL must be > 0, got {serum_creatinine_mg_dL}")
-
-    is_female = sex.lower() in ("female", "f")
-    kappa = 0.7 if is_female else 0.9
-    alpha = -0.329 if is_female else -0.411
-
-    scr_ratio = serum_creatinine_mg_dL / kappa
-    term_min = min(scr_ratio, 1.0) ** alpha
-    term_max = max(scr_ratio, 1.0) ** (-1.209)
-
-    egfr = 141.0 * term_min * term_max * (0.993**age_years)
-    if is_female:
-        egfr *= 1.018
-    # Note: race parameter accepted but race-free version used (2021 update spirit)
-    return max(egfr, 1.0)
-
-
-def ckd_stage(egfr: float) -> str:
-    """Return CKD stage string based on eGFR value.
-
-    Parameters
-    ----------
-    egfr:
-        eGFR in mL/min/1.73m².
-
-    Returns
-    -------
-    str
-        CKD stage: "G1", "G2", "G3a", "G3b", "G4", or "G5".
-    """
-    if egfr >= 90:
+def ckd_stage_from_egfr(egfr_ml_per_min: float) -> str:
+    """Return KDIGO CKD stage string from eGFR in mL/min."""
+    if egfr_ml_per_min >= 90.0:
         return "G1"
-    if egfr >= 60:
+    elif egfr_ml_per_min >= 60.0:
         return "G2"
-    if egfr >= 45:
+    elif egfr_ml_per_min >= 45.0:
         return "G3a"
-    if egfr >= 30:
+    elif egfr_ml_per_min >= 30.0:
         return "G3b"
-    if egfr >= 15:
+    elif egfr_ml_per_min >= 15.0:
         return "G4"
-    return "G5"
+    else:
+        return "G5"
 
 
-def adjust_dose_for_renal(
-    compound_name: str,
-    dose_normal_mg: float,
-    dosing_interval_h: float,
-    crcl_mL_per_min: float,
-    fe_urine: float = 0.5,
-    cl_renal_fraction: float = 0.5,
-) -> RenalDoseAdjResult:
-    """Adjust drug dose for renal impairment based on CrCl.
+def adjust_dose_for_renal_impairment(
+    drug_name: str,
+    normal_dose_mg: float,
+    normal_interval_h: float,
+    fe_urine: float,
+    egfr_ml_per_min: float,
+    normal_egfr_ml_per_min: float = 100.0,
+    method: str = "dose_reduction",
+) -> RenalDoseAdjustmentResult:
+    """Calculate dose adjustment for renal impairment."""
 
-    The adjustment factor scales the total clearance based on the renal
-    fraction of clearance and the patient's CrCl relative to normal (120 mL/min).
-
-    Parameters
-    ----------
-    compound_name:
-        Name of the compound.
-    dose_normal_mg:
-        Normal (standard) dose in mg.
-    dosing_interval_h:
-        Dosing interval in hours.
-    crcl_mL_per_min:
-        Patient's creatinine clearance in mL/min.
-    fe_urine:
-        Fraction of dose excreted unchanged in urine (0–1).
-    cl_renal_fraction:
-        Fraction of total clearance that is renal (0–1).
-
-    Returns
-    -------
-    RenalDoseAdjResult
-        Dataclass with recommended dose and adjustment details.
-    """
+    # Input validation
     if not (0.0 <= fe_urine <= 1.0):
         raise ValueError(f"fe_urine must be in [0, 1], got {fe_urine}")
-    if not (0.0 <= cl_renal_fraction <= 1.0):
-        raise ValueError(f"cl_renal_fraction must be in [0, 1], got {cl_renal_fraction}")
+    if egfr_ml_per_min < 0.0:
+        raise ValueError(f"egfr_ml_per_min must be >= 0, got {egfr_ml_per_min}")
 
-    # Estimate eGFR from CrCl (use CrCl as proxy; assume BSA-normalized ≈ CrCl for typical patient)
-    egfr = max(crcl_mL_per_min, 1.0)
-    stage = ckd_stage(egfr)
+    ckd_stage = ckd_stage_from_egfr(egfr_ml_per_min)
 
-    # CL_adjusted / CL_normal = (1 - cl_renal_fraction) + cl_renal_fraction * (CrCl / 120)
-    _crcl_normal = 120.0
-    cl_ratio = (1.0 - cl_renal_fraction) + cl_renal_fraction * (crcl_mL_per_min / _crcl_normal)
-    cl_ratio = max(min(cl_ratio, 1.0), 0.01)  # clamp to sensible range
+    # Drug factor
+    egfr_ratio = egfr_ml_per_min / normal_egfr_ml_per_min
+    df_raw = 1.0 - fe_urine * (1.0 - egfr_ratio)
+    df = max(0.1, min(1.0, df_raw))
 
-    recommended_dose = dose_normal_mg * cl_ratio
-    dose_reduction_pct = (1.0 - cl_ratio) * 100.0
+    # Method-specific adjustments
+    valid_methods = {"dose_reduction", "interval_extension", "combined"}
+    if method not in valid_methods:
+        raise ValueError(f"method must be one of {valid_methods}, got {method!r}")
 
-    # Build warnings
-    warning_parts: list[str] = []
-    if crcl_mL_per_min < 30:
-        warning_parts.append(
-            f"Severe renal impairment (CrCl={crcl_mL_per_min:.1f} mL/min); "
-            "closely monitor drug levels."
-        )
-    if crcl_mL_per_min < 15:
-        warning_parts.append("ESRD range; consider dialysis dosing guidance.")
-    if cl_ratio < 0.5:
-        warning_parts.append(
-            "Adjustment factor < 0.50; consider dose reduction AND interval extension."
-        )
-    warnings_str = " | ".join(warning_parts) if warning_parts else ""
+    if method == "dose_reduction":
+        adjusted_dose = normal_dose_mg * df
+        adjusted_interval = normal_interval_h
+    elif method == "interval_extension":
+        adjusted_dose = normal_dose_mg
+        if df > 0.0:
+            adjusted_interval = normal_interval_h / df
+        else:
+            adjusted_interval = normal_interval_h * 10.0  # extreme extension
+    else:  # combined
+        sqrt_df = math.sqrt(df)
+        adjusted_dose = normal_dose_mg * sqrt_df
+        if sqrt_df > 0.0:
+            adjusted_interval = normal_interval_h / sqrt_df
+        else:
+            adjusted_interval = normal_interval_h * 10.0
 
-    notes = (
-        f"CKD stage {stage}; cl_renal_fraction={cl_renal_fraction:.2f}; "
-        f"fe_urine={fe_urine:.2f}; reference CrCl={_crcl_normal} mL/min."
-    )
+    # Dose fraction relative to normal total daily dose
+    # dose_fraction = (adjusted_dose / adjusted_interval) / (normal_dose_mg / normal_interval_h)
+    if normal_interval_h > 0.0 and adjusted_interval > 0.0:
+        normal_daily_dose = normal_dose_mg / normal_interval_h
+        adjusted_daily_dose = adjusted_dose / adjusted_interval
+        dose_fraction = adjusted_daily_dose / normal_daily_dose if normal_daily_dose > 0.0 else 1.0
+    else:
+        dose_fraction = df
 
-    return RenalDoseAdjResult(
-        compound_name=compound_name,
-        crcl_mL_per_min=crcl_mL_per_min,
-        egfr_estimate=egfr,
-        ckd_stage_str=stage,
-        cl_adjustment_factor=cl_ratio,
-        recommended_dose_mg=recommended_dose,
-        dosing_interval_h=dosing_interval_h,
-        dose_reduction_pct=dose_reduction_pct,
-        warnings=warnings_str,
+    dose_fraction = max(0.0, min(1.0, dose_fraction))
+    dose_reduction_pct = (1.0 - dose_fraction) * 100.0
+
+    requires_dialysis_supplement = egfr_ml_per_min < 15.0 and fe_urine > 0.5
+
+    # Notes
+    notes_parts = [
+        f"CKD stage {ckd_stage} (eGFR={egfr_ml_per_min:.1f} mL/min)",
+        f"df={df:.3f} (fe_urine={fe_urine:.2f})",
+        f"method={method}",
+    ]
+    if requires_dialysis_supplement:
+        notes_parts.append("Dialysis supplemental dose may be required")
+    notes = "; ".join(notes_parts)
+
+    return RenalDoseAdjustmentResult(
+        drug_name=drug_name,
+        egfr_ml_per_min=egfr_ml_per_min,
+        ckd_stage=ckd_stage,
+        fe_urine=fe_urine,
+        normal_dose_mg=normal_dose_mg,
+        normal_interval_h=normal_interval_h,
+        adjusted_dose_mg=round(adjusted_dose, 4),
+        adjusted_interval_h=round(adjusted_interval, 4),
+        dose_fraction=round(dose_fraction, 6),
+        dose_reduction_pct=round(dose_reduction_pct, 4),
+        method=method,
+        requires_dialysis_supplement=requires_dialysis_supplement,
         notes=notes,
     )
+
+
+def recommend_dose_adjustment(
+    drug_name: str,
+    normal_dose_mg: float,
+    normal_interval_h: float,
+    fe_urine: float,
+    egfr_ml_per_min: float,
+) -> str:
+    """Return a human-readable recommendation string for dose adjustment."""
+    result = adjust_dose_for_renal_impairment(
+        drug_name=drug_name,
+        normal_dose_mg=normal_dose_mg,
+        normal_interval_h=normal_interval_h,
+        fe_urine=fe_urine,
+        egfr_ml_per_min=egfr_ml_per_min,
+        method="dose_reduction",
+    )
+
+    lines = [
+        f"Drug: {drug_name}",
+        f"CKD Stage: {result.ckd_stage} (eGFR {egfr_ml_per_min:.1f} mL/min)",
+        f"Renal elimination fraction: {fe_urine * 100:.0f}%",
+        f"Recommended dose: {result.adjusted_dose_mg:.1f} mg every {result.normal_interval_h:.0f} h",
+        f"Dose reduction: {result.dose_reduction_pct:.1f}%",
+    ]
+    if result.requires_dialysis_supplement:
+        lines.append("NOTE: Supplemental dose after dialysis may be required.")
+    return "\n".join(lines)
