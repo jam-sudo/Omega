@@ -1,232 +1,240 @@
-"""Tests for Phase 1078 -- Drug Biliary Excretion and Enterohepatic Circulation."""
+"""Tests for Phase 380 — Enterohepatic Circulation Model."""
 
 import pytest
-from omega_pbpk.core.enterohepatic_circulation import (
-    EHCResult,
-    compare_biliary_fractions,
-    simulate_ehc,
-)
 
+from omega_pbpk.core.enterohepatic_circulation import (
+    EnterohepaticResult,
+    compare_ehc_fractions,
+    simulate_enterohepatic_circulation,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def default_result(**kwargs) -> EHCResult:
-    return simulate_ehc(
+
+def _base_kwargs(**overrides):
+    """Return minimal valid kwargs for simulate_enterohepatic_circulation."""
+    kwargs = dict(
         drug_name="TestDrug",
         dose_mg=100.0,
-        **kwargs,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Return type
-# ---------------------------------------------------------------------------
-
-def test_return_type():
-    result = default_result()
-    assert isinstance(result, EHCResult)
-
-
-# ---------------------------------------------------------------------------
-# Initial conditions (IV bolus at t=0)
-# ---------------------------------------------------------------------------
-
-def test_plasma_starts_at_dose_over_vd():
-    """C_plasma at t=0 should equal dose_mg / vd_L."""
-    result = simulate_ehc("Drug", dose_mg=100.0, vd_L=50.0)
-    assert result.c_plasma_mg_L[0] == pytest.approx(100.0 / 50.0, rel=1e-6)
-
-
-def test_bile_starts_at_zero():
-    result = default_result()
-    assert result.a_bile_mg[0] == pytest.approx(0.0, abs=1e-10)
-
-
-def test_gut_starts_at_zero():
-    result = default_result()
-    assert result.a_gut_mg[0] == pytest.approx(0.0, abs=1e-10)
-
-
-# ---------------------------------------------------------------------------
-# Secondary peak / EHC
-# ---------------------------------------------------------------------------
-
-def test_high_fraction_biliary_has_secondary_peak():
-    """High biliary fraction should produce a secondary peak."""
-    result = simulate_ehc(
-        "Drug",
-        dose_mg=100.0,
-        fraction_biliary=0.8,
-        cl_total_L_per_h=5.0,
+        cl_hepatic_L_per_h=5.0,
         vd_L=50.0,
-        k_gall_per_h=0.5,
-        ka_ehc_per_h=1.0,
-        k_fecal_per_h=0.02,
+        ka_absorption_per_h=1.0,
+        f_bile_secretion=0.3,
+        k_bile_to_gut_per_h=0.5,
+        f_gut_reabsorption=0.6,
         t_end_h=48.0,
         dt_h=0.05,
     )
-    assert result.has_secondary_peak is True
-
-
-def test_zero_fraction_biliary_no_secondary_peak():
-    """Zero biliary fraction means no EHC, no secondary peak."""
-    result = simulate_ehc(
-        "Drug",
-        dose_mg=100.0,
-        fraction_biliary=0.0,
-        t_end_h=48.0,
-    )
-    assert result.has_secondary_peak is False
+    kwargs.update(overrides)
+    return kwargs
 
 
 # ---------------------------------------------------------------------------
-# AUC / Cmax
+# Return type tests
 # ---------------------------------------------------------------------------
 
-def test_auc_positive():
-    result = default_result()
-    assert result.auc > 0.0
 
+class TestReturnType:
+    def test_returns_result_instance(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert isinstance(result, EnterohepaticResult)
 
-def test_cmax_first_peak_positive():
-    result = default_result()
-    assert result.cmax_first_peak > 0.0
+    def test_all_fields_present(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert hasattr(result, "drug_name")
+        assert hasattr(result, "dose_mg")
+        assert hasattr(result, "times_h")
+        assert hasattr(result, "c_plasma_mg_L")
+        assert hasattr(result, "c_bile_mg_L")
+        assert hasattr(result, "c_gut_lumen_mg_L")
+        assert hasattr(result, "secondary_peaks")
+        assert hasattr(result, "auc_total_mg_h_per_L")
+        assert hasattr(result, "auc_without_ehc_mg_h_per_L")
+        assert hasattr(result, "ehc_auc_increase_pct")
+        assert hasattr(result, "t_half_apparent_h")
+        assert hasattr(result, "cmax_mg_L")
+        assert hasattr(result, "notes")
 
-
-def test_tmax_first_peak_is_zero_for_iv_bolus():
-    """For IV bolus the first peak is at t=0."""
-    result = default_result()
-    assert result.tmax_first_peak_h == pytest.approx(0.0, abs=1e-10)
-
-
-def test_cmax_first_equals_initial_concentration():
-    """For IV bolus the first Cmax equals initial C_plasma."""
-    result = simulate_ehc("Drug", dose_mg=200.0, vd_L=40.0)
-    assert result.cmax_first_peak == pytest.approx(200.0 / 40.0, rel=1e-4)
-
-
-# ---------------------------------------------------------------------------
-# has_secondary_peak type
-# ---------------------------------------------------------------------------
-
-def test_has_secondary_peak_is_bool():
-    result = default_result()
-    assert isinstance(result.has_secondary_peak, bool)
-
-
-def test_secondary_peak_cmax_zero_when_no_ehc():
-    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.0)
-    assert result.cmax_second_peak == pytest.approx(0.0, abs=1e-6)
+    def test_list_fields_are_lists(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert isinstance(result.times_h, list)
+        assert isinstance(result.c_plasma_mg_L, list)
+        assert isinstance(result.c_bile_mg_L, list)
+        assert isinstance(result.c_gut_lumen_mg_L, list)
 
 
 # ---------------------------------------------------------------------------
-# Fecal elimination
+# EHC increases AUC vs no-EHC
 # ---------------------------------------------------------------------------
 
-def test_f_fecal_in_zero_one():
-    result = default_result()
-    assert 0.0 <= result.f_fecal_eliminated <= 1.0
 
+class TestEhcAucIncrease:
+    def test_ehc_increases_auc_vs_no_ehc(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.4))
+        assert result.auc_total_mg_h_per_L >= result.auc_without_ehc_mg_h_per_L
 
-def test_f_fecal_zero_when_no_biliary():
-    """No biliary fraction means no fecal elimination via bile."""
-    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.0, k_fecal_per_h=0.05)
-    assert result.f_fecal_eliminated == pytest.approx(0.0, abs=1e-6)
+    def test_ehc_auc_increase_pct_positive_when_ehc_active(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.4))
+        assert result.ehc_auc_increase_pct >= 0.0
 
+    def test_no_ehc_gives_zero_increase(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.0))
+        assert result.ehc_auc_increase_pct == pytest.approx(0.0, abs=1e-6)
 
-def test_f_fecal_positive_with_biliary():
-    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.5)
-    assert result.f_fecal_eliminated > 0.0
-
-
-# ---------------------------------------------------------------------------
-# compare_biliary_fractions
-# ---------------------------------------------------------------------------
-
-def test_compare_biliary_fractions_correct_count():
-    fractions = [0.0, 0.3, 0.6, 0.9]
-    results = compare_biliary_fractions("Drug", dose_mg=100.0, fractions=fractions)
-    assert len(results) == 4
-
-
-def test_compare_biliary_fractions_sorted_by_cmax_second_desc():
-    fractions = [0.0, 0.3, 0.6, 0.9]
-    results = compare_biliary_fractions("Drug", dose_mg=100.0, fractions=fractions)
-    for i in range(len(results) - 1):
-        assert results[i].cmax_second_peak >= results[i + 1].cmax_second_peak
-
-
-def test_compare_biliary_fractions_all_ehcresult():
-    fractions = [0.1, 0.5]
-    results = compare_biliary_fractions("Drug", dose_mg=50.0, fractions=fractions)
-    for r in results:
-        assert isinstance(r, EHCResult)
+    def test_higher_f_bile_gives_higher_auc(self):
+        result_low = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.1))
+        result_high = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.6))
+        assert result_high.auc_total_mg_h_per_L > result_low.auc_total_mg_h_per_L
 
 
 # ---------------------------------------------------------------------------
-# Time arrays
+# Plasma profile
 # ---------------------------------------------------------------------------
 
-def test_times_starts_at_zero():
-    result = default_result(t_end_h=24.0, dt_h=0.5)
-    assert result.times_h[0] == pytest.approx(0.0)
+
+class TestPlasmaProfile:
+    def test_plasma_profile_has_values(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert len(result.c_plasma_mg_L) > 0
+
+    def test_plasma_starts_at_zero(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert result.c_plasma_mg_L[0] == pytest.approx(0.0, abs=1e-9)
+
+    def test_cmax_positive(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert result.cmax_mg_L > 0.0
+
+    def test_times_start_at_zero_and_monotone(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert result.times_h[0] == pytest.approx(0.0)
+        for i in range(1, len(result.times_h)):
+            assert result.times_h[i] > result.times_h[i - 1]
 
 
-def test_times_ends_near_t_end():
-    result = default_result(t_end_h=24.0, dt_h=0.5)
-    assert result.times_h[-1] == pytest.approx(24.0, abs=0.6)
+# ---------------------------------------------------------------------------
+# Bile compartment
+# ---------------------------------------------------------------------------
 
 
-def test_c_plasma_list_same_length_as_times():
-    result = default_result()
-    assert len(result.c_plasma_mg_L) == len(result.times_h)
+class TestBileCompartment:
+    def test_bile_compartment_populated_when_ehc_active(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.3))
+        max_bile = max(result.c_bile_mg_L)
+        assert max_bile > 0.0
+
+    def test_bile_zero_when_no_ehc(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.0))
+        max_bile = max(result.c_bile_mg_L)
+        assert max_bile == pytest.approx(0.0, abs=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Gut lumen compartment
+# ---------------------------------------------------------------------------
+
+
+class TestGutLumenCompartment:
+    def test_gut_lumen_populated_when_ehc_active(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=0.3))
+        max_lumen = max(result.c_gut_lumen_mg_L)
+        assert max_lumen > 0.0
+
+    def test_gut_lumen_zero_initially(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert result.c_gut_lumen_mg_L[0] == pytest.approx(0.0, abs=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Secondary peaks
+# ---------------------------------------------------------------------------
+
+
+class TestSecondaryPeaks:
+    def test_secondary_peaks_non_negative(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert result.secondary_peaks >= 0
+
+    def test_secondary_peaks_is_int(self):
+        result = simulate_enterohepatic_circulation(**_base_kwargs())
+        assert isinstance(result.secondary_peaks, int)
+
+
+# ---------------------------------------------------------------------------
+# Dose linearity (Cmax)
+# ---------------------------------------------------------------------------
+
+
+class TestDoseLinearity:
+    def test_cmax_scales_with_dose(self):
+        result_low = simulate_enterohepatic_circulation(**_base_kwargs(dose_mg=50.0))
+        result_high = simulate_enterohepatic_circulation(**_base_kwargs(dose_mg=200.0))
+        # 4x dose → Cmax should be proportionally larger
+        ratio = result_high.cmax_mg_L / result_low.cmax_mg_L
+        assert 1.5 < ratio < 6.0
+
+
+# ---------------------------------------------------------------------------
+# compare_ehc_fractions
+# ---------------------------------------------------------------------------
+
+
+class TestCompareEhcFractions:
+    def test_compare_returns_list(self):
+        results = compare_ehc_fractions("Drug", 100.0, 5.0, 50.0)
+        assert isinstance(results, list)
+
+    def test_compare_default_returns_five(self):
+        results = compare_ehc_fractions("Drug", 100.0, 5.0, 50.0)
+        assert len(results) == 5
+
+    def test_compare_sorted_descending_by_auc(self):
+        results = compare_ehc_fractions("Drug", 100.0, 5.0, 50.0)
+        aucs = [r.auc_total_mg_h_per_L for r in results]
+        assert aucs == sorted(aucs, reverse=True)
+
+    def test_compare_all_are_result_instances(self):
+        results = compare_ehc_fractions("Drug", 100.0, 5.0, 50.0)
+        for r in results:
+            assert isinstance(r, EnterohepaticResult)
+
+    def test_compare_custom_f_bile_values(self):
+        results = compare_ehc_fractions("Drug", 100.0, 5.0, 50.0, f_bile_values=[0.0, 0.2, 0.5])
+        assert len(results) == 3
 
 
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
 
-def test_invalid_dose_raises():
-    with pytest.raises(ValueError):
-        simulate_ehc("Drug", dose_mg=0.0)
 
+class TestValidation:
+    def test_invalid_dose(self):
+        with pytest.raises(ValueError, match="dose_mg"):
+            simulate_enterohepatic_circulation(**_base_kwargs(dose_mg=0.0))
 
-def test_invalid_fraction_biliary_raises():
-    with pytest.raises(ValueError):
-        simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=1.5)
+    def test_invalid_cl(self):
+        with pytest.raises(ValueError, match="cl_hepatic"):
+            simulate_enterohepatic_circulation(**_base_kwargs(cl_hepatic_L_per_h=-1.0))
 
+    def test_invalid_vd(self):
+        with pytest.raises(ValueError, match="vd_L"):
+            simulate_enterohepatic_circulation(**_base_kwargs(vd_L=0.0))
 
-def test_invalid_fraction_biliary_negative_raises():
-    with pytest.raises(ValueError):
-        simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=-0.1)
+    def test_invalid_ka(self):
+        with pytest.raises(ValueError, match="ka_absorption"):
+            simulate_enterohepatic_circulation(**_base_kwargs(ka_absorption_per_h=-0.1))
 
+    def test_invalid_f_bile_out_of_range(self):
+        with pytest.raises(ValueError, match="f_bile_secretion"):
+            simulate_enterohepatic_circulation(**_base_kwargs(f_bile_secretion=1.5))
 
-def test_invalid_cl_raises():
-    with pytest.raises(ValueError):
-        simulate_ehc("Drug", dose_mg=100.0, cl_total_L_per_h=0.0)
+    def test_invalid_k_bile_to_gut(self):
+        with pytest.raises(ValueError, match="k_bile_to_gut"):
+            simulate_enterohepatic_circulation(**_base_kwargs(k_bile_to_gut_per_h=0.0))
 
-
-def test_invalid_vd_raises():
-    with pytest.raises(ValueError):
-        simulate_ehc("Drug", dose_mg=100.0, vd_L=-10.0)
-
-
-# ---------------------------------------------------------------------------
-# Notes / metadata
-# ---------------------------------------------------------------------------
-
-def test_notes_nonempty():
-    result = default_result()
-    assert len(result.notes) > 0
-
-
-def test_drug_name_preserved():
-    result = simulate_ehc("Metformin", dose_mg=500.0)
-    assert result.drug_name == "Metformin"
-
-
-def test_fraction_biliary_preserved():
-    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.4)
-    assert result.fraction_biliary == pytest.approx(0.4)
+    def test_invalid_f_gut_reabsorption(self):
+        with pytest.raises(ValueError, match="f_gut_reabsorption"):
+            simulate_enterohepatic_circulation(**_base_kwargs(f_gut_reabsorption=-0.1))

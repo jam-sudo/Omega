@@ -1,214 +1,330 @@
-"""
-Phase 1078 -- Drug Biliary Excretion and Enterohepatic Circulation
+"""Enterohepatic circulation (EHC) PBPK model — Phase 380.
 
-Models drug with biliary excretion and enterohepatic recirculation (EHC),
-producing the characteristic secondary peak in plasma concentration-time profiles.
-
-Gallbladder emptying is modeled as periodic bolus releases (every gall_cycle_h hours),
-which is physiologically realistic and produces the characteristic secondary peaks.
+4-compartment forward-Euler simulation of bile secretion, intestinal
+reabsorption, and the resulting secondary plasma concentration peaks.
+Pure Python stdlib only (math, dataclasses).
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 
-def _trapz(times: list[float], values: list[float]) -> float:
-    """Trapezoidal integration."""
-    area = 0.0
-    for i in range(1, len(times)):
-        dt = times[i] - times[i - 1]
-        area += 0.5 * (values[i] + values[i - 1]) * dt
-    return area
-
-
-def _validate_inputs(
-    dose_mg: float,
-    fraction_biliary: float,
-    cl_total: float,
-    vd: float,
-) -> None:
-    if dose_mg <= 0:
-        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
-    if not (0 <= fraction_biliary <= 1):
-        raise ValueError(f"fraction_biliary must be in [0, 1], got {fraction_biliary}")
-    if cl_total <= 0:
-        raise ValueError(f"cl_total_L_per_h must be > 0, got {cl_total}")
-    if vd <= 0:
-        raise ValueError(f"vd_L must be > 0, got {vd}")
-
-
 @dataclass
-class EHCResult:
+class EnterohepaticResult:
     drug_name: str
     dose_mg: float
-    fraction_biliary: float
     times_h: list
     c_plasma_mg_L: list
-    a_bile_mg: list
-    a_gut_mg: list
-    cmax_first_peak: float
-    tmax_first_peak_h: float
-    cmax_second_peak: float
-    tmax_second_peak_h: float
-    auc: float
-    f_fecal_eliminated: float
-    has_secondary_peak: bool
+    c_bile_mg_L: list
+    c_gut_lumen_mg_L: list
+    secondary_peaks: int
+    auc_total_mg_h_per_L: float
+    auc_without_ehc_mg_h_per_L: float
+    ehc_auc_increase_pct: float
+    t_half_apparent_h: float
+    cmax_mg_L: float
     notes: str
 
 
-def simulate_ehc(
-    drug_name: str,
+def _trapezoidal_auc(x: list, y: list) -> float:
+    """Manual trapezoidal integration."""
+    return sum(0.5 * (y[i] + y[i - 1]) * (x[i] - x[i - 1]) for i in range(1, len(x)))
+
+
+def _count_secondary_peaks(times: list, conc: list, skip_before_h: float = 2.0) -> int:
+    """Count local maxima in conc after skip_before_h."""
+    count = 0
+    for i in range(1, len(conc) - 1):
+        if times[i] <= skip_before_h:
+            continue
+        if conc[i] > conc[i - 1] and conc[i] > conc[i + 1]:
+            count += 1
+    return count
+
+
+def _apparent_half_life(times: list, conc: list, cmax: float, t_cmax: float) -> float:
+    """Estimate apparent t1/2 from the post-Cmax region.
+
+    Finds the first time after Cmax where C <= cmax/2 using linear interpolation.
+    Falls back to a terminal-slope estimate if not found.
+    """
+    if cmax <= 0.0:
+        return float("nan")
+
+    half_cmax = cmax / 2.0
+
+    # Collect indices after Cmax
+    post_idx = [i for i, t in enumerate(times) if t >= t_cmax]
+
+    if len(post_idx) < 2:
+        return float("nan")
+
+    # Find first crossing below half_cmax
+    for k in range(1, len(post_idx)):
+        i_prev = post_idx[k - 1]
+        i_curr = post_idx[k]
+        c_prev = conc[i_prev]
+        c_curr = conc[i_curr]
+        if c_prev >= half_cmax >= c_curr:
+            if abs(c_prev - c_curr) < 1e-20:
+                t_half_reach = times[i_prev]
+            else:
+                frac = (c_prev - half_cmax) / (c_prev - c_curr)
+                t_half_reach = times[i_prev] + frac * (times[i_curr] - times[i_prev])
+            return t_half_reach - t_cmax
+
+    # Fallback: terminal slope from last two points
+    i_last = post_idx[-1]
+    i_prev2 = post_idx[-2]
+    c_last = conc[i_last]
+    c_prev2 = conc[i_prev2]
+    t_last = times[i_last]
+    t_prev2 = times[i_prev2]
+    dt = t_last - t_prev2
+    if c_last > 0.0 and c_prev2 > c_last and dt > 0.0:
+        lam_z = (math.log(c_prev2) - math.log(c_last)) / dt
+        if lam_z > 0.0:
+            return math.log(2.0) / lam_z
+    return float("nan")
+
+
+def _run_simulation(
     dose_mg: float,
-    fraction_biliary: float = 0.3,
-    cl_total_L_per_h: float = 5.0,
-    vd_L: float = 50.0,
-    k_gall_per_h: float = 0.3,
-    ka_ehc_per_h: float = 0.5,
-    k_fecal_per_h: float = 0.05,
-    t_end_h: float = 48.0,
-    dt_h: float = 0.1,
-    gall_cycle_h: float = 4.0,
-    gall_empty_fraction: float = 0.8,
-) -> EHCResult:
-    """
-    Simulate drug biliary excretion and enterohepatic circulation via Forward Euler ODE.
+    cl_hepatic_L_per_h: float,
+    vd_L: float,
+    ka_absorption_per_h: float,
+    f_bile_secretion: float,
+    k_bile_to_gut_per_h: float,
+    f_gut_reabsorption: float,
+    t_end_h: float,
+    dt_h: float,
+) -> tuple:
+    """Run 4-compartment Forward Euler and return (times, c_plasma, c_bile, c_lumen)."""
+    n_steps = int(math.ceil(t_end_h / dt_h))
 
-    Compartments:
-      C_plasma (mg/L): systemic plasma
-      A_bile (mg):     bile duct accumulation pool
-      A_gut (mg):      gut lumen (available for reabsorption)
+    times: list = []
+    c_plasma_list: list = []
+    c_bile_list: list = []
+    c_lumen_list: list = []
 
-    ODEs between gallbladder emptying events:
-      ke         = (1 - fraction_biliary) * cl_total / vd
-      k_bile_rate = fraction_biliary * cl_total / vd   [on C_plasma, units: 1/h]
+    bile_vol_L = vd_L * 0.05  # proxy for bile volume (~5% of Vd)
+    lumen_vol_L = vd_L * 0.1  # proxy for gut lumen volume (~10% of Vd)
 
-      dC_plasma/dt = -(ke + k_bile_rate) * C_plasma + ka_ehc * A_gut / vd
-      dA_bile/dt   =  k_bile_rate * C_plasma * vd       (biliary secretion into bile pool)
-      dA_gut/dt    =  - (ka_ehc + k_fecal) * A_gut      (gut absorption / fecal loss)
+    # State (amounts in mg; plasma as concentration mg/L)
+    m_gut = dose_mg
+    c_plasma = 0.0  # mg/L
+    m_bile = 0.0  # mg
+    m_lumen = 0.0  # mg
 
-    Gallbladder empties periodically (every gall_cycle_h hours):
-      bolus of gall_empty_fraction * A_bile is added to A_gut instantaneously.
-    """
-    _validate_inputs(dose_mg, fraction_biliary, cl_total_L_per_h, vd_L)
-
-    # Rate constants
-    ke = (1.0 - fraction_biliary) * cl_total_L_per_h / vd_L
-    k_bile_rate = fraction_biliary * cl_total_L_per_h / vd_L  # per hour (on C_plasma)
-
-    # Initial conditions
-    c_plasma = dose_mg / vd_L
-    a_bile = 0.0
-    a_gut = 0.0
-
-    n_steps = int(round(t_end_h / dt_h)) + 1
-    times: list[float] = []
-    c_plasma_list: list[float] = []
-    a_bile_list: list[float] = []
-    a_gut_list: list[float] = []
-
-    fecal_mass = 0.0
-    last_gall_empty_t = 0.0  # track last gallbladder emptying time
-
-    for i in range(n_steps):
+    for i in range(n_steps + 1):
         t = i * dt_h
-
-        # Gallbladder periodic emptying: bolus release into gut
-        if fraction_biliary > 0 and gall_cycle_h > 0:
-            if t > 0 and (t - last_gall_empty_t) >= gall_cycle_h - 1e-9:
-                released = gall_empty_fraction * a_bile
-                a_bile = a_bile - released
-                a_gut = a_gut + released
-                last_gall_empty_t = t
-
         times.append(t)
         c_plasma_list.append(c_plasma)
-        a_bile_list.append(a_bile)
-        a_gut_list.append(a_gut)
+        c_bile_list.append(m_bile / bile_vol_L if bile_vol_L > 0.0 else 0.0)
+        c_lumen_list.append(m_lumen / lumen_vol_L if lumen_vol_L > 0.0 else 0.0)
 
-        # Derivatives
-        dc_plasma = -(ke + k_bile_rate) * c_plasma + ka_ehc_per_h * a_gut / vd_L
-        da_bile = k_bile_rate * c_plasma * vd_L
-        da_gut = -(ka_ehc_per_h + k_fecal_per_h) * a_gut
+        if i == n_steps:
+            break
 
-        # Track fecal elimination
-        fecal_rate = k_fecal_per_h * a_gut
-        fecal_mass += fecal_rate * dt_h
+        # ODEs (Forward Euler)
+        # dM_gut/dt = -ka * M_gut
+        d_m_gut = -ka_absorption_per_h * m_gut
 
-        # Forward Euler update
-        c_plasma = max(0.0, c_plasma + dc_plasma * dt_h)
-        a_bile = max(0.0, a_bile + da_bile * dt_h)
-        a_gut = max(0.0, a_gut + da_gut * dt_h)
+        # dC_plasma/dt = ka*M_gut/Vd + f_reabs*k_b2g*M_lumen/Vd - CL_hep*C/Vd
+        d_c_plasma = (
+            ka_absorption_per_h * m_gut / vd_L
+            + f_gut_reabsorption * k_bile_to_gut_per_h * m_lumen / vd_L
+            - cl_hepatic_L_per_h * c_plasma / vd_L
+        )
 
-    # AUC via trapezoidal rule
-    auc = _trapz(times, c_plasma_list)
+        # dM_bile/dt = f_bile * CL_hep * C - k_b2g * M_bile
+        d_m_bile = f_bile_secretion * cl_hepatic_L_per_h * c_plasma - k_bile_to_gut_per_h * m_bile
 
-    # First peak: maximum of c_plasma (for IV bolus this is at t=0)
-    cmax_first = max(c_plasma_list)
-    tmax_first_idx = c_plasma_list.index(cmax_first)
-    tmax_first = times[tmax_first_idx]
+        # dM_lumen/dt = k_b2g * M_bile - k_b2g * M_lumen
+        d_m_lumen = k_bile_to_gut_per_h * m_bile - k_bile_to_gut_per_h * m_lumen
 
-    # Secondary peak detection: local maximum after tmax_first_idx
-    # Must be > 10% of cmax_first
-    threshold = 0.1 * cmax_first
-    cmax_second = 0.0
-    tmax_second = 0.0
+        # Forward Euler update (clamp to 0)
+        m_gut = max(0.0, m_gut + d_m_gut * dt_h)
+        c_plasma = max(0.0, c_plasma + d_c_plasma * dt_h)
+        m_bile = max(0.0, m_bile + d_m_bile * dt_h)
+        m_lumen = max(0.0, m_lumen + d_m_lumen * dt_h)
 
-    search_start = tmax_first_idx + 1
-    for i in range(search_start + 1, len(c_plasma_list) - 1):
-        v_prev = c_plasma_list[i - 1]
-        v_curr = c_plasma_list[i]
-        v_next = c_plasma_list[i + 1]
-        if v_curr >= v_prev and v_curr >= v_next and v_curr > threshold:
-            if v_curr > cmax_second:
-                cmax_second = v_curr
-                tmax_second = times[i]
+    return times, c_plasma_list, c_bile_list, c_lumen_list
 
-    has_secondary_peak = cmax_second > threshold
 
-    # Fraction eliminated via feces
-    f_fecal = min(1.0, fecal_mass / dose_mg)
+def simulate_enterohepatic_circulation(
+    drug_name: str,
+    dose_mg: float,
+    cl_hepatic_L_per_h: float,
+    vd_L: float,
+    ka_absorption_per_h: float = 1.0,
+    f_bile_secretion: float = 0.3,
+    k_bile_to_gut_per_h: float = 0.5,
+    f_gut_reabsorption: float = 0.6,
+    t_end_h: float = 48.0,
+    dt_h: float = 0.05,
+) -> EnterohepaticResult:
+    """Simulate enterohepatic circulation with a 4-compartment Forward Euler model.
 
-    notes = (
-        f"EHC simulation for {drug_name}. "
-        f"f_biliary={fraction_biliary:.2f}. "
-        f"Gallbladder empties every {gall_cycle_h:.1f}h. "
-        f"Secondary peak: {'detected' if has_secondary_peak else 'not detected'}. "
-        f"AUC={auc:.2f} mg*h/L."
+    Parameters
+    ----------
+    drug_name:
+        Identifier for the drug.
+    dose_mg:
+        Oral dose in mg.
+    cl_hepatic_L_per_h:
+        Total hepatic clearance (L/h).
+    vd_L:
+        Volume of distribution (L).
+    ka_absorption_per_h:
+        First-order GI absorption rate constant (1/h).
+    f_bile_secretion:
+        Fraction of hepatic clearance directed into bile (0-1).
+    k_bile_to_gut_per_h:
+        Rate constant for bile release into gut lumen (1/h).
+    f_gut_reabsorption:
+        Fraction of lumen drug that is reabsorbed (0-1).
+    t_end_h:
+        Simulation end time (h).
+    dt_h:
+        Forward Euler time step (h).
+
+    Returns
+    -------
+    EnterohepaticResult
+    """
+    if dose_mg <= 0.0:
+        raise ValueError("dose_mg must be > 0")
+    if cl_hepatic_L_per_h <= 0.0:
+        raise ValueError("cl_hepatic_L_per_h must be > 0")
+    if vd_L <= 0.0:
+        raise ValueError("vd_L must be > 0")
+    if ka_absorption_per_h <= 0.0:
+        raise ValueError("ka_absorption_per_h must be > 0")
+    if not (0.0 <= f_bile_secretion <= 1.0):
+        raise ValueError("f_bile_secretion must be in [0, 1]")
+    if k_bile_to_gut_per_h <= 0.0:
+        raise ValueError("k_bile_to_gut_per_h must be > 0")
+    if not (0.0 <= f_gut_reabsorption <= 1.0):
+        raise ValueError("f_gut_reabsorption must be in [0, 1]")
+
+    # Run with EHC
+    times, c_plasma, c_bile, c_lumen = _run_simulation(
+        dose_mg=dose_mg,
+        cl_hepatic_L_per_h=cl_hepatic_L_per_h,
+        vd_L=vd_L,
+        ka_absorption_per_h=ka_absorption_per_h,
+        f_bile_secretion=f_bile_secretion,
+        k_bile_to_gut_per_h=k_bile_to_gut_per_h,
+        f_gut_reabsorption=f_gut_reabsorption,
+        t_end_h=t_end_h,
+        dt_h=dt_h,
     )
 
-    return EHCResult(
+    # Run without EHC for reference AUC
+    _, c_plasma_no_ehc, _, _ = _run_simulation(
+        dose_mg=dose_mg,
+        cl_hepatic_L_per_h=cl_hepatic_L_per_h,
+        vd_L=vd_L,
+        ka_absorption_per_h=ka_absorption_per_h,
+        f_bile_secretion=0.0,
+        k_bile_to_gut_per_h=k_bile_to_gut_per_h,
+        f_gut_reabsorption=f_gut_reabsorption,
+        t_end_h=t_end_h,
+        dt_h=dt_h,
+    )
+
+    auc_total = _trapezoidal_auc(times, c_plasma)
+    auc_no_ehc = _trapezoidal_auc(times, c_plasma_no_ehc)
+
+    if auc_no_ehc > 0.0:
+        ehc_increase_pct = (auc_total - auc_no_ehc) / auc_no_ehc * 100.0
+    else:
+        ehc_increase_pct = 0.0
+
+    # Cmax and tmax
+    cmax = max(c_plasma) if c_plasma else 0.0
+    cmax_idx = c_plasma.index(cmax) if cmax > 0.0 else 0
+    t_cmax = times[cmax_idx]
+
+    # Apparent half-life
+    t_half = _apparent_half_life(times, c_plasma, cmax, t_cmax)
+
+    # Count secondary plasma peaks (skip initial absorption)
+    n_secondary = _count_secondary_peaks(times, c_plasma, skip_before_h=2.0)
+
+    notes = (
+        f"EHC simulation: f_bile={f_bile_secretion:.2f}, "
+        f"f_reabs={f_gut_reabsorption:.2f}, "
+        f"k_bile_to_gut={k_bile_to_gut_per_h:.2f}/h. "
+        f"AUC increase due to EHC: {ehc_increase_pct:.1f}%."
+    )
+
+    return EnterohepaticResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        fraction_biliary=fraction_biliary,
         times_h=times,
-        c_plasma_mg_L=c_plasma_list,
-        a_bile_mg=a_bile_list,
-        a_gut_mg=a_gut_list,
-        cmax_first_peak=cmax_first,
-        tmax_first_peak_h=tmax_first,
-        cmax_second_peak=cmax_second,
-        tmax_second_peak_h=tmax_second,
-        auc=auc,
-        f_fecal_eliminated=f_fecal,
-        has_secondary_peak=has_secondary_peak,
+        c_plasma_mg_L=c_plasma,
+        c_bile_mg_L=c_bile,
+        c_gut_lumen_mg_L=c_lumen,
+        secondary_peaks=n_secondary,
+        auc_total_mg_h_per_L=auc_total,
+        auc_without_ehc_mg_h_per_L=auc_no_ehc,
+        ehc_auc_increase_pct=ehc_increase_pct,
+        t_half_apparent_h=t_half,
+        cmax_mg_L=cmax,
         notes=notes,
     )
 
 
-def compare_biliary_fractions(
+def compare_ehc_fractions(
     drug_name: str,
     dose_mg: float,
-    fractions: list[float],
-) -> list[EHCResult]:
-    """Run EHC simulation for multiple biliary fractions, sorted by cmax_second_peak descending."""
+    cl_hepatic_L_per_h: float,
+    vd_L: float,
+    f_bile_values: list | None = None,
+) -> list:
+    """Compare EHC simulations across a range of bile secretion fractions.
+
+    Parameters
+    ----------
+    drug_name:
+        Identifier for the drug.
+    dose_mg:
+        Oral dose in mg.
+    cl_hepatic_L_per_h:
+        Total hepatic clearance (L/h).
+    vd_L:
+        Volume of distribution (L).
+    f_bile_values:
+        List of f_bile_secretion values. Defaults to [0.0, 0.1, 0.3, 0.5, 0.7].
+
+    Returns
+    -------
+    list of EnterohepaticResult sorted by auc_total_mg_h_per_L descending.
+    """
+    if f_bile_values is None:
+        f_bile_values = [0.0, 0.1, 0.3, 0.5, 0.7]
+
     results = []
-    for f in fractions:
-        result = simulate_ehc(
+    for fb in f_bile_values:
+        result = simulate_enterohepatic_circulation(
             drug_name=drug_name,
             dose_mg=dose_mg,
-            fraction_biliary=f,
+            cl_hepatic_L_per_h=cl_hepatic_L_per_h,
+            vd_L=vd_L,
+            f_bile_secretion=fb,
         )
         results.append(result)
-    results.sort(key=lambda r: r.cmax_second_peak, reverse=True)
+
+    results.sort(key=lambda r: r.auc_total_mg_h_per_L, reverse=True)
     return results
+
+
+__all__ = [
+    "EnterohepaticResult",
+    "simulate_enterohepatic_circulation",
+    "compare_ehc_fractions",
+]
