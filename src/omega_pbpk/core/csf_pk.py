@@ -1,216 +1,208 @@
-"""Cerebrospinal Fluid (CSF) PK model.
+"""Phase 1037 — Drug Cerebrospinal Fluid PK (core/csf_pk.py).
 
-Models drug distribution for intrathecal, intracerebroventricular (ICV),
-or systemic (passive BBB crossing) drug administration.
-
-Uses forward-Euler ODE integration and manual trapezoidal AUC.
-No numpy or scipy — pure Python stdlib only.
+Models drug penetration into CSF relevant for CNS drugs and intrathecal therapy.
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
-@dataclass(frozen=True)
+def _trapz(times: list[float], values: list[float]) -> float:
+    """Manual trapezoidal integration."""
+    if len(times) < 2:
+        return 0.0
+    total = 0.0
+    for i in range(len(times) - 1):
+        total += 0.5 * (values[i] + values[i + 1]) * (times[i + 1] - times[i])
+    return total
+
+
+@dataclass
 class CSFPKResult:
-    """Result of CSF pharmacokinetic simulation."""
+    """Result of CSF PK simulation."""
 
     drug_name: str
     dose_mg: float
     route: str
-    times_h: list[float]
-    c_csf_mg_L: list[float]
-    c_brain_mg_L: list[float]
-    c_plasma_mg_L: list[float]
-    cmax_csf_mg_L: float
-    tmax_csf_h: float
-    auc_csf: float
-    cmax_brain_mg_L: float
-    auc_brain: float
-    brain_to_csf_ratio: float
-    csf_t_half_h: float
-    notes: str
-
-
-def _trapz(y: list[float], x: list[float]) -> float:
-    """Manual trapezoidal integration."""
-    total = 0.0
-    for i in range(1, len(x)):
-        total += 0.5 * (y[i] + y[i - 1]) * (x[i] - x[i - 1])
-    return total
+    times_h: list = field(default_factory=list)
+    c_plasma_mg_L: list = field(default_factory=list)
+    c_csf_mg_L: list = field(default_factory=list)
+    c_brain_mg_L: list = field(default_factory=list)
+    auc_plasma: float = 0.0
+    auc_csf: float = 0.0
+    cmax_csf_mg_L: float = 0.0
+    tmax_csf_h: float = 0.0
+    csf_to_plasma_ratio: float = 0.0
+    bbb_penetration: str = "low"
+    t_half_csf_h: float = 0.0
+    notes: str = ""
 
 
 def simulate_csf_pk(
     drug_name: str,
     dose_mg: float,
-    route: str = "intrathecal",
-    v_csf_L: float = 0.14,
-    k_csf_drain_per_h: float = 0.15,
-    k_cp_per_h: float = 0.1,
-    k_pc_per_h: float = 0.05,
-    bbb_perm_per_h: float = 0.01,
-    cl_sys_L_per_h: float = 10.0,
-    vd_sys_L: float = 50.0,
-    t_end_h: float = 24.0,
-    dt_h: float = 0.05,
+    route: str = "systemic",
+    mw_Da: float = 300.0,
+    logp: float = 2.0,
+    fu_plasma: float = 0.3,
+    cl_sys_L_per_h: float = 5.0,
+    vd_sys_L: float = 30.0,
+    v_csf_mL: float = 140.0,
+    csf_turnover_per_h: float = 0.25,
+    kp_bbb: float = 0.0,
+    t_end_h: float = 48.0,
+    dt_h: float = 0.1,
 ) -> CSFPKResult:
-    """Simulate CSF pharmacokinetics via forward-Euler ODE.
+    """Simulate drug PK in cerebrospinal fluid (CSF).
 
     Parameters
     ----------
-    drug_name:
-        Name of the drug being simulated.
-    dose_mg:
-        Administered dose in mg. Must be > 0.
-    route:
-        Dosing route: "intrathecal", "ICV", or "systemic".
-    v_csf_L:
-        CSF volume in litres (default 0.14 L = 140 mL).
-    k_csf_drain_per_h:
-        CSF bulk-flow turnover rate constant (1/h).
-    k_cp_per_h:
-        CSF-to-brain parenchyma transfer rate (1/h).
-    k_pc_per_h:
-        Brain-to-CSF back-transfer rate (1/h).
-    bbb_perm_per_h:
-        BBB permeability rate for systemic→CSF entry (1/h).
-    cl_sys_L_per_h:
-        Systemic clearance (L/h).
-    vd_sys_L:
-        Systemic volume of distribution (L).
-    t_end_h:
-        Simulation duration (h).
-    dt_h:
-        Forward-Euler time step (h).
+    drug_name: Name of the drug.
+    dose_mg: Dose in mg.
+    route: "systemic" or "intrathecal".
+    mw_Da: Molecular weight in Daltons.
+    logp: Octanol-water partition coefficient.
+    fu_plasma: Unbound fraction in plasma (0-1].
+    cl_sys_L_per_h: Systemic clearance in L/h.
+    vd_sys_L: Volume of distribution (systemic) in L.
+    v_csf_mL: CSF volume in mL (default ~140 mL).
+    csf_turnover_per_h: CSF production/absorption rate constant (/h).
+    kp_bbb: BBB partition coefficient override (0 = compute from logP/MW/fu).
+    t_end_h: Simulation end time in hours.
+    dt_h: Time step in hours.
 
     Returns
     -------
-    CSFPKResult
+    CSFPKResult with plasma, CSF, and brain time-concentration profiles.
     """
+    # Validation
     if dose_mg <= 0:
-        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
-    if v_csf_L <= 0:
-        raise ValueError(f"v_csf_L must be > 0, got {v_csf_L}")
-    valid_routes = {"intrathecal", "ICV", "systemic"}
-    if route not in valid_routes:
-        raise ValueError(f"route must be one of {valid_routes}, got {route!r}")
+        raise ValueError("dose_mg must be > 0")
+    if cl_sys_L_per_h <= 0:
+        raise ValueError("cl_sys_L_per_h must be > 0")
+    if vd_sys_L <= 0:
+        raise ValueError("vd_sys_L must be > 0")
+    if v_csf_mL <= 0:
+        raise ValueError("v_csf_mL must be > 0")
+    if route not in {"systemic", "intrathecal"}:
+        raise ValueError(f"route must be 'systemic' or 'intrathecal', got {route!r}")
+    if kp_bbb < 0:
+        raise ValueError("kp_bbb must be >= 0")
 
-    v_brain_L = 1.3  # ~1300 mL brain volume
-    ke_sys = cl_sys_L_per_h / vd_sys_L
+    # Compute BBB Kp if not provided
+    if kp_bbb == 0.0:
+        kp_bbb = max(0.01, min(2.0, (10 ** (0.5 * logp - 0.01 * mw_Da)) * fu_plasma))
 
-    # Initial conditions depend on route
-    if route in {"intrathecal", "ICV"}:
-        a_csf = dose_mg
-        a_brain = 0.0
-        a_plasma = 0.0
-    else:  # systemic
-        a_csf = 0.0
-        a_brain = 0.0
-        a_plasma = dose_mg
+    v_csf_L = v_csf_mL / 1000.0
+
+    # Rate constants
+    ke = cl_sys_L_per_h / vd_sys_L  # plasma elimination rate (/h)
+
+    # Plasma -> CSF transfer (slow passive, scaled by BBB Kp)
+    k12 = (0.1 / vd_sys_L) * kp_bbb  # /h
+
+    # CSF -> plasma drainage
+    k21 = csf_turnover_per_h  # /h
+
+    # Brain tissue transfer rates
+    k_br_in = k12 * 2.0  # /h (faster exchange than CSF)
+    kp_brain_blood = kp_bbb * 1.5
+    k_br_out = k_br_in / max(kp_brain_blood, 1e-9)  # /h
+
+    # Volume ratio for mass-conservation in CSF ODE
+    vol_ratio = vd_sys_L / v_csf_L
+
+    # Initial conditions
+    if route == "systemic":
+        c_plasma = dose_mg / vd_sys_L
+        c_csf = 0.0
+        c_brain = 0.0
+    else:  # intrathecal
+        c_plasma = 0.0
+        c_csf = dose_mg / v_csf_L
+        c_brain = 0.0
 
     times: list[float] = []
-    c_csf_list: list[float] = []
-    c_brain_list: list[float] = []
-    c_plasma_list: list[float] = []
+    cp_list: list[float] = []
+    ccsf_list: list[float] = []
+    cbrain_list: list[float] = []
 
     t = 0.0
-    n_steps = int(math.ceil(t_end_h / dt_h))
+    n_steps = max(1, round(t_end_h / dt_h))
 
-    for _step in range(n_steps + 1):
-        c_csf = a_csf / v_csf_L
-        c_brain = a_brain / v_brain_L
-        c_plasma = a_plasma / vd_sys_L
-
+    for _i in range(n_steps + 1):
         times.append(t)
-        c_csf_list.append(c_csf)
-        c_brain_list.append(c_brain)
-        c_plasma_list.append(c_plasma)
+        cp_list.append(c_plasma)
+        ccsf_list.append(c_csf)
+        cbrain_list.append(c_brain)
 
-        if _step == n_steps:
+        if _i == n_steps:
             break
 
-        # ODEs (amounts)
-        d_csf = (
-            -k_csf_drain_per_h * a_csf
-            - k_cp_per_h * a_csf
-            + k_pc_per_h * a_brain
-            + bbb_perm_per_h * a_plasma
-        )
-        d_brain = k_cp_per_h * a_csf - k_pc_per_h * a_brain
-        d_plasma = k_csf_drain_per_h * a_csf - ke_sys * a_plasma - bbb_perm_per_h * a_plasma
+        if route == "systemic":
+            # dC_plasma/dt = -ke*Cp - k12*Cp + k21*Ccsf
+            # dC_csf/dt = k12*Cp*(Vd/Vcsf) - k21*Ccsf - csf_turnover*Ccsf
+            # dC_brain/dt = k_br_in*Cp - k_br_out*Cbrain
+            dcp = -ke * c_plasma - k12 * c_plasma + k21 * c_csf
+            dccsf = k12 * c_plasma * vol_ratio - k21 * c_csf - csf_turnover_per_h * c_csf
+            dcbrain = k_br_in * c_plasma - k_br_out * c_brain
+        else:
+            # Intrathecal: CSF drains to plasma
+            # dC_csf/dt = -csf_turnover*Ccsf
+            # dC_plasma/dt = csf_turnover*Ccsf*(Vcsf/Vd) - ke*Cp
+            # dC_brain/dt = k_br_in*Cp - k_br_out*Cbrain
+            dcp = csf_turnover_per_h * c_csf * (v_csf_L / vd_sys_L) - ke * c_plasma
+            dccsf = -csf_turnover_per_h * c_csf
+            dcbrain = k_br_in * c_plasma - k_br_out * c_brain
 
-        a_csf = max(0.0, a_csf + d_csf * dt_h)
-        a_brain = max(0.0, a_brain + d_brain * dt_h)
-        a_plasma = max(0.0, a_plasma + d_plasma * dt_h)
+        c_plasma = max(0.0, c_plasma + dcp * dt_h)
+        c_csf = max(0.0, c_csf + dccsf * dt_h)
+        c_brain = max(0.0, c_brain + dcbrain * dt_h)
+        t += dt_h
 
-        t = min(t + dt_h, t_end_h)
+    auc_plasma = _trapz(times, cp_list)
+    auc_csf = _trapz(times, ccsf_list)
 
-    # Derived metrics
-    cmax_csf = max(c_csf_list)
-    tmax_csf_idx = c_csf_list.index(cmax_csf)
-    tmax_csf = times[tmax_csf_idx]
+    cmax_csf = max(ccsf_list)
+    tmax_csf = times[ccsf_list.index(cmax_csf)]
 
-    cmax_brain = max(c_brain_list)
-    auc_csf = _trapz(c_csf_list, times)
-    auc_brain = _trapz(c_brain_list, times)
-
-    csf_t_half = math.log(2.0) / k_csf_drain_per_h
-
-    if auc_csf > 0:
-        brain_to_csf_ratio = auc_brain / auc_csf
+    if auc_plasma > 0:
+        csf_to_plasma_ratio = auc_csf / auc_plasma
     else:
-        brain_to_csf_ratio = 0.0
+        csf_to_plasma_ratio = 0.0
 
-    if brain_to_csf_ratio > 1.0:
-        notes = "High brain penetration from CSF"
-    elif brain_to_csf_ratio > 0.3:
-        notes = "Moderate brain penetration"
+    # BBB penetration classification
+    if csf_to_plasma_ratio > 0.3:
+        bbb_penetration = "high"
+    elif csf_to_plasma_ratio >= 0.1:
+        bbb_penetration = "moderate"
     else:
-        notes = "Limited brain penetration from CSF"
+        bbb_penetration = "low"
+
+    # CSF half-life approximation
+    t_half_csf = math.log(2) / max(csf_turnover_per_h, 1e-9)
+
+    notes = (
+        f"BBB Kp={kp_bbb:.3f}; ke={ke:.3f}/h; k12={k12:.4f}/h; "
+        f"CSF turnover t1/2={t_half_csf:.1f}h; route={route}"
+    )
 
     return CSFPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
         route=route,
         times_h=times,
-        c_csf_mg_L=c_csf_list,
-        c_brain_mg_L=c_brain_list,
-        c_plasma_mg_L=c_plasma_list,
+        c_plasma_mg_L=cp_list,
+        c_csf_mg_L=ccsf_list,
+        c_brain_mg_L=cbrain_list,
+        auc_plasma=auc_plasma,
+        auc_csf=auc_csf,
         cmax_csf_mg_L=cmax_csf,
         tmax_csf_h=tmax_csf,
-        auc_csf=auc_csf,
-        cmax_brain_mg_L=cmax_brain,
-        auc_brain=auc_brain,
-        brain_to_csf_ratio=brain_to_csf_ratio,
-        csf_t_half_h=csf_t_half,
+        csf_to_plasma_ratio=csf_to_plasma_ratio,
+        bbb_penetration=bbb_penetration,
+        t_half_csf_h=t_half_csf,
         notes=notes,
     )
-
-
-def compare_csf_routes(
-    drug_name: str,
-    dose_mg: float,
-    **kwargs,
-) -> list[CSFPKResult]:
-    """Simulate all three CSF routes and return results sorted by auc_csf descending.
-
-    Parameters
-    ----------
-    drug_name:
-        Drug name.
-    dose_mg:
-        Dose in mg (same for all routes).
-    **kwargs:
-        Additional keyword arguments forwarded to :func:`simulate_csf_pk`.
-
-    Returns
-    -------
-    list[CSFPKResult]
-        Three results sorted by ``auc_csf`` in descending order.
-    """
-    routes = ["intrathecal", "ICV", "systemic"]
-    results = [simulate_csf_pk(drug_name, dose_mg, route=r, **kwargs) for r in routes]
-    results.sort(key=lambda r: r.auc_csf, reverse=True)
-    return results

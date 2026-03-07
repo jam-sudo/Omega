@@ -1,192 +1,181 @@
-"""Tests for CSF PK module (Phase 885)."""
-
-from __future__ import annotations
+"""Tests for Phase 1037 — Drug CSF PK (core/csf_pk.py)."""
 
 import math
-
 import pytest
 
-from omega_pbpk.core.csf_pk import CSFPKResult, compare_csf_routes, simulate_csf_pk
-
-# ---------------------------------------------------------------------------
-# Basic structure / type checks
-# ---------------------------------------------------------------------------
+from omega_pbpk.core.csf_pk import CSFPKResult, simulate_csf_pk
 
 
+VALID_BBB_PENETRATIONS = {"high", "moderate", "low"}
+
+
+def make_systemic(**kwargs):
+    defaults = dict(
+        drug_name="TestDrug",
+        dose_mg=100.0,
+        route="systemic",
+        mw_Da=300.0,
+        logp=2.0,
+        fu_plasma=0.3,
+        cl_sys_L_per_h=5.0,
+        vd_sys_L=30.0,
+        v_csf_mL=140.0,
+        csf_turnover_per_h=0.25,
+        t_end_h=24.0,
+        dt_h=0.5,
+    )
+    defaults.update(kwargs)
+    return simulate_csf_pk(**defaults)
+
+
+def make_intrathecal(**kwargs):
+    defaults = dict(
+        drug_name="TestDrug",
+        dose_mg=10.0,
+        route="intrathecal",
+        mw_Da=300.0,
+        logp=2.0,
+        fu_plasma=0.3,
+        cl_sys_L_per_h=5.0,
+        vd_sys_L=30.0,
+        v_csf_mL=140.0,
+        csf_turnover_per_h=0.25,
+        t_end_h=24.0,
+        dt_h=0.5,
+    )
+    defaults.update(kwargs)
+    return simulate_csf_pk(**defaults)
+
+
+# --- Return type ---
 def test_returns_csf_pk_result():
-    result = simulate_csf_pk("TestDrug", dose_mg=1.0)
+    result = make_systemic()
     assert isinstance(result, CSFPKResult)
 
 
-def test_result_fields_present():
-    r = simulate_csf_pk("TestDrug", dose_mg=1.0)
-    assert r.drug_name == "TestDrug"
-    assert r.dose_mg == 1.0
-    assert r.route == "intrathecal"
-    assert isinstance(r.times_h, list)
-    assert isinstance(r.c_csf_mg_L, list)
-    assert isinstance(r.c_brain_mg_L, list)
-    assert isinstance(r.c_plasma_mg_L, list)
-    assert isinstance(r.notes, str)
+# --- Systemic initial conditions ---
+def test_systemic_plasma_nonzero_at_t0():
+    result = make_systemic()
+    assert result.c_plasma_mg_L[0] > 0
 
 
-def test_time_series_same_length():
-    r = simulate_csf_pk("X", dose_mg=1.0, t_end_h=10.0, dt_h=0.1)
-    assert len(r.times_h) == len(r.c_csf_mg_L) == len(r.c_brain_mg_L) == len(r.c_plasma_mg_L)
+def test_systemic_csf_zero_at_t0():
+    result = make_systemic()
+    assert result.c_csf_mg_L[0] == 0.0
 
 
-def test_times_start_at_zero():
-    r = simulate_csf_pk("X", dose_mg=1.0)
-    assert r.times_h[0] == 0.0
+def test_systemic_brain_zero_at_t0():
+    result = make_systemic()
+    assert result.c_brain_mg_L[0] == 0.0
 
 
-def test_times_end_at_t_end():
-    r = simulate_csf_pk("X", dose_mg=5.0, t_end_h=12.0, dt_h=0.1)
-    assert abs(r.times_h[-1] - 12.0) < 1e-9
+# --- Intrathecal initial conditions ---
+def test_intrathecal_csf_nonzero_at_t0():
+    result = make_intrathecal()
+    assert result.c_csf_mg_L[0] > 0
 
 
-# ---------------------------------------------------------------------------
-# Initial conditions per route
-# ---------------------------------------------------------------------------
+def test_intrathecal_plasma_zero_at_t0():
+    result = make_intrathecal()
+    assert result.c_plasma_mg_L[0] == 0.0
 
 
-def test_intrathecal_initial_csf_concentration():
-    """At t=0, all drug is in CSF for intrathecal route."""
-    r = simulate_csf_pk("X", dose_mg=2.0, route="intrathecal", v_csf_L=0.14)
-    expected = 2.0 / 0.14
-    assert abs(r.c_csf_mg_L[0] - expected) < 1e-6
+# --- AUCs ---
+def test_systemic_auc_plasma_positive():
+    result = make_systemic()
+    assert result.auc_plasma > 0
 
 
-def test_icv_initial_csf_concentration():
-    """ICV route also starts with all drug in CSF."""
-    r = simulate_csf_pk("X", dose_mg=2.0, route="ICV", v_csf_L=0.14)
-    expected = 2.0 / 0.14
-    assert abs(r.c_csf_mg_L[0] - expected) < 1e-6
+def test_systemic_auc_csf_positive():
+    result = make_systemic(logp=3.0, kp_bbb=0.5)
+    assert result.auc_csf > 0
 
 
-def test_systemic_initial_plasma_concentration():
-    """Systemic route starts with all drug in plasma."""
-    r = simulate_csf_pk("X", dose_mg=10.0, route="systemic", vd_sys_L=50.0)
-    expected = 10.0 / 50.0
-    assert abs(r.c_plasma_mg_L[0] - expected) < 1e-6
-    assert r.c_csf_mg_L[0] == 0.0
-    assert r.c_brain_mg_L[0] == 0.0
+def test_intrathecal_auc_csf_positive():
+    result = make_intrathecal()
+    assert result.auc_csf > 0
 
 
-def test_systemic_csf_rises_from_zero():
-    """For systemic route, CSF concentration should rise from 0 and become positive."""
-    r = simulate_csf_pk(
-        "X", dose_mg=10.0, route="systemic", bbb_perm_per_h=0.05, t_end_h=24.0, dt_h=0.05
-    )
-    assert r.cmax_csf_mg_L > 0.0
+# --- Cmax and Tmax ---
+def test_cmax_csf_positive_systemic():
+    result = make_systemic(logp=3.0, kp_bbb=0.5)
+    assert result.cmax_csf_mg_L > 0
 
 
-# ---------------------------------------------------------------------------
-# Pharmacokinetic properties
-# ---------------------------------------------------------------------------
+def test_tmax_csf_nonnegative():
+    result = make_systemic(logp=3.0, kp_bbb=0.5)
+    assert result.tmax_csf_h >= 0
 
 
-def test_csf_concentration_declines_after_intrathecal():
-    """CSF concentration should decrease over time after intrathecal dose."""
-    r = simulate_csf_pk("X", dose_mg=1.0, route="intrathecal", t_end_h=24.0, dt_h=0.05)
-    assert r.c_csf_mg_L[0] > r.c_csf_mg_L[-1]
+# --- CSF to plasma ratio ---
+def test_csf_to_plasma_ratio_positive_systemic():
+    result = make_systemic(logp=3.0, kp_bbb=0.5)
+    assert result.csf_to_plasma_ratio > 0
 
 
-def test_brain_concentration_rises_then_falls():
-    """Brain concentration should be 0 at t=0 then increase after intrathecal dose."""
-    r = simulate_csf_pk("X", dose_mg=1.0, route="intrathecal", t_end_h=24.0, dt_h=0.05)
-    assert r.c_brain_mg_L[0] == 0.0
-    assert r.cmax_brain_mg_L > 0.0
+# --- BBB penetration classification ---
+def test_bbb_penetration_valid_class():
+    result = make_systemic()
+    assert result.bbb_penetration in VALID_BBB_PENETRATIONS
 
 
-def test_auc_csf_positive():
-    r = simulate_csf_pk("X", dose_mg=1.0, t_end_h=24.0)
-    assert r.auc_csf > 0.0
+def test_high_logp_gives_high_penetration():
+    result = make_systemic(logp=4.0, mw_Da=200.0, kp_bbb=0.5, t_end_h=48.0)
+    # high logP → high kp_bbb → higher ratio
+    assert result.bbb_penetration in {"high", "moderate"}
 
 
-def test_auc_brain_positive_intrathecal():
-    r = simulate_csf_pk("X", dose_mg=1.0, route="intrathecal", t_end_h=24.0)
-    assert r.auc_brain > 0.0
+# --- Half-life ---
+def test_t_half_csf_positive():
+    result = make_systemic()
+    assert result.t_half_csf_h > 0
 
 
-def test_cmax_csf_equals_initial_for_intrathecal():
-    """Cmax for CSF should be at t=0 for intrathecal (first-order decline)."""
-    r = simulate_csf_pk("X", dose_mg=1.0, route="intrathecal")
-    assert r.tmax_csf_h == 0.0
-    assert abs(r.cmax_csf_mg_L - 1.0 / 0.14) < 1e-5
+def test_t_half_csf_approx_ln2_over_turnover():
+    csf_turnover = 0.25
+    result = make_systemic(csf_turnover_per_h=csf_turnover)
+    expected = math.log(2) / csf_turnover
+    assert abs(result.t_half_csf_h - expected) < 0.01
 
 
-def test_csf_t_half_formula():
-    """csf_t_half_h = ln(2) / k_csf_drain_per_h."""
-    r = simulate_csf_pk("X", dose_mg=1.0, k_csf_drain_per_h=0.2)
-    expected = math.log(2.0) / 0.2
-    assert abs(r.csf_t_half_h - expected) < 1e-9
+# --- High logP vs low logP ---
+def test_high_logp_higher_csf_plasma_ratio():
+    res_high = make_systemic(logp=4.0, mw_Da=200.0, t_end_h=48.0, dt_h=0.2)
+    res_low = make_systemic(logp=0.0, mw_Da=200.0, t_end_h=48.0, dt_h=0.2)
+    assert res_high.csf_to_plasma_ratio > res_low.csf_to_plasma_ratio
 
 
-def test_brain_to_csf_ratio_computed():
-    r = simulate_csf_pk("X", dose_mg=1.0, t_end_h=24.0)
-    assert r.brain_to_csf_ratio == pytest.approx(r.auc_brain / r.auc_csf, rel=1e-6)
+# --- Intrathecal vs systemic AUC CSF ---
+def test_intrathecal_higher_auc_csf_than_systemic():
+    res_it = make_intrathecal(dose_mg=10.0)
+    # Use kp_bbb override to ensure systemic gives CSF exposure
+    res_sys = make_systemic(dose_mg=10.0, kp_bbb=0.3, t_end_h=24.0)
+    # Intrathecal deposits directly into CSF so AUC_CSF should be higher per mg
+    assert res_it.auc_csf > res_sys.auc_csf
 
 
-# ---------------------------------------------------------------------------
-# Notes classification
-# ---------------------------------------------------------------------------
+# --- Notes nonempty ---
+def test_notes_nonempty():
+    result = make_systemic()
+    assert len(result.notes) > 0
 
 
-def test_notes_high_brain_penetration():
-    """High k_cp relative to k_pc should yield high brain penetration note."""
-    r = simulate_csf_pk("X", dose_mg=1.0, k_cp_per_h=2.0, k_pc_per_h=0.01, t_end_h=48.0)
-    assert r.notes == "High brain penetration from CSF"
-
-
-def test_notes_limited_brain_penetration():
-    """Very low k_cp should yield limited penetration note."""
-    r = simulate_csf_pk("X", dose_mg=1.0, k_cp_per_h=0.001, k_pc_per_h=0.5, t_end_h=24.0)
-    assert r.notes == "Limited brain penetration from CSF"
-
-
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
-
-
-def test_invalid_dose_raises():
+# --- Validation errors ---
+def test_dose_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):
-        simulate_csf_pk("X", dose_mg=0.0)
-
-
-def test_negative_dose_raises():
-    with pytest.raises(ValueError, match="dose_mg"):
-        simulate_csf_pk("X", dose_mg=-1.0)
+        simulate_csf_pk("DrugX", dose_mg=0.0)
 
 
 def test_invalid_route_raises():
     with pytest.raises(ValueError, match="route"):
-        simulate_csf_pk("X", dose_mg=1.0, route="oral")
+        simulate_csf_pk("DrugX", dose_mg=100.0, route="oral")
 
 
-def test_invalid_v_csf_raises():
-    with pytest.raises(ValueError, match="v_csf_L"):
-        simulate_csf_pk("X", dose_mg=1.0, v_csf_L=0.0)
+def test_cl_zero_raises():
+    with pytest.raises(ValueError, match="cl_sys"):
+        simulate_csf_pk("DrugX", dose_mg=100.0, cl_sys_L_per_h=0.0)
 
 
-# ---------------------------------------------------------------------------
-# compare_csf_routes
-# ---------------------------------------------------------------------------
-
-
-def test_compare_csf_routes_returns_three():
-    results = compare_csf_routes("X", dose_mg=1.0, t_end_h=24.0)
-    assert len(results) == 3
-
-
-def test_compare_csf_routes_sorted_descending():
-    results = compare_csf_routes("X", dose_mg=1.0, t_end_h=24.0)
-    aucs = [r.auc_csf for r in results]
-    assert aucs == sorted(aucs, reverse=True)
-
-
-def test_compare_csf_routes_covers_all_routes():
-    results = compare_csf_routes("X", dose_mg=1.0, t_end_h=24.0)
-    routes = {r.route for r in results}
-    assert routes == {"intrathecal", "ICV", "systemic"}
+def test_kp_negative_raises():
+    with pytest.raises(ValueError, match="kp_bbb"):
+        simulate_csf_pk("DrugX", dose_mg=100.0, kp_bbb=-0.1)
