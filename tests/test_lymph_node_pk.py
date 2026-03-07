@@ -1,4 +1,4 @@
-"""Tests for lymph node drug accumulation module (Phase 163)."""
+"""Tests for lymph node drug distribution — Phase 734."""
 
 from __future__ import annotations
 
@@ -6,162 +6,33 @@ import pytest
 
 from omega_pbpk.core.lymph_node_pk import (
     LymphNodePKResult,
-    compare_formulation_lymph,
+    assess_lymph_targeting,
     simulate_lymph_node_pk,
 )
 
-# Default parameters for convenience
-DEFAULTS = dict(
-    drug_name="TestDrug",
-    dose_mg=100.0,
-    cl_L_per_h=1.0,
-    vd_systemic_L=10.0,
-)
+
+def _run(**kwargs):
+    defaults = dict(drug_name="TestDrug", dose_mg=10.0)
+    defaults.update(kwargs)
+    return simulate_lymph_node_pk(**defaults)
 
 
-def _run(**overrides):
-    kw = {**DEFAULTS, **overrides}
-    return simulate_lymph_node_pk(**kw)
+# --- Basic result ---
 
 
-# --- 1. Basic simulation ---
-
-
-def test_basic_simulation_returns_result():
+def test_returns_result_instance():
     result = _run()
     assert isinstance(result, LymphNodePKResult)
 
 
-def test_result_fields_populated():
+def test_cmax_plasma_positive():
     result = _run()
-    assert result.drug_name == "TestDrug"
-    assert result.dose_mg == 100.0
-    assert result.times_h is not None
-    assert result.c_plasma_mg_L is not None
-    assert result.c_lymph_mg_L is not None
-    assert result.cmax_plasma is not None
-    assert result.cmax_lymph is not None
-    assert result.auc_plasma is not None
-    assert result.auc_lymph is not None
-    assert result.lymph_to_plasma_ratio is not None
-    assert result.lymph_enrichment_factor is not None
-    assert result.t_half_lymph_h is not None
-    assert result.notes is not None
+    assert result.cmax_plasma > 0
 
 
-def test_times_length_matches_concentrations():
+def test_cmax_node_mg_positive():
     result = _run()
-    assert len(result.times_h) == len(result.c_plasma_mg_L)
-    assert len(result.times_h) == len(result.c_lymph_mg_L)
-
-
-# --- Validation ---
-
-
-def test_negative_dose_raises():
-    with pytest.raises(ValueError, match="dose_mg"):
-        _run(dose_mg=-10.0)
-
-
-def test_zero_dose_raises():
-    with pytest.raises(ValueError, match="dose_mg"):
-        _run(dose_mg=0.0)
-
-
-def test_negative_clearance_raises():
-    with pytest.raises(ValueError, match="cl_L_per_h"):
-        _run(cl_L_per_h=-1.0)
-
-
-def test_negative_vd_raises():
-    with pytest.raises(ValueError, match="vd_systemic_L"):
-        _run(vd_systemic_L=-5.0)
-
-
-def test_f_lymph_uptake_out_of_range_raises():
-    with pytest.raises(ValueError, match="f_lymph_uptake"):
-        _run(f_lymph_uptake=1.5)
-    with pytest.raises(ValueError, match="f_lymph_uptake"):
-        _run(f_lymph_uptake=-0.1)
-
-
-def test_negative_lymph_volume_raises():
-    with pytest.raises(ValueError, match="lymph_volume_L"):
-        _run(lymph_volume_L=-1.0)
-
-
-# --- PK behaviour ---
-
-
-def test_higher_k_lymph_in_increases_lymph_cmax():
-    low = _run(k_lymph_in_per_h=0.01)
-    high = _run(k_lymph_in_per_h=0.5)
-    assert high.cmax_lymph > low.cmax_lymph
-
-
-def test_lower_k_lymph_out_increases_lymph_retention():
-    fast_out = _run(k_lymph_out_per_h=0.5)
-    slow_out = _run(k_lymph_out_per_h=0.005)
-    assert slow_out.t_half_lymph_h > fast_out.t_half_lymph_h
-
-
-def test_lymph_equilibrates_slower_than_plasma():
-    result = _run(f_lymph_uptake=0.0)
-    # Lymph peak should occur after time 0 (plasma peaks at t=0 for IV bolus)
-    c_lymph = result.c_lymph_mg_L
-    idx_max = c_lymph.index(max(c_lymph))
-    assert idx_max > 0
-
-
-def test_linear_pk_dose_proportionality():
-    r1 = _run(dose_mg=50.0)
-    r2 = _run(dose_mg=100.0)
-    ratio = r2.auc_plasma / r1.auc_plasma
-    assert abs(ratio - 2.0) < 0.1
-
-
-def test_mass_balance_initial():
-    dose = 100.0
-    f = 0.1
-    result = _run(dose_mg=dose, f_lymph_uptake=f)
-    # At t=0: plasma amount + lymph amount = dose
-    a_plasma_0 = result.c_plasma_mg_L[0] * 10.0  # vd_systemic_L=10
-    a_lymph_0 = result.c_lymph_mg_L[0] * 2.0  # lymph_volume_L=2
-    assert abs(a_plasma_0 + a_lymph_0 - dose) < 1e-6
-
-
-def test_plasma_concentration_starts_positive():
-    result = _run()
-    # With default f_lymph_uptake=0.1, 90% goes to plasma
-    assert result.c_plasma_mg_L[0] > 0
-
-
-# --- Derived metrics ---
-
-
-def test_lymph_to_plasma_ratio_positive():
-    result = _run()
-    assert result.lymph_to_plasma_ratio > 0
-
-
-def test_enrichment_factor_computed():
-    result = _run()
-    assert result.lymph_enrichment_factor > 0
-
-
-def test_t_half_lymph_positive():
-    result = _run()
-    assert result.t_half_lymph_h > 0
-
-
-def test_high_accumulation_note():
-    # Very high k_lymph_in and low k_lymph_out should give high ratio
-    result = _run(
-        k_lymph_in_per_h=2.0,
-        k_lymph_out_per_h=0.001,
-        t_end_h=200.0,
-    )
-    assert any("High lymph node accumulation" in n for n in result.notes)
+    assert result.cmax_node_mg > 0
 
 
 def test_auc_plasma_positive():
@@ -169,39 +40,137 @@ def test_auc_plasma_positive():
     assert result.auc_plasma > 0
 
 
-def test_auc_lymph_positive():
+def test_cumulative_node_exposure_positive():
     result = _run()
-    assert result.auc_lymph > 0
+    assert result.cumulative_node_exposure_mg_h > 0
 
 
-def test_concentrations_non_negative():
+def test_notes_nonempty():
     result = _run()
-    assert all(c >= 0 for c in result.c_plasma_mg_L)
-    assert all(c >= 0 for c in result.c_lymph_mg_L)
+    assert isinstance(result.notes, str)
+    assert len(result.notes) > 0
 
 
-# --- compare_formulation_lymph ---
+def test_f_via_lymphatics_stored():
+    result = _run(f_lymph=0.2)
+    assert result.f_via_lymphatics == pytest.approx(0.2)
 
 
-def test_compare_formulation_returns_list():
-    formulations = [
-        {"name": "FormA", "k_lymph_in_per_h": 0.05},
-        {"name": "FormB", "k_lymph_in_per_h": 0.2},
-    ]
-    results = compare_formulation_lymph("TestDrug", 100.0, formulations)
-    assert isinstance(results, list)
-    assert len(results) == 2
+# --- Lymphatic fraction effects ---
 
 
-def test_compare_formulation_empty_raises():
-    with pytest.raises(ValueError, match="formulations"):
-        compare_formulation_lymph("TestDrug", 100.0, [])
+def test_higher_f_lymph_higher_node_accumulation():
+    low = _run(f_lymph=0.05)
+    high = _run(f_lymph=0.5)
+    assert high.cmax_node_mg > low.cmax_node_mg
 
 
-def test_compare_formulation_different_results():
-    formulations = [
-        {"name": "FormA", "k_lymph_in_per_h": 0.01},
-        {"name": "FormB", "k_lymph_in_per_h": 0.5},
-    ]
-    results = compare_formulation_lymph("TestDrug", 100.0, formulations)
-    assert results[0].cmax_lymph != results[1].cmax_lymph
+def test_f_lymph_zero_gives_zero_node_accumulation():
+    result = _run(f_lymph=0.0)
+    assert result.cmax_node_mg == pytest.approx(0.0, abs=1e-10)
+
+
+# --- Linear dose scaling ---
+
+
+def test_linear_dose_scaling_plasma():
+    r1 = _run(dose_mg=5.0)
+    r2 = _run(dose_mg=10.0)
+    ratio = r2.cmax_plasma / r1.cmax_plasma
+    assert abs(ratio - 2.0) < 0.05
+
+
+def test_linear_dose_scaling_node():
+    r1 = _run(dose_mg=5.0)
+    r2 = _run(dose_mg=10.0)
+    ratio = r2.cmax_node_mg / r1.cmax_node_mg
+    assert abs(ratio - 2.0) < 0.05
+
+
+# --- Time arrays ---
+
+
+def test_times_and_lists_same_length():
+    result = _run()
+    assert len(result.times_h) == len(result.c_plasma_mg_L)
+    assert len(result.times_h) == len(result.a_node_mg)
+    assert len(result.times_h) == len(result.a_inj_mg)
+
+
+def test_injection_site_decreases():
+    result = _run()
+    # Injection site amount should decrease over time
+    assert result.a_inj_mg[0] >= result.a_inj_mg[-1]
+
+
+# --- Validation ---
+
+
+def test_dose_le_zero_raises():
+    with pytest.raises(ValueError, match="dose_mg"):
+        _run(dose_mg=0.0)
+
+
+def test_negative_dose_raises():
+    with pytest.raises(ValueError, match="dose_mg"):
+        _run(dose_mg=-1.0)
+
+
+def test_f_lymph_negative_raises():
+    with pytest.raises(ValueError, match="f_lymph"):
+        _run(f_lymph=-0.1)
+
+
+def test_f_lymph_gt_1_raises():
+    with pytest.raises(ValueError, match="f_lymph"):
+        _run(f_lymph=1.5)
+
+
+def test_cl_le_zero_raises():
+    with pytest.raises(ValueError, match="cl_L_per_h"):
+        _run(cl_L_per_h=0.0)
+
+
+def test_vd_le_zero_raises():
+    with pytest.raises(ValueError, match="vd_L"):
+        _run(vd_L=0.0)
+
+
+# --- assess_lymph_targeting ---
+
+
+def test_assess_returns_dict():
+    result = _run()
+    assessment = assess_lymph_targeting(result)
+    assert isinstance(assessment, dict)
+
+
+def test_assess_has_lymph_enrichment_key():
+    result = _run()
+    assessment = assess_lymph_targeting(result)
+    assert "lymph_enrichment" in assessment
+
+
+def test_assess_enrichment_is_string():
+    result = _run()
+    assessment = assess_lymph_targeting(result)
+    assert isinstance(assessment["lymph_enrichment"], str)
+
+
+def test_assess_enrichment_valid_values():
+    result = _run()
+    assessment = assess_lymph_targeting(result)
+    assert assessment["lymph_enrichment"] in ("poor", "moderate", "good")
+
+
+def test_assess_has_cmax_node():
+    result = _run()
+    assessment = assess_lymph_targeting(result)
+    assert "cmax_node_mg" in assessment
+    assert assessment["cmax_node_mg"] == result.cmax_node_mg
+
+
+def test_assess_high_f_lymph_gives_good_enrichment():
+    result = _run(f_lymph=0.9, dose_mg=100.0, t_end_h=120.0)
+    assessment = assess_lymph_targeting(result)
+    assert assessment["lymph_enrichment"] in ("moderate", "good")
