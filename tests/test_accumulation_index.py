@@ -1,12 +1,15 @@
-"""Tests for clinical/accumulation_index.py (Phase 529)."""
+"""Tests for clinical/accumulation_index.py (Phase 529 + Phase 1073)."""
 
 import math
 
 import pytest
 
 from omega_pbpk.clinical.accumulation_index import (
+    AccumulationIndexResult,
     AccumulationResult,
     accumulation_index,
+    calculate_accumulation_index,
+    compare_dose_intervals,
     optimal_dosing_interval,
     peak_trough_ratio,
     simulate_multiple_dose_accumulation,
@@ -250,3 +253,149 @@ class TestOptimalDosingInterval:
     def test_invalid_t_half(self):
         with pytest.raises(ValueError):
             optimal_dosing_interval(t_half_h=0, target_accumulation_ratio=2.0)
+
+
+# ---------------------------------------------------------------------------
+# Phase 1073 — AccumulationIndexResult + calculate_accumulation_index
+# ---------------------------------------------------------------------------
+
+
+def _make_aci(**kwargs) -> AccumulationIndexResult:
+    defaults = dict(
+        drug_name="TestDrug",
+        dose_mg=100.0,
+        tau_h=12.0,
+        ke_per_h=0.1,
+        ka_per_h=1.0,
+        vd_L=50.0,
+        f_oral=1.0,
+        n_doses=10,
+        dt_h=0.1,
+    )
+    defaults.update(kwargs)
+    return calculate_accumulation_index(**defaults)
+
+
+class TestAccumulationIndexResult:
+    def test_returns_accumulation_index_result(self):
+        result = _make_aci()
+        assert isinstance(result, AccumulationIndexResult)
+
+    def test_rac_greater_than_one(self):
+        result = _make_aci()
+        assert result.rac > 1.0
+
+    def test_longer_tau_lower_rac(self):
+        r_short = _make_aci(tau_h=6.0)
+        r_long = _make_aci(tau_h=24.0)
+        assert r_long.rac < r_short.rac
+
+    def test_higher_ke_lower_rac(self):
+        r_slow = _make_aci(ke_per_h=0.05)
+        r_fast = _make_aci(ke_per_h=0.5)
+        assert r_fast.rac < r_slow.rac
+
+    def test_cmax_ss_gt_cmin_ss(self):
+        result = _make_aci()
+        assert result.cmax_ss > result.cmin_ss
+
+    def test_css_avg_positive(self):
+        result = _make_aci()
+        assert result.css_avg > 0.0
+
+    def test_fluctuation_pct_positive(self):
+        result = _make_aci()
+        assert result.fluctuation_pct > 0.0
+
+    def test_t_to_ss_approx_5_half_lives(self):
+        ke = 0.1
+        result = _make_aci(ke_per_h=ke)
+        t_half = math.log(2) / ke
+        expected = 5.0 * t_half
+        assert abs(result.t_to_ss_h - expected) / expected < 0.05
+
+    def test_accumulation_risk_valid_values(self):
+        result = _make_aci()
+        assert result.accumulation_risk in {"low", "moderate", "high"}
+
+    def test_high_ke_low_accumulation_risk(self):
+        # ke=0.693/h → t½=1h; tau=12h → drug nearly fully eliminated → low Rac
+        result = _make_aci(ke_per_h=0.693, tau_h=12.0)
+        assert result.accumulation_risk == "low"
+
+    def test_low_ke_high_accumulation_risk(self):
+        # ke=0.01/h → t½=69h; tau=6h → very high accumulation
+        result = _make_aci(ke_per_h=0.01, tau_h=6.0)
+        assert result.accumulation_risk == "high"
+
+    def test_ptf_pct_positive(self):
+        result = _make_aci()
+        assert result.ptf_pct > 0.0
+
+    def test_t_half_consistent_with_ke(self):
+        ke = 0.1
+        result = _make_aci(ke_per_h=ke)
+        expected_t_half = math.log(2) / ke
+        assert abs(result.t_half_h - expected_t_half) < 0.001
+
+    def test_drug_name_preserved(self):
+        result = _make_aci(drug_name="Warfarin")
+        assert result.drug_name == "Warfarin"
+
+    def test_time_course_nonempty(self):
+        result = _make_aci()
+        assert len(result.time_course_h) > 0
+
+    def test_conc_course_same_length_as_time_course(self):
+        result = _make_aci()
+        assert len(result.time_course_h) == len(result.conc_course_mg_L)
+
+    def test_notes_nonempty(self):
+        result = _make_aci()
+        assert len(result.notes) > 0
+
+    def test_invalid_dose_mg(self):
+        with pytest.raises(ValueError):
+            _make_aci(dose_mg=0.0)
+
+    def test_invalid_tau_h(self):
+        with pytest.raises(ValueError):
+            _make_aci(tau_h=0.0)
+
+    def test_invalid_ke_per_h(self):
+        with pytest.raises(ValueError):
+            _make_aci(ke_per_h=0.0)
+
+    def test_invalid_ka_per_h(self):
+        with pytest.raises(ValueError):
+            _make_aci(ka_per_h=-1.0)
+
+    def test_invalid_vd_L(self):
+        with pytest.raises(ValueError):
+            _make_aci(vd_L=0.0)
+
+    def test_invalid_f_oral_zero(self):
+        with pytest.raises(ValueError):
+            _make_aci(f_oral=0.0)
+
+    def test_invalid_f_oral_above_one(self):
+        with pytest.raises(ValueError):
+            _make_aci(f_oral=1.5)
+
+
+class TestCompareDoseIntervals:
+    def test_returns_correct_count(self):
+        tau_list = [6.0, 12.0, 24.0]
+        results = compare_dose_intervals("Drug", 100.0, tau_list)
+        assert len(results) == len(tau_list)
+
+    def test_sorted_by_rac_ascending(self):
+        tau_list = [24.0, 12.0, 6.0]
+        results = compare_dose_intervals("Drug", 100.0, tau_list)
+        racs = [r.rac for r in results]
+        assert racs == sorted(racs)
+
+    def test_all_results_are_accumulation_index_result(self):
+        results = compare_dose_intervals("Drug", 100.0, [6.0, 24.0])
+        for r in results:
+            assert isinstance(r, AccumulationIndexResult)
