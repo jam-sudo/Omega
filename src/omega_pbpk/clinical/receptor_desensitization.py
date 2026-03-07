@@ -1,42 +1,114 @@
-"""
-Phase 233 — Receptor Desensitization Model
+"""Receptor Desensitization / Tachyphylaxis Model (Phase 306).
 
-Models receptor desensitization and internalization after prolonged drug exposure.
-Relevant for GPCRs, opioids, and beta-agonists.
+Models receptor desensitization during repeated drug exposure via:
+  - Beta-arrestin recruitment
+  - Receptor internalization (endocytosis)
+  - Receptor resensitization
 
-3-state ODE model:
-  R  = active receptors
-  D  = desensitized receptors
-  I  = internalized receptors
+Drug PK uses a 1-compartment oral model with multi-dose superposition.
+Receptor state is tracked as R_active (fraction 0–1, starts at 1).
 
-Drug effect is proportional to receptor availability (R/R0).
+ODE system (Forward Euler):
+  Absorption depot: dA/dt = -ka * A
+  Drug:             dC/dt = ka * A / Vd - (CL/Vd) * C
+  Receptor:         dR_active/dt = -k_desens * occupancy * R_active
+                                  + k_resens * (1 - R_active)
+  where occupancy = C / (EC50 + C)
+  Effect = emax * occupancy * R_active
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass
 
 import numpy as np
 
 
-@dataclass
+@dataclass(frozen=True)
 class DesensitizationResult:
-    """Result of a receptor desensitization simulation."""
+    """Result from receptor desensitization simulation.
+
+    Attributes:
+        drug_name: Name of the drug.
+        n_doses: Number of doses administered.
+        interval_h: Dosing interval (h).
+        k_desens_per_h: Receptor desensitization rate constant (1/h).
+        k_resens_per_h: Receptor resensitization rate constant (1/h).
+        times_h: Simulation time points (h).
+        c_drug: Drug plasma concentration at each time point (mg/L).
+        r_active: Active receptor fraction at each time point (0–1).
+        effect: Pharmacodynamic effect at each time point.
+        peak_effects: Effect at the peak concentration of each dose.
+        tachyphylaxis_index: Percent reduction in effect from dose 1 to last dose.
+        time_to_50pct_resensitization_h: Time after last dose for R to recover 50%
+            of lost receptor activity (h).
+        notes: Descriptive notes.
+    """
 
     drug_name: str
-    dose_mg: float
-    route: str
-    times_h: np.ndarray
-    c_plasma_mg_L: np.ndarray
-    r_active: np.ndarray
-    r_desensitized: np.ndarray
-    r_internalized: np.ndarray
-    drug_effect: np.ndarray
-    peak_effect: float
-    effect_at_end: float
-    r_active_min: float
-    tolerance_developed: bool
-    notes: list[str] = field(default_factory=list)
+    n_doses: int
+    interval_h: float
+    k_desens_per_h: float
+    k_resens_per_h: float
+    times_h: list[float]
+    c_drug: list[float]
+    r_active: list[float]
+    effect: list[float]
+    peak_effects: list[float]
+    tachyphylaxis_index: float
+    time_to_50pct_resensitization_h: float
+    notes: str
+
+
+def _validate_inputs(
+    dose_mg: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    ec50_mg_L: float,
+    k_desens_per_h: float,
+    k_resens_per_h: float,
+    n_doses: int,
+) -> None:
+    """Validate simulation inputs, raising ValueError on invalid parameters."""
+    if dose_mg <= 0:
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if cl_L_per_h <= 0:
+        raise ValueError(f"cl_L_per_h must be > 0, got {cl_L_per_h}")
+    if vd_L <= 0:
+        raise ValueError(f"vd_L must be > 0, got {vd_L}")
+    if ec50_mg_L <= 0:
+        raise ValueError(f"ec50_mg_L must be > 0, got {ec50_mg_L}")
+    if k_desens_per_h <= 0:
+        raise ValueError(f"k_desens_per_h must be > 0, got {k_desens_per_h}")
+    if k_resens_per_h <= 0:
+        raise ValueError(f"k_resens_per_h must be > 0, got {k_resens_per_h}")
+    if n_doses < 1:
+        raise ValueError(f"n_doses must be >= 1, got {n_doses}")
+
+
+def tachyphylaxis_index(effects_at_peaks: list[float]) -> float:
+    """Compute tachyphylaxis index from peak effects at each dose.
+
+    TI = (first_peak_effect - last_peak_effect) / first_peak_effect * 100
+
+    Returns 0 if there is only one dose or if first_peak_effect is zero.
+    Range: 0 (no tachyphylaxis) to 100 (complete tachyphylaxis).
+
+    Args:
+        effects_at_peaks: List of peak effects, one per dose.
+
+    Returns:
+        Tachyphylaxis index as a percentage (0–100).
+    """
+    if len(effects_at_peaks) < 2:
+        return 0.0
+    first = effects_at_peaks[0]
+    if first <= 0:
+        return 0.0
+    last = effects_at_peaks[-1]
+    ti = (first - last) / first * 100.0
+    return float(max(0.0, min(100.0, ti)))
 
 
 def simulate_desensitization(
@@ -44,221 +116,158 @@ def simulate_desensitization(
     dose_mg: float,
     cl_L_per_h: float,
     vd_L: float,
-    emax: float = 1.0,
-    ec50_mg_L: float = 1.0,
-    hill_n: float = 1.0,
-    k_des_per_h: float = 0.5,
-    k_recycle_per_h: float = 0.1,
-    k_intern_per_h: float = 0.05,
-    k_recycle_d_per_h: float = 0.02,
-    r0: float = 100.0,
-    ksyn_per_h: float = 2.0,
-    kdeg_per_h: float = 0.02,
-    route: str = "oral",
-    ka_per_h: float = 1.0,
-    t_end_h: float = 168.0,
-    dt_h: float = 0.5,
+    ec50_mg_L: float,
+    emax: float = 100.0,
+    k_desens_per_h: float = 0.2,
+    k_resens_per_h: float = 0.05,
+    n_doses: int = 5,
+    interval_h: float = 8.0,
+    ka_per_h: float = 1.5,
+    t_end_h: float | None = None,
+    dt_h: float = 0.1,
 ) -> DesensitizationResult:
-    """Simulate receptor desensitization and internalization over time.
+    """Simulate receptor desensitization during repeated drug dosing.
 
-    Parameters
-    ----------
-    drug_name:
-        Name of the drug.
-    dose_mg:
-        Dose in milligrams (must be > 0).
-    cl_L_per_h:
-        Clearance in L/h (must be > 0).
-    vd_L:
-        Volume of distribution in L (must be > 0).
-    emax:
-        Maximum drug effect (must be > 0).
-    ec50_mg_L:
-        EC50 in mg/L (must be > 0).
-    hill_n:
-        Hill coefficient (must be > 0).
-    k_des_per_h:
-        Desensitization rate constant per h (must be >= 0).
-    k_recycle_per_h:
-        Recycling rate from internalized to active (must be >= 0).
-    k_intern_per_h:
-        Internalization rate of active receptors (must be >= 0).
-    k_recycle_d_per_h:
-        Recycling rate from desensitized state (must be >= 0).
-    r0:
-        Initial number of active receptors (must be > 0).
-    ksyn_per_h:
-        Receptor synthesis rate (receptors/h, must be >= 0).
-    kdeg_per_h:
-        Receptor degradation rate from internalized pool (must be >= 0).
-    route:
-        Administration route: "oral" or "iv".
-    ka_per_h:
-        Oral absorption rate constant (must be > 0 for oral route).
-    t_end_h:
-        Simulation end time in hours.
-    dt_h:
-        Integration time step in hours.
+    Uses 1-compartment oral PK with Forward Euler integration.
+    Multiple doses are applied by adding dose to the absorption depot at
+    each scheduled dosing time during the simulation.
 
-    Returns
-    -------
-    DesensitizationResult
-        Simulation result containing time-course arrays and summary metrics.
+    Args:
+        drug_name: Name of the drug.
+        dose_mg: Oral dose per administration (mg).
+        cl_L_per_h: Drug clearance (L/h).
+        vd_L: Volume of distribution (L).
+        ec50_mg_L: Drug concentration producing 50% of max effect (mg/L).
+        emax: Maximum pharmacodynamic effect (default 100).
+        k_desens_per_h: Receptor desensitization rate constant (1/h).
+        k_resens_per_h: Receptor resensitization rate constant (1/h).
+        n_doses: Number of doses to administer.
+        interval_h: Dosing interval (h).
+        ka_per_h: First-order oral absorption rate constant (1/h).
+        t_end_h: Total simulation duration (h). Defaults to
+            n_doses * interval_h + 3 * t_half.
+        dt_h: Time step for Forward Euler integration (h).
+
+    Returns:
+        DesensitizationResult with full time-course and summary metrics.
     """
-    # --- Input validation ---
-    if dose_mg <= 0:
-        raise ValueError("dose_mg must be > 0")
-    if cl_L_per_h <= 0:
-        raise ValueError("cl_L_per_h must be > 0")
-    if vd_L <= 0:
-        raise ValueError("vd_L must be > 0")
-    if emax <= 0:
-        raise ValueError("emax must be > 0")
-    if ec50_mg_L <= 0:
-        raise ValueError("ec50_mg_L must be > 0")
-    if hill_n <= 0:
-        raise ValueError("hill_n must be > 0")
-    if k_des_per_h < 0:
-        raise ValueError("k_des_per_h must be >= 0")
-    if k_recycle_per_h < 0:
-        raise ValueError("k_recycle_per_h must be >= 0")
-    if k_intern_per_h < 0:
-        raise ValueError("k_intern_per_h must be >= 0")
-    if k_recycle_d_per_h < 0:
-        raise ValueError("k_recycle_d_per_h must be >= 0")
-    if r0 <= 0:
-        raise ValueError("r0 must be > 0")
-    if ksyn_per_h < 0:
-        raise ValueError("ksyn_per_h must be >= 0")
-    if kdeg_per_h < 0:
-        raise ValueError("kdeg_per_h must be >= 0")
-    if route not in {"oral", "iv"}:
-        raise ValueError("route must be 'oral' or 'iv'")
-    if route == "oral" and ka_per_h <= 0:
-        raise ValueError("ka_per_h must be > 0 for oral route")
+    _validate_inputs(
+        dose_mg, cl_L_per_h, vd_L, ec50_mg_L, k_desens_per_h, k_resens_per_h, n_doses
+    )
 
-    ke = cl_L_per_h / vd_L  # elimination rate constant
+    ke = cl_L_per_h / vd_L  # elimination rate constant (1/h)
+    t_half = math.log(2.0) / ke
 
-    n_steps = int(t_end_h / dt_h) + 1
-    times = np.linspace(0.0, t_end_h, n_steps)
+    if t_end_h is None:
+        t_end_h = n_doses * interval_h + 3.0 * t_half
 
-    c_plasma = np.zeros(n_steps)
-    r_active = np.zeros(n_steps)
-    r_desensitized = np.zeros(n_steps)
-    r_internalized = np.zeros(n_steps)
-    drug_effect = np.zeros(n_steps)
+    n_steps = max(1, round(t_end_h / dt_h))
 
-    # Initial conditions
-    if route == "oral":
-        gut_dose_mg = dose_mg  # drug in gut compartment (mg)
-        c0_mg_L = 0.0
-    else:
-        gut_dose_mg = 0.0
-        c0_mg_L = dose_mg / vd_L  # immediate IV bolus (mg/L)
+    # Scheduled dose times (h)
+    dose_times_h = [i * interval_h for i in range(n_doses)]
 
-    c_plasma[0] = c0_mg_L
-    r_active[0] = r0
-    r_desensitized[0] = 0.0
-    r_internalized[0] = 0.0
+    # State variables
+    a_depot = 0.0   # absorption depot (mg)
+    c = 0.0         # plasma concentration (mg/L)
+    r = 1.0         # active receptor fraction (0–1)
 
-    # Drug effect at t=0
-    c_n = c0_mg_L**hill_n
-    ec_n = ec50_mg_L**hill_n
-    drug_effect[0] = emax * (r0 / r0) * c_n / (ec_n + c_n) if (c_n + ec_n) > 0 else 0.0
+    times = np.zeros(n_steps + 1)
+    arr_c = np.zeros(n_steps + 1)
+    arr_r = np.zeros(n_steps + 1)
+    arr_eff = np.zeros(n_steps + 1)
 
-    # Forward Euler integration
-    for i in range(1, n_steps):
-        c = c_plasma[i - 1]
-        R = r_active[i - 1]
-        D = r_desensitized[i - 1]
-        I_r = r_internalized[i - 1]
+    arr_r[0] = r
 
-        # PK: 1-compartment with or without gut absorption
-        if route == "oral":
-            # gut → plasma
-            gut_absorbed = ka_per_h * gut_dose_mg * dt_h
-            gut_dose_mg = max(0.0, gut_dose_mg - ka_per_h * gut_dose_mg * dt_h)
-            dc = (gut_absorbed / vd_L) - ke * c
+    # Apply first dose at t=0
+    dose_idx = 0
+    if dose_times_h and abs(dose_times_h[0]) < 1e-9:
+        a_depot += dose_mg
+        dose_idx = 1
+
+    def _effect(conc: float, r_frac: float) -> float:
+        occ = conc / (ec50_mg_L + conc) if (ec50_mg_L + conc) > 0 else 0.0
+        return emax * occ * r_frac
+
+    arr_eff[0] = _effect(c, r)
+
+    for i in range(n_steps):
+        t_curr = i * dt_h
+        t_next = (i + 1) * dt_h
+        times[i + 1] = t_next
+
+        # Apply any doses scheduled within (t_curr, t_next]
+        while dose_idx < n_doses and dose_times_h[dose_idx] <= t_next + 1e-9:
+            if dose_times_h[dose_idx] > t_curr + 1e-9:
+                a_depot += dose_mg
+            dose_idx += 1
+
+        # Compute occupancy at current state for receptor ODE
+        occupancy = c / (ec50_mg_L + c) if (ec50_mg_L + c) > 0 else 0.0
+
+        # Forward Euler derivatives
+        da = -ka_per_h * a_depot
+        dc = ka_per_h * a_depot / vd_L - ke * c
+        dr = -k_desens_per_h * occupancy * r + k_resens_per_h * (1.0 - r)
+
+        a_depot = max(0.0, a_depot + da * dt_h)
+        c = max(0.0, c + dc * dt_h)
+        r = max(0.0, min(1.0, r + dr * dt_h))
+
+        arr_c[i + 1] = c
+        arr_r[i + 1] = r
+        arr_eff[i + 1] = _effect(c, r)
+
+    # Extract peak effects for each dose window
+    peak_effects: list[float] = []
+    for d in range(n_doses):
+        t_start = dose_times_h[d]
+        t_stop = dose_times_h[d + 1] if d < n_doses - 1 else t_start + 3.0 * t_half
+        mask = (times >= t_start) & (times <= t_stop)
+        peak_effects.append(float(np.max(arr_eff[mask])) if np.any(mask) else 0.0)
+
+    ti = tachyphylaxis_index(peak_effects)
+
+    # Time to 50% resensitization after last dose
+    last_dose_t = dose_times_h[-1]
+    last_dose_step = min(int(round(last_dose_t / dt_h)), n_steps)
+    r_at_last = arr_r[last_dose_step]
+    # Target: recover 50% of the receptor deficit
+    r_target = r_at_last + 0.5 * (1.0 - r_at_last)
+
+    time_to_50pct_h: float = float("inf")
+    for i in range(last_dose_step, n_steps + 1):
+        if arr_r[i] >= r_target:
+            time_to_50pct_h = times[i] - last_dose_t
+            break
+
+    if not math.isfinite(time_to_50pct_h):
+        # Analytical fallback: R(t) ≈ 1 - (1 - r0)*exp(-k_resens * t)
+        deficit = 1.0 - r_at_last
+        if deficit > 1e-9:
+            frac = (r_target - r_at_last) / (1.0 - r_at_last)
+            if 0.0 < frac < 1.0:
+                time_to_50pct_h = -math.log(1.0 - frac) / k_resens_per_h
         else:
-            dc = -ke * c
-            gut_absorbed = 0.0
+            time_to_50pct_h = 0.0
 
-        c_new = (
-            max(0.0, c + dc * dt_h)
-            if route == "iv"
-            else max(0.0, c + (gut_absorbed / vd_L - ke * c) * dt_h)
-        )
-        # Recalculate properly for oral using explicit forward Euler on a single step:
-        if route == "oral":
-            # Reset gut tracking — use stored remaining gut drug
-            pass  # already handled above
-
-        c_plasma[i] = c_new
-
-        # Receptor ODEs
-        # dR/dt = k_recycle*I - k_des*C*R - k_intern*R + ksyn
-        dR = k_recycle_per_h * I_r - k_des_per_h * c * R - k_intern_per_h * R + ksyn_per_h
-        # dD/dt = k_des*C*R - k_recycle_d*D - k_intern_d*D
-        dD = k_des_per_h * c * R - k_recycle_d_per_h * D - k_intern_per_h * D
-        # dI/dt = k_intern*R + k_intern_d*D - k_recycle*I - kdeg*I
-        dI = k_intern_per_h * R + k_intern_per_h * D - k_recycle_per_h * I_r - kdeg_per_h * I_r
-
-        r_active[i] = max(0.0, R + dR * dt_h)
-        r_desensitized[i] = max(0.0, D + dD * dt_h)
-        r_internalized[i] = max(0.0, I_r + dI * dt_h)
-
-        # Drug effect — proportional to receptor availability
-        c_i = c_plasma[i]
-        c_n_i = c_i**hill_n
-        r_frac = r_active[i] / r0
-        denom = ec50_mg_L**hill_n + c_n_i
-        drug_effect[i] = emax * r_frac * c_n_i / denom if denom > 0 else 0.0
-
-    peak_effect = float(np.max(drug_effect))
-    effect_at_end = float(drug_effect[-1])
-    r_active_min = float(np.min(r_active)) / r0  # fraction of initial
-
-    notes: list[str] = []
-    if k_des_per_h == 0.0:
-        notes.append("k_des=0: no desensitization expected")
-    if route == "oral":
-        notes.append(f"Oral route, ka={ka_per_h:.2f}/h")
-
-    tolerance_developed = effect_at_end < 0.5 * peak_effect if peak_effect > 0 else False
+    notes = (
+        f"k_desens={k_desens_per_h:.3f}/h, k_resens={k_resens_per_h:.3f}/h, "
+        f"n_doses={n_doses}, TI={ti:.1f}%, "
+        f"t50_resens={time_to_50pct_h:.1f}h"
+    )
 
     return DesensitizationResult(
         drug_name=drug_name,
-        dose_mg=dose_mg,
-        route=route,
-        times_h=times,
-        c_plasma_mg_L=c_plasma,
-        r_active=r_active,
-        r_desensitized=r_desensitized,
-        r_internalized=r_internalized,
-        drug_effect=drug_effect,
-        peak_effect=peak_effect,
-        effect_at_end=effect_at_end,
-        r_active_min=r_active_min,
-        tolerance_developed=tolerance_developed,
+        n_doses=n_doses,
+        interval_h=interval_h,
+        k_desens_per_h=k_desens_per_h,
+        k_resens_per_h=k_resens_per_h,
+        times_h=times.tolist(),
+        c_drug=arr_c.tolist(),
+        r_active=arr_r.tolist(),
+        effect=arr_eff.tolist(),
+        peak_effects=peak_effects,
+        tachyphylaxis_index=ti,
+        time_to_50pct_resensitization_h=time_to_50pct_h,
         notes=notes,
     )
-
-
-def tolerance_index(result: DesensitizationResult) -> float:
-    """Compute the tolerance index as percentage of effect lost from peak to end.
-
-    Parameters
-    ----------
-    result:
-        A :class:`DesensitizationResult` from :func:`simulate_desensitization`.
-
-    Returns
-    -------
-    float
-        Percentage tolerance: (peak_effect - effect_at_end) / peak_effect * 100.
-        Returns 0.0 if peak_effect is zero.
-    """
-    if result.peak_effect <= 0:
-        return 0.0
-    ti = (result.peak_effect - result.effect_at_end) / result.peak_effect * 100.0
-    return float(np.clip(ti, 0.0, 100.0))
