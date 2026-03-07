@@ -1,8 +1,12 @@
-"""Advanced PK report generation — Phase 470.
+"""Advanced PK report generation — Phase 470 + Phase 671.
 
-Generates structured PK analysis reports from raw concentration-time data
+Phase 470: Generates structured PK analysis reports from raw concentration-time data
 using non-compartmental analysis (NCA) methods.  All calculations are
 performed in pure Python (no numpy/scipy).
+
+Phase 671: Generates structured pharmacokinetic summary reports from simulation
+results (PK parameters dict) with executive summary, safety assessment, ADMET
+flags, regulatory context, and go/no-go recommendation.
 """
 
 from __future__ import annotations
@@ -11,11 +15,18 @@ import math
 from dataclasses import dataclass
 
 __all__ = [
+    # Phase 470 (NCA)
     "PKReportResult",
     "generate_pk_report",
     "format_nca_table",
     "assess_pk_quality",
     "compare_studies",
+    # Phase 671 (structured report from PK param dict)
+    "PKReportSection",
+    "PKReport",
+    "generate_pk_summary_report",
+    "format_pk_table",
+    "compare_to_benchmarks",
 ]
 
 _LN2 = math.log(2.0)
@@ -504,3 +515,582 @@ def compare_studies(reports: list[PKReportResult]) -> dict:
         "n_studies": n,
         "notes": " ".join(notes_parts),
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 671 — Structured PK Summary Report (from PK parameter dict)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PKReportSection:
+    """One section of a structured PK summary report."""
+
+    section_name: str
+    content: str  # formatted text block
+    key_metrics: dict  # {metric_name: value}
+    concerns: list  # list of concern strings
+    recommendations: list  # list of recommendation strings
+
+
+@dataclass(frozen=True)
+class PKReport:
+    """Full structured PK summary report."""
+
+    drug_name: str
+    generated_at: str
+    executive_summary: str
+    sections: list  # list of PKReportSection
+    overall_assessment: str  # "favorable", "acceptable", "concerning", "unfavorable"
+    key_findings: list  # top 3-5 key findings
+    go_nogo_recommendation: str  # "go", "nogo", "needs_optimization"
+    notes: str
+
+
+# ---------------------------------------------------------------------------
+# Phase 671 helpers
+# ---------------------------------------------------------------------------
+
+_VALID_ASSESSMENTS = {"favorable", "acceptable", "concerning", "unfavorable"}
+_VALID_GO_NOGO = {"go", "nogo", "needs_optimization"}
+_VALID_REGULATORY = {"IND", "NDA", "BLA", "preclinical"}
+_VALID_THERAPEUTIC_AREAS = {"oncology", "cns", "cardiovascular", "infectious_disease", "other"}
+
+_REGULATORY_COMMENTS = {
+    "IND": (
+        "IND-stage assessment. Preclinical and early clinical PK data should support "
+        "first-in-human dose selection. Key focus: safety margins and dose linearity."
+    ),
+    "NDA": (
+        "NDA-stage assessment. PK data should be robust across relevant patient populations. "
+        "Bioequivalence, food effect, and drug interaction studies expected."
+    ),
+    "BLA": (
+        "BLA-stage assessment. PK characterisation for biologic should include immunogenicity, "
+        "target-mediated disposition, and population variability."
+    ),
+    "preclinical": (
+        "Preclinical stage. IND-enabling PK/TK data being collected. "
+        "Allometric scaling from animal data used to project human PK."
+    ),
+}
+
+
+def _classify_t_half(t_half: float) -> str:
+    """Return descriptive string for half-life."""
+    if t_half < 1.0:
+        return f"very short (t½={t_half:.1f} h)"
+    if t_half < 4.0:
+        return f"short (t½={t_half:.1f} h)"
+    if t_half <= 24.0:
+        return f"appropriate (t½={t_half:.1f} h)"
+    if t_half <= 72.0:
+        return f"long (t½={t_half:.1f} h)"
+    return f"very long (t½={t_half:.1f} h)"
+
+
+def _overall_from_params(
+    pk_params: dict,
+    safety_params: dict | None,
+) -> str:
+    """Determine overall assessment string from PK and safety parameters."""
+    t_half = pk_params.get("t_half", 10.0)
+    ti = safety_params.get("ti", None) if safety_params else None
+    herg = safety_params.get("herg_risk", False) if safety_params else False
+
+    # Check for unfavorable conditions first
+    if ti is not None and ti < 2.0:
+        return "unfavorable"
+
+    # Check for concerning conditions
+    if herg:
+        return "concerning"
+    if t_half < 2.0 or t_half > 72.0:
+        return "concerning"
+    if ti is not None and ti < 3.0:
+        return "concerning"
+
+    # Check for favorable
+    if 4.0 <= t_half <= 24.0 and (ti is None or ti > 10.0) and not herg:
+        return "favorable"
+
+    return "acceptable"
+
+
+def _go_nogo_from_assessment(assessment: str) -> str:
+    """Map overall assessment to go/no-go recommendation."""
+    if assessment == "unfavorable":
+        return "nogo"
+    if assessment == "concerning":
+        return "needs_optimization"
+    return "go"
+
+
+def generate_pk_summary_report(
+    drug_name: str,
+    pk_params: dict,
+    safety_params: dict | None = None,
+    admet_params: dict | None = None,
+    regulatory_context: str = "IND",
+) -> PKReport:
+    """Generate a structured PK summary report from PK parameter dict.
+
+    Parameters
+    ----------
+    drug_name:
+        Non-empty drug identifier.
+    pk_params:
+        Must contain "cmax" and "auc". Optional: "tmax", "t_half", "cl", "vd", "f_oral".
+    safety_params:
+        Optional dict with keys "ti" (therapeutic index), "herg_risk" (bool), "mec", "mtc".
+    admet_params:
+        Optional dict with keys "logP", "mw", "psa", "fup", "clint".
+    regulatory_context:
+        One of "IND", "NDA", "BLA", "preclinical".
+
+    Returns
+    -------
+    PKReport
+    """
+    # Validation
+    if not drug_name or not isinstance(drug_name, str):
+        raise ValueError("drug_name must be a non-empty string.")
+    if "cmax" not in pk_params:
+        raise ValueError("pk_params must contain 'cmax'.")
+    if "auc" not in pk_params:
+        raise ValueError("pk_params must contain 'auc'.")
+
+    reg_context = regulatory_context if regulatory_context in _VALID_REGULATORY else "IND"
+
+    cmax = float(pk_params["cmax"])
+    auc = float(pk_params["auc"])
+    tmax = float(pk_params.get("tmax", 1.0))
+    t_half = float(pk_params.get("t_half", 10.0))
+    cl = float(pk_params.get("cl", 10.0))
+    vd = float(pk_params.get("vd", 100.0))
+    f_oral = pk_params.get("f_oral", None)
+
+    # Overall assessment
+    assessment = _overall_from_params(pk_params, safety_params)
+    go_nogo = _go_nogo_from_assessment(assessment)
+
+    # --- Build sections ---
+    sections: list[PKReportSection] = []
+
+    # PK Profile Section
+    pk_content_lines = [
+        f"PK Profile for {drug_name}:",
+        f"  Cmax:    {cmax:.4g} mg/L",
+        f"  Tmax:    {tmax:.2f} h",
+        f"  AUC:     {auc:.4g} mg*h/L",
+        f"  t½:      {_classify_t_half(t_half)}",
+        f"  CL:      {cl:.4g} L/h",
+        f"  Vd:      {vd:.4g} L",
+    ]
+    if f_oral is not None:
+        pk_content_lines.append(f"  F_oral:  {float(f_oral) * 100:.1f}%")
+
+    pk_metrics: dict = {
+        "cmax": cmax,
+        "tmax_h": tmax,
+        "auc": auc,
+        "t_half_h": t_half,
+        "cl_L_per_h": cl,
+        "vd_L": vd,
+    }
+    if f_oral is not None:
+        pk_metrics["f_oral"] = float(f_oral)
+
+    pk_concerns: list[str] = []
+    pk_recs: list[str] = []
+    if t_half < 2.0:
+        pk_concerns.append(f"Very short half-life ({t_half:.1f} h) may require frequent dosing.")
+        pk_recs.append("Consider modified-release formulation or prodrug strategy.")
+    elif t_half > 72.0:
+        pk_concerns.append(f"Very long half-life ({t_half:.1f} h) may cause accumulation.")
+        pk_recs.append("Monitor for accumulation at steady state.")
+
+    sections.append(
+        PKReportSection(
+            section_name="PK Profile",
+            content="\n".join(pk_content_lines),
+            key_metrics=pk_metrics,
+            concerns=pk_concerns,
+            recommendations=pk_recs,
+        )
+    )
+
+    # Safety Section
+    if safety_params is not None:
+        ti = safety_params.get("ti", None)
+        herg = safety_params.get("herg_risk", False)
+        mec = safety_params.get("mec", None)
+        mtc = safety_params.get("mtc", None)
+
+        safety_lines = [f"Safety Assessment for {drug_name}:"]
+        safety_metrics: dict = {}
+        safety_concerns: list[str] = []
+        safety_recs: list[str] = []
+
+        if ti is not None:
+            safety_lines.append(f"  Therapeutic Index (TI): {ti:.2f}")
+            safety_metrics["therapeutic_index"] = float(ti)
+            if ti < 2.0:
+                safety_concerns.append(f"Critical: TI={ti:.2f} < 2. High toxicity risk.")
+                safety_recs.append(
+                    "Strong dose individualisation required. Consider abandoning compound."
+                )
+            elif ti < 3.0:
+                safety_concerns.append(f"Narrow TI={ti:.2f}. Careful dose titration required.")
+                safety_recs.append("TDM recommended. Assess risk-benefit carefully.")
+            elif ti < 10.0:
+                safety_concerns.append(f"Moderate TI={ti:.2f}. Monitor for adverse effects.")
+
+        if herg:
+            safety_lines.append("  hERG Risk: POSITIVE")
+            safety_metrics["herg_risk"] = True
+            safety_concerns.append("hERG channel activity detected. Risk of QT prolongation.")
+            safety_recs.append(
+                "Perform full cardiac safety panel. Consider structural modification."
+            )
+        else:
+            safety_lines.append("  hERG Risk: NEGATIVE")
+            safety_metrics["herg_risk"] = False
+
+        if mec is not None:
+            safety_lines.append(f"  MEC: {mec:.4g} mg/L")
+            safety_metrics["mec"] = float(mec)
+        if mtc is not None:
+            safety_lines.append(f"  MTC: {mtc:.4g} mg/L")
+            safety_metrics["mtc"] = float(mtc)
+        if mec is not None and mtc is not None and mec > 0:
+            tw = float(mtc) / float(mec)
+            safety_lines.append(f"  Therapeutic Window Width: {tw:.2f}x")
+            safety_metrics["tw_width"] = tw
+            if tw < 2.0:
+                safety_concerns.append(f"Narrow therapeutic window ({tw:.2f}x MEC to MTC).")
+
+        sections.append(
+            PKReportSection(
+                section_name="Safety",
+                content="\n".join(safety_lines),
+                key_metrics=safety_metrics,
+                concerns=safety_concerns,
+                recommendations=safety_recs,
+            )
+        )
+
+    # ADMET Section
+    if admet_params is not None:
+        logp = admet_params.get("logP", None)
+        mw = admet_params.get("mw", None)
+        psa = admet_params.get("psa", None)
+        fup = admet_params.get("fup", None)
+        clint = admet_params.get("clint", None)
+
+        admet_lines = [f"ADMET Profile for {drug_name}:"]
+        admet_metrics: dict = {}
+        admet_concerns: list[str] = []
+        admet_recs: list[str] = []
+
+        if logp is not None:
+            admet_lines.append(f"  logP:   {logp:.2f}")
+            admet_metrics["logP"] = float(logp)
+            if float(logp) > 5.0:
+                admet_concerns.append(f"High logP ({logp:.2f}) may cause poor solubility.")
+        if mw is not None:
+            admet_lines.append(f"  MW:     {mw:.1f} Da")
+            admet_metrics["mw_Da"] = float(mw)
+            if float(mw) > 500:
+                admet_concerns.append(f"MW={mw:.0f} Da exceeds Lipinski limit of 500 Da.")
+        if psa is not None:
+            admet_lines.append(f"  PSA:    {psa:.1f} A^2")
+            admet_metrics["psa_A2"] = float(psa)
+            if float(psa) > 140:
+                admet_concerns.append(f"High PSA ({psa:.0f} A^2) may limit oral absorption.")
+        if fup is not None:
+            admet_lines.append(f"  fup:    {fup:.3f}")
+            admet_metrics["fup"] = float(fup)
+            if float(fup) < 0.01:
+                admet_concerns.append(
+                    "Very low fup (<1%). High protein binding may limit tissue distribution."
+                )
+        if clint is not None:
+            admet_lines.append(f"  CLint:  {clint:.2f} uL/min/mg")
+            admet_metrics["clint"] = float(clint)
+            if float(clint) > 100:
+                admet_concerns.append(
+                    f"High intrinsic clearance (CLint={clint:.0f}). Short half-life expected."
+                )
+                admet_recs.append("Consider metabolic stabilisation or prodrug strategy.")
+
+        if not admet_concerns:
+            admet_lines.append("  No major ADMET concerns identified.")
+
+        sections.append(
+            PKReportSection(
+                section_name="ADMET",
+                content="\n".join(admet_lines),
+                key_metrics=admet_metrics,
+                concerns=admet_concerns,
+                recommendations=admet_recs,
+            )
+        )
+
+    # Regulatory Section
+    reg_comment = _REGULATORY_COMMENTS.get(reg_context, _REGULATORY_COMMENTS["IND"])
+    reg_lines = [
+        f"Regulatory Context: {reg_context}",
+        "",
+        reg_comment,
+    ]
+    reg_metrics: dict = {"regulatory_context": reg_context}
+    reg_concerns: list[str] = []
+    reg_recs: list[str] = []
+
+    if reg_context in ("IND", "preclinical"):
+        reg_recs.append("Ensure dose linearity studies are included in IND package.")
+        reg_recs.append("Confirm allometric scaling if based on animal data.")
+
+    sections.append(
+        PKReportSection(
+            section_name="Regulatory",
+            content="\n".join(reg_lines),
+            key_metrics=reg_metrics,
+            concerns=reg_concerns,
+            recommendations=reg_recs,
+        )
+    )
+
+    # --- Executive Summary ---
+    t_half_desc = _classify_t_half(t_half)
+    exec_parts = [
+        f"{drug_name} exhibits a {t_half_desc} half-life with Cmax={cmax:.3g} mg/L "
+        f"and AUC={auc:.3g} mg*h/L.",
+    ]
+    if reg_context in ("IND", "preclinical"):
+        exec_parts.append(
+            f"At the {reg_context} stage, preclinical and early PK data support "
+            "continued development pending safety review."
+        )
+    else:
+        exec_parts.append(
+            f"The {reg_context} submission PK package demonstrates a {assessment} profile."
+        )
+
+    executive_summary = " ".join(exec_parts)
+
+    # --- Key Findings ---
+    key_findings: list[str] = [
+        f"t½ = {t_half:.1f} h ({_classify_t_half(t_half)})",
+        f"AUC = {auc:.3g} mg*h/L, Cmax = {cmax:.3g} mg/L",
+        f"Overall assessment: {assessment}",
+    ]
+    if safety_params is not None:
+        ti = safety_params.get("ti", None)
+        if ti is not None:
+            key_findings.append(f"Therapeutic index = {ti:.1f}")
+        if safety_params.get("herg_risk", False):
+            key_findings.append("hERG risk: positive — cardiac safety concern")
+    if admet_params is not None:
+        logp_val = admet_params.get("logP", None)
+        if logp_val is not None:
+            key_findings.append(f"logP = {logp_val:.2f}")
+
+    key_findings = key_findings[:5]  # cap at 5
+
+    # --- Notes ---
+    all_concerns: list[str] = []
+    for sec in sections:
+        all_concerns.extend(sec.concerns)
+
+    if all_concerns:
+        notes = f"Total concerns flagged: {len(all_concerns)}. " + "; ".join(all_concerns[:3])
+    else:
+        notes = f"No major concerns identified for {drug_name}. Profile appears {assessment}."
+
+    return PKReport(
+        drug_name=drug_name,
+        generated_at="2026-03-07",
+        executive_summary=executive_summary,
+        sections=sections,
+        overall_assessment=assessment,
+        key_findings=key_findings,
+        go_nogo_recommendation=go_nogo,
+        notes=notes,
+    )
+
+
+def format_pk_table(pk_params: dict) -> str:
+    """Return ASCII table string of PK parameters.
+
+    Parameters
+    ----------
+    pk_params:
+        Dict with PK parameter names as keys.
+
+    Returns
+    -------
+    str
+        Multi-line ASCII table.
+    """
+    rows = [("Parameter", "Value")]
+    for key, val in pk_params.items():
+        rows.append((str(key), f"{val:.4g}" if isinstance(val, float) else str(val)))
+
+    col0_w = max(len(r[0]) for r in rows) + 2
+    col1_w = max(len(r[1]) for r in rows) + 2
+    sep = "+" + "-" * col0_w + "+" + "-" * col1_w + "+"
+
+    lines = [sep]
+    for i, (k, v) in enumerate(rows):
+        lines.append(f"| {k:<{col0_w - 2}} | {v:<{col1_w - 2}} |")
+        if i == 0:
+            lines.append(sep)
+    lines.append(sep)
+    return "\n".join(lines)
+
+
+# Benchmark thresholds by therapeutic area
+_BENCHMARKS: dict[str, dict] = {
+    "cns": {
+        "t_half_min_h": 4.0,
+        "t_half_max_h": 12.0,
+        "logP_min": 1.0,
+        "logP_max": 3.0,
+        "psa_max": 90.0,
+        "mw_max": 450.0,
+    },
+    "oncology": {
+        "ti_min": 3.0,
+        "fup_min": 0.01,
+    },
+    "cardiovascular": {
+        "t_half_min_h": 6.0,
+        "t_half_max_h": 24.0,
+        "herg_risk_ok": False,  # hERG should be False
+    },
+    "infectious_disease": {
+        # cmax > MEC, t_half > dosing_interval/2
+        "ti_min": 1.5,
+    },
+    "other": {},
+}
+
+
+def compare_to_benchmarks(
+    drug_name: str,
+    pk_params: dict,
+    therapeutic_area: str = "oncology",
+) -> dict:
+    """Compare PK params to typical benchmarks for therapeutic area.
+
+    Parameters
+    ----------
+    drug_name:
+        Drug name (used in return dict).
+    pk_params:
+        Dict with PK parameters ("cmax", "auc", "t_half", "cl", "vd", etc.)
+        and optionally "logP", "mw", "psa", "fup", "ti", "herg_risk".
+    therapeutic_area:
+        One of "oncology", "cns", "cardiovascular", "infectious_disease", "other".
+
+    Returns
+    -------
+    dict
+        Keys: each benchmark criterion -> {"pass": bool, "value": ..., "threshold": ...}
+        Plus "drug_name", "therapeutic_area", "overall_pass".
+    """
+    area = therapeutic_area if therapeutic_area in _VALID_THERAPEUTIC_AREAS else "other"
+    benchmarks = _BENCHMARKS.get(area, {})
+
+    result: dict = {
+        "drug_name": drug_name,
+        "therapeutic_area": area,
+    }
+
+    t_half = float(pk_params.get("t_half", float("nan")))
+    logp = pk_params.get("logP", None)
+    mw = pk_params.get("mw", None)
+    psa = pk_params.get("psa", None)
+    fup = pk_params.get("fup", None)
+    ti = pk_params.get("ti", None)
+    herg = pk_params.get("herg_risk", None)
+
+    passes_all: list[bool] = []
+
+    if "t_half_min_h" in benchmarks and "t_half_max_h" in benchmarks:
+        tmin = benchmarks["t_half_min_h"]
+        tmax = benchmarks["t_half_max_h"]
+        passed = tmin <= t_half <= tmax
+        passes_all.append(passed)
+        result["t_half_range"] = {
+            "pass": passed,
+            "value": t_half,
+            "threshold": f"{tmin}-{tmax} h",
+        }
+
+    if "logP_min" in benchmarks and logp is not None:
+        logp_f = float(logp)
+        passed = benchmarks["logP_min"] <= logp_f <= benchmarks["logP_max"]
+        passes_all.append(passed)
+        result["logP_range"] = {
+            "pass": passed,
+            "value": logp_f,
+            "threshold": f"{benchmarks['logP_min']}-{benchmarks['logP_max']}",
+        }
+
+    if "psa_max" in benchmarks and psa is not None:
+        psa_f = float(psa)
+        passed = psa_f <= benchmarks["psa_max"]
+        passes_all.append(passed)
+        result["psa_max"] = {
+            "pass": passed,
+            "value": psa_f,
+            "threshold": f"<= {benchmarks['psa_max']} A^2",
+        }
+
+    if "mw_max" in benchmarks and mw is not None:
+        mw_f = float(mw)
+        passed = mw_f <= benchmarks["mw_max"]
+        passes_all.append(passed)
+        result["mw_max"] = {
+            "pass": passed,
+            "value": mw_f,
+            "threshold": f"<= {benchmarks['mw_max']} Da",
+        }
+
+    if "ti_min" in benchmarks and ti is not None:
+        ti_f = float(ti)
+        passed = ti_f >= benchmarks["ti_min"]
+        passes_all.append(passed)
+        result["ti_min"] = {
+            "pass": passed,
+            "value": ti_f,
+            "threshold": f">= {benchmarks['ti_min']}",
+        }
+
+    if "fup_min" in benchmarks and fup is not None:
+        fup_f = float(fup)
+        passed = fup_f >= benchmarks["fup_min"]
+        passes_all.append(passed)
+        result["fup_min"] = {
+            "pass": passed,
+            "value": fup_f,
+            "threshold": f">= {benchmarks['fup_min']}",
+        }
+
+    if "herg_risk_ok" in benchmarks and herg is not None:
+        # For cardiovascular, hERG should be False (no risk)
+        passed = (herg is False) or (herg == 0) or (herg == "False")
+        passes_all.append(passed)
+        result["herg_risk"] = {
+            "pass": passed,
+            "value": herg,
+            "threshold": "hERG negative required",
+        }
+
+    # Overall pass: all criteria must pass (or no criteria evaluated)
+    result["overall_pass"] = all(passes_all) if passes_all else True
+
+    return result

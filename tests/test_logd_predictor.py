@@ -1,204 +1,229 @@
-"""Tests for Phase 559 — logd_predictor.py (~25 tests)."""
+"""Tests for Phase 670 — LogD Predictor."""
 
 import math
 
 import pytest
 
 from omega_pbpk.prediction.logd_predictor import (
-    ionized_fraction,
-    logd_at_multiple_ph,
-    logd_from_logp_pka,
-    logd_protein_binding_correction,
-    predict_membrane_permeability,
+    LogDPrediction,
+    logD_pH_profile,
+    predict_logD,
+    screen_logD,
 )
 
 # ---------------------------------------------------------------------------
-# logd_from_logp_pka
+# Helper
 # ---------------------------------------------------------------------------
 
 
-class TestLogdFromLogpPka:
-    def test_neutral_returns_logp(self):
-        assert logd_from_logp_pka(2.0, 4.0, 7.4, "neutral") == 2.0
+def make_neutral(logP: float = 2.5) -> LogDPrediction:
+    return predict_logD("Neutral", logP=logP)
 
-    def test_neutral_any_ph(self):
-        for ph in [1.0, 4.5, 7.4, 10.0]:
-            assert logd_from_logp_pka(1.5, 5.0, ph, "neutral") == 1.5
 
-    def test_acid_high_ph_logd_less_than_logp(self):
-        # At pH >> pKa, acid is mostly ionized -> logD < logP
-        logd = logd_from_logp_pka(2.0, 4.0, 9.0, "acid")
-        assert logd < 2.0
+def make_acid(logP: float = 2.5, pka_acid: float = 4.0) -> LogDPrediction:
+    return predict_logD("AcidDrug", logP=logP, pka_acid=pka_acid)
 
-    def test_acid_low_ph_logd_approx_logp(self):
-        # At pH << pKa, acid is mostly unionized -> logD ≈ logP
-        logd = logd_from_logp_pka(2.0, 9.0, 1.0, "acid")
-        assert abs(logd - 2.0) < 0.01
 
-    def test_acid_at_pka_correction(self):
-        # At pH == pKa: logD = logP - log10(2)
-        logP = 2.0
-        pka = 5.0
-        logd = logd_from_logp_pka(logP, pka, pka, "acid")
-        expected = logP - math.log10(2.0)
-        assert abs(logd - expected) < 1e-9
-
-    def test_base_low_ph_logd_less_than_logp(self):
-        # At pH << pKa, base is mostly ionized -> logD < logP
-        logd = logd_from_logp_pka(2.0, 9.0, 1.0, "base")
-        assert logd < 2.0
-
-    def test_base_high_ph_logd_approx_logp(self):
-        # At pH >> pKa, base is mostly unionized -> logD ≈ logP
-        logd = logd_from_logp_pka(2.0, 4.0, 12.0, "base")
-        assert abs(logd - 2.0) < 0.01
-
-    def test_zwitterion_between_acid_and_base(self):
-        logP, pka, ph = 2.0, 7.0, 7.4
-        logd_acid = logd_from_logp_pka(logP, pka, ph, "acid")
-        logd_base = logd_from_logp_pka(logP, pka, ph, "base")
-        logd_zwit = logd_from_logp_pka(logP, pka, ph, "zwitterion")
-        assert abs(logd_zwit - (logd_acid + logd_base) / 2) < 1e-9
-
-    def test_invalid_drug_type_raises(self):
-        with pytest.raises(ValueError, match="Invalid drug_type"):
-            logd_from_logp_pka(2.0, 4.0, 7.4, "ampholyte")
+def make_base(logP: float = 2.5, pka_base: float = 9.0) -> LogDPrediction:
+    return predict_logD("BaseDrug", logP=logP, pka_base=pka_base)
 
 
 # ---------------------------------------------------------------------------
-# ionized_fraction
+# Basic return type and finite fields
 # ---------------------------------------------------------------------------
 
 
-class TestIonizedFraction:
-    def test_neutral_is_zero(self):
-        assert ionized_fraction(4.0, 7.4, "neutral") == 0.0
+def test_returns_logd_prediction():
+    result = make_neutral()
+    assert isinstance(result, LogDPrediction)
 
-    def test_acid_at_pka_is_half(self):
-        fi = ionized_fraction(5.0, 5.0, "acid")
-        assert abs(fi - 0.5) < 1e-9
 
-    def test_acid_above_pka_mostly_ionized(self):
-        # pH 10 >> pKa 5 → fi ≈ 1
-        fi = ionized_fraction(5.0, 10.0, "acid")
-        assert fi > 0.99
+def test_logD_at_pH74_finite():
+    result = make_neutral()
+    assert math.isfinite(result.logD_at_pH74)
 
-    def test_acid_below_pka_mostly_unionized(self):
-        # pH 1 << pKa 7 → fi ≈ 0
-        fi = ionized_fraction(7.0, 1.0, "acid")
-        assert fi < 0.01
 
-    def test_base_at_pka_is_half(self):
-        fi = ionized_fraction(8.0, 8.0, "base")
-        assert abs(fi - 0.5) < 1e-9
+def test_logD_at_pH_gastric_finite():
+    result = make_neutral()
+    assert math.isfinite(result.logD_at_pH_gastric)
 
-    def test_base_below_pka_mostly_ionized(self):
-        # pH 1 << pKa 9 → fi ≈ 1
-        fi = ionized_fraction(9.0, 1.0, "base")
-        assert fi > 0.99
 
-    def test_result_in_0_1(self):
-        for drug_type in ["acid", "base", "neutral", "zwitterion"]:
-            fi = ionized_fraction(7.4, 7.4, drug_type)
-            assert 0.0 <= fi <= 1.0
+def test_logD_at_pH_intestinal_finite():
+    result = make_neutral()
+    assert math.isfinite(result.logD_at_pH_intestinal)
 
-    def test_invalid_drug_type_raises(self):
-        with pytest.raises(ValueError):
-            ionized_fraction(5.0, 7.4, "lipid")
+
+def test_notes_nonempty():
+    result = make_neutral()
+    assert isinstance(result.notes, str)
+    assert len(result.notes) > 0
 
 
 # ---------------------------------------------------------------------------
-# logd_at_multiple_ph
+# Neutral compound (no pKa)
 # ---------------------------------------------------------------------------
 
 
-class TestLogdAtMultiplePh:
-    def test_default_returns_4_entries(self):
-        result = logd_at_multiple_ph(2.0, 4.0, "acid")
-        assert len(result) == 4
-
-    def test_default_ph_values(self):
-        result = logd_at_multiple_ph(2.0, 4.0, "acid")
-        phs = [r["pH"] for r in result]
-        assert phs == [1.2, 4.5, 6.8, 7.4]
-
-    def test_custom_ph_values(self):
-        result = logd_at_multiple_ph(1.0, 5.0, "base", ph_values=[3.0, 7.4])
-        assert len(result) == 2
-        assert result[0]["pH"] == 3.0
-        assert result[1]["pH"] == 7.4
-
-    def test_dict_keys_present(self):
-        result = logd_at_multiple_ph(1.5, 6.0, "acid")
-        for entry in result:
-            assert "pH" in entry
-            assert "logD" in entry
-            assert "ionized_fraction" in entry
-
-    def test_neutral_logd_equals_logp_at_all_ph(self):
-        result = logd_at_multiple_ph(3.0, 5.0, "neutral")
-        for entry in result:
-            assert abs(entry["logD"] - 3.0) < 1e-9
+def test_neutral_logD_equals_logP_at_all_pH():
+    logP = 3.0
+    result = predict_logD("Neutral", logP=logP)
+    assert math.isclose(result.logD_at_pH74, logP, rel_tol=1e-9)
+    assert math.isclose(result.logD_at_pH_gastric, logP, rel_tol=1e-9)
+    assert math.isclose(result.logD_at_pH_intestinal, logP, rel_tol=1e-9)
 
 
 # ---------------------------------------------------------------------------
-# predict_membrane_permeability
+# Acid behaviour
 # ---------------------------------------------------------------------------
 
 
-class TestPredictMembranePermeability:
-    def test_high_logd_high_permeability(self):
-        result = predict_membrane_permeability(3.0)
-        assert result["permeability_class"] == "high"
-        assert result["papp_cm_s"] > 1e-5
+def test_acid_logD_pH74_less_than_logP():
+    """Acid (pKa=4) is mostly ionized at pH 7.4 => logD < logP."""
+    result = make_acid(logP=2.5, pka_acid=4.0)
+    assert result.logD_at_pH74 < result.logP
 
-    def test_low_logd_low_permeability(self):
-        result = predict_membrane_permeability(-3.0)
-        assert result["permeability_class"] == "low"
-        assert result["papp_cm_s"] < 1e-6
 
-    def test_moderate_logd_moderate_permeability(self):
-        # logD such that papp is between 1e-6 and 1e-5
-        # 10^(0.8*ld - 5.7) = 5e-6 → 0.8*ld - 5.7 = log10(5e-6) ≈ -5.3
-        # ld ≈ 0.5
-        result = predict_membrane_permeability(0.5)
-        assert result["permeability_class"] == "moderate"
-
-    def test_result_keys(self):
-        result = predict_membrane_permeability(1.0)
-        assert "logD_74" in result
-        assert "papp_cm_s" in result
-        assert "permeability_class" in result
+def test_acid_logD_gastric_greater_than_pH74():
+    """Acid is un-ionized at low pH => logD closer to logP at pH 1.5."""
+    result = make_acid(logP=2.5, pka_acid=4.0)
+    assert result.logD_at_pH_gastric > result.logD_at_pH74
 
 
 # ---------------------------------------------------------------------------
-# logd_protein_binding_correction
+# Base behaviour
 # ---------------------------------------------------------------------------
 
 
-class TestLogdProteinBindingCorrection:
-    def test_fu_in_0_1(self):
-        result = logd_protein_binding_correction(2.0)
-        assert 0 < result["fu_predicted"] <= 1.0
+def test_base_logD_pH74_less_than_logP():
+    """Base (pKa=9) is mostly ionized at pH 7.4 => logD < logP."""
+    result = make_base(logP=2.5, pka_base=9.0)
+    assert result.logD_at_pH74 < result.logP
 
-    def test_high_logd_lower_fu(self):
-        fu_low = logd_protein_binding_correction(-1.0)["fu_predicted"]
-        fu_high = logd_protein_binding_correction(4.0)["fu_predicted"]
-        assert fu_high < fu_low
 
-    def test_default_protein_conc(self):
-        result = logd_protein_binding_correction(1.0)
-        assert result["fu_predicted"] > 0
+def test_base_logD_low_pH_less_than_high_pH():
+    """Base is more ionized (lower logD) at low pH."""
+    result = make_base(logP=2.5, pka_base=9.0)
+    assert result.logD_at_pH_gastric < result.logD_at_pH74
 
-    def test_custom_protein_conc(self):
-        result_low = logd_protein_binding_correction(2.0, protein_conc_g_L=10.0)
-        result_high = logd_protein_binding_correction(2.0, protein_conc_g_L=70.0)
-        # higher protein → lower fu
-        assert result_high["fu_predicted"] < result_low["fu_predicted"]
 
-    def test_result_keys(self):
-        result = logd_protein_binding_correction(1.5)
-        assert "logD_74" in result
-        assert "fu_predicted" in result
-        assert "pKd_ppb" in result
-        assert "notes" in result
+# ---------------------------------------------------------------------------
+# Classification fields
+# ---------------------------------------------------------------------------
+
+
+def test_membrane_permeability_class_valid_values():
+    result = make_neutral()
+    assert result.membrane_permeability_class in {"high", "moderate", "low"}
+
+
+def test_cns_penetration_likelihood_valid_values():
+    result = make_neutral()
+    assert result.cns_penetration_likelihood in {"high", "moderate", "low"}
+
+
+def test_gi_absorption_prediction_valid_values():
+    result = make_neutral()
+    assert result.gi_absorption_prediction in {"excellent", "good", "poor"}
+
+
+def test_ionization_at_pH74_in_range():
+    result = make_acid()
+    assert 0.0 <= result.ionization_at_pH74 <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# High logP neutral compound
+# ---------------------------------------------------------------------------
+
+
+def test_high_logP_neutral_high_permeability():
+    result = predict_logD("HighLogP", logP=3.0)
+    assert result.membrane_permeability_class == "high"
+
+
+def test_high_logP_neutral_good_cns():
+    result = predict_logD("HighLogP", logP=2.0)
+    # logD=2.0 in [1,3] => "high" CNS
+    assert result.cns_penetration_likelihood == "high"
+
+
+# ---------------------------------------------------------------------------
+# Highly ionized at pH 7.4 => low permeability
+# ---------------------------------------------------------------------------
+
+
+def test_highly_ionized_acid_low_permeability():
+    """Acid with pKa=2 => logD at pH 7.4 deeply negative => low permeability."""
+    result = predict_logD("StrongAcid", logP=0.0, pka_acid=2.0)
+    assert result.membrane_permeability_class == "low"
+
+
+# ---------------------------------------------------------------------------
+# logD_pH_profile
+# ---------------------------------------------------------------------------
+
+
+def test_logD_pH_profile_returns_list_of_tuples():
+    profile = logD_pH_profile("Drug", logP=2.0, pka_acid=4.0)
+    assert isinstance(profile, list)
+    assert all(isinstance(item, tuple) and len(item) == 2 for item in profile)
+
+
+def test_logD_pH_profile_default_length():
+    profile = logD_pH_profile("Drug", logP=2.0)
+    # Default pH_range = [1..10] => 10 entries
+    assert len(profile) == 10
+
+
+def test_logD_pH_profile_custom_length():
+    custom_pH = [1.0, 3.0, 5.0, 7.0, 9.0]
+    profile = logD_pH_profile("Drug", logP=2.0, pH_range=custom_pH)
+    assert len(profile) == len(custom_pH)
+
+
+# ---------------------------------------------------------------------------
+# screen_logD
+# ---------------------------------------------------------------------------
+
+
+def test_screen_logD_sorted_descending():
+    compounds = [
+        {"compound_name": "Low", "logP": -1.0},
+        {"compound_name": "High", "logP": 3.0},
+        {"compound_name": "Mid", "logP": 1.5},
+    ]
+    results = screen_logD(compounds)
+    vals = [r.logD_at_pH74 for r in results]
+    assert vals == sorted(vals, reverse=True)
+
+
+def test_screen_logD_empty_returns_empty():
+    assert screen_logD([]) == []
+
+
+# ---------------------------------------------------------------------------
+# Zwitterion
+# ---------------------------------------------------------------------------
+
+
+def test_zwitterion_logD_computed():
+    """Compound with both pka_acid and pka_base => logD computed (not equal to logP)."""
+    result = predict_logD("Zwitterion", logP=2.0, pka_acid=4.0, pka_base=9.0)
+    assert math.isfinite(result.logD_at_pH74)
+    # acid pKa=4 => ionized at pH 7.4; base pKa=9 => also ionized => logD < logP
+    assert result.logD_at_pH74 < result.logP
+
+
+# ---------------------------------------------------------------------------
+# Validation errors
+# ---------------------------------------------------------------------------
+
+
+def test_validation_pka_acid_negative_raises():
+    with pytest.raises(ValueError):
+        predict_logD("Drug", logP=2.0, pka_acid=-1.0)
+
+
+def test_validation_pka_base_too_large_raises():
+    with pytest.raises(ValueError):
+        predict_logD("Drug", logP=2.0, pka_base=15.0)
