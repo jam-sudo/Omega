@@ -1,335 +1,260 @@
-"""Genotoxicity prediction: Ames test surrogate, micronucleus risk, and structural alerts.
+"""Genotoxicity/mutagenicity structural alert screening — Phase 259.
 
-ICH S2(R1) compliant assessment framework.
+Screens SMILES for structural alerts associated with genotoxicity,
+Ames test positivity, and DNA damage. Based on Derek/Sarah alert databases
+and ICH M7 guideline for mutagenic impurities.
 
 References
 ----------
-Kazius 2005 (J Med Chem), Ashby & Tennant 1988 (Mutat Res),
-ICH S2(R1) 2011, OECD TG 471 (Ames test).
+- ICH M7(R1): Assessment and Control of DNA Reactive (Mutagenic) Impurities. 2017.
+- Benigni R & Bossa C, Chem Rev. 2011;111(4):2507-36
+- Kazius J et al., J Med Chem. 2005;48(1):312-20
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-__all__ = [
-    "GenotoxAlert",
-    "GenotoxResult",
-    "assess_genotoxicity",
-    "screen_library",
-    "get_genotoxic_alerts_summary",
-]
-
-# ---------------------------------------------------------------------------
-# Structural alert definitions (Ashby-Tennant + extended Kazius 2005)
-# ---------------------------------------------------------------------------
-
-ALERT_PATTERNS: dict[str, dict] = {
-    "nitro_group": {
-        "description": "Nitro group (-NO2): strong DNA-reactive alert",
-        "weight": 2.0,
-    },
-    "nitroso": {
-        "description": "Nitroso group (N=O): direct-acting mutagen alert",
-        "weight": 1.5,
-    },
-    "epoxide": {
-        "description": "Epoxide (3-membered oxirane ring): alkylating agent",
-        "weight": 1.5,
-    },
-    "aziridine": {
-        "description": "Aziridine (3-membered nitrogen ring): alkylating agent",
-        "weight": 1.5,
-    },
-    "aliphatic_halide": {
-        "description": "Aliphatic halide (C-Br, C-Cl, C-I): alkylating potential",
-        "weight": 1.5,
-    },
-    "primary_amine_aromatic": {
-        "description": "Aromatic amine: metabolic activation to reactive nitrenium ion",
-        "weight": 1.0,
-    },
-    "quinone": {
-        "description": "Quinone moiety: redox cycling and oxidative DNA damage",
-        "weight": 0.8,
-    },
-    "michael_acceptor": {
-        "description": "Michael acceptor (alpha,beta-unsaturated carbonyl): thiol-reactive",
-        "weight": 1.0,
-    },
-    "aldehyde": {
-        "description": "Aldehyde group: Schiff-base formation with DNA bases",
-        "weight": 0.8,
-    },
-    "hydrazine": {
-        "description": "Hydrazine (N-N bond): metabolic activation to diazonium",
-        "weight": 1.2,
-    },
-    "low_mw_reactive": {
-        "description": "Low molecular weight (<100): small reactive molecule concern",
-        "weight": 0.5,
-    },
-    "high_logP_lipophilic": {
-        "description": "High lipophilicity (logP>5): membrane accumulation concern",
-        "weight": 0.3,
-    },
-}
-
-
-# ---------------------------------------------------------------------------
-# Data classes
-# ---------------------------------------------------------------------------
+__all__ = ["GenotoxAlert", "GenotoxResult", "assess_genotoxicity", "screen_genotoxicity"]
 
 
 @dataclass(frozen=True)
 class GenotoxAlert:
-    """Single genotoxicity structural alert result."""
+    """A single genotoxicity structural alert."""
 
     name: str
     triggered: bool
     weight: float
+    mechanism: str
     description: str
 
 
 @dataclass(frozen=True)
 class GenotoxResult:
-    """Complete genotoxicity assessment result."""
+    """Result from genotoxicity structural alert screening."""
 
     compound_name: str
     smiles: str
-    mw: float
-    logP: float
-    tpsa: float
     alerts: list[GenotoxAlert]
     n_alerts: int
-    alert_score: float
-    ames_prediction: str
-    ames_probability: float
-    micronucleus_risk: str
-    ichs2r1_flag: str
-    structural_class: str
+    total_weight: float
+    ames_prediction: str  # "positive", "negative", "equivocal"
+    icm_m7_class: str  # "class 1" through "class 5" (simplified)
+    daily_acceptable_intake_ng: float  # TTC for mutagenic impurities
+    mitigation_strategy: list[str]
     notes: str
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _check_smiles_alert(smiles: str, alert_name: str) -> bool:  # noqa: C901
-    """Check whether a SMILES string triggers a given structural alert."""
-    s = smiles  # keep original case for pattern matching
-    su = smiles.upper()
-
-    if alert_name == "nitro_group":
-        return "NO2" in su or "[N+](=O)[O-]" in s
-
-    if alert_name == "nitroso":
-        # N=O present but NOT part of a nitro group
-        if "N=O" in s:
-            # Exclude if it's part of [N+](=O)[O-] or adjacent to another O
-            idx = s.find("N=O")
-            while idx != -1:
-                # Check it's not part of NO2 pattern
-                after = s[idx + 3 :] if idx + 3 < len(s) else ""
-                if not (after.startswith("[O-]") or after.startswith("O")):
-                    return True
-                idx = s.find("N=O", idx + 1)
-        return False
-
-    if alert_name == "epoxide":
-        return "C1OC1" in s
-
-    if alert_name == "aziridine":
-        return "C1NC1" in s
-
-    if alert_name == "aliphatic_halide":
-        return "CBr" in s or "CCl" in s or "CI" in s
-
-    if alert_name == "primary_amine_aromatic":
-        return "cN" in s or "c-N" in s
-
-    if alert_name == "quinone":
-        return "C(=O)c" in s or "O=Cc" in s
-
-    if alert_name == "michael_acceptor":
-        return "C=CC=O" in s or "C=CN" in s
-
-    if alert_name == "aldehyde":
-        return "CHO" in s or "[CH]=O" in s
-
-    if alert_name == "hydrazine":
-        return "NN" in s
-
-    return False
-
-
-def _check_physchem_alert(mw: float, logP: float, alert_name: str) -> bool:
-    """Check physicochemical property-based alerts."""
-    if alert_name == "low_mw_reactive":
-        return mw < 100
-    if alert_name == "high_logP_lipophilic":
-        return logP > 5
-    return False
-
-
-_SMILES_ALERTS = {
-    "nitro_group",
-    "nitroso",
-    "epoxide",
-    "aziridine",
-    "aliphatic_halide",
-    "primary_amine_aromatic",
-    "quinone",
-    "michael_acceptor",
-    "aldehyde",
-    "hydrazine",
+# Structural alert definitions: (description, weight, mechanism)
+_GENO_ALERTS: dict[str, tuple[str, float, str]] = {
+    "nitro_aromatic": (
+        "Nitroaromatic compound: nitroreduction to reactive nitroso/hydroxylamine",
+        2.0,
+        "nitroreduction",
+    ),
+    "primary_aromatic_amine": (
+        "Primary aromatic amine: N-hydroxylation to reactive nitrenium ion",
+        2.0,
+        "CYP-oxidation",
+    ),
+    "alkyl_halide": (
+        "Alkyl halide: direct alkylation of DNA bases",
+        2.0,
+        "direct_alkylation",
+    ),
+    "epoxide": (
+        "Epoxide: direct alkylation of nucleophilic DNA sites",
+        2.0,
+        "direct_alkylation",
+    ),
+    "hydrazine": (
+        "Hydrazine: forms reactive diazonium ions under oxidation",
+        2.0,
+        "diazonium",
+    ),
+    "aziridine": (
+        "Aziridine ring: high-strain electrophile alkylating DNA",
+        2.5,
+        "direct_alkylation",
+    ),
+    "beta_lactam_mutagenic": (
+        "Reactive beta-lactam with additional electron-withdrawing group",
+        1.0,
+        "direct_alkylation",
+    ),
+    "quinone": (
+        "Quinone/hydroquinone: redox cycling, DNA strand breaks",
+        1.5,
+        "redox_cycling",
+    ),
+    "michael_acceptor_dna": (
+        "Alpha,beta-unsaturated carbonyl: Michael addition to DNA bases",
+        1.5,
+        "michael_addition",
+    ),
+    "n_nitroso": (
+        "N-nitroso compound: N-nitrosamine, forms diazonium via alpha-hydroxylation",
+        2.5,
+        "nitrosamine",
+    ),
+    "acylating_agent": (
+        "Acyl halide or anhydride: protein/DNA acylation",
+        1.5,
+        "direct_acylation",
+    ),
 }
 
-_PHYSCHEM_ALERTS = {"low_mw_reactive", "high_logP_lipophilic"}
 
+def _detect_genotox_alerts(smiles: str) -> list[GenotoxAlert]:
+    """Detect genotoxicity structural alerts from SMILES string."""
+    alerts = []
+    s = smiles  # Case-sensitive for some patterns
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
+    for name, (desc, weight, mech) in _GENO_ALERTS.items():
+        triggered = False
+
+        if name == "nitro_aromatic":
+            triggered = "[N+](=O)[O-]" in s and "c" in s.lower()
+        elif name == "primary_aromatic_amine":
+            triggered = "Nc1" in s or "N c1" in s or ("N" in s and "c1ccc" in s)
+        elif name == "alkyl_halide":
+            triggered = (
+                "CBr" in s
+                or "CI" in s
+                or ("CCl" in s and "c" not in s.lower()[: s.lower().find("CCl") + 3])
+            )
+        elif name == "epoxide":
+            triggered = "C1OC1" in s or "c1oc1" in s.lower()
+        elif name == "hydrazine":
+            triggered = "NN" in s and "NNC" not in s  # exclude simple hydrazides partially
+        elif name == "aziridine":
+            triggered = "C1CN1" in s or "C1NC1" in s
+        elif name == "beta_lactam_mutagenic":
+            triggered = "C1(=O)NC1" in s and ("[N+]" in s or "F" in s)
+        elif name == "quinone":
+            triggered = "C(=O)c1ccc(=O)" in s or "O=C1C=CC(=O)" in s
+        elif name == "michael_acceptor_dna":
+            triggered = "C=CC=O" in s or "C=CC(=O)" in s
+        elif name == "n_nitroso":
+            triggered = "N-N=O" in s or "NN=O" in s or "N(N=O)" in s
+        elif name == "acylating_agent":
+            triggered = "C(=O)Cl" in s or "C(=O)Br" in s or "C(=O)OC(=O)" in s
+
+        alerts.append(
+            GenotoxAlert(
+                name=name,
+                triggered=triggered,
+                weight=weight,
+                mechanism=mech,
+                description=desc,
+            )
+        )
+
+    return alerts
 
 
 def assess_genotoxicity(
     compound_name: str,
     smiles: str,
-    mw: float,
-    logP: float,
-    tpsa: float = 50.0,
+    daily_dose_mg: float = 1.0,
 ) -> GenotoxResult:
-    """Assess genotoxicity risk using structural alerts and physicochemical properties.
+    """Assess genotoxicity risk from structural alerts.
 
     Parameters
     ----------
-    compound_name : str
-        Name or identifier of the compound.
-    smiles : str
-        SMILES representation of the compound.
-    mw : float
-        Molecular weight (Da).
-    logP : float
-        Octanol-water partition coefficient.
-    tpsa : float
-        Topological polar surface area (default 50).
+    compound_name : Name of the compound.
+    smiles : SMILES string. Must not be empty.
+    daily_dose_mg : Daily dose (mg). Used for risk context.
 
     Returns
     -------
     GenotoxResult
     """
     if not smiles or not smiles.strip():
-        raise ValueError("SMILES string must not be empty")
-    if mw < 0:
-        raise ValueError("Molecular weight must be non-negative")
+        raise ValueError("smiles must not be empty")
+    if daily_dose_mg <= 0:
+        raise ValueError("daily_dose_mg must be > 0")
 
-    alerts: list[GenotoxAlert] = []
-
-    for name, info in ALERT_PATTERNS.items():
-        if name in _SMILES_ALERTS:
-            triggered = _check_smiles_alert(smiles, name)
-        elif name in _PHYSCHEM_ALERTS:
-            triggered = _check_physchem_alert(mw, logP, name)
-        else:
-            triggered = False
-
-        alerts.append(
-            GenotoxAlert(
-                name=name,
-                triggered=triggered,
-                weight=info["weight"],
-                description=info["description"],
-            )
-        )
-
-    triggered_alerts = [a for a in alerts if a.triggered]
-    n_alerts = len(triggered_alerts)
-    alert_score = sum(a.weight for a in triggered_alerts)
+    alerts = _detect_genotox_alerts(smiles)
+    triggered = [a for a in alerts if a.triggered]
+    n_alerts = len(triggered)
+    total_weight = sum(a.weight for a in triggered)
 
     # Ames prediction
-    if alert_score >= 2.0:
-        ames_prediction = "positive"
-        structural_class = "genotoxic"
-    elif alert_score >= 1.0:
-        ames_prediction = "inconclusive"
-        structural_class = "borderline"
+    if total_weight >= 2.0:
+        ames = "positive"
+    elif total_weight >= 1.0:
+        ames = "equivocal"
     else:
-        ames_prediction = "negative"
-        structural_class = "non-genotoxic"
+        ames = "negative"
 
-    ames_probability = min(0.95, alert_score / 4.0)
-
-    # Micronucleus risk
-    if alert_score >= 2.0 and mw > 150:
-        micronucleus_risk = "high"
-    elif alert_score >= 1.0:
-        micronucleus_risk = "moderate"
+    # ICH M7 class (simplified):
+    # Class 1: known mutagen+carcinogen, Class 2: known mutagen
+    # Class 3: unknown, alerting, Class 4: non-alerting, Class 5: no concern
+    triggered_names = {a.name for a in triggered}
+    if "n_nitroso" in triggered_names or "aziridine" in triggered_names:
+        icm_class = "class 1"
+    elif n_alerts >= 2:
+        icm_class = "class 2"
+    elif n_alerts == 1:
+        icm_class = "class 3"
     else:
-        micronucleus_risk = "low"
+        icm_class = "class 5"
 
-    # ICH S2(R1) flag
-    if structural_class == "genotoxic":
-        ichs2r1_flag = "concern"
-    elif structural_class == "non-genotoxic":
-        ichs2r1_flag = "no_concern"
+    # TTC (Threshold of Toxicological Concern) for mutagenic impurities: 1.5 μg/day = 1500 ng
+    # For APIs: 120 μg/day permitted for clinical development; 1.5 μg/day for lifetime
+    daily_ai_ng = 1500.0 if ames == "positive" else 120000.0
+
+    # Mitigation
+    mitigations = []
+    if "nitro_aromatic" in triggered_names:
+        mitigations.append("Replace nitro group with bioisostere (e.g., CN, CF3)")
+    if "primary_aromatic_amine" in triggered_names:
+        mitigations.append("Block para-position; use secondary or tertiary amine")
+    if "alkyl_halide" in triggered_names:
+        mitigations.append("Replace alkyl halide with less reactive moiety")
+    if "n_nitroso" in triggered_names:
+        mitigations.append("Avoid N-nitroso formation; control nitrite impurities")
+    if not mitigations:
+        mitigations = (
+            ["No specific structural modifications required"]
+            if n_alerts == 0
+            else ["Perform confirmatory Ames test; consider scaffold redesign"]
+        )
+
+    note_parts = []
+    if n_alerts == 0:
+        note_parts.append("No genotoxicity structural alerts detected.")
     else:
-        ichs2r1_flag = "inconclusive"
-
-    # Notes
-    note_parts: list[str] = []
-    if n_alerts > 0:
-        triggered_names = [a.name for a in triggered_alerts]
-        note_parts.append(f"Triggered alerts: {', '.join(triggered_names)}")
-    if ames_prediction == "positive":
-        note_parts.append("ICH S2(R1) recommends in-vitro and in-vivo follow-up")
-    notes = "; ".join(note_parts) if note_parts else "No structural alerts detected"
+        names = ", ".join(sorted(triggered_names))
+        note_parts.append(f"{n_alerts} alert(s): {names}.")
+    note_parts.append(f"Ames prediction: {ames}. ICH M7: {icm_class}.")
 
     return GenotoxResult(
         compound_name=compound_name,
         smiles=smiles,
-        mw=mw,
-        logP=logP,
-        tpsa=tpsa,
         alerts=alerts,
         n_alerts=n_alerts,
-        alert_score=alert_score,
-        ames_prediction=ames_prediction,
-        ames_probability=ames_probability,
-        micronucleus_risk=micronucleus_risk,
-        ichs2r1_flag=ichs2r1_flag,
-        structural_class=structural_class,
-        notes=notes,
+        total_weight=total_weight,
+        ames_prediction=ames,
+        icm_m7_class=icm_class,
+        daily_acceptable_intake_ng=daily_ai_ng,
+        mitigation_strategy=mitigations,
+        notes=" ".join(note_parts),
     )
 
 
-def screen_library(compounds: list[dict]) -> list[GenotoxResult]:
-    """Screen a library of compounds for genotoxicity.
+def screen_genotoxicity(compounds: list[dict]) -> list[GenotoxResult]:
+    """Screen a list of compounds for genotoxicity.
 
     Parameters
     ----------
-    compounds : list[dict]
-        Each dict: {"name": ..., "smiles": ..., "mw": ..., "logP": ..., "tpsa": ...}
+    compounds : List of dicts with keys: 'name', 'smiles', optional 'daily_dose_mg'.
 
-    Returns
-    -------
-    list[GenotoxResult]
-        Sorted by alert_score descending.
+    Returns sorted by total_weight descending.
     """
     results = [
-        assess_genotoxicity(
-            compound_name=c["name"],
-            smiles=c["smiles"],
-            mw=c["mw"],
-            logP=c["logP"],
-            tpsa=c.get("tpsa", 50.0),
-        )
+        assess_genotoxicity(c["name"], c["smiles"], c.get("daily_dose_mg", 1.0))
         for c in compounds
     ]
-    return sorted(results, key=lambda r: r.alert_score, reverse=True)
-
-
-def get_genotoxic_alerts_summary() -> dict[str, str]:
-    """Return dict of alert_name -> description for all implemented alerts."""
-    return {name: info["description"] for name, info in ALERT_PATTERNS.items()}
+    return sorted(results, key=lambda r: r.total_weight, reverse=True)
