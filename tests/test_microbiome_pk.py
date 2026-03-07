@@ -1,335 +1,181 @@
-"""Tests for Phase 193 — microbiome_pk."""
-
-import math
+"""Tests for Phase 632 — Microbiome PK."""
 
 import pytest
 
-from omega_pbpk.clinical.microbiome_pk import (
-    MicrobiomeEffect,
+from omega_pbpk.core.microbiome_pk import (
     MicrobiomePKResult,
-    assess_microbiome_impact,
-    compare_microbiome_states,
+    estimate_microbial_clearance,
+    gut_lumen_pk,
+    simulate_microbiome_pk,
 )
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Fixtures
+# ---------------------------------------------------------------------------
+
+BASE_KWARGS = dict(
+    drug_name="TestDrug",
+    dose_mg=100.0,
+    gut_transit_time_h=24.0,
+    microbial_cl_per_h=0.5,
+    f_bioactivated=0.1,
+    has_nitro=False,
+    has_azo=False,
+    has_glucuronide_conjugate=False,
+    absorption_fraction=0.3,
+    logP=2.0,
+    colonocyte_clint_mL_per_min=0.0,
+)
+
+
+@pytest.fixture
+def result():
+    return simulate_microbiome_pk(**BASE_KWARGS)
+
+
+# ---------------------------------------------------------------------------
+# Basic return type
 # ---------------------------------------------------------------------------
 
 
-def _assess(**kwargs):
-    defaults = dict(
-        drug_name="TestDrug",
-        smiles="CC",
-        f_oral_baseline=0.5,
-        microbiome_state="normal",
-    )
-    defaults.update(kwargs)
-    return assess_microbiome_impact(**defaults)
-
-
-# ---------------------------------------------------------------------------
-# Basic return-type checks
-# ---------------------------------------------------------------------------
-
-
-def test_returns_result_type():
-    result = _assess()
+def test_returns_result(result):
     assert isinstance(result, MicrobiomePKResult)
 
 
-def test_result_is_frozen():
-    result = _assess()
-    with pytest.raises((AttributeError, TypeError)):
-        result.drug_name = "x"  # type: ignore[misc]
+def test_microbial_metabolism_in_0_100(result):
+    assert 0.0 <= result.microbiome_metabolism_pct <= 100.0
 
 
-def test_effects_is_list():
-    result = _assess()
-    assert isinstance(result.effects, list)
+def test_bioactivation_in_0_100(result):
+    assert 0.0 <= result.bioactivation_pct <= 100.0
 
 
-def test_microbiome_effect_frozen():
-    e = MicrobiomeEffect("azo_reduction", True, 1.5, "increase", "desc")
-    with pytest.raises((AttributeError, TypeError)):
-        e.pathway = "other"  # type: ignore[misc]
+def test_gut_exposure_positive(result):
+    assert result.gut_exposure_mg_h > 0.0
 
 
-# ---------------------------------------------------------------------------
-# Germ-free: no microbiome activity
-# ---------------------------------------------------------------------------
+def test_systemic_reduction_nonneg(result):
+    assert result.systemic_reduction_pct >= 0.0
 
 
-def test_germ_free_no_azo_effect():
-    """With germ_free state and azo bond, activity=0 → magnitude=1.0 → no change."""
-    result = assess_microbiome_impact(
-        drug_name="AzoDrug",
-        smiles="CC",
-        f_oral_baseline=0.4,
-        microbiome_state="germ_free",
-        has_azo_bond=True,
-    )
-    # azo magnitude = 1 + 0.5*0 = 1.0 → f_adjusted == baseline
-    assert math.isclose(result.f_oral_adjusted, 0.4, rel_tol=1e-6)
-    assert math.isclose(result.auc_ratio, 1.0, rel_tol=1e-6)
-
-
-def test_germ_free_no_glucuronide_effect():
-    result = assess_microbiome_impact(
-        drug_name="GlucDrug",
-        smiles="CC",
-        f_oral_baseline=0.6,
-        microbiome_state="germ_free",
-        has_glucuronide=True,
-    )
-    assert math.isclose(result.f_oral_adjusted, 0.6, rel_tol=1e-6)
-
-
-def test_germ_free_ba_change_near_zero():
-    result = assess_microbiome_impact(
-        drug_name="Inert",
-        smiles="CC",
-        f_oral_baseline=0.5,
-        microbiome_state="germ_free",
-        has_azo_bond=True,
-        has_glucuronide=True,
-    )
-    assert math.isclose(result.bioavailability_change_pct, 0.0, abs_tol=1e-9)
+def test_gut_half_life_positive(result):
+    assert result.gut_half_life_h > 0.0
 
 
 # ---------------------------------------------------------------------------
-# Normal microbiome: azo activation
+# Risk flags
 # ---------------------------------------------------------------------------
 
 
-def test_normal_azo_increases_ba():
-    result = assess_microbiome_impact(
-        drug_name="AzoDrug",
-        smiles="CC",
-        f_oral_baseline=0.4,
-        microbiome_state="normal",
-        has_azo_bond=True,
-    )
-    # magnitude = 1 + 0.5*1.0 = 1.5 → f_adjusted = min(1, 0.4*1.5) = 0.6
-    assert result.f_oral_adjusted > result.f_oral_baseline
-    assert math.isclose(result.f_oral_adjusted, 0.6, rel_tol=1e-6)
+def test_nitroreductase_risk_with_nitro():
+    r = simulate_microbiome_pk(**{**BASE_KWARGS, "has_nitro": True})
+    assert r.nitroreductase_risk is True
 
 
-def test_normal_azo_auc_ratio_correct():
-    result = assess_microbiome_impact(
-        drug_name="AzoDrug",
-        smiles="CC",
-        f_oral_baseline=0.4,
-        microbiome_state="normal",
-        has_azo_bond=True,
-    )
-    expected_ratio = 0.6 / 0.4
-    assert math.isclose(result.auc_ratio, expected_ratio, rel_tol=1e-6)
+def test_azoreductase_risk_with_azo():
+    r = simulate_microbiome_pk(**{**BASE_KWARGS, "has_azo": True})
+    assert r.azoreductase_risk is True
 
 
-def test_normal_glucuronide_increases_ba():
-    result = assess_microbiome_impact(
-        drug_name="GlucDrug",
-        smiles="CC",
-        f_oral_baseline=0.5,
-        microbiome_state="normal",
-        has_glucuronide=True,
-    )
-    # magnitude = 1 + 0.3*1.0 = 1.3 → f_adjusted = 0.65
-    assert math.isclose(result.f_oral_adjusted, 0.65, rel_tol=1e-6)
+def test_glucuronidase_risk():
+    r = simulate_microbiome_pk(**{**BASE_KWARGS, "has_glucuronide_conjugate": True})
+    assert r.glucuronidase_risk is True
 
 
 # ---------------------------------------------------------------------------
-# Antibiotic-treated: azo effect minimal
+# Enterotype sensitivity
 # ---------------------------------------------------------------------------
 
 
-def test_antibiotic_treated_azo_minimal():
-    result = assess_microbiome_impact(
-        drug_name="AzoDrug",
-        smiles="CC",
-        f_oral_baseline=0.4,
-        microbiome_state="antibiotic_treated",
-        has_azo_bond=True,
-    )
-    # activity = 0.1 → mag = 1.05 → f_adjusted = 0.42
-    assert result.f_oral_adjusted < 0.43
-    assert result.f_oral_adjusted > result.f_oral_baseline
+def test_enterotype_high_for_nitro():
+    r = simulate_microbiome_pk(**{**BASE_KWARGS, "has_nitro": True})
+    assert r.enterotype_sensitivity == "high"
 
 
-def test_antibiotic_less_effect_than_normal():
-    normal = assess_microbiome_impact(
-        drug_name="Drug",
-        smiles="CC",
-        f_oral_baseline=0.4,
-        microbiome_state="normal",
-        has_azo_bond=True,
-    )
-    abx = assess_microbiome_impact(
-        drug_name="Drug",
-        smiles="CC",
-        f_oral_baseline=0.4,
-        microbiome_state="antibiotic_treated",
-        has_azo_bond=True,
-    )
-    assert abx.f_oral_adjusted < normal.f_oral_adjusted
+def test_enterotype_moderate_for_glucuronide():
+    r = simulate_microbiome_pk(**{**BASE_KWARGS, "has_glucuronide_conjugate": True})
+    assert r.enterotype_sensitivity == "moderate"
+
+
+def test_enterotype_low_for_clean():
+    r = simulate_microbiome_pk(**BASE_KWARGS)
+    assert r.enterotype_sensitivity == "low"
 
 
 # ---------------------------------------------------------------------------
-# SMILES-based hydrazine detection
+# Dose/parameter sensitivity
 # ---------------------------------------------------------------------------
 
 
-def test_hydrazine_smiles_detection():
-    result = assess_microbiome_impact(
-        drug_name="HydrazineDrug",
-        smiles="CNN",
-        f_oral_baseline=0.6,
-        microbiome_state="normal",
-    )
-    pathways = [e.pathway for e in result.effects]
-    assert "hydrazine_reduction" in pathways
+def test_high_microbial_cl_more_metabolism():
+    r_low = simulate_microbiome_pk(**{**BASE_KWARGS, "microbial_cl_per_h": 0.1})
+    r_high = simulate_microbiome_pk(**{**BASE_KWARGS, "microbial_cl_per_h": 2.0})
+    assert r_high.microbiome_metabolism_pct > r_low.microbiome_metabolism_pct
 
 
-def test_hydrazine_reduces_ba():
-    result = assess_microbiome_impact(
-        drug_name="HydrazineDrug",
-        smiles="CNN",
-        f_oral_baseline=0.6,
-        microbiome_state="normal",
-    )
-    # hydrazine magnitude = 0.8 → f_adjusted = 0.48
-    assert result.f_oral_adjusted < result.f_oral_baseline
+def test_long_transit_more_metabolism():
+    r_short = simulate_microbiome_pk(**{**BASE_KWARGS, "gut_transit_time_h": 6.0})
+    r_long = simulate_microbiome_pk(**{**BASE_KWARGS, "gut_transit_time_h": 72.0})
+    assert r_long.microbiome_metabolism_pct > r_short.microbiome_metabolism_pct
 
 
 # ---------------------------------------------------------------------------
-# Lipophilic trapping (dysbiotic + logP > 4)
+# gut_lumen_pk
 # ---------------------------------------------------------------------------
 
 
-def test_lipophilic_trapping_dysbiotic():
-    result = assess_microbiome_impact(
-        drug_name="LipoPhil",
-        smiles="CC",
-        f_oral_baseline=0.7,
-        microbiome_state="dysbiotic",
-        logP=5.0,
-    )
-    pathways = [e.pathway for e in result.effects]
-    assert "lipophilic_trapping" in pathways
-    assert result.f_oral_adjusted < result.f_oral_baseline
+def test_gut_lumen_pk_returns_dict():
+    result = gut_lumen_pk(100.0, 24.0, 0.5)
+    assert isinstance(result, dict)
 
 
-def test_lipophilic_trapping_not_normal():
-    result = assess_microbiome_impact(
-        drug_name="LipoPhil",
-        smiles="CC",
-        f_oral_baseline=0.7,
-        microbiome_state="normal",
-        logP=5.0,
-    )
-    pathways = [e.pathway for e in result.effects]
-    assert "lipophilic_trapping" not in pathways
+def test_gut_lumen_pk_keys():
+    result = gut_lumen_pk(100.0, 24.0, 0.5)
+    for key in ("auc", "c_max", "t_half", "remaining_mg"):
+        assert key in result
+
+
+def test_gut_lumen_pk_cmax_equals_dose_per_V():
+    # V_gut = 1 L
+    result = gut_lumen_pk(200.0, 24.0, 0.5)
+    assert abs(result["c_max"] - 200.0) < 1e-9
+
+
+def test_gut_lumen_remaining_decreases():
+    result = gut_lumen_pk(100.0, 24.0, 0.5)
+    assert result["remaining_mg"] < 100.0
 
 
 # ---------------------------------------------------------------------------
-# compare_microbiome_states
+# estimate_microbial_clearance
 # ---------------------------------------------------------------------------
 
 
-def test_compare_returns_four_results():
-    results = compare_microbiome_states(
-        drug_name="Drug",
-        smiles="CC",
-        f_oral_baseline=0.5,
-        has_azo_bond=True,
-    )
-    assert len(results) == 4
+def test_estimate_microbial_cl_positive():
+    cl = estimate_microbial_clearance(logP=2.0)
+    assert cl > 0.0
 
 
-def test_compare_states_ordered():
-    results = compare_microbiome_states(
-        drug_name="Drug",
-        smiles="CC",
-        f_oral_baseline=0.5,
-        has_azo_bond=True,
-    )
-    states = [r.microbiome_state for r in results]
-    assert states == ["normal", "dysbiotic", "antibiotic_treated", "germ_free"]
-
-
-def test_compare_monotone_azo():
-    """Normal > dysbiotic > antibiotic_treated > germ_free for azo drug."""
-    results = compare_microbiome_states(
-        drug_name="Drug",
-        smiles="CC",
-        f_oral_baseline=0.3,
-        has_azo_bond=True,
-    )
-    f_vals = [r.f_oral_adjusted for r in results]
-    assert f_vals[0] >= f_vals[1] >= f_vals[2] >= f_vals[3]
+def test_nitro_increases_cl():
+    cl_base = estimate_microbial_clearance(logP=2.0, has_nitro=False)
+    cl_nitro = estimate_microbial_clearance(logP=2.0, has_nitro=True)
+    assert cl_nitro > cl_base
 
 
 # ---------------------------------------------------------------------------
-# Risk categories
+# Validation
 # ---------------------------------------------------------------------------
 
 
-def test_risk_low_no_effects():
-    result = _assess()
-    assert result.risk_category == "low"
-
-
-def test_risk_moderate_azo_dysbiotic():
-    # dysbiotic baseline 0.5, mag=1.3 → 0.65, change=30% → high
-    result = assess_microbiome_impact(
-        drug_name="D",
-        smiles="CC",
-        f_oral_baseline=0.5,
-        microbiome_state="normal",
-        has_azo_bond=True,
-        has_glucuronide=True,
-    )
-    # 0.5 * 1.5 * 1.3 = 0.975 → clipped to 1.0 → change=100% → high
-    assert result.risk_category in ("moderate", "high")
-
-
-# ---------------------------------------------------------------------------
-# Validation errors
-# ---------------------------------------------------------------------------
-
-
-def test_invalid_microbiome_state():
-    with pytest.raises(ValueError, match="microbiome_state"):
-        assess_microbiome_impact(
-            drug_name="D",
-            smiles="CC",
-            f_oral_baseline=0.5,
-            microbiome_state="space_gut",
-        )
-
-
-def test_invalid_f_oral_too_high():
+def test_invalid_dose_raises():
     with pytest.raises(ValueError):
-        assess_microbiome_impact(
-            drug_name="D",
-            smiles="CC",
-            f_oral_baseline=1.5,
-        )
+        simulate_microbiome_pk(**{**BASE_KWARGS, "dose_mg": -10.0})
 
 
-def test_invalid_f_oral_zero():
-    with pytest.raises(ValueError):
-        assess_microbiome_impact(
-            drug_name="D",
-            smiles="CC",
-            f_oral_baseline=0.0,
-        )
+# ---------------------------------------------------------------------------
+# Notes
+# ---------------------------------------------------------------------------
 
 
-def test_invalid_f_oral_negative():
-    with pytest.raises(ValueError):
-        assess_microbiome_impact(
-            drug_name="D",
-            smiles="CC",
-            f_oral_baseline=-0.1,
-        )
+def test_notes_nonempty(result):
+    assert len(result.notes) > 0
