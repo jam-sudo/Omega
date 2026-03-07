@@ -21,6 +21,10 @@ __all__ = [
     "simulate_sc_pk",
     "sc_bioavailability",
     "compare_sc_iv",
+    # Phase 392 additions
+    "SCPKSimResult",
+    "simulate_sc_depot",
+    "compare_sc_formulations",
 ]
 
 
@@ -358,3 +362,301 @@ def compare_sc_iv(
         "f_lymph": sc_result.f_lymph,
         "ke_per_h": ke,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 392: Simplified SC PK with lag time and explicit f_sc bioavailability
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SCPKSimResult:
+    """Result of simulate_sc_depot simulation.
+
+    Attributes
+    ----------
+    drug_name : str
+        Drug identifier.
+    dose_mg : float
+        SC dose (mg).
+    ka_sc_per_h : float
+        SC absorption rate constant (1/h).
+    f_sc : float
+        SC bioavailability fraction.
+    lag_time_h : float
+        Lag time before absorption begins (h).
+    times_h : list[float]
+        Simulation time points (h).
+    c_sc_mg_L : list[float]
+        SC plasma concentration profile (mg/L).
+    c_iv_mg_L : list[float]
+        IV reference concentration profile (mg/L).
+    cmax_sc : float
+        SC peak concentration (mg/L).
+    tmax_sc_h : float
+        Time to SC peak (h).
+    auc_sc : float
+        SC AUC 0→t_end (mg·h/L), trapezoidal.
+    auc_iv : float
+        IV reference AUC 0→t_end (mg·h/L), trapezoidal.
+    bioavailability_ratio : float
+        auc_sc / auc_iv ≈ f_sc (linear PK).
+    t_half_h : float
+        Elimination half-life (h) = ln(2) / ke.
+    notes : str
+        Simulation summary.
+    """
+
+    drug_name: str
+    dose_mg: float
+    ka_sc_per_h: float
+    f_sc: float
+    lag_time_h: float
+    times_h: list[float]
+    c_sc_mg_L: list[float]
+    c_iv_mg_L: list[float]
+    cmax_sc: float
+    tmax_sc_h: float
+    auc_sc: float
+    auc_iv: float
+    bioavailability_ratio: float
+    t_half_h: float
+    notes: str
+
+
+def simulate_sc_depot(
+    drug_name: str,
+    dose_mg: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    ka_sc_per_h: float,
+    f_sc: float = 1.0,
+    lag_time_h: float = 0.0,
+    t_end_h: float = 48.0,
+    dt_h: float = 0.1,
+) -> SCPKSimResult:
+    """Simulate SC PK with explicit f_sc, lag time, and IV reference comparison.
+
+    SC depot model:
+      - Effective absorbed dose = f_sc * dose_mg
+      - Depot (A_sc) absorbs via first-order ka_sc_per_h after lag_time_h
+      - Plasma 1-compartment: dC/dt = ka_sc * A_sc / Vd - ke * C  (t > lag_time_h)
+      - Before lag_time_h: dC/dt = -ke * C (no absorption)
+
+    IV reference (same dose, instantaneous bolus):
+      - c_iv(t) = (dose_mg / Vd) * exp(-ke * t)
+
+    AUC computed via trapezoidal rule.
+
+    Parameters
+    ----------
+    drug_name : str
+        Drug name.
+    dose_mg : float
+        Total SC dose (mg, must be > 0).
+    cl_L_per_h : float
+        Total body clearance (L/h, must be > 0).
+    vd_L : float
+        Volume of distribution (L, must be > 0).
+    ka_sc_per_h : float
+        SC absorption rate constant (1/h, must be > 0).
+    f_sc : float
+        SC bioavailability (0 < f_sc <= 1.0).
+    lag_time_h : float
+        Lag time before absorption starts (h, >= 0).
+    t_end_h : float
+        Simulation end time (h, must be > 0).
+    dt_h : float
+        Forward Euler time step (h, must be > 0).
+
+    Returns
+    -------
+    SCPKSimResult
+    """
+    if dose_mg <= 0.0:
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if cl_L_per_h <= 0.0:
+        raise ValueError(f"cl_L_per_h must be > 0, got {cl_L_per_h}")
+    if vd_L <= 0.0:
+        raise ValueError(f"vd_L must be > 0, got {vd_L}")
+    if ka_sc_per_h <= 0.0:
+        raise ValueError(f"ka_sc_per_h must be > 0, got {ka_sc_per_h}")
+    if not (0.0 < f_sc <= 1.0):
+        raise ValueError(f"f_sc must be in (0, 1], got {f_sc}")
+    if lag_time_h < 0.0:
+        raise ValueError(f"lag_time_h must be >= 0, got {lag_time_h}")
+    if t_end_h <= 0.0:
+        raise ValueError(f"t_end_h must be > 0, got {t_end_h}")
+    if dt_h <= 0.0:
+        raise ValueError(f"dt_h must be > 0, got {dt_h}")
+
+    ke = cl_L_per_h / vd_L
+    t_half_h = math.log(2.0) / ke
+
+    # Effective SC depot amount (mg)
+    a_sc = f_sc * dose_mg
+    c_sc = 0.0  # plasma SC concentration (mg/L)
+
+    n_steps = max(int(round(t_end_h / dt_h)), 1)
+    dt_actual = t_end_h / n_steps
+
+    times: list[float] = []
+    c_sc_arr: list[float] = []
+    c_iv_arr: list[float] = []
+
+    t = 0.0
+    for i in range(n_steps + 1):
+        t = i * dt_actual
+        times.append(t)
+
+        # IV reference: analytical
+        c_iv = (dose_mg / vd_L) * math.exp(-ke * t)
+        c_iv_arr.append(max(0.0, c_iv))
+        c_sc_arr.append(max(0.0, c_sc))
+
+        if i < n_steps:
+            # Forward Euler step
+            absorbing = t >= lag_time_h
+            if absorbing:
+                d_a_sc = -ka_sc_per_h * a_sc
+                flux = ka_sc_per_h * a_sc / vd_L
+            else:
+                d_a_sc = 0.0
+                flux = 0.0
+
+            d_c_sc = flux - ke * c_sc
+
+            a_sc = max(0.0, a_sc + d_a_sc * dt_actual)
+            c_sc = max(0.0, c_sc + d_c_sc * dt_actual)
+
+    # PK metrics for SC
+    cmax_sc = max(c_sc_arr)
+    tmax_sc_h = times[c_sc_arr.index(cmax_sc)]
+
+    # AUC via trapezoidal rule (manual)
+    auc_sc = _trapz(times, c_sc_arr)
+    auc_iv = _trapz(times, c_iv_arr)
+
+    bioavailability_ratio = auc_sc / auc_iv if auc_iv > 0.0 else float("nan")
+
+    notes = (
+        f"SC depot model for '{drug_name}'. f_sc={f_sc:.3f}, lag={lag_time_h} h, "
+        f"ka={ka_sc_per_h:.3f}/h, ke={ke:.4f}/h, t½={t_half_h:.2f} h. "
+        f"Cmax_SC={cmax_sc:.4g} mg/L at {tmax_sc_h:.2f} h. "
+        f"AUC_SC={auc_sc:.4g}, AUC_IV={auc_iv:.4g} mg·h/L. "
+        f"F_ratio={bioavailability_ratio:.3f}."
+    )
+
+    return SCPKSimResult(
+        drug_name=drug_name,
+        dose_mg=dose_mg,
+        ka_sc_per_h=ka_sc_per_h,
+        f_sc=f_sc,
+        lag_time_h=lag_time_h,
+        times_h=times,
+        c_sc_mg_L=c_sc_arr,
+        c_iv_mg_L=c_iv_arr,
+        cmax_sc=cmax_sc,
+        tmax_sc_h=tmax_sc_h,
+        auc_sc=auc_sc,
+        auc_iv=auc_iv,
+        bioavailability_ratio=bioavailability_ratio,
+        t_half_h=t_half_h,
+        notes=notes,
+    )
+
+
+def _trapz(xs: list[float], ys: list[float]) -> float:
+    """Manual trapezoidal integration."""
+    if len(xs) < 2:
+        return 0.0
+    total = 0.0
+    for i in range(len(xs) - 1):
+        total += 0.5 * (ys[i] + ys[i + 1]) * (xs[i + 1] - xs[i])
+    return total
+
+
+def compare_sc_formulations(
+    drug_name: str,
+    dose_mg: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    formulations: list[dict],
+) -> list[dict]:
+    """Compare multiple SC formulations and rank by AUC descending.
+
+    Each formulation dict must contain:
+      - ``name`` (str): formulation label
+      - ``ka_sc`` (float): SC absorption rate constant (1/h)
+      - ``f_sc`` (float): SC bioavailability fraction
+      - ``lag_h`` (float): lag time (h)
+
+    Parameters
+    ----------
+    drug_name : str
+        Drug name.
+    dose_mg : float
+        SC dose (mg, must be > 0).
+    cl_L_per_h : float
+        Total body clearance (L/h, must be > 0).
+    vd_L : float
+        Volume of distribution (L, must be > 0).
+    formulations : list[dict]
+        List of formulation parameter dicts.
+
+    Returns
+    -------
+    list[dict]
+        Formulation results sorted by AUC descending. Each dict contains:
+        ``name``, ``ka_sc``, ``f_sc``, ``lag_h``, ``auc_sc``, ``auc_iv``,
+        ``cmax_sc``, ``tmax_sc_h``, ``bioavailability_ratio``, ``t_half_h``.
+    """
+    if dose_mg <= 0.0:
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if cl_L_per_h <= 0.0:
+        raise ValueError(f"cl_L_per_h must be > 0, got {cl_L_per_h}")
+    if vd_L <= 0.0:
+        raise ValueError(f"vd_L must be > 0, got {vd_L}")
+    if not formulations:
+        raise ValueError("formulations list must not be empty")
+
+    required_keys = {"name", "ka_sc", "f_sc", "lag_h"}
+    for idx, form in enumerate(formulations):
+        missing = required_keys - set(form.keys())
+        if missing:
+            raise ValueError(
+                f"Formulation {idx} is missing required keys: {missing}"
+            )
+
+    results: list[dict] = []
+    for form in formulations:
+        name = str(form["name"])
+        ka_sc = float(form["ka_sc"])
+        f_sc_val = float(form["f_sc"])
+        lag_h = float(form["lag_h"])
+
+        sim = simulate_sc_depot(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            cl_L_per_h=cl_L_per_h,
+            vd_L=vd_L,
+            ka_sc_per_h=ka_sc,
+            f_sc=f_sc_val,
+            lag_time_h=lag_h,
+        )
+        results.append({
+            "name": name,
+            "ka_sc": ka_sc,
+            "f_sc": f_sc_val,
+            "lag_h": lag_h,
+            "auc_sc": sim.auc_sc,
+            "auc_iv": sim.auc_iv,
+            "cmax_sc": sim.cmax_sc,
+            "tmax_sc_h": sim.tmax_sc_h,
+            "bioavailability_ratio": sim.bioavailability_ratio,
+            "t_half_h": sim.t_half_h,
+        })
+
+    # Sort by AUC descending
+    results.sort(key=lambda d: d["auc_sc"], reverse=True)
+    return results
