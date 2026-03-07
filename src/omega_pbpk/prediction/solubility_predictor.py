@@ -1,13 +1,8 @@
-"""Aqueous solubility prediction from molecular descriptors — Phase 265.
+"""Phase 665 — Aqueous solubility prediction using the General Solubility Equation (GSE).
 
-Implements the General Solubility Equation (GSE) of Yalkowsky et al.
-and Abraham's linear free energy relationship for aqueous solubility.
-
-References
-----------
-- Yalkowsky SH & Valvani SC, J Pharm Sci. 1980;69(8):912-22 (GSE)
-- Ran Y et al., J Chem Inf Comput Sci. 2001 (intrinsic solubility)
-- Delaney JS, J Chem Inf Comput Sci. 2004 (ESOL model)
+Yalkowsky SH, He Y (2003). Handbook of Aqueous Solubility Data.
+GSE: log S = 0.5 - 0.01*(MP - 25) - logP  (Yalkowsky 2001)
+Extended with PSA (polar solvation) and MW (size penalty) corrections.
 """
 
 from __future__ import annotations
@@ -15,23 +10,21 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-__all__ = ["SolubilityResult", "predict_solubility", "classify_solubility"]
-
 
 @dataclass(frozen=True)
-class SolubilityResult:
-    """Result from aqueous solubility prediction."""
-
+class SolubilityPrediction:
     compound_name: str
     logP: float
     mw: float
-    mp_C: float  # Melting point (degrees C)
-    log_s_gse: float  # log10(S [mg/mL]) via GSE
-    log_s_esol: float  # log10(S [mol/L]) via ESOL-like model
-    s_mg_mL: float  # Solubility (mg/mL) from GSE
-    solubility_class: str  # "very_low", "low", "moderate", "high"
-    bcs_class_solubility: str  # BCS I/II class based on solubility
-    dose_solubility_number: float  # Dose / S * 250 mL -> dose number
+    psa: float
+    predicted_log_s: float
+    predicted_solubility_mg_mL: float
+    predicted_solubility_ug_mL: float
+    solubility_class: str
+    bcs_solubility: str
+    aqueous_solubility_flag: bool
+    ionization_correction_applied: bool
+    dissolution_rate_estimate: str
     notes: str
 
 
@@ -39,124 +32,150 @@ def predict_solubility(
     compound_name: str,
     logP: float,
     mw: float,
-    mp_C: float,
+    psa: float,
+    melting_point_c: float = 150.0,
+    pka_acid: float | None = None,
+    pka_base: float | None = None,
+    pH: float = 7.4,
     dose_mg: float = 100.0,
-    n_rotatable_bonds: int = 5,
-    n_aromatic_rings: int = 1,
-) -> SolubilityResult:
-    """Predict aqueous solubility using GSE and ESOL models.
+    dose_volume_mL: float = 250.0,
+) -> SolubilityPrediction:
+    """Predict aqueous solubility using the General Solubility Equation with corrections.
 
-    Parameters
-    ----------
-    compound_name : Compound name.
-    logP : Octanol-water partition coefficient.
-    mw : Molecular weight (g/mol). Must be > 0.
-    mp_C : Melting point (degrees Celsius). Must be >= 0.
-    dose_mg : Dose for dose number calculation (mg). Must be > 0.
-    n_rotatable_bonds : Number of rotatable bonds (0-20). >= 0.
-    n_aromatic_rings : Number of aromatic rings. >= 0.
+    Args:
+        compound_name: Name of the compound.
+        logP: Octanol-water partition coefficient (log).
+        mw: Molecular weight (g/mol).
+        psa: Polar surface area (Angstrom^2).
+        melting_point_c: Melting point in degrees Celsius (default 150).
+        pka_acid: Acidic pKa, if applicable.
+        pka_base: Basic pKa, if applicable.
+        pH: Target pH for solubility assessment (default 7.4).
+        dose_mg: Dose in mg for BCS assessment (default 100).
+        dose_volume_mL: Volume of dissolution medium in mL (default 250).
 
-    Returns
-    -------
-    SolubilityResult
+    Returns:
+        SolubilityPrediction dataclass with solubility estimates and classification.
+
+    Raises:
+        ValueError: If mw <= 0, psa < 0, or pH outside [0, 14].
     """
     if mw <= 0:
-        raise ValueError("mw must be > 0")
-    if mp_C < 0:
-        raise ValueError("mp_C must be >= 0")
-    if dose_mg <= 0:
-        raise ValueError("dose_mg must be > 0")
-    if n_rotatable_bonds < 0:
-        raise ValueError("n_rotatable_bonds must be >= 0")
-    if n_aromatic_rings < 0:
-        raise ValueError("n_aromatic_rings must be >= 0")
+        raise ValueError(f"mw must be > 0, got {mw}")
+    if psa < 0:
+        raise ValueError(f"psa must be >= 0, got {psa}")
+    if not (0 <= pH <= 14):
+        raise ValueError(f"pH must be in [0, 14], got {pH}")
 
-    # --- General Solubility Equation (Yalkowsky) ---
-    # log S (mol/L) = 0.5 - logP - 0.01*(mp - 25)
-    log_s_mol_L_gse = 0.5 - logP - 0.01 * max(0, mp_C - 25)
-    # Convert to mg/mL: S (mg/mL) = 10^logS (mol/L) * MW (g/mol) * 1000 mg/g / 1000 mL/L
-    #                             = 10^logS * MW
-    s_mol_L_gse = 10**log_s_mol_L_gse
-    s_mg_mL_gse = s_mol_L_gse * mw
-    log_s_mg_mL_gse = math.log10(max(s_mg_mL_gse, 1e-9))
+    # GSE base: log S (mol/L)
+    log_s = 0.5 - 0.01 * (melting_point_c - 25.0) - logP
 
-    # --- ESOL-like model (Delaney 2004 approximation) ---
-    # log S (mol/L) = 0.16 - 0.63*logP - 0.0062*MW + 0.066*RB - 0.74*AR
-    log_s_esol = (
-        0.16 - 0.63 * logP - 0.0062 * mw + 0.066 * n_rotatable_bonds - 0.74 * n_aromatic_rings
-    )
+    # PSA correction: polar groups improve solvation
+    psa_correction = psa * 0.008
+    log_s += psa_correction
 
-    # Use GSE s_mg_mL for classification
-    if s_mg_mL_gse < 0.1:
-        sol_class = "very_low"
-    elif s_mg_mL_gse < 1.0:
-        sol_class = "low"
-    elif s_mg_mL_gse < 10.0:
-        sol_class = "moderate"
+    # MW correction: large molecules less soluble
+    mw_correction = -(mw - 300.0) * 0.002 if mw > 300.0 else 0.0
+    log_s += mw_correction
+
+    # Ionization correction at target pH (Henderson-Hasselbalch)
+    ionization_applied = False
+    if pka_acid is not None and abs(pH - pka_acid) < 3.0:
+        ionization_factor = 1.0 + 10.0 ** (pH - pka_acid)
+        log_s += math.log10(ionization_factor)
+        ionization_applied = True
+    elif pka_base is not None and abs(pH - pka_base) < 3.0:
+        ionization_factor = 1.0 + 10.0 ** (pka_base - pH)
+        log_s += math.log10(ionization_factor)
+        ionization_applied = True
+
+    sol_mol_per_L = 10.0**log_s
+    sol_mg_mL = sol_mol_per_L * mw / 1000.0
+    sol_ug_mL = sol_mg_mL * 1000.0
+
+    # Solubility class (mg/mL)
+    if sol_mg_mL < 0.01:
+        solubility_class = "very_low"
+    elif sol_mg_mL < 0.1:
+        solubility_class = "low"
+    elif sol_mg_mL < 1.0:
+        solubility_class = "moderate"
     else:
-        sol_class = "high"
+        solubility_class = "high"
 
-    # BCS solubility classification: dose/S < 1 -> high solubility (BCS class I or III)
-    dose_number = dose_mg / (s_mg_mL_gse * 250.0)  # 250 mL gastric volume
-    bcs_sol = "high_solubility" if dose_number < 1.0 else "low_solubility"
+    # BCS solubility criterion: high if dose dissolves in dose_volume_mL
+    bcs_solubility = "high" if sol_mg_mL * dose_volume_mL >= dose_mg else "low"
 
-    notes = (
-        f"{compound_name}: logP={logP:.2f}, MW={mw:.0f}, mp={mp_C:.0f}\u00b0C. "
-        f"GSE: S={s_mg_mL_gse:.3g} mg/mL (log={log_s_mg_mL_gse:.2f}). "
-        f"ESOL: log S={log_s_esol:.2f} mol/L. "
-        f"Class: {sol_class}. Dose number={dose_number:.2f} ({bcs_sol})."
-    )
+    # Aqueous solubility flag: potential issue if < 0.1 mg/mL
+    aqueous_solubility_flag = sol_mg_mL < 0.1
 
-    return SolubilityResult(
+    # Dissolution rate estimate
+    if sol_mg_mL > 1.0:
+        dissolution_rate = "fast"
+    elif sol_mg_mL >= 0.1:
+        dissolution_rate = "moderate"
+    else:
+        dissolution_rate = "slow"
+
+    # Build notes
+    note_parts = [
+        f"logS={log_s:.2f} mol/L",
+        f"Solubility={sol_mg_mL:.4f} mg/mL ({solubility_class})",
+        f"BCS solubility: {bcs_solubility}",
+        f"Dissolution: {dissolution_rate}",
+    ]
+    if ionization_applied:
+        note_parts.append(f"Ionization correction applied at pH {pH:.1f}")
+    if aqueous_solubility_flag:
+        note_parts.append("Flag: low aqueous solubility may limit absorption")
+
+    notes = "; ".join(note_parts)
+
+    return SolubilityPrediction(
         compound_name=compound_name,
         logP=logP,
         mw=mw,
-        mp_C=mp_C,
-        log_s_gse=log_s_mg_mL_gse,
-        log_s_esol=log_s_esol,
-        s_mg_mL=s_mg_mL_gse,
-        solubility_class=sol_class,
-        bcs_class_solubility=bcs_sol,
-        dose_solubility_number=dose_number,
+        psa=psa,
+        predicted_log_s=log_s,
+        predicted_solubility_mg_mL=sol_mg_mL,
+        predicted_solubility_ug_mL=sol_ug_mL,
+        solubility_class=solubility_class,
+        bcs_solubility=bcs_solubility,
+        aqueous_solubility_flag=aqueous_solubility_flag,
+        ionization_correction_applied=ionization_applied,
+        dissolution_rate_estimate=dissolution_rate,
         notes=notes,
     )
 
 
-def classify_solubility(s_mg_mL: float) -> str:
-    """Classify solubility into BCS categories.
+def screen_solubility(compounds: list[dict]) -> list[SolubilityPrediction]:
+    """Screen multiple compounds for aqueous solubility, sorted by solubility descending.
 
-    Returns 'very_low', 'low', 'moderate', or 'high'.
+    Each dict should contain keys matching predict_solubility arguments.
+    Required keys: 'compound_name', 'logP', 'mw', 'psa'.
+    Optional keys: 'melting_point_c', 'pka_acid', 'pka_base', 'pH', 'dose_mg', 'dose_volume_mL'.
+
+    Returns:
+        List of SolubilityPrediction sorted by predicted_solubility_mg_mL descending.
     """
-    if s_mg_mL < 0.1:
-        return "very_low"
-    elif s_mg_mL < 1.0:
-        return "low"
-    elif s_mg_mL < 10.0:
-        return "moderate"
-    else:
-        return "high"
+    if not compounds:
+        return []
 
-
-def screen_solubility(compounds: list[dict]) -> list:
-    """Screen a list of compounds for solubility, sorted ascending by solubility_mg_mL.
-
-    Each dict must contain keys accepted by predict_solubility.
-    """
-    results = []
+    results: list[SolubilityPrediction] = []
     for c in compounds:
-        r = predict_solubility(
-            compound_name=c.get("compound_name", "Compound"),
-            smiles=c.get("smiles", ""),
-            mw=float(c["mw"]),
-            logP=float(c["logP"]),
-            mp_C=float(c.get("mp_C", 150.0)),
-            n_rotatable_bonds=int(c.get("n_rotatable_bonds", 5)),
-            n_hbd=int(c.get("n_hbd", 2)),
-            n_hba=int(c.get("n_hba", 4)),
-            n_aromatic_rings=int(c.get("n_aromatic_rings", 1)),
-            pka_acid=float(c["pka_acid"]) if "pka_acid" in c else None,
-            ph=float(c.get("ph", 7.4)),
+        pred = predict_solubility(
+            compound_name=c["compound_name"],
+            logP=c["logP"],
+            mw=c["mw"],
+            psa=c["psa"],
+            melting_point_c=c.get("melting_point_c", 150.0),
+            pka_acid=c.get("pka_acid", None),
+            pka_base=c.get("pka_base", None),
+            pH=c.get("pH", 7.4),
+            dose_mg=c.get("dose_mg", 100.0),
+            dose_volume_mL=c.get("dose_volume_mL", 250.0),
         )
-        results.append(r)
-    results.sort(key=lambda r: r.solubility_mg_mL)
+        results.append(pred)
+
+    results.sort(key=lambda r: r.predicted_solubility_mg_mL, reverse=True)
     return results

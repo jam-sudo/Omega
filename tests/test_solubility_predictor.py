@@ -1,189 +1,174 @@
-"""Tests for prediction/solubility_predictor.py — Phase 265."""
-
-from __future__ import annotations
+"""Tests for Phase 665 — prediction/solubility_predictor.py"""
 
 import math
 
 import pytest
 
 from omega_pbpk.prediction.solubility_predictor import (
-    SolubilityResult,
-    classify_solubility,
+    SolubilityPrediction,
     predict_solubility,
+    screen_solubility,
 )
 
-# ---------------------------------------------------------------------------
-# Input validation
-# ---------------------------------------------------------------------------
+VALID_CLASSES = {"very_low", "low", "moderate", "high"}
+VALID_BCS = {"high", "low"}
 
 
-def test_invalid_mw_zero():
-    with pytest.raises(ValueError, match="mw"):
-        predict_solubility("X", logP=1.0, mw=0, mp_C=100)
+# --- Basic return type tests ---
 
 
-def test_invalid_mw_negative():
-    with pytest.raises(ValueError, match="mw"):
-        predict_solubility("X", logP=1.0, mw=-50, mp_C=100)
+def test_returns_solubility_prediction():
+    result = predict_solubility("TestDrug", logP=2.0, mw=300.0, psa=60.0)
+    assert isinstance(result, SolubilityPrediction)
 
 
-def test_invalid_mp_negative():
-    with pytest.raises(ValueError, match="mp_C"):
-        predict_solubility("X", logP=1.0, mw=300, mp_C=-5)
+def test_predicted_solubility_mg_mL_positive():
+    result = predict_solubility("TestDrug", logP=2.0, mw=300.0, psa=60.0)
+    assert result.predicted_solubility_mg_mL > 0
 
 
-def test_invalid_dose_zero():
-    with pytest.raises(ValueError, match="dose_mg"):
-        predict_solubility("X", logP=1.0, mw=300, mp_C=100, dose_mg=0)
+def test_predicted_solubility_ug_mL_is_1000x_mg_mL():
+    result = predict_solubility("TestDrug", logP=2.0, mw=300.0, psa=60.0)
+    assert (
+        abs(result.predicted_solubility_ug_mL - result.predicted_solubility_mg_mL * 1000.0) < 1e-6
+    )
 
 
-def test_invalid_dose_negative():
-    with pytest.raises(ValueError, match="dose_mg"):
-        predict_solubility("X", logP=1.0, mw=300, mp_C=100, dose_mg=-10)
-
-
-def test_invalid_n_rotatable_bonds_negative():
-    with pytest.raises(ValueError, match="n_rotatable_bonds"):
-        predict_solubility("X", logP=1.0, mw=300, mp_C=100, n_rotatable_bonds=-1)
-
-
-def test_invalid_n_aromatic_rings_negative():
-    with pytest.raises(ValueError, match="n_aromatic_rings"):
-        predict_solubility("X", logP=1.0, mw=300, mp_C=100, n_aromatic_rings=-1)
-
-
-# ---------------------------------------------------------------------------
-# Basic result properties
-# ---------------------------------------------------------------------------
-
-
-def test_returns_solubility_result():
-    r = predict_solubility("Aspirin", logP=1.2, mw=180.16, mp_C=135)
-    assert isinstance(r, SolubilityResult)
-
-
-def test_compound_name_stored():
-    r = predict_solubility("Warfarin", logP=2.7, mw=308.3, mp_C=161)
-    assert r.compound_name == "Warfarin"
-
-
-def test_s_mg_mL_positive():
-    r = predict_solubility("DrugA", logP=2.0, mw=300, mp_C=150)
-    assert r.s_mg_mL > 0
-
-
-def test_log_s_gse_is_finite():
-    r = predict_solubility("DrugA", logP=2.0, mw=300, mp_C=150)
-    assert math.isfinite(r.log_s_gse)
-
-
-def test_log_s_esol_is_finite():
-    r = predict_solubility("DrugA", logP=2.0, mw=300, mp_C=150)
-    assert math.isfinite(r.log_s_esol)
-
-
-def test_dose_solubility_number_positive():
-    r = predict_solubility("DrugA", logP=2.0, mw=300, mp_C=150)
-    assert r.dose_solubility_number > 0
+def test_predicted_log_s_is_finite():
+    result = predict_solubility("TestDrug", logP=2.0, mw=300.0, psa=60.0)
+    assert math.isfinite(result.predicted_log_s)
 
 
 def test_solubility_class_valid():
-    valid = {"very_low", "low", "moderate", "high"}
-    r = predict_solubility("DrugA", logP=2.0, mw=300, mp_C=150)
-    assert r.solubility_class in valid
+    result = predict_solubility("TestDrug", logP=2.0, mw=300.0, psa=60.0)
+    assert result.solubility_class in VALID_CLASSES
 
 
-def test_bcs_class_solubility_valid():
-    valid = {"high_solubility", "low_solubility"}
-    r = predict_solubility("DrugA", logP=2.0, mw=300, mp_C=150)
-    assert r.bcs_class_solubility in valid
+def test_bcs_solubility_valid():
+    result = predict_solubility("TestDrug", logP=2.0, mw=300.0, psa=60.0)
+    assert result.bcs_solubility in VALID_BCS
 
 
-# ---------------------------------------------------------------------------
-# GSE model behaviour
-# ---------------------------------------------------------------------------
+def test_notes_nonempty():
+    result = predict_solubility("TestDrug", logP=2.0, mw=300.0, psa=60.0)
+    assert result.notes
 
 
-def test_high_logP_high_mp_very_low_solubility():
-    """High logP (5.0) and high mp (200 C) should give very_low solubility."""
-    r = predict_solubility("HighLipophilic", logP=5.0, mw=400, mp_C=200)
-    assert r.solubility_class == "very_low"
+# --- Scientific behavior tests ---
 
 
-def test_low_logP_low_mp_high_or_moderate_solubility():
-    """Low logP (1.0) and low mp (50 C) should give high or moderate solubility."""
-    r = predict_solubility("Hydrophilic", logP=1.0, mw=200, mp_C=50)
-    assert r.solubility_class in {"high", "moderate"}
+def test_high_logP_lower_solubility_than_low_logP():
+    r_high = predict_solubility("HighLogP", logP=6.0, mw=300.0, psa=30.0)
+    r_low = predict_solubility("LowLogP", logP=1.0, mw=300.0, psa=30.0)
+    assert r_high.predicted_solubility_mg_mL < r_low.predicted_solubility_mg_mL
 
 
-def test_log_s_gse_consistent_with_s_mg_mL():
-    """log_s_gse should equal log10(s_mg_mL)."""
-    r = predict_solubility("Compound", logP=2.0, mw=300, mp_C=100)
-    assert abs(r.log_s_gse - math.log10(r.s_mg_mL)) < 1e-6
+def test_high_psa_higher_solubility():
+    r_high_psa = predict_solubility("HighPSA", logP=2.0, mw=300.0, psa=120.0)
+    r_low_psa = predict_solubility("LowPSA", logP=2.0, mw=300.0, psa=20.0)
+    assert r_high_psa.predicted_solubility_mg_mL > r_low_psa.predicted_solubility_mg_mL
 
 
-def test_higher_logP_reduces_solubility():
-    r_low = predict_solubility("LowP", logP=1.0, mw=250, mp_C=100)
-    r_high = predict_solubility("HighP", logP=5.0, mw=250, mp_C=100)
-    assert r_high.s_mg_mL < r_low.s_mg_mL
+def test_acidic_drug_high_pH_ionization_correction_applied():
+    result = predict_solubility("AcidicDrug", logP=2.0, mw=250.0, psa=50.0, pka_acid=5.0, pH=7.4)
+    assert result.ionization_correction_applied is True
 
 
-def test_high_mp_reduces_solubility():
-    r_low_mp = predict_solubility("LowMp", logP=2.0, mw=300, mp_C=50)
-    r_high_mp = predict_solubility("HighMp", logP=2.0, mw=300, mp_C=250)
-    assert r_high_mp.s_mg_mL < r_low_mp.s_mg_mL
+def test_acidic_drug_higher_solubility_at_high_pH():
+    r_ionized = predict_solubility("AcidicDrug", logP=2.0, mw=250.0, psa=50.0, pka_acid=5.0, pH=7.4)
+    r_neutral = predict_solubility("NeutralDrug", logP=2.0, mw=250.0, psa=50.0, pH=7.4)
+    assert r_ionized.predicted_solubility_mg_mL > r_neutral.predicted_solubility_mg_mL
 
 
-# ---------------------------------------------------------------------------
-# BCS dose number
-# ---------------------------------------------------------------------------
+def test_high_melting_point_lower_solubility():
+    r_high_mp = predict_solubility("HighMP", logP=2.0, mw=300.0, psa=60.0, melting_point_c=250.0)
+    r_low_mp = predict_solubility("LowMP", logP=2.0, mw=300.0, psa=60.0, melting_point_c=80.0)
+    assert r_high_mp.predicted_solubility_mg_mL < r_low_mp.predicted_solubility_mg_mL
 
 
-def test_dose_number_below_1_gives_high_bcs():
-    """Very soluble compound should have dose_number < 1 and high_solubility."""
-    r = predict_solubility("Soluble", logP=0.0, mw=100, mp_C=25, dose_mg=1.0)
-    assert r.dose_solubility_number < 1.0
-    assert r.bcs_class_solubility == "high_solubility"
+def test_high_mw_lower_solubility():
+    r_large = predict_solubility("LargeMW", logP=2.0, mw=700.0, psa=60.0)
+    r_small = predict_solubility("SmallMW", logP=2.0, mw=200.0, psa=60.0)
+    assert r_large.predicted_solubility_mg_mL < r_small.predicted_solubility_mg_mL
 
 
-def test_dose_number_above_1_gives_low_bcs():
-    """Poorly soluble compound with high dose should have dose_number > 1."""
-    r = predict_solubility("Insoluble", logP=6.0, mw=500, mp_C=250, dose_mg=500.0)
-    assert r.dose_solubility_number > 1.0
-    assert r.bcs_class_solubility == "low_solubility"
+def test_bcs_high_solubility_drug():
+    # Very soluble: logP=0, small MW, high PSA → expect BCS high
+    result = predict_solubility(
+        "Soluble",
+        logP=0.0,
+        mw=150.0,
+        psa=100.0,
+        melting_point_c=100.0,
+        dose_mg=10.0,
+        dose_volume_mL=250.0,
+    )
+    assert result.bcs_solubility == "high"
 
 
-# ---------------------------------------------------------------------------
-# classify_solubility function
-# ---------------------------------------------------------------------------
+def test_bcs_low_solubility_drug():
+    # Very insoluble: logP=7, large MW, low PSA
+    result = predict_solubility(
+        "Insoluble",
+        logP=7.0,
+        mw=500.0,
+        psa=10.0,
+        melting_point_c=250.0,
+        dose_mg=100.0,
+        dose_volume_mL=250.0,
+    )
+    assert result.bcs_solubility == "low"
 
 
-def test_classify_very_low():
-    assert classify_solubility(0.05) == "very_low"
+def test_aqueous_solubility_flag_true_for_hydrophobic():
+    # logP=7 → very hydrophobic → flag should be True
+    result = predict_solubility("Hydrophobic", logP=7.0, mw=400.0, psa=20.0)
+    assert result.aqueous_solubility_flag is True
 
 
-def test_classify_low():
-    assert classify_solubility(0.5) == "low"
+def test_aqueous_solubility_flag_false_for_hydrophilic():
+    # logP=0, small MW, high PSA → very soluble → no flag
+    result = predict_solubility("Hydrophilic", logP=0.0, mw=150.0, psa=120.0, melting_point_c=80.0)
+    assert result.aqueous_solubility_flag is False
 
 
-def test_classify_moderate():
-    assert classify_solubility(5.0) == "moderate"
+# --- screen_solubility tests ---
 
 
-def test_classify_high():
-    assert classify_solubility(50.0) == "high"
+def test_screen_solubility_sorted_descending():
+    compounds = [
+        {"compound_name": "A", "logP": 5.0, "mw": 400.0, "psa": 20.0},
+        {"compound_name": "B", "logP": 1.0, "mw": 200.0, "psa": 80.0},
+        {"compound_name": "C", "logP": 3.0, "mw": 300.0, "psa": 50.0},
+    ]
+    results = screen_solubility(compounds)
+    assert len(results) == 3
+    solvs = [r.predicted_solubility_mg_mL for r in results]
+    assert solvs == sorted(solvs, reverse=True)
 
 
-def test_classify_boundary_0_1():
-    """Exactly 0.1 should be 'low' not 'very_low'."""
-    assert classify_solubility(0.1) == "low"
+def test_screen_solubility_empty_returns_empty():
+    assert screen_solubility([]) == []
 
 
-def test_classify_boundary_1_0():
-    """Exactly 1.0 should be 'moderate'."""
-    assert classify_solubility(1.0) == "moderate"
+# --- Validation tests ---
 
 
-def test_classify_boundary_10_0():
-    """Exactly 10.0 should be 'high'."""
-    assert classify_solubility(10.0) == "high"
+def test_validation_mw_zero_raises():
+    with pytest.raises(ValueError, match="mw"):
+        predict_solubility("X", logP=2.0, mw=0.0, psa=60.0)
+
+
+def test_validation_pH_negative_raises():
+    with pytest.raises(ValueError, match="pH"):
+        predict_solubility("X", logP=2.0, mw=300.0, psa=60.0, pH=-1.0)
+
+
+def test_validation_pH_above_14_raises():
+    with pytest.raises(ValueError, match="pH"):
+        predict_solubility("X", logP=2.0, mw=300.0, psa=60.0, pH=15.0)
+
+
+def test_ionization_correction_false_for_neutral_drug():
+    result = predict_solubility("Neutral", logP=2.0, mw=300.0, psa=60.0)
+    assert result.ionization_correction_applied is False
