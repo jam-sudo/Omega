@@ -1,250 +1,259 @@
-"""Neonatal drug dosing adjustments for immature organ function.
+"""
+Phase 939 — Neonatal and infant dosing model.
 
-Neonates (0-28 days postnatal age) have dramatically different PK from adults:
-- GFR very low at birth (~10 mL/min/1.73m² at term), matures by ~1 year
-- CYP3A4/2D6/1A2/2C9 activity very low at birth (1-10% of adult)
-- Lower albumin binding → higher free fraction
-- Higher total body water → larger Vd for water-soluble drugs
-
-References:
-- Kearns GL et al. NEJM 2003
-- Anderson BJ, Holford NH. Annu Rev Pharmacol Toxicol 2008
-- Allegaert K, van den Anker J. Brit J Clin Pharmacol 2015
+Highly immature organ function, weight-based PK scaling.
+1-compartment forward Euler simulation with age-group-specific
+CL maturation and Vd scaling.
 """
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
-_VALID_ENZYMES = {"CYP3A4", "CYP2D6", "CYP1A2", "CYP2C9"}
+__all__ = ["NeonatalDosingResult", "simulate_neonatal_dosing", "compare_age_groups"]
 
-# Adult reference GFR in mL/min/1.73m²
-_ADULT_GFR = 100.0
+# ---------------------------------------------------------------------------
+# Age-group reference data
+# ---------------------------------------------------------------------------
+
+_AGE_GROUPS = {
+    "premature": {"cl_mult": 0.05, "weight_kg": 1.0, "vd_mult": 1.5},
+    "term_neonate": {"cl_mult": 0.10, "weight_kg": 3.5, "vd_mult": 1.3},
+    "infant_1_6m": {"cl_mult": 0.30, "weight_kg": 6.0, "vd_mult": 1.2},
+    "infant_6_12m": {"cl_mult": 0.50, "weight_kg": 9.0, "vd_mult": 1.1},
+    "toddler_1_2y": {"cl_mult": 0.70, "weight_kg": 12.0, "vd_mult": 1.0},
+}
+
+_ADULT_WEIGHT_KG = 70.0
 
 
-@dataclass(frozen=True)
-class NeonatalDoseResult:
-    """Result of neonatal dose recommendation."""
+# ---------------------------------------------------------------------------
+# Result dataclass
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class NeonatalDosingResult:
+    """Results from a neonatal/infant dosing simulation."""
 
     drug_name: str
-    weight_kg: float
-    gestational_age_weeks: float
-    postnatal_age_days: float
-    adult_dose_mg_per_kg: float
-    neonatal_dose_mg_per_kg: float
-    neonatal_dose_mg: float
-    cl_renal_factor: float
-    cl_hepatic_factor: float
-    dosing_interval_h: float
-    monitoring_recommendation: str
+    age_group: str
+    dose_mg: float
+    patient_weight_kg: float
+    times_h: list
+    c_plasma_mg_L: list
+    cmax_mg_L: float
+    tmax_h: float
+    auc_mg_h_per_L: float
+    t_half_h: float
+    cl_effective_L_per_h: float
+    vd_effective_L: float
+    adult_t_half_h: float
+    t_half_fold_increase: float
     notes: str
 
 
-def neonatal_gfr(gestational_age_weeks: float, postnatal_age_days: float) -> float:
-    """Estimate GFR in mL/min/1.73m² for neonates.
-
-    Args:
-        gestational_age_weeks: Gestational age in weeks (typically 24-42).
-        postnatal_age_days: Postnatal age in days (0-28 for neonates).
-
-    Returns:
-        Estimated GFR in mL/min/1.73m², clamped to [2, 100].
-    """
-    if gestational_age_weeks <= 0:
-        raise ValueError(f"gestational_age_weeks must be > 0, got {gestational_age_weeks}")
-    if postnatal_age_days < 0:
-        raise ValueError(f"postnatal_age_days must be >= 0, got {postnatal_age_days}")
-
-    ga = gestational_age_weeks
-    pna = postnatal_age_days
-
-    # GFR = 10 * (GA/40)^2 at birth, matures linearly over ~1 year (365 days)
-    gfr = 10.0 * (ga / 40.0) ** 2 * (1.0 + pna / 365.0)
-
-    # Clamp to physiological range
-    return max(2.0, min(100.0, gfr))
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 
-def neonatal_cyp_activity(
-    enzyme: str,
-    gestational_age_weeks: float,
-    postnatal_age_days: float,
-) -> float:
-    """Estimate fraction of adult CYP enzyme activity in neonates.
-
-    Args:
-        enzyme: One of 'CYP3A4', 'CYP2D6', 'CYP1A2', 'CYP2C9'.
-        gestational_age_weeks: Gestational age in weeks.
-        postnatal_age_days: Postnatal age in days.
-
-    Returns:
-        Fraction of adult activity in [0.0, 1.0].
-    """
-    if enzyme not in _VALID_ENZYMES:
-        raise ValueError(f"enzyme must be one of {sorted(_VALID_ENZYMES)}, got '{enzyme}'")
-    if gestational_age_weeks <= 0:
-        raise ValueError(f"gestational_age_weeks must be > 0, got {gestational_age_weeks}")
-    if postnatal_age_days < 0:
-        raise ValueError(f"postnatal_age_days must be >= 0, got {postnatal_age_days}")
-
-    ga = gestational_age_weeks
-    pna = postnatal_age_days
-
-    if enzyme == "CYP3A4":
-        # Very low at birth, rises with GA maturation and postnatal age
-        f = 0.05 + 0.95 * (1.0 - math.exp(-0.01 * (pna + (ga - 28) * 7)))
-    elif enzyme == "CYP2D6":
-        # Almost absent at birth, rapid postnatal maturation
-        f = 0.01 + 0.99 * (1.0 - math.exp(-0.008 * pna))
-    elif enzyme == "CYP1A2":
-        # Slowest to mature
-        f = 0.01 + 0.99 * (1.0 - math.exp(-0.005 * pna))
-    else:  # CYP2C9
-        f = 0.1 + 0.9 * (1.0 - math.exp(-0.007 * pna))
-
-    return max(0.0, min(1.0, f))
+def _compute_effective_params(
+    age_group: str,
+    cl_adult_L_per_h: float,
+    vd_adult_L: float,
+) -> tuple:
+    """Return (cl_eff, vd_eff, weight_kg) for the given age group."""
+    info = _AGE_GROUPS[age_group]
+    weight_kg = info["weight_kg"]
+    # Vd scales linearly with weight (allometric exponent 1.0) + extra body water mult
+    vd_eff = vd_adult_L * (weight_kg / _ADULT_WEIGHT_KG) * info["vd_mult"]
+    # CL scales with maturation multiplier * weight fraction
+    cl_eff = cl_adult_L_per_h * info["cl_mult"] * (weight_kg / _ADULT_WEIGHT_KG)
+    return cl_eff, vd_eff, weight_kg
 
 
-def neonatal_cl_adjustment(
-    cl_adult_L_per_h_per_kg: float,
-    weight_kg: float,
-    gestational_age_weeks: float,
-    postnatal_age_days: float,
-    fraction_renal: float = 0.5,
-    fraction_hepatic: float = 0.5,
-    primary_cyp: str = "CYP3A4",
-) -> dict:
-    """Adjust clearance for neonatal organ immaturity.
-
-    Args:
-        cl_adult_L_per_h_per_kg: Adult clearance in L/h/kg.
-        weight_kg: Neonate weight in kg.
-        gestational_age_weeks: Gestational age in weeks.
-        postnatal_age_days: Postnatal age in days.
-        fraction_renal: Fraction of clearance via renal elimination.
-        fraction_hepatic: Fraction of clearance via hepatic metabolism.
-        primary_cyp: Primary CYP enzyme for hepatic clearance.
-
-    Returns:
-        dict with keys: cl_adult_per_kg, cl_adjusted_L_per_h, renal_factor,
-        hepatic_factor.
-    """
-    if weight_kg <= 0:
-        raise ValueError(f"weight_kg must be > 0, got {weight_kg}")
-    if gestational_age_weeks <= 0:
-        raise ValueError(f"gestational_age_weeks must be > 0, got {gestational_age_weeks}")
-    if postnatal_age_days < 0:
-        raise ValueError(f"postnatal_age_days must be >= 0, got {postnatal_age_days}")
-    if primary_cyp not in _VALID_ENZYMES:
-        raise ValueError(
-            f"primary_cyp must be one of {sorted(_VALID_ENZYMES)}, got '{primary_cyp}'"
-        )
-
-    renal_factor = neonatal_gfr(gestational_age_weeks, postnatal_age_days) / _ADULT_GFR
-    hepatic_factor = neonatal_cyp_activity(primary_cyp, gestational_age_weeks, postnatal_age_days)
-
-    combined_factor = fraction_renal * renal_factor + fraction_hepatic * hepatic_factor
-    cl_adjusted = cl_adult_L_per_h_per_kg * weight_kg * combined_factor
-
-    return {
-        "cl_adult_per_kg": cl_adult_L_per_h_per_kg,
-        "cl_adjusted_L_per_h": cl_adjusted,
-        "renal_factor": renal_factor,
-        "hepatic_factor": hepatic_factor,
-    }
+def _trapezoidal_auc(times: list, conc: list) -> float:
+    auc = 0.0
+    for i in range(1, len(times)):
+        auc += 0.5 * (conc[i - 1] + conc[i]) * (times[i] - times[i - 1])
+    return auc
 
 
-def neonatal_dose_recommendation(
+def _simulate_1cpt(
+    dose_mg: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    ka_per_h: float,
+    route: str,
+    n_doses: int,
+    dosing_interval_h: float,
+    t_end_h: float,
+    dt_h: float,
+) -> tuple:
+    """Forward Euler 1-cpt simulation, returns (times, concentrations)."""
+    ke = cl_L_per_h / vd_L
+
+    n_steps = int(round(t_end_h / dt_h)) + 1
+    times = [i * dt_h for i in range(n_steps)]
+
+    c = 0.0
+    a_gut = 0.0
+
+    dose_times = [i * dosing_interval_h for i in range(n_doses)]
+    dose_applied = [False] * n_doses
+
+    # Apply first dose at t=0
+    if route == "iv":
+        c = dose_mg / vd_L
+    else:
+        a_gut = dose_mg
+    dose_applied[0] = True
+
+    concentrations = []
+
+    for step_i in range(n_steps):
+        t = times[step_i]
+        concentrations.append(c)
+
+        # Apply subsequent doses
+        for d_idx in range(1, n_doses):
+            if not dose_applied[d_idx]:
+                if t >= dose_times[d_idx] - dt_h * 0.5:
+                    if route == "iv":
+                        c += dose_mg / vd_L
+                    else:
+                        a_gut += dose_mg
+                    dose_applied[d_idx] = True
+
+        # Forward Euler update
+        if route == "iv":
+            dc_dt = -ke * c
+            c = max(0.0, c + dc_dt * dt_h)
+        else:
+            da_gut_dt = -ka_per_h * a_gut
+            dc_dt = (ka_per_h * a_gut) / vd_L - ke * c
+            a_gut = max(0.0, a_gut + da_gut_dt * dt_h)
+            c = max(0.0, c + dc_dt * dt_h)
+
+    return times, concentrations
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
+def simulate_neonatal_dosing(
     drug_name: str,
-    adult_dose_mg_per_kg: float,
-    weight_kg: float,
-    gestational_age_weeks: float,
-    postnatal_age_days: float,
-    fraction_renal: float = 0.5,
-    fraction_hepatic: float = 0.5,
-    primary_cyp: str = "CYP3A4",
+    dose_mg_per_kg: float,
+    age_group: str,
+    cl_adult_L_per_h: float = 10.0,
+    vd_adult_L: float = 50.0,
+    ka_per_h: float = 1.0,
+    route: str = "iv",
+    n_doses: int = 1,
     dosing_interval_h: float = 12.0,
-) -> NeonatalDoseResult:
-    """Recommend neonatal dose based on CL adjustment for organ immaturity.
+    t_end_h: float = 72.0,
+    dt_h: float = 0.1,
+) -> NeonatalDosingResult:
+    """Simulate neonatal/infant dosing for a single age group."""
+    # Validation
+    if dose_mg_per_kg <= 0:
+        raise ValueError("dose_mg_per_kg must be positive")
+    if cl_adult_L_per_h <= 0:
+        raise ValueError("cl_adult_L_per_h must be positive")
+    if vd_adult_L <= 0:
+        raise ValueError("vd_adult_L must be positive")
+    if age_group not in _AGE_GROUPS:
+        raise ValueError(f"age_group must be one of {list(_AGE_GROUPS.keys())}")
+    if route not in {"iv", "oral"}:
+        raise ValueError("route must be 'iv' or 'oral'")
+    if n_doses < 1:
+        raise ValueError("n_doses must be >= 1")
 
-    The neonatal dose per kg is scaled by the combined CL reduction factor
-    relative to the adult, preserving exposure (AUC) equivalence.
+    cl_eff, vd_eff, weight_kg = _compute_effective_params(age_group, cl_adult_L_per_h, vd_adult_L)
+    dose_mg = dose_mg_per_kg * weight_kg
 
-    Args:
-        drug_name: Name of the drug.
-        adult_dose_mg_per_kg: Standard adult dose in mg/kg.
-        weight_kg: Neonate body weight in kg.
-        gestational_age_weeks: Gestational age at birth in weeks.
-        postnatal_age_days: Postnatal age in days.
-        fraction_renal: Fraction of adult clearance via renal route.
-        fraction_hepatic: Fraction of adult clearance via hepatic route.
-        primary_cyp: Primary CYP enzyme for hepatic metabolism.
-        dosing_interval_h: Dosing interval in hours.
-
-    Returns:
-        NeonatalDoseResult with recommended dose and clinical guidance.
-    """
-    if weight_kg <= 0:
-        raise ValueError(f"weight_kg must be > 0, got {weight_kg}")
-    if gestational_age_weeks <= 0:
-        raise ValueError(f"gestational_age_weeks must be > 0, got {gestational_age_weeks}")
-    if postnatal_age_days < 0:
-        raise ValueError(f"postnatal_age_days must be >= 0, got {postnatal_age_days}")
-
-    cl_info = neonatal_cl_adjustment(
-        cl_adult_L_per_h_per_kg=1.0,  # normalised — we use factor only
-        weight_kg=weight_kg,
-        gestational_age_weeks=gestational_age_weeks,
-        postnatal_age_days=postnatal_age_days,
-        fraction_renal=fraction_renal,
-        fraction_hepatic=fraction_hepatic,
-        primary_cyp=primary_cyp,
+    times, concentrations = _simulate_1cpt(
+        dose_mg=dose_mg,
+        cl_L_per_h=cl_eff,
+        vd_L=vd_eff,
+        ka_per_h=ka_per_h,
+        route=route,
+        n_doses=n_doses,
+        dosing_interval_h=dosing_interval_h,
+        t_end_h=t_end_h,
+        dt_h=dt_h,
     )
 
-    renal_factor = cl_info["renal_factor"]
-    hepatic_factor = cl_info["hepatic_factor"]
-    combined_factor = fraction_renal * renal_factor + fraction_hepatic * hepatic_factor
+    cmax = max(concentrations)
+    tmax = times[concentrations.index(cmax)]
+    auc = _trapezoidal_auc(times, concentrations)
 
-    # Neonatal dose proportional to CL reduction (AUC-equivalent approach)
-    neonatal_dose_per_kg = adult_dose_mg_per_kg * combined_factor
-    neonatal_dose_total = neonatal_dose_per_kg * weight_kg
+    ke_eff = cl_eff / vd_eff
+    t_half = 0.693147 / ke_eff if ke_eff > 0 else float("inf")
 
-    # Clinical monitoring guidance
-    ga = gestational_age_weeks
-    pna = postnatal_age_days
+    ke_adult = cl_adult_L_per_h / vd_adult_L
+    adult_t_half = 0.693147 / ke_adult if ke_adult > 0 else float("inf")
 
-    monitoring_parts = ["TDM recommended"]
-    if ga < 32:
-        monitoring_parts.append("extreme prematurity — frequent monitoring")
-    elif ga < 37:
-        monitoring_parts.append("preterm — close monitoring")
-    if renal_factor < 0.2:
-        monitoring_parts.append("very low renal function — check serum creatinine")
-    if hepatic_factor < 0.15:
-        monitoring_parts.append("minimal hepatic CYP activity")
+    fold_increase = t_half / adult_t_half if adult_t_half > 0 else 0.0
 
-    monitoring_recommendation = "; ".join(monitoring_parts)
+    info = _AGE_GROUPS[age_group]
+    notes = (
+        f"Age group: {age_group} ({weight_kg} kg). "
+        f"CL maturation: {info['cl_mult'] * 100:.0f}% of adult (weight-adjusted). "
+        f"Vd body-water multiplier: {info['vd_mult']}. "
+        f"t_half is {fold_increase:.1f}x longer than adult reference."
+    )
 
-    notes_parts = [
-        f"GA {ga:.0f}wk, PNA {pna:.0f}d",
-        f"Renal maturation {renal_factor:.1%}",
-        f"{primary_cyp} activity {hepatic_factor:.1%}",
-        f"Combined CL factor {combined_factor:.2f}",
-    ]
-    notes = " | ".join(notes_parts)
-
-    return NeonatalDoseResult(
+    return NeonatalDosingResult(
         drug_name=drug_name,
-        weight_kg=weight_kg,
-        gestational_age_weeks=ga,
-        postnatal_age_days=float(pna),
-        adult_dose_mg_per_kg=adult_dose_mg_per_kg,
-        neonatal_dose_mg_per_kg=neonatal_dose_per_kg,
-        neonatal_dose_mg=neonatal_dose_total,
-        cl_renal_factor=renal_factor,
-        cl_hepatic_factor=hepatic_factor,
-        dosing_interval_h=dosing_interval_h,
-        monitoring_recommendation=monitoring_recommendation,
+        age_group=age_group,
+        dose_mg=dose_mg,
+        patient_weight_kg=weight_kg,
+        times_h=times,
+        c_plasma_mg_L=concentrations,
+        cmax_mg_L=cmax,
+        tmax_h=tmax,
+        auc_mg_h_per_L=auc,
+        t_half_h=t_half,
+        cl_effective_L_per_h=cl_eff,
+        vd_effective_L=vd_eff,
+        adult_t_half_h=adult_t_half,
+        t_half_fold_increase=fold_increase,
         notes=notes,
     )
+
+
+def compare_age_groups(
+    drug_name: str,
+    dose_mg_per_kg: float,
+    cl_adult_L_per_h: float = 10.0,
+    vd_adult_L: float = 50.0,
+    ka_per_h: float = 1.0,
+    route: str = "iv",
+    n_doses: int = 1,
+    dosing_interval_h: float = 12.0,
+    t_end_h: float = 72.0,
+    dt_h: float = 0.1,
+) -> list:
+    """Simulate all age groups and return results sorted by t_half_h descending."""
+    results = []
+    for ag in _AGE_GROUPS:
+        r = simulate_neonatal_dosing(
+            drug_name=drug_name,
+            dose_mg_per_kg=dose_mg_per_kg,
+            age_group=ag,
+            cl_adult_L_per_h=cl_adult_L_per_h,
+            vd_adult_L=vd_adult_L,
+            ka_per_h=ka_per_h,
+            route=route,
+            n_doses=n_doses,
+            dosing_interval_h=dosing_interval_h,
+            t_end_h=t_end_h,
+            dt_h=dt_h,
+        )
+        results.append(r)
+    results.sort(key=lambda x: x.t_half_h, reverse=True)
+    return results
