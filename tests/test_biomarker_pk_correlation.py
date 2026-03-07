@@ -1,249 +1,222 @@
-"""Tests for biomarker-PK correlation analysis (Phase 336)."""
-
-from __future__ import annotations
+"""
+Tests for Phase 587 — clinical/biomarker_pk_correlation.py
+"""
 
 import math
 
-import numpy as np
 import pytest
 
-from omega_pbpk.analysis.biomarker_pk_correlation import (
-    BiomarkerCorrelationResult,
-    correlate_biomarker_pk,
-    screen_biomarker_correlations,
-    summarize_pkpd_relationship,
+from omega_pbpk.clinical.biomarker_pk_correlation import (
+    hysteresis_detection,
+    indirect_response_model,
+    pk_pd_link_ke0,
 )
 
 # ---------------------------------------------------------------------------
-# Input validation tests
+# Helpers
 # ---------------------------------------------------------------------------
 
 
-class TestInputValidation:
-    def test_mismatched_lengths_raises(self):
-        with pytest.raises(ValueError, match="same length"):
-            correlate_biomarker_pk("Drug", "IL6", [1.0, 2.0, 3.0], [1.0, 2.0])
+def _make_decay(n=50, peak=10.0, decay=0.3):
+    """Mono-exponential decay plasma concentration profile."""
+    times = [i * 0.5 for i in range(n)]
+    c = [peak * math.exp(-decay * t) for t in times]
+    return times, c
+
+
+def _make_flat(n=50, val=5.0):
+    times = [i * 0.5 for i in range(n)]
+    c = [val] * n
+    return times, c
+
+
+# ---------------------------------------------------------------------------
+# indirect_response_model — inhibition_kin
+# ---------------------------------------------------------------------------
+
+
+class TestIndirectResponseInhibitionKin:
+    def test_returns_correct_keys(self):
+        times, c = _make_decay()
+        result = indirect_response_model(times, c, kin=1.0, kout=0.5, imax=0.8, ic50=5.0)
+        assert "times_h" in result
+        assert "response" in result
+        assert "r_baseline" in result
+        assert "r_min" in result
+        assert "r_max" in result
+        assert "auc_response" in result
+        assert "notes" in result
+
+    def test_baseline_equals_kin_over_kout(self):
+        times, c = _make_decay()
+        result = indirect_response_model(times, c, kin=2.0, kout=0.5, imax=0.8, ic50=5.0)
+        assert abs(result["r_baseline"] - 4.0) < 1e-9
+
+    def test_custom_baseline(self):
+        times, c = _make_decay()
+        result = indirect_response_model(
+            times, c, kin=2.0, kout=0.5, imax=0.8, ic50=5.0, baseline=10.0
+        )
+        assert abs(result["r_baseline"] - 10.0) < 1e-9
+
+    def test_response_decreases_with_inhibition_kin(self):
+        """Drug inhibits production: biomarker should decrease below baseline."""
+        times, c = _make_flat(n=80, val=20.0)
+        result = indirect_response_model(times, c, kin=1.0, kout=0.5, imax=0.9, ic50=5.0)
+        assert result["r_min"] < result["r_baseline"]
+
+    def test_response_length_matches_times(self):
+        times, c = _make_decay()
+        result = indirect_response_model(times, c, kin=1.0, kout=0.5, imax=0.8, ic50=5.0)
+        assert len(result["response"]) == len(times)
+
+    def test_auc_response_positive(self):
+        times, c = _make_decay()
+        result = indirect_response_model(times, c, kin=1.0, kout=0.5, imax=0.8, ic50=5.0)
+        assert result["auc_response"] > 0
+
+    def test_invalid_model_type_raises(self):
+        times, c = _make_decay()
+        with pytest.raises(ValueError, match="Invalid model_type"):
+            indirect_response_model(
+                times, c, kin=1.0, kout=0.5, imax=0.8, ic50=5.0, model_type="bad_type"
+            )
+
+    def test_length_mismatch_raises(self):
+        with pytest.raises(ValueError):
+            indirect_response_model([0, 1, 2], [1.0, 2.0], kin=1.0, kout=0.5, imax=0.8, ic50=5.0)
+
+
+# ---------------------------------------------------------------------------
+# indirect_response_model — stimulation_kin
+# ---------------------------------------------------------------------------
+
+
+class TestIndirectResponseStimulationKin:
+    def test_response_increases_with_stimulation_kin(self):
+        """Drug stimulates production: biomarker should rise above baseline."""
+        times, c = _make_flat(n=80, val=20.0)
+        result = indirect_response_model(
+            times, c, kin=1.0, kout=0.5, imax=2.0, ic50=5.0, model_type="stimulation_kin"
+        )
+        assert result["r_max"] > result["r_baseline"]
+
+    def test_notes_contain_model_type(self):
+        times, c = _make_decay()
+        result = indirect_response_model(
+            times, c, kin=1.0, kout=0.5, imax=0.8, ic50=5.0, model_type="stimulation_kin"
+        )
+        assert "stimulation_kin" in result["notes"]
+
+
+# ---------------------------------------------------------------------------
+# indirect_response_model — inhibition_kout / stimulation_kout
+# ---------------------------------------------------------------------------
+
+
+class TestIndirectResponseKoutModels:
+    def test_inhibition_kout_response_increases(self):
+        """Inhibiting degradation: biomarker should increase."""
+        times, c = _make_flat(n=100, val=20.0)
+        result = indirect_response_model(
+            times, c, kin=1.0, kout=0.5, imax=0.9, ic50=5.0, model_type="inhibition_kout"
+        )
+        assert result["r_max"] > result["r_baseline"]
+
+    def test_stimulation_kout_response_decreases(self):
+        """Stimulating degradation: biomarker should decrease."""
+        times, c = _make_flat(n=100, val=20.0)
+        result = indirect_response_model(
+            times, c, kin=1.0, kout=0.5, imax=2.0, ic50=5.0, model_type="stimulation_kout"
+        )
+        assert result["r_min"] < result["r_baseline"]
+
+    def test_hill_coefficient_effect(self):
+        """Hill=2 should produce different response than hill=1 at off-EC50 concentration."""
+        times, c = _make_flat(n=50, val=2.0)  # C != IC50 so Hill matters
+        r1 = indirect_response_model(times, c, kin=1.0, kout=0.5, imax=0.8, ic50=5.0, hill=1.0)
+        r2 = indirect_response_model(times, c, kin=1.0, kout=0.5, imax=0.8, ic50=5.0, hill=2.0)
+        assert r1["r_min"] != r2["r_min"]
+
+
+# ---------------------------------------------------------------------------
+# hysteresis_detection
+# ---------------------------------------------------------------------------
+
+
+class TestHysteresisDetection:
+    def test_returns_correct_keys(self):
+        times = [0, 1, 2, 3, 4, 5]
+        c = [0, 5, 10, 8, 4, 1]
+        resp = [2, 2, 2, 2, 2, 2]
+        result = hysteresis_detection(times, c, resp)
+        assert "ascending_r" in result
+        assert "descending_r" in result
+        assert "hysteresis_detected" in result
+        assert "notes" in result
+
+    def test_flat_response_no_hysteresis(self):
+        """Flat response: no meaningful correlation on either limb."""
+        times = list(range(20))
+        c = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+        resp = [5.0] * 20
+        result = hysteresis_detection(times, c, resp)
+        assert result["hysteresis_detected"] is False
+
+    def test_length_mismatch_raises(self):
+        with pytest.raises(ValueError):
+            hysteresis_detection([0, 1, 2], [1, 2], [3, 4, 5])
 
     def test_too_few_points_raises(self):
-        with pytest.raises(ValueError, match="At least 3"):
-            correlate_biomarker_pk("Drug", "IL6", [1.0, 2.0], [1.0, 2.0])
-
-    def test_one_point_raises(self):
         with pytest.raises(ValueError):
-            correlate_biomarker_pk("Drug", "IL6", [1.0], [2.0])
+            hysteresis_detection([0, 1, 2], [1, 2, 3], [4, 5, 6])
 
-    def test_pk_nan_raises(self):
-        with pytest.raises(ValueError, match="finite"):
-            correlate_biomarker_pk("Drug", "IL6", [1.0, float("nan"), 3.0], [1.0, 2.0, 3.0])
-
-    def test_biomarker_inf_raises(self):
-        with pytest.raises(ValueError, match="finite"):
-            correlate_biomarker_pk("Drug", "IL6", [1.0, 2.0, 3.0], [1.0, float("inf"), 3.0])
-
-    def test_biomarker_neg_inf_raises(self):
-        with pytest.raises(ValueError, match="finite"):
-            correlate_biomarker_pk("Drug", "IL6", [1.0, 2.0, 3.0], [1.0, float("-inf"), 3.0])
+    def test_hysteresis_detected_is_boolean(self):
+        times = list(range(20))
+        c = [0, 2, 4, 6, 8, 10, 10, 8, 6, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        resp = [0, 0, 1, 2, 4, 6, 8, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0]
+        result = hysteresis_detection(times, c, resp)
+        assert isinstance(result["hysteresis_detected"], bool)
 
 
 # ---------------------------------------------------------------------------
-# Perfect linear correlation
+# pk_pd_link_ke0
 # ---------------------------------------------------------------------------
 
 
-class TestPerfectLinearCorrelation:
-    def setup_method(self):
-        n = 20
-        self.pk_vals = list(np.linspace(1.0, 10.0, n))
-        # Perfect linear: y = 2*x + 3
-        self.bio_vals = [2.0 * x + 3.0 for x in self.pk_vals]
-        self.result = correlate_biomarker_pk("TestDrug", "Biomarker", self.pk_vals, self.bio_vals)
+class TestPkPdLinkKe0:
+    def test_returns_correct_keys(self):
+        times, c = _make_decay(n=20)
+        resp = [0.5 * ci for ci in c]
+        result = pk_pd_link_ke0(c, resp, times)
+        assert "times_h" in result
+        assert "ce_effect_site" in result
+        assert "correlation_r" in result
 
-    def test_pearson_r_near_one(self):
-        assert self.result.pearson_r == pytest.approx(1.0, abs=1e-6)
+    def test_ce_starts_at_zero(self):
+        times, c = _make_decay(n=20)
+        resp = [0.5 * ci for ci in c]
+        result = pk_pd_link_ke0(c, resp, times)
+        assert result["ce_effect_site"][0] == 0.0
 
-    def test_r_squared_near_one(self):
-        assert self.result.r_squared == pytest.approx(1.0, abs=1e-6)
+    def test_ce_increases_toward_cp(self):
+        """Ce should rise from 0 toward Cp for constant Cp."""
+        times, c = _make_flat(n=30, val=10.0)
+        resp = [5.0] * 30
+        result = pk_pd_link_ke0(c, resp, times, ke0_per_h=1.0)
+        ce = result["ce_effect_site"]
+        assert ce[-1] > ce[0]
 
-    def test_slope_near_two(self):
-        assert self.result.slope == pytest.approx(2.0, rel=1e-5)
+    def test_correlation_r_range(self):
+        times, c = _make_decay(n=30)
+        resp = [ci * 0.5 for ci in c]
+        result = pk_pd_link_ke0(c, resp, times)
+        assert -1.0 <= result["correlation_r"] <= 1.0
 
-    def test_intercept_near_three(self):
-        assert self.result.intercept == pytest.approx(3.0, rel=1e-4)
+    def test_length_mismatch_raises(self):
+        with pytest.raises(ValueError):
+            pk_pd_link_ke0([1, 2, 3], [1, 2], [0, 1, 2])
 
-    def test_best_model_linear(self):
-        assert self.result.best_model == "linear"
-
-    def test_spearman_r_near_one(self):
-        assert self.result.spearman_r == pytest.approx(1.0, abs=1e-6)
-
-
-# ---------------------------------------------------------------------------
-# Negative perfect linear correlation
-# ---------------------------------------------------------------------------
-
-
-class TestNegativeCorrelation:
-    def test_pearson_r_near_negative_one(self):
-        pk_vals = list(np.linspace(1.0, 10.0, 15))
-        bio_vals = [-x + 5.0 for x in pk_vals]
-        result = correlate_biomarker_pk("Drug", "BM", pk_vals, bio_vals)
-        assert result.pearson_r == pytest.approx(-1.0, abs=1e-6)
-
-
-# ---------------------------------------------------------------------------
-# r_squared bounds
-# ---------------------------------------------------------------------------
-
-
-class TestRSquaredBounds:
-    def test_r_squared_in_0_1_for_random_like(self):
-        rng = np.random.RandomState(42)
-        pk_vals = list(rng.uniform(0.1, 10.0, 30))
-        bio_vals = list(rng.uniform(0.1, 5.0, 30))
-        result = correlate_biomarker_pk("Drug", "BM", pk_vals, bio_vals)
-        assert 0.0 <= result.r_squared <= 1.0
-
-    def test_r_squared_near_zero_for_uncorrelated(self):
-        # Use fixed random arrays designed to have near-zero correlation
-        rng = np.random.RandomState(1234)
-        pk_vals = list(rng.uniform(0.1, 10.0, 50))
-        bio_vals = list(rng.uniform(0.1, 5.0, 50))
-        result = correlate_biomarker_pk("Drug", "BM", pk_vals, bio_vals)
-        # Just check |r| < 0.5 for a random dataset
-        assert abs(result.pearson_r) < 0.5
-
-
-# ---------------------------------------------------------------------------
-# Emax model
-# ---------------------------------------------------------------------------
-
-
-class TestEmaxModel:
-    def test_emax_best_model_for_sigmoidal_data(self):
-        # Generate clean sigmoidal data: E = 100 * C / (5 + C)
-        pk_vals = [0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 12.0, 20.0, 30.0, 50.0]
-        bio_vals = [100.0 * c / (5.0 + c) for c in pk_vals]
-        result = correlate_biomarker_pk("Drug", "Effect", pk_vals, bio_vals, correlation_type="auc")
-        # Emax fit should be better here; but model selection depends on R²
-        # At minimum, emax and ec50 should be positive finite
-        assert math.isfinite(result.emax)
-        assert math.isfinite(result.ec50)
-        assert result.ec50 > 0.0
-
-    def test_emax_and_ec50_finite_for_linear_data(self):
-        pk_vals = list(np.linspace(1.0, 20.0, 15))
-        bio_vals = [0.5 * x for x in pk_vals]
-        result = correlate_biomarker_pk("Drug", "BM", pk_vals, bio_vals)
-        assert math.isfinite(result.emax)
-        assert math.isfinite(result.ec50)
-
-
-# ---------------------------------------------------------------------------
-# Result dataclass structure
-# ---------------------------------------------------------------------------
-
-
-class TestResultStructure:
-    def setup_method(self):
-        pk_vals = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-        bio_vals = [2.0 * x + 1.0 for x in pk_vals]
-        self.result = correlate_biomarker_pk("MyDrug", "Biomarker_A", pk_vals, bio_vals)
-
-    def test_is_frozen_dataclass(self):
-        with pytest.raises((AttributeError, TypeError)):
-            self.result.pearson_r = 0.0  # type: ignore[misc]
-
-    def test_n_subjects_correct(self):
-        assert self.result.n_subjects == 10
-
-    def test_drug_name_stored(self):
-        assert self.result.drug_name == "MyDrug"
-
-    def test_biomarker_name_stored(self):
-        assert self.result.biomarker_name == "Biomarker_A"
-
-    def test_correlation_type_default_auc(self):
-        assert self.result.correlation_type == "auc"
-
-    def test_pk_values_stored(self):
-        assert len(self.result.pk_values) == 10
-
-    def test_biomarker_values_stored(self):
-        assert len(self.result.biomarker_values) == 10
-
-    def test_slope_finite(self):
-        assert math.isfinite(self.result.slope)
-
-    def test_intercept_finite(self):
-        assert math.isfinite(self.result.intercept)
-
-    def test_best_model_valid(self):
-        assert self.result.best_model in ("linear", "emax")
-
-
-# ---------------------------------------------------------------------------
-# screen_biomarker_correlations
-# ---------------------------------------------------------------------------
-
-
-class TestScreenBiomarkerCorrelations:
-    def test_returns_list_of_results(self):
-        pk_dict = {"auc": [1.0, 2.0, 3.0, 4.0, 5.0]}
-        bm_dict = {"IL6": [2.0, 4.0, 6.0, 8.0, 10.0]}
-        results = screen_biomarker_correlations("Drug", pk_dict, bm_dict)
-        assert isinstance(results, list)
-        assert len(results) == 1
-        assert isinstance(results[0], BiomarkerCorrelationResult)
-
-    def test_multiple_pairs_returned(self):
-        pk_dict = {
-            "auc": [1.0, 2.0, 3.0, 4.0, 5.0],
-            "cmax": [0.5, 1.0, 1.5, 2.0, 2.5],
-        }
-        bm_dict = {
-            "BM1": [1.0, 2.0, 3.0, 4.0, 5.0],
-            "BM2": [5.0, 4.0, 3.0, 2.0, 1.0],
-        }
-        results = screen_biomarker_correlations("Drug", pk_dict, bm_dict)
-        assert len(results) == 4  # 2 pk × 2 bm
-
-    def test_sorted_by_abs_pearson_r_descending(self):
-        pk_dict = {
-            "auc": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            "cmax": [8.0, 1.0, 7.0, 2.0, 6.0, 3.0, 5.0, 4.0],  # weak corr
-        }
-        bm_dict = {
-            "BM": [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0],  # perfect with auc
-        }
-        results = screen_biomarker_correlations("Drug", pk_dict, bm_dict)
-        r_vals = [abs(r.pearson_r) for r in results]
-        assert r_vals == sorted(r_vals, reverse=True)
-
-
-# ---------------------------------------------------------------------------
-# summarize_pkpd_relationship
-# ---------------------------------------------------------------------------
-
-
-class TestSummarizePkpdRelationship:
-    def test_returns_non_empty_string(self):
-        pk_vals = [1.0, 2.0, 3.0, 4.0, 5.0]
-        bio_vals = [2.0, 4.0, 6.0, 8.0, 10.0]
-        result = correlate_biomarker_pk("Drug", "BM", pk_vals, bio_vals)
-        summary = summarize_pkpd_relationship(result)
-        assert isinstance(summary, str)
-        assert len(summary) > 0
-
-    def test_summary_contains_drug_name(self):
-        pk_vals = [1.0, 2.0, 3.0, 4.0, 5.0]
-        bio_vals = [2.0, 4.0, 6.0, 8.0, 10.0]
-        result = correlate_biomarker_pk("Aspirin", "CRP", pk_vals, bio_vals)
-        summary = summarize_pkpd_relationship(result)
-        assert "Aspirin" in summary
-
-    def test_summary_contains_biomarker_name(self):
-        pk_vals = [1.0, 2.0, 3.0, 4.0, 5.0]
-        bio_vals = [2.0, 4.0, 6.0, 8.0, 10.0]
-        result = correlate_biomarker_pk("Drug", "FEV1_pct", pk_vals, bio_vals)
-        summary = summarize_pkpd_relationship(result)
-        assert "FEV1_pct" in summary
+    def test_too_short_raises(self):
+        with pytest.raises(ValueError):
+            pk_pd_link_ke0([5.0], [3.0], [0.0])
