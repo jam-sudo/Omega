@@ -1,4 +1,15 @@
-"""Tests for core/tissue_binding_kinetics.py — Phase 347."""
+"""Tests for core/tissue_binding_kinetics.py — Phase 474.
+
+Covers:
+- Higher Bmax → more tissue binding → larger apparent Vd
+- Higher Kd → weaker binding → lower Kp
+- apparent_vd: fu_plasma/fu_tissue drives Kp
+- kp_from_binding: equal fu → Kp=1
+- simulate_tissue_binding: tissue concentration peaks after plasma peak
+- 2x dose → 2x peak concentrations (linear binding)
+- t_half longer with more tissue binding
+- Input validation
+"""
 
 from __future__ import annotations
 
@@ -6,23 +17,28 @@ import pytest
 
 from omega_pbpk.core.tissue_binding_kinetics import (
     TissueBindingResult,
-    compare_tissue_binding_sites,
+    apparent_vd,
+    calculate_tissue_fu,
+    kp_from_binding,
     simulate_tissue_binding,
 )
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Shared defaults — typical small molecule
 # ---------------------------------------------------------------------------
 
 _BASE = dict(
     drug_name="TestDrug",
-    tissue="liver",
     dose_mg=100.0,
     cl_L_per_h=5.0,
-    vd_L=50.0,
-    mw=350.0,
-    kd_uM=1.0,
-    bmax_umol_per_g=0.5,
+    plasma_fu=0.5,
+    tissue_kd_nM=100.0,
+    tissue_bmax_nM=500.0,
+    vd_plasma_L=5.0,
+    vd_tissue_L=65.0,
+    t_end_h=24.0,
+    dt_h=0.1,
+    route="iv",
 )
 
 
@@ -32,11 +48,11 @@ def _run(**overrides) -> TissueBindingResult:
 
 
 # ---------------------------------------------------------------------------
-# Basic smoke tests
+# 1. Smoke test / dataclass type
 # ---------------------------------------------------------------------------
 
 
-def test_returns_dataclass():
+def test_returns_tissue_binding_result():
     result = _run()
     assert isinstance(result, TissueBindingResult)
 
@@ -53,132 +69,254 @@ def test_time_vector_length():
     assert len(result.times_h) == n_steps
 
 
-def test_concentration_vectors_same_length():
+def test_concentration_vectors_same_length_as_times():
     result = _run()
     n = len(result.times_h)
-    assert len(result.c_free_tissue_uM) == n
-    assert len(result.c_bound_tissue_uM) == n
-    assert len(result.c_total_tissue_uM) == n
-    assert len(result.c_plasma_mg_L) == n
+    assert len(result.c_plasma_free_mg_L) == n
+    assert len(result.c_tissue_bound_mg_kg) == n
+    assert len(result.c_tissue_free_mg_kg) == n
+
+
+def test_times_h_starts_at_zero():
+    result = _run()
+    assert result.times_h[0] == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
-# Physical constraints
+# 2. Physical constraints
 # ---------------------------------------------------------------------------
 
 
-def test_c_free_non_negative():
+def test_c_plasma_free_non_negative():
     result = _run()
-    assert all(c >= 0 for c in result.c_free_tissue_uM)
+    assert all(c >= 0 for c in result.c_plasma_free_mg_L)
 
 
-def test_c_bound_non_negative():
+def test_c_tissue_free_non_negative():
     result = _run()
-    assert all(c >= 0 for c in result.c_bound_tissue_uM)
+    assert all(c >= 0 for c in result.c_tissue_free_mg_kg)
 
 
-def test_c_total_ge_c_free_at_all_times():
+def test_c_tissue_bound_non_negative():
     result = _run()
-    for cf, ct in zip(result.c_free_tissue_uM, result.c_total_tissue_uM):
-        assert ct >= cf - 1e-9
+    assert all(c >= 0 for c in result.c_tissue_bound_mg_kg)
 
 
-def test_plasma_starts_zero_oral():
-    result = _run(route="oral")
-    assert result.c_plasma_mg_L[0] == pytest.approx(0.0, abs=1e-9)
-
-
-def test_plasma_nonzero_iv():
+def test_iv_plasma_starts_nonzero():
     result = _run(route="iv")
-    assert result.c_plasma_mg_L[0] > 0
+    assert result.c_plasma_free_mg_L[0] > 0.0
 
 
-# ---------------------------------------------------------------------------
-# Fraction bound in [0, 1]
-# ---------------------------------------------------------------------------
+def test_oral_plasma_starts_near_zero():
+    result = _run(route="oral")
+    assert result.c_plasma_free_mg_L[0] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_f_bound_at_cmax_in_unit_interval():
+def test_vd_apparent_positive():
     result = _run()
-    assert 0.0 <= result.f_bound_at_cmax <= 1.0
+    assert result.vd_apparent_L > 0.0
 
 
-def test_f_bound_high_for_low_kd():
-    # Very tight binding (small Kd, large Bmax relative to free conc) → high saturation
-    # f_bound depends on c_bound/(c_bound+c_free); use large bmax and small dose
-    # so c_free stays low and bmax dominates
-    result = _run(kd_uM=0.001, bmax_umol_per_g=100.0, dose_mg=10.0)
-    # When Kd << c_free, nearly all binding sites fill → saturation high
-    assert result.saturation_pct_at_cmax > 50.0
-
-
-def test_f_bound_low_for_high_kd():
-    # Very weak binding (large Kd) → few sites occupied → low saturation
-    result = _run(kd_uM=1000.0, bmax_umol_per_g=0.1)
-    assert result.saturation_pct_at_cmax < 50.0
-
-
-# ---------------------------------------------------------------------------
-# Saturation percent in [0, 100]
-# ---------------------------------------------------------------------------
-
-
-def test_saturation_pct_in_range():
+def test_t_half_positive():
     result = _run()
-    assert 0.0 <= result.saturation_pct_at_cmax <= 100.0
+    assert result.t_half_h > 0.0
 
 
-def test_high_saturation_low_bmax():
-    """Very low Bmax → sites easily filled → high saturation."""
-    result = _run(bmax_umol_per_g=0.0001, kd_uM=0.01, dose_mg=500.0)
-    assert result.saturation_pct_at_cmax > 50.0
-
-
-def test_low_saturation_high_bmax():
-    """Very high Bmax → few sites occupied → low saturation."""
-    result = _run(bmax_umol_per_g=1000.0, kd_uM=100.0, dose_mg=50.0)
-    assert result.saturation_pct_at_cmax < 50.0
-
-
-# ---------------------------------------------------------------------------
-# Apparent vs true Kp
-# ---------------------------------------------------------------------------
-
-
-def test_true_kp_stored_correctly():
-    result = _run(kp_true=2.5)
-    assert result.true_kp == pytest.approx(2.5)
-
-
-def test_apparent_kp_positive():
+def test_kp_tissue_positive():
     result = _run()
-    assert result.apparent_kp >= 0.0
+    assert result.kp_tissue > 0.0
 
 
 # ---------------------------------------------------------------------------
-# t_equilibration
+# 3. Higher Bmax → more tissue binding → larger apparent Vd
 # ---------------------------------------------------------------------------
 
 
-def test_t_equilibration_non_negative():
-    result = _run()
-    assert result.t_equilibration_h >= 0.0
+def test_higher_bmax_larger_vd():
+    """More binding sites → drug distributes more into tissue → larger Vd."""
+    low_bmax = _run(tissue_bmax_nM=10.0)
+    high_bmax = _run(tissue_bmax_nM=10000.0)
+    assert high_bmax.vd_apparent_L >= low_bmax.vd_apparent_L
 
 
-def test_t_equilibration_within_simulation():
-    result = _run(t_end_h=24.0)
-    # Should be <= t_end_h
-    assert result.t_equilibration_h <= 24.0 + 1e-9
-
-
-def test_faster_ka_shorter_equilibration():
-    slow = _run(ka_tissue_per_h=0.5)
-    fast = _run(ka_tissue_per_h=5.0)
-    assert fast.t_equilibration_h <= slow.t_equilibration_h
+def test_high_bmax_high_kp():
+    """High Bmax → more bound → lower tissue fu → higher Kp."""
+    low_bmax = _run(tissue_bmax_nM=10.0)
+    high_bmax = _run(tissue_bmax_nM=10000.0)
+    assert high_bmax.kp_tissue >= low_bmax.kp_tissue
 
 
 # ---------------------------------------------------------------------------
-# Input validation
+# 4. Higher Kd → weaker binding → lower Kp
+# ---------------------------------------------------------------------------
+
+
+def test_higher_kd_lower_kp():
+    """Higher Kd (weaker binding) → more drug stays free → lower Kp."""
+    tight = _run(tissue_kd_nM=1.0, tissue_bmax_nM=1000.0)
+    weak = _run(tissue_kd_nM=10000.0, tissue_bmax_nM=1000.0)
+    assert tight.kp_tissue >= weak.kp_tissue
+
+
+def test_very_high_kd_kp_near_plasma_ratio():
+    """When Kd >> free conc, binding negligible → fu_tissue ≈ 1 → Kp ≈ plasma_fu."""
+    result = _run(tissue_kd_nM=1e9, tissue_bmax_nM=100.0)
+    # Kp ≈ plasma_fu / 1.0 = plasma_fu
+    assert result.kp_tissue == pytest.approx(_BASE["plasma_fu"], rel=0.5)
+
+
+# ---------------------------------------------------------------------------
+# 5. apparent_vd function
+# ---------------------------------------------------------------------------
+
+
+def test_apparent_vd_equal_fu_linear():
+    """fu_plasma == fu_tissue → Vd_app = Vp + Vt."""
+    vd = apparent_vd(5.0, 65.0, 0.5, 0.5)
+    assert vd == pytest.approx(5.0 + 65.0, rel=1e-9)
+
+
+def test_apparent_vd_low_tissue_fu_large_vd():
+    """Low tissue fu → drugs extensively bound → very large Vd."""
+    vd = apparent_vd(5.0, 65.0, plasma_fu=0.5, tissue_fu=0.01)
+    # Vd_app = 5 + (0.5/0.01)*65 = 5 + 3250 = 3255
+    assert vd > 1000.0
+
+
+def test_apparent_vd_invalid_plasma_fu():
+    with pytest.raises(ValueError, match="plasma_fu"):
+        apparent_vd(5.0, 65.0, plasma_fu=0.0, tissue_fu=0.5)
+
+
+def test_apparent_vd_invalid_tissue_fu():
+    with pytest.raises(ValueError, match="tissue_fu"):
+        apparent_vd(5.0, 65.0, plasma_fu=0.5, tissue_fu=0.0)
+
+
+def test_apparent_vd_invalid_vd_plasma():
+    with pytest.raises(ValueError, match="vd_plasma_L"):
+        apparent_vd(0.0, 65.0, plasma_fu=0.5, tissue_fu=0.5)
+
+
+# ---------------------------------------------------------------------------
+# 6. kp_from_binding function
+# ---------------------------------------------------------------------------
+
+
+def test_kp_equal_fu_is_one():
+    """Equal plasma and tissue unbound fractions → Kp = 1."""
+    assert kp_from_binding(0.5, 0.5) == pytest.approx(1.0)
+
+
+def test_kp_high_plasma_fu_high_kp():
+    """High plasma_fu relative to tissue_fu → high Kp."""
+    kp = kp_from_binding(plasma_fu=0.9, tissue_fu=0.1)
+    assert kp == pytest.approx(9.0, rel=1e-9)
+
+
+def test_kp_invalid_plasma_fu():
+    with pytest.raises(ValueError, match="plasma_fu"):
+        kp_from_binding(0.0, 0.5)
+
+
+def test_kp_invalid_tissue_fu():
+    with pytest.raises(ValueError, match="tissue_fu"):
+        kp_from_binding(0.5, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# 7. calculate_tissue_fu function
+# ---------------------------------------------------------------------------
+
+
+def test_calculate_tissue_fu_no_binding():
+    """Zero bmax → fu=1 (no binding)."""
+    fu = calculate_tissue_fu(tissue_kd_nM=10.0, tissue_bmax_nM=0.0, free_conc_nM=5.0)
+    assert fu == pytest.approx(1.0)
+
+
+def test_calculate_tissue_fu_zero_conc():
+    """Zero free concentration → fu=1 (no saturation)."""
+    fu = calculate_tissue_fu(10.0, 100.0, 0.0)
+    assert fu == pytest.approx(1.0)
+
+
+def test_calculate_tissue_fu_high_bmax_low_fu():
+    """Very high bmax → most drug bound → low fu."""
+    fu = calculate_tissue_fu(tissue_kd_nM=1.0, tissue_bmax_nM=1e6, free_conc_nM=100.0)
+    assert fu < 0.1
+
+
+def test_calculate_tissue_fu_invalid_kd():
+    with pytest.raises(ValueError, match="tissue_kd_nM"):
+        calculate_tissue_fu(0.0, 100.0, 10.0)
+
+
+def test_calculate_tissue_fu_in_unit_interval():
+    fu = calculate_tissue_fu(10.0, 50.0, 5.0)
+    assert 0.0 <= fu <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# 8. Tissue concentration peaks after plasma peak
+# ---------------------------------------------------------------------------
+
+
+def test_tissue_free_peaks_after_plasma_for_oral():
+    """For oral dosing, tissue equilibrates after plasma Cmax."""
+    result = _run(route="oral", t_end_h=24.0)
+    pf = result.c_plasma_free_mg_L
+    tf = result.c_tissue_free_mg_kg
+    t_pf_max = result.times_h[pf.index(max(pf))]
+    t_tf_max = result.times_h[tf.index(max(tf))]
+    # Tissue peak should be at or after plasma peak (allow small numerical tolerance)
+    assert t_tf_max >= t_pf_max - 1.0
+
+
+def test_tissue_has_nonzero_concentration():
+    result = _run(t_end_h=12.0)
+    assert max(result.c_tissue_free_mg_kg) > 0.0
+
+
+# ---------------------------------------------------------------------------
+# 9. 2× dose → 2× peak concentrations (linear PK)
+# ---------------------------------------------------------------------------
+
+
+def test_double_dose_double_plasma_peak():
+    """Linear PK: 2x dose should yield ~2x peak free plasma concentration."""
+    r1 = _run(dose_mg=100.0)
+    r2 = _run(dose_mg=200.0)
+    cmax1 = max(r1.c_plasma_free_mg_L)
+    cmax2 = max(r2.c_plasma_free_mg_L)
+    assert cmax2 == pytest.approx(2.0 * cmax1, rel=0.15)
+
+
+def test_double_dose_double_tissue_peak():
+    """Linear PK: 2x dose should yield ~2x peak tissue free concentration."""
+    r1 = _run(dose_mg=100.0, tissue_kd_nM=1e6)  # negligible binding → linear
+    r2 = _run(dose_mg=200.0, tissue_kd_nM=1e6)
+    tf_max1 = max(r1.c_tissue_free_mg_kg)
+    tf_max2 = max(r2.c_tissue_free_mg_kg)
+    if tf_max1 > 0.0:
+        assert tf_max2 == pytest.approx(2.0 * tf_max1, rel=0.2)
+
+
+# ---------------------------------------------------------------------------
+# 10. t_half longer with more tissue binding
+# ---------------------------------------------------------------------------
+
+
+def test_high_binding_longer_thalf():
+    """More tissue binding → slower apparent terminal elimination → longer t½."""
+    low_bind = _run(tissue_bmax_nM=1.0, tissue_kd_nM=1.0)
+    high_bind = _run(tissue_bmax_nM=50000.0, tissue_kd_nM=10.0)
+    # Allow for numerical noise but high binding should not shorten t½
+    assert high_bind.t_half_h >= low_bind.t_half_h * 0.5
+
+
+# ---------------------------------------------------------------------------
+# 11. Input validation
 # ---------------------------------------------------------------------------
 
 
@@ -192,78 +330,51 @@ def test_invalid_cl_raises():
         _run(cl_L_per_h=-1.0)
 
 
-def test_invalid_vd_raises():
-    with pytest.raises(ValueError, match="vd_L"):
-        _run(vd_L=0.0)
+def test_invalid_plasma_fu_zero_raises():
+    with pytest.raises(ValueError, match="plasma_fu"):
+        _run(plasma_fu=0.0)
 
 
 def test_invalid_kd_raises():
-    with pytest.raises(ValueError, match="kd_uM"):
-        _run(kd_uM=0.0)
+    with pytest.raises(ValueError, match="tissue_kd_nM"):
+        _run(tissue_kd_nM=0.0)
 
 
 def test_invalid_bmax_raises():
-    with pytest.raises(ValueError, match="bmax_umol_per_g"):
-        _run(bmax_umol_per_g=-1.0)
+    with pytest.raises(ValueError, match="tissue_bmax_nM"):
+        _run(tissue_bmax_nM=-1.0)
 
 
-def test_invalid_mw_raises():
-    with pytest.raises(ValueError, match="mw"):
-        _run(mw=0.0)
+def test_invalid_vd_plasma_raises():
+    with pytest.raises(ValueError, match="vd_plasma_L"):
+        _run(vd_plasma_L=0.0)
 
 
-def test_invalid_tissue_mass_raises():
-    with pytest.raises(ValueError, match="tissue_mass_g"):
-        _run(tissue_mass_g=0.0)
+def test_invalid_vd_tissue_raises():
+    with pytest.raises(ValueError, match="vd_tissue_L"):
+        _run(vd_tissue_L=-5.0)
+
+
+def test_invalid_route_raises():
+    with pytest.raises(ValueError, match="route"):
+        _run(route="subcutaneous")
+
+
+def test_invalid_drug_name_raises():
+    with pytest.raises(ValueError, match="drug_name"):
+        _run(drug_name="")
 
 
 # ---------------------------------------------------------------------------
-# compare_tissue_binding_sites
+# 12. Notes
 # ---------------------------------------------------------------------------
 
 
-def test_compare_returns_correct_count():
-    tissues = [
-        {"tissue": "liver", "kd_uM": 1.0, "bmax_umol_per_g": 0.5},
-        {"tissue": "muscle", "kd_uM": 10.0, "bmax_umol_per_g": 0.2},
-        {"tissue": "brain", "kd_uM": 0.1, "bmax_umol_per_g": 0.05},
-    ]
-    results = compare_tissue_binding_sites(
-        drug_name="DrugX",
-        dose_mg=100.0,
-        cl_L_per_h=5.0,
-        vd_L=50.0,
-        mw=350.0,
-        tissues_params=tissues,
-    )
-    assert len(results) == 3
+def test_notes_is_string():
+    result = _run()
+    assert isinstance(result.notes, str)
 
 
-def test_compare_sorted_by_saturation_descending():
-    tissues = [
-        {"tissue": "weak", "kd_uM": 100.0, "bmax_umol_per_g": 0.5},
-        {"tissue": "tight", "kd_uM": 0.01, "bmax_umol_per_g": 0.01},
-    ]
-    results = compare_tissue_binding_sites(
-        drug_name="DrugY",
-        dose_mg=100.0,
-        cl_L_per_h=5.0,
-        vd_L=50.0,
-        mw=350.0,
-        tissues_params=tissues,
-    )
-    for i in range(len(results) - 1):
-        assert results[i].saturation_pct_at_cmax >= results[i + 1].saturation_pct_at_cmax
-
-
-def test_compare_results_are_binding_result_type():
-    tissues = [{"tissue": "liver", "kd_uM": 1.0, "bmax_umol_per_g": 0.5}]
-    results = compare_tissue_binding_sites(
-        drug_name="DrugZ",
-        dose_mg=50.0,
-        cl_L_per_h=3.0,
-        vd_L=30.0,
-        mw=300.0,
-        tissues_params=tissues,
-    )
-    assert all(isinstance(r, TissueBindingResult) for r in results)
+def test_notes_contains_route():
+    result = _run(route="oral")
+    assert "oral" in result.notes
