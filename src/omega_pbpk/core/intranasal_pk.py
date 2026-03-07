@@ -275,8 +275,114 @@ def compare_delivery_routes(
     }
 
 
+def compare_nasal_formulations(
+    drug_name: str,
+    dose_mg: float,
+    cl_systemic_L_per_h: float,
+    vd_systemic_L: float,
+    formulations: list[dict],
+    t_end_h: float = 12.0,
+    dt_h: float = 0.05,
+) -> list[dict]:
+    """Compare intranasal formulations by simulated AUC.
+
+    Each formulation dictionary must contain:
+        - "name": str — formulation label
+        - "f_nasal": float — systemic bioavailability fraction (0–1)
+        - "k_nasal": float — nasal absorption rate constant (h^-1)
+        - "mcc": float — mucociliary clearance rate constant (h^-1)
+
+    The function simulates each formulation using :func:`simulate_intranasal_pk`
+    (with CNS pathway disabled) and returns results sorted by AUC descending.
+
+    Parameters
+    ----------
+    drug_name:
+        Name of the drug.
+    dose_mg:
+        Dose in mg (same for all formulations).
+    cl_systemic_L_per_h:
+        Systemic clearance (L/h).
+    vd_systemic_L:
+        Volume of distribution (L).
+    formulations:
+        List of formulation dicts; each must have keys ``name``, ``f_nasal``,
+        ``k_nasal``, and ``mcc``.
+    t_end_h:
+        Simulation end time (h). Default 12.
+    dt_h:
+        Integration step (h). Default 0.05.
+
+    Returns
+    -------
+    list[dict]
+        One dict per formulation, sorted by ``auc_systemic`` descending.
+        Keys: name, f_nasal, k_nasal, mcc, cmax, tmax_h, auc, f_absorbed,
+        result (IntranasalPKResult).
+    """
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
+    if cl_systemic_L_per_h <= 0:
+        raise ValueError("cl_systemic_L_per_h must be > 0")
+    if vd_systemic_L <= 0:
+        raise ValueError("vd_systemic_L must be > 0")
+    if not formulations:
+        raise ValueError("formulations list must not be empty")
+
+    results: list[dict] = []
+    for i, form in enumerate(formulations):
+        for key in ("name", "f_nasal", "k_nasal", "mcc"):
+            if key not in form:
+                raise ValueError(f"Formulation {i} missing key '{key}'")
+
+        f_nasal = float(form["f_nasal"])
+        k_nasal = float(form["k_nasal"])
+        mcc = float(form["mcc"])
+
+        if not (0.0 <= f_nasal <= 1.0):
+            raise ValueError(f"Formulation '{form['name']}': f_nasal must be in [0, 1]")
+        if k_nasal <= 0:
+            raise ValueError(f"Formulation '{form['name']}': k_nasal must be > 0")
+        if mcc < 0:
+            raise ValueError(f"Formulation '{form['name']}': mcc must be >= 0")
+
+        # Adjust systemic absorption to account for f_nasal:
+        # effective_ka_sys = k_nasal * f_nasal (fraction going systemic)
+        # mucociliary clears the rest along with explicit mcc
+        effective_ka_sys = max(k_nasal * f_nasal, 1e-9)
+        effective_mcc = max(mcc, 1e-9)
+
+        sim = simulate_intranasal_pk(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            ka_systemic_per_h=effective_ka_sys,
+            ka_cns_per_h=0.0,  # disable CNS pathway for comparison
+            k_mcc_per_h=effective_mcc,
+            cl_systemic_L_per_h=cl_systemic_L_per_h,
+            vd_systemic_L=vd_systemic_L,
+            t_end_h=t_end_h,
+            dt_h=dt_h,
+        )
+
+        results.append({
+            "name": form["name"],
+            "f_nasal": f_nasal,
+            "k_nasal": k_nasal,
+            "mcc": mcc,
+            "cmax": sim.cmax_systemic,
+            "tmax_h": sim.tmax_systemic_h,
+            "auc": sim.auc_systemic,
+            "f_absorbed": sim.f_absorbed_systemic,
+            "result": sim,
+        })
+
+    results.sort(key=lambda d: d["auc"], reverse=True)
+    return results
+
+
 __all__ = [
     "IntranasalPKResult",
     "simulate_intranasal_pk",
     "compare_delivery_routes",
+    "compare_nasal_formulations",
 ]
