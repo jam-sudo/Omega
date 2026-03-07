@@ -487,3 +487,318 @@ def plot_sensitivity_table(oat_result: OATSensitivityResult) -> str:
         lines.append(f"{r['rank']:<5} {r['parameter']:<12} {si:>8.3f}   [{direction}] {bar}")
     lines.append("-" * 60)
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Phase 624 — One-at-a-time and analytical PK sensitivity
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SensitivityEntry:
+    """Sensitivity entry for one parameter (Phase 624).
+
+    Attributes
+    ----------
+    parameter : str
+    baseline_value : float
+    perturbed_up_value : float
+    perturbed_down_value : float
+    output_baseline : float
+    output_up : float
+    output_down : float
+    elasticity : float
+        Normalised sensitivity (dY/Y)/(dX/X) via central difference.
+    absolute_sensitivity : float
+        dY/dX (absolute).
+    rank : int
+        Rank by |elasticity| (1 = most sensitive).
+    """
+
+    parameter: str
+    baseline_value: float
+    perturbed_up_value: float
+    perturbed_down_value: float
+    output_baseline: float
+    output_up: float
+    output_down: float
+    elasticity: float
+    absolute_sensitivity: float
+    rank: int
+
+
+@dataclass(frozen=True)
+class SensitivityResult624:
+    """Complete sensitivity result for Phase 624.
+
+    Attributes
+    ----------
+    output_name : str
+    parameters : tuple[SensitivityEntry, ...]
+        Sorted by |elasticity| descending.
+    most_sensitive : str
+        Parameter with highest |elasticity|.
+    least_sensitive : str
+        Parameter with lowest |elasticity|.
+    total_variance_explained : float
+        Sum of elasticity^2 (proxy for importance).
+    notes : str
+    """
+
+    output_name: str
+    parameters: tuple
+    most_sensitive: str
+    least_sensitive: str
+    total_variance_explained: float
+    notes: str
+
+
+def one_at_a_time_sensitivity(
+    model_fn,
+    baseline_params: dict,
+    param_names: list,
+    perturbation_pct: float = 10.0,
+    output_name: str = "output",
+) -> SensitivityResult624:
+    """One-at-a-time local sensitivity analysis (Phase 624).
+
+    Each parameter is perturbed up and down by *perturbation_pct* percent while
+    all other parameters are held at baseline. Central-difference elasticities
+    are computed and parameters are ranked by |elasticity|.
+
+    Parameters
+    ----------
+    model_fn : callable(dict) -> float
+        Model function that accepts a parameter dictionary and returns a scalar.
+    baseline_params : dict
+        Nominal parameter values (must be non-empty).
+    param_names : list[str]
+        Parameters to perturb.
+    perturbation_pct : float
+        Percentage perturbation (must be > 0).
+    output_name : str
+        Label for the output metric.
+
+    Returns
+    -------
+    SensitivityResult624
+    """
+    if not baseline_params:
+        raise ValueError("baseline_params must be non-empty")
+    if perturbation_pct <= 0:
+        raise ValueError("perturbation_pct must be > 0")
+    if not callable(model_fn):
+        raise ValueError("model_fn must be callable")
+
+    h = perturbation_pct / 100.0
+    output_baseline = model_fn(baseline_params)
+
+    entries: list[SensitivityEntry] = []
+    for pname in param_names:
+        p0 = baseline_params[pname]
+        p_up = p0 * (1.0 + h)
+        p_down = p0 * (1.0 - h)
+
+        params_up = {**baseline_params, pname: p_up}
+        params_down = {**baseline_params, pname: p_down}
+
+        y_up = model_fn(params_up)
+        y_down = model_fn(params_down)
+
+        # Central-difference elasticity: (dY/Y) / (dX/X)
+        if output_baseline != 0 and p0 != 0:
+            elasticity = ((y_up - y_down) / (2.0 * output_baseline)) / h
+        else:
+            elasticity = 0.0
+
+        # Absolute sensitivity: dY/dX
+        delta_x = 2.0 * p0 * h
+        if delta_x != 0:
+            absolute_sensitivity = (y_up - y_down) / delta_x
+        else:
+            absolute_sensitivity = 0.0
+
+        entries.append(
+            SensitivityEntry(
+                parameter=pname,
+                baseline_value=p0,
+                perturbed_up_value=p_up,
+                perturbed_down_value=p_down,
+                output_baseline=output_baseline,
+                output_up=y_up,
+                output_down=y_down,
+                elasticity=elasticity,
+                absolute_sensitivity=absolute_sensitivity,
+                rank=0,  # filled below
+            )
+        )
+
+    # Sort by |elasticity| descending and assign ranks
+    entries_sorted = sorted(entries, key=lambda e: abs(e.elasticity), reverse=True)
+    ranked: list[SensitivityEntry] = []
+    for rank_idx, entry in enumerate(entries_sorted, start=1):
+        ranked.append(
+            SensitivityEntry(
+                parameter=entry.parameter,
+                baseline_value=entry.baseline_value,
+                perturbed_up_value=entry.perturbed_up_value,
+                perturbed_down_value=entry.perturbed_down_value,
+                output_baseline=entry.output_baseline,
+                output_up=entry.output_up,
+                output_down=entry.output_down,
+                elasticity=entry.elasticity,
+                absolute_sensitivity=entry.absolute_sensitivity,
+                rank=rank_idx,
+            )
+        )
+
+    most_sensitive = ranked[0].parameter if ranked else ""
+    least_sensitive = ranked[-1].parameter if ranked else ""
+    total_variance = sum(e.elasticity**2 for e in ranked)
+
+    return SensitivityResult624(
+        output_name=output_name,
+        parameters=tuple(ranked),
+        most_sensitive=most_sensitive,
+        least_sensitive=least_sensitive,
+        total_variance_explained=total_variance,
+        notes=(
+            f"OAT sensitivity; output={output_name}; "
+            f"perturbation={perturbation_pct}%; n_params={len(ranked)}; "
+            f"most_sensitive={most_sensitive}"
+        ),
+    )
+
+
+def analytical_pk_sensitivity(
+    dose_mg: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    output: str = "auc",
+) -> SensitivityResult624:
+    """Analytically compute PK sensitivity of AUC, Cmax (IV), or t_half (Phase 624).
+
+    Models
+    ------
+    AUC  = dose / CL           → elasticity_CL = -1, elasticity_Vd = 0
+    Cmax = dose / Vd  (IV)     → elasticity_Vd = -1, elasticity_CL = 0
+    t½   = ln(2)*Vd / CL       → elasticity_CL = -1, elasticity_Vd = +1
+
+    Parameters
+    ----------
+    dose_mg : float
+        Dose (mg). Must be > 0.
+    cl_L_per_h : float
+        Clearance (L/h). Must be > 0.
+    vd_L : float
+        Volume of distribution (L). Must be > 0.
+    output : str
+        One of "auc", "cmax", "t_half".
+
+    Returns
+    -------
+    SensitivityResult624
+    """
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
+    if cl_L_per_h <= 0:
+        raise ValueError("cl_L_per_h must be > 0")
+    if vd_L <= 0:
+        raise ValueError("vd_L must be > 0")
+    if output not in {"auc", "cmax", "t_half"}:
+        raise ValueError("output must be 'auc', 'cmax', or 't_half'")
+
+    auc = dose_mg / cl_L_per_h
+    cmax_iv = dose_mg / vd_L
+    t_half = math.log(2) * vd_L / cl_L_per_h
+
+    if output == "auc":
+        y0 = auc
+        # dAUC/dCL = -dose/CL^2; dAUC/dVd = 0
+        d_cl = -dose_mg / (cl_L_per_h**2)
+        d_vd = 0.0
+        e_cl = (d_cl * cl_L_per_h) / y0  # = -1.0
+        e_vd = 0.0
+        abs_cl = d_cl
+        abs_vd = 0.0
+    elif output == "cmax":
+        y0 = cmax_iv
+        # dCmax/dVd = -dose/Vd^2; dCmax/dCL = 0
+        d_vd = -dose_mg / (vd_L**2)
+        d_cl = 0.0
+        e_vd = (d_vd * vd_L) / y0  # = -1.0
+        e_cl = 0.0
+        abs_vd = d_vd
+        abs_cl = 0.0
+    else:  # t_half
+        y0 = t_half
+        # dt½/dCL = -ln(2)*Vd/CL^2; dt½/dVd = ln(2)/CL
+        d_cl = -math.log(2) * vd_L / (cl_L_per_h**2)
+        d_vd = math.log(2) / cl_L_per_h
+        e_cl = (d_cl * cl_L_per_h) / y0  # = -1.0
+        e_vd = (d_vd * vd_L) / y0  # = +1.0
+        abs_cl = d_cl
+        abs_vd = d_vd
+
+    # Build entries sorted by |elasticity|
+    entries_raw = [
+        SensitivityEntry(
+            parameter="CL",
+            baseline_value=cl_L_per_h,
+            perturbed_up_value=cl_L_per_h * 1.1,
+            perturbed_down_value=cl_L_per_h * 0.9,
+            output_baseline=y0,
+            output_up=0.0,  # analytical; not numerically perturbed
+            output_down=0.0,
+            elasticity=e_cl,
+            absolute_sensitivity=abs_cl,
+            rank=0,
+        ),
+        SensitivityEntry(
+            parameter="Vd",
+            baseline_value=vd_L,
+            perturbed_up_value=vd_L * 1.1,
+            perturbed_down_value=vd_L * 0.9,
+            output_baseline=y0,
+            output_up=0.0,
+            output_down=0.0,
+            elasticity=e_vd,
+            absolute_sensitivity=abs_vd,
+            rank=0,
+        ),
+    ]
+
+    entries_sorted = sorted(entries_raw, key=lambda e: abs(e.elasticity), reverse=True)
+    ranked: list[SensitivityEntry] = []
+    for rank_idx, entry in enumerate(entries_sorted, start=1):
+        ranked.append(
+            SensitivityEntry(
+                parameter=entry.parameter,
+                baseline_value=entry.baseline_value,
+                perturbed_up_value=entry.perturbed_up_value,
+                perturbed_down_value=entry.perturbed_down_value,
+                output_baseline=entry.output_baseline,
+                output_up=entry.output_up,
+                output_down=entry.output_down,
+                elasticity=entry.elasticity,
+                absolute_sensitivity=entry.absolute_sensitivity,
+                rank=rank_idx,
+            )
+        )
+
+    most_sensitive = ranked[0].parameter if ranked else ""
+    least_sensitive = ranked[-1].parameter if ranked else ""
+    total_variance = sum(e.elasticity**2 for e in ranked)
+
+    return SensitivityResult624(
+        output_name=output,
+        parameters=tuple(ranked),
+        most_sensitive=most_sensitive,
+        least_sensitive=least_sensitive,
+        total_variance_explained=total_variance,
+        notes=(
+            f"Analytical PK sensitivity; output={output}; "
+            f"dose={dose_mg} mg; CL={cl_L_per_h} L/h; Vd={vd_L} L; "
+            f"most_sensitive={most_sensitive}"
+        ),
+    )
