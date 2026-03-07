@@ -1,233 +1,198 @@
-"""Synovial fluid PK model for joint-targeting drugs (NSAIDs, DMARDs, corticosteroids).
+"""Phase 1029 — Drug Synovial Fluid PK.
 
-Two-compartment model: plasma + synovial fluid (SF).
-SF equilibrates with plasma via synovium permeability with delayed kinetics.
+Models drug distribution into synovial fluid for articular drug delivery
+(arthritis, local injections).
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-
-# ---------------------------------------------------------------------------
-# Result dataclass
-# ---------------------------------------------------------------------------
 
 
 @dataclass
 class SynovialFluidPKResult:
-    """PK result for synovial fluid compartment simulation."""
-
-    # Inputs
     drug_name: str
     dose_mg: float
-    logp: float
-    mw_da: float
-
-    # Trajectories
+    route: str  # "intraarticular" or "systemic"
     times_h: list
     c_plasma_mg_L: list
-    c_sf_mg_L: list
-
-    # Summary metrics
-    cmax_plasma: float
-    cmax_sf: float
-    tmax_plasma_h: float
-    tmax_sf_h: float
+    c_synovial_mg_L: list
     auc_plasma: float
-    auc_sf: float
-    sf_to_plasma_auc_ratio: float
-    kp_sf: float
-    sf_penetration_index: float  # sf_to_plasma_auc_ratio × 100 (%)
-    therapeutic_adequacy: str  # "poor" / "moderate" / "good"
+    auc_synovial: float
+    cmax_synovial_mg_L: float
+    tmax_synovial_h: float
+    synovial_to_plasma_auc_ratio: float
+    t_half_synovial_h: float  # elimination half-life in joint
     notes: str
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _compute_kp_sf(logp: float, mw_da: float) -> float:
-    """Compute SF-to-plasma partition coefficient."""
-    base = 0.7
-    logp_factor = max(0.1, 1.0 - (logp - 2.0) * 0.05)
-    mw_factor = max(0.1, 1.0 - (mw_da - 400.0) / 2000.0)
-    return base * logp_factor * mw_factor
-
-
-def _trapezoidal_auc(times: list[float], concs: list[float]) -> float:
-    """Compute AUC by trapezoidal rule."""
+def _trapz(times: list, values: list) -> float:
+    """Manual trapezoidal AUC integration."""
     auc = 0.0
-    for i in range(1, len(times)):
-        auc += 0.5 * (concs[i - 1] + concs[i]) * (times[i] - times[i - 1])
+    for i in range(len(times) - 1):
+        dt = times[i + 1] - times[i]
+        auc += 0.5 * (values[i] + values[i + 1]) * dt
     return auc
 
 
-def _therapeutic_adequacy(penetration_pct: float) -> str:
-    if penetration_pct < 30.0:
-        return "poor"
-    elif penetration_pct <= 70.0:
-        return "moderate"
-    else:
-        return "good"
+def _safe_dt(dt_h: float, k_max: float) -> float:
+    """Return a numerically stable dt for Forward Euler given max rate constant.
 
-
-# ---------------------------------------------------------------------------
-# Core simulation
-# ---------------------------------------------------------------------------
+    Stability condition for Forward Euler: dt * k_max < 1.0
+    Use dt <= 0.5 / k_max for safety margin, but no smaller than 1e-5 h.
+    """
+    if k_max <= 0.0:
+        return dt_h
+    stable_dt = 0.5 / k_max
+    return max(1e-5, min(dt_h, stable_dt))
 
 
 def simulate_synovial_fluid_pk(
     drug_name: str,
     dose_mg: float,
-    logp: float = 2.0,
-    mw_da: float = 300.0,
-    cl_L_per_h: float = 5.0,
-    vd_plasma_L: float = 10.0,
-    ps_syn_L_per_h: float = 0.05,
-    v_sf_L: float = 0.002,
-    ke_sf_per_h: float = 0.1,
-    t_end_h: float = 24.0,
-    dt_h: float = 0.05,
+    route: str = "systemic",
+    mw_Da: float = 300.0,
+    fu_plasma: float = 0.3,
+    cl_sys_L_per_h: float = 5.0,
+    vd_sys_L: float = 30.0,
+    v_synovial_mL: float = 2.0,
+    q_synovial_L_h: float = 0.1,
+    kp_synovial: float = 0.5,
+    t_end_h: float = 48.0,
+    dt_h: float = 0.1,
 ) -> SynovialFluidPKResult:
-    """Simulate plasma and synovial fluid PK after an IV bolus dose.
+    """Simulate drug PK in synovial fluid compartment.
 
-    Two-compartment forward-Euler model:
-        dC_plasma/dt = -ke * C_plasma - PS_syn*(C_plasma - C_sf/Kp_sf) / Vd_plasma
-        dC_sf/dt    =  PS_syn*(C_plasma - C_sf/Kp_sf) / V_sf - ke_sf * C_sf
+    Args:
+        drug_name: Name of the drug.
+        dose_mg: Dose in mg.
+        route: "systemic" (IV bolus to plasma) or "intraarticular" (direct joint injection).
+        mw_Da: Molecular weight in Daltons; higher MW -> lower membrane permeability.
+        fu_plasma: Fraction unbound in plasma (unused directly, stored for reference).
+        cl_sys_L_per_h: Systemic clearance (L/h).
+        vd_sys_L: Volume of distribution (L).
+        v_synovial_mL: Synovial fluid volume (mL).
+        q_synovial_L_h: Blood flow to synovial membrane (L/h).
+        kp_synovial: Synovial/plasma partition coefficient.
+        t_end_h: Simulation end time (hours).
+        dt_h: Requested time step for output (hours). Internal dt may be smaller for stability.
 
-    Parameters
-    ----------
-    drug_name:
-        Identifier for the drug.
-    dose_mg:
-        IV bolus dose (mg).
-    logp:
-        Octanol-water log partition coefficient.
-    mw_da:
-        Molecular weight (Da).
-    cl_L_per_h:
-        Plasma clearance (L/h).
-    vd_plasma_L:
-        Plasma (central) volume of distribution (L).
-    ps_syn_L_per_h:
-        Synovium permeability-surface area product (L/h).
-    v_sf_L:
-        Synovial fluid volume per joint (L).
-    ke_sf_per_h:
-        First-order elimination rate from SF (1/h).
-    t_end_h:
-        Simulation end time (h).
-    dt_h:
-        Forward-Euler step (h).
-
-    Returns
-    -------
-    SynovialFluidPKResult
+    Returns:
+        SynovialFluidPKResult with time-course concentrations and PK metrics.
     """
     # Validation
     if dose_mg <= 0:
-        raise ValueError("dose_mg must be positive")
-    if vd_plasma_L <= 0:
-        raise ValueError("vd_plasma_L must be positive")
-    if cl_L_per_h <= 0:
-        raise ValueError("cl_L_per_h must be positive")
-    if ps_syn_L_per_h <= 0:
-        raise ValueError("ps_syn_L_per_h must be positive")
+        raise ValueError("dose_mg must be > 0")
+    if cl_sys_L_per_h <= 0:
+        raise ValueError("cl_sys_L_per_h must be > 0")
+    if vd_sys_L <= 0:
+        raise ValueError("vd_sys_L must be > 0")
+    if v_synovial_mL <= 0:
+        raise ValueError("v_synovial_mL must be > 0")
+    if kp_synovial <= 0:
+        raise ValueError("kp_synovial must be > 0")
+    if route not in {"intraarticular", "systemic"}:
+        raise ValueError(f"route must be 'intraarticular' or 'systemic', got '{route}'")
 
-    ke = cl_L_per_h / vd_plasma_L
-    kp_sf = _compute_kp_sf(logp, mw_da)
+    # MW-dependent permeability factor: large molecules penetrate less
+    perm_factor = math.exp(-mw_Da / 5000.0)
 
-    # Initial conditions: IV bolus at t=0
-    c_plasma = dose_mg / vd_plasma_L
-    c_sf = 0.0
+    # Transfer rate constants between plasma and synovial fluid
+    v_synovial_L = v_synovial_mL / 1000.0
+    k_in = q_synovial_L_h * perm_factor / v_synovial_L  # /h into synovial
+    k_out = k_in / kp_synovial  # /h out of synovial
 
-    n_steps = max(1, int(round(t_end_h / dt_h)))
+    # Systemic elimination rate constant
+    ke = cl_sys_L_per_h / vd_sys_L
 
-    times_h: list[float] = []
-    c_plasma_list: list[float] = []
-    c_sf_list: list[float] = []
+    # Choose a stable internal dt
+    k_max = max(k_in, k_out, ke)
+    dt_internal = _safe_dt(dt_h, k_max)
+
+    # Record interval: how many internal steps per output point
+    # We record at multiples of dt_h (user's desired output resolution)
+    record_every = max(1, round(dt_h / dt_internal))
+    # Recalculate dt_internal to align exactly
+    dt_internal = dt_h / record_every
+
+    # Initial conditions
+    if route == "systemic":
+        c_plasma = dose_mg / vd_sys_L
+        c_syn = 0.0
+    else:  # intraarticular
+        c_plasma = 0.0
+        c_syn = dose_mg / v_synovial_L
+
+    # Forward Euler ODE integration
+    n_output = int(round(t_end_h / dt_h))
+    times_h = []
+    c_plasma_list = []
+    c_synovial_list = []
 
     t = 0.0
-    for _ in range(n_steps + 1):
-        times_h.append(t)
-        c_plasma_list.append(c_plasma)
-        c_sf_list.append(c_sf)
+    step_count = 0
+    total_internal_steps = n_output * record_every
 
-        if _ == n_steps:
-            break
+    for _i in range(total_internal_steps + 1):
+        if _i % record_every == 0:
+            times_h.append(round(t, 10))
+            c_plasma_list.append(max(c_plasma, 0.0))
+            c_synovial_list.append(max(c_syn, 0.0))
+            step_count += 1
 
-        # Driving force for SF exchange
-        driving_force = c_plasma - c_sf / kp_sf  # mg/L equivalent
+        if _i < total_internal_steps:
+            if route == "systemic":
+                dc_plasma = -ke * c_plasma
+                dc_syn = k_in * c_plasma - k_out * c_syn
+            else:  # intraarticular
+                dc_syn = -k_out * c_syn
+                dc_plasma = k_out * c_syn * v_synovial_L / vd_sys_L - ke * c_plasma
 
-        dc_plasma = -ke * c_plasma - ps_syn_L_per_h * driving_force / vd_plasma_L
-        dc_sf = ps_syn_L_per_h * driving_force / v_sf_L - ke_sf_per_h * c_sf
+            c_plasma += dc_plasma * dt_internal
+            c_syn += dc_syn * dt_internal
+            t += dt_internal
 
-        c_plasma = max(0.0, c_plasma + dc_plasma * dt_h)
-        c_sf = max(0.0, c_sf + dc_sf * dt_h)
-        t += dt_h
+    # AUC using trapezoidal rule
+    auc_plasma = _trapz(times_h, c_plasma_list)
+    auc_synovial = _trapz(times_h, c_synovial_list)
 
-    # Summary metrics
-    cmax_plasma = max(c_plasma_list) if c_plasma_list else 0.0
-    cmax_sf = max(c_sf_list) if c_sf_list else 0.0
+    # Cmax and Tmax for synovial
+    cmax_synovial = max(c_synovial_list) if c_synovial_list else 0.0
+    tmax_idx = c_synovial_list.index(cmax_synovial)
+    tmax_synovial = times_h[tmax_idx]
 
-    tmax_plasma_h = times_h[c_plasma_list.index(cmax_plasma)] if cmax_plasma > 0 else 0.0
-    tmax_sf_h = times_h[c_sf_list.index(cmax_sf)] if cmax_sf > 0 else 0.0
+    # Analytical half-life in synovial (ln2/k_out)
+    if k_out > 0:
+        t_half_synovial = math.log(2.0) / k_out
+    else:
+        t_half_synovial = float("inf")
 
-    auc_plasma = _trapezoidal_auc(times_h, c_plasma_list)
-    auc_sf = _trapezoidal_auc(times_h, c_sf_list)
-
-    sf_to_plasma_auc_ratio = auc_sf / auc_plasma if auc_plasma > 0 else 0.0
-    sf_penetration_index = sf_to_plasma_auc_ratio * 100.0
-    adequacy = _therapeutic_adequacy(sf_penetration_index)
+    # Synovial-to-plasma AUC ratio
+    if auc_plasma > 0:
+        stp_ratio = auc_synovial / auc_plasma
+    else:
+        stp_ratio = 0.0
 
     notes = (
-        f"Synovial fluid PK: Kp_sf={kp_sf:.3f}, PS_syn={ps_syn_L_per_h:.3f} L/h, "
-        f"SF penetration {sf_penetration_index:.1f}% ({adequacy}); "
-        f"tmax_sf={tmax_sf_h:.2f}h > tmax_plasma={tmax_plasma_h:.2f}h"
+        f"MW={mw_Da:.0f} Da, perm_factor={perm_factor:.3f}, "
+        f"k_in={k_in:.4f}/h, k_out={k_out:.4f}/h, "
+        f"route={route}, kp_synovial={kp_synovial}, "
+        f"dt_internal={dt_internal:.5f}h"
     )
 
     return SynovialFluidPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        logp=logp,
-        mw_da=mw_da,
+        route=route,
         times_h=times_h,
         c_plasma_mg_L=c_plasma_list,
-        c_sf_mg_L=c_sf_list,
-        cmax_plasma=cmax_plasma,
-        cmax_sf=cmax_sf,
-        tmax_plasma_h=tmax_plasma_h,
-        tmax_sf_h=tmax_sf_h,
+        c_synovial_mg_L=c_synovial_list,
         auc_plasma=auc_plasma,
-        auc_sf=auc_sf,
-        sf_to_plasma_auc_ratio=sf_to_plasma_auc_ratio,
-        kp_sf=kp_sf,
-        sf_penetration_index=sf_penetration_index,
-        therapeutic_adequacy=adequacy,
+        auc_synovial=auc_synovial,
+        cmax_synovial_mg_L=cmax_synovial,
+        tmax_synovial_h=tmax_synovial,
+        synovial_to_plasma_auc_ratio=stp_ratio,
+        t_half_synovial_h=t_half_synovial,
         notes=notes,
     )
-
-
-def compare_antiarthritic_drugs(
-    drugs_params: list[dict],
-) -> list[SynovialFluidPKResult]:
-    """Simulate and rank multiple drugs by SF penetration.
-
-    Parameters
-    ----------
-    drugs_params:
-        List of dicts; each dict is keyword arguments for
-        ``simulate_synovial_fluid_pk``.  The ``drug_name`` and ``dose_mg``
-        keys are required; all others are optional.
-
-    Returns
-    -------
-    List of SynovialFluidPKResult sorted by sf_to_plasma_auc_ratio descending.
-    """
-    results = []
-    for params in drugs_params:
-        result = simulate_synovial_fluid_pk(**params)
-        results.append(result)
-    results.sort(key=lambda r: r.sf_to_plasma_auc_ratio, reverse=True)
-    return results
