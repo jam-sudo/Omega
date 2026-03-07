@@ -140,13 +140,15 @@ def test_alignment_zero_gives_efficacy_near_100():
 
 
 def test_large_alignment_lower_efficacy():
-    # Manually set a high misalignment: disease_peak=9, drug peaks at 9+6=15 => alignment=6
-    # Use compare to find two points
-    results = compare_dosing_times(
-        "DrugA", "hypertension", tmax_h=0.0, dosing_times_h=[9.0, 3.0]
-    )  # 9 aligns, 3 has 6h misalignment
-    # Best result (alignment=0) should have higher efficacy
-    assert results[0].predicted_efficacy_score > results[-1].predicted_efficacy_score
+    # disease_peak=9 for hypertension, tmax=0
+    # dose at 9h => drug peaks at 9 => alignment=0 => efficacy=100
+    # dose at 3h => drug peaks at 3 => alignment=6 => efficacy < 100
+    results = compare_dosing_times("DrugA", "hypertension", tmax_h=0.0, dosing_times_h=[9.0, 3.0])
+    # Find the result for each dosing time
+    result_9 = next(r for r in results if abs(r.optimal_dose_time_h - 9.0) < 0.01)
+    result_3 = next(r for r in results if abs(r.optimal_dose_time_h - 3.0) < 0.01)
+    # Perfect alignment (dose at 9h) should give higher efficacy than misaligned (dose at 3h)
+    assert result_9.predicted_efficacy_score > result_3.predicted_efficacy_score
 
 
 # ---------------------------------------------------------------------------
