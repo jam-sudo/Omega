@@ -1,25 +1,40 @@
-"""Cardiac output-dependent PBPK (Phase 202).
+"""Cardiac output-dependent PBPK (Phase 202 + Phase 435).
 
-Distribution changes in heart failure, exercise, and sepsis.
-4-compartment model (plasma, liver, kidney, muscle) with forward Euler integration.
-Cardiac output shifts effective CL and Vd, modulating tissue concentrations.
+Phase 202: Simple cardiac-state PK scaling model (simulate_cardiac_output_pk,
+compare_cardiac_states) — 4-compartment with algebraic tissue concentrations.
+
+Phase 435: Full perfusion-limited 4-tissue PBPK with explicit ODE states
+(simulate_co_pbpk, cardiac_output_sensitivity).  Cardiac output fraction
+scales all organ blood flows; hepatic CL uses well-stirred model.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
 
 from omega_pbpk._compat import np_trapz  # noqa: E402
 
-__all__ = ["CardiacOutputPKResult", "simulate_cardiac_output_pk", "compare_cardiac_states"]
+__all__ = [
+    # Phase 202
+    "CardiacOutputPKResult",
+    "simulate_cardiac_output_pk",
+    "compare_cardiac_states",
+    "CARDIAC_STATES",
+    # Phase 435
+    "COPBPKResult",
+    "simulate_co_pbpk",
+    "cardiac_output_sensitivity",
+]
 
 
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Phase 202 — Cardiac-state scaling model
+# ===========================================================================
+
 # Cardiac state parameters
-# ---------------------------------------------------------------------------
-
 CARDIAC_STATES: dict[str, dict[str, float]] = {
     "normal":        {"co_L_per_min": 5.0,  "cl_factor": 1.0, "vd_factor": 1.0},
     "heart_failure": {"co_L_per_min": 2.5,  "cl_factor": 0.6, "vd_factor": 0.8},
@@ -55,10 +70,6 @@ class CardiacOutputPKResult:
     redistribution_index: float     # |cl_factor-1| + |vd_factor-1|
     notes: str
 
-
-# ---------------------------------------------------------------------------
-# Core simulation
-# ---------------------------------------------------------------------------
 
 def simulate_cardiac_output_pk(
     drug_name: str,
@@ -227,4 +238,307 @@ def compare_cardiac_states(
         )
         results.append(res)
     results.sort(key=lambda r: r.auc_plasma, reverse=True)
+    return results
+
+
+# ===========================================================================
+# Phase 435 — Full perfusion-limited 4-tissue PBPK with ODE states
+# ===========================================================================
+
+# Fixed physiological organ volumes (L)
+_ORGAN_VOLUMES: dict[str, float] = {
+    "liver": 1.8,
+    "kidney": 0.3,
+    "muscle": 28.0,
+    "fat": 14.0,
+}
+
+# Default normal organ blood flows (L/h) — reference healthy adult
+_DEFAULT_ORGAN_FLOWS: dict[str, float] = {
+    "liver": 54.0,    # hepatic artery + portal; ~0.9 L/min
+    "kidney": 72.0,   # ~1.2 L/min
+    "muscle": 15.0,   # resting skeletal muscle
+    "fat": 5.0,       # adipose
+}
+
+# Default tissue-to-plasma partition coefficients
+_DEFAULT_ORGAN_KP: dict[str, float] = {
+    "liver": 3.0,
+    "kidney": 5.0,
+    "muscle": 1.0,
+    "fat": 0.5,
+}
+
+_ORGANS = ["liver", "kidney", "muscle", "fat"]
+
+
+@dataclass
+class COPBPKResult:
+    """Result of a cardiac-output-dependent PBPK simulation (Phase 435)."""
+
+    drug_name: str
+    dose_mg: float
+    cardiac_output_fraction: float          # 1.0 = normal CO
+    cl_hep_effective_L_per_h: float         # well-stirred effective hepatic CL
+
+    times_h: list[float]
+    c_plasma_mg_L: list[float]
+    tissue_concs: dict[str, list[float]]    # organ → concentration time course
+
+    auc_plasma: float                       # mg·h/L (trapezoidal)
+    t_half_h: float                         # terminal half-life (h)
+    notes: str
+
+
+def simulate_co_pbpk(
+    drug_name: str,
+    dose_mg: float,
+    cl_hep_L_per_h: float,
+    cardiac_output_fraction: float,
+    organ_flows: dict[str, float] | None = None,
+    organ_kp: dict[str, float] | None = None,
+    vd_L: float = 50.0,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.05,
+) -> COPBPKResult:
+    """Simulate plasma and tissue PK with altered cardiac output.
+
+    Parameters
+    ----------
+    drug_name:
+        Identifier for the compound.
+    dose_mg:
+        IV bolus dose (mg).
+    cl_hep_L_per_h:
+        Intrinsic (nominal) hepatic clearance at normal CO (L/h).
+    cardiac_output_fraction:
+        Fraction of normal cardiac output; 1.0 = healthy, 0.5 = heart failure.
+        Must be in (0, 5].
+    organ_flows:
+        Normal (CO_fraction=1) blood flows (L/h) for each organ.
+        Keys: ``"liver"``, ``"kidney"``, ``"muscle"``, ``"fat"``.
+        Defaults to physiological reference values.
+    organ_kp:
+        Tissue-to-plasma partition coefficients for each organ.
+        Defaults to ``{"liver": 3, "kidney": 5, "muscle": 1, "fat": 0.5}``.
+    vd_L:
+        Apparent volume of distribution (L); used to set initial plasma conc.
+    t_end_h:
+        Simulation duration (h).
+    dt_h:
+        Forward Euler time step (h).
+
+    Returns
+    -------
+    COPBPKResult
+    """
+    # Input validation
+    if not drug_name:
+        raise ValueError("drug_name must be a non-empty string")
+    if dose_mg <= 0:
+        raise ValueError(f"dose_mg must be positive, got {dose_mg}")
+    if cl_hep_L_per_h <= 0:
+        raise ValueError(f"cl_hep_L_per_h must be positive, got {cl_hep_L_per_h}")
+    if not (0 < cardiac_output_fraction <= 5.0):
+        raise ValueError(
+            f"cardiac_output_fraction must be in (0, 5], got {cardiac_output_fraction}"
+        )
+    if vd_L <= 0:
+        raise ValueError(f"vd_L must be positive, got {vd_L}")
+    if t_end_h <= 0:
+        raise ValueError(f"t_end_h must be positive, got {t_end_h}")
+    if dt_h <= 0:
+        raise ValueError(f"dt_h must be positive, got {dt_h}")
+
+    # Merge user-supplied dicts with defaults
+    q_normal = dict(_DEFAULT_ORGAN_FLOWS)
+    if organ_flows is not None:
+        for k, v in organ_flows.items():
+            if k not in _ORGANS:
+                raise ValueError(f"Unknown organ in organ_flows: '{k}'. Must be in {_ORGANS}")
+            if v <= 0:
+                raise ValueError(f"organ_flows['{k}'] must be positive, got {v}")
+            q_normal[k] = float(v)
+
+    kp = dict(_DEFAULT_ORGAN_KP)
+    if organ_kp is not None:
+        for k, v in organ_kp.items():
+            if k not in _ORGANS:
+                raise ValueError(f"Unknown organ in organ_kp: '{k}'. Must be in {_ORGANS}")
+            if v <= 0:
+                raise ValueError(f"organ_kp['{k}'] must be positive, got {v}")
+            kp[k] = float(v)
+
+    # Scale flows by cardiac output fraction
+    q_scaled: dict[str, float] = {org: q_normal[org] * cardiac_output_fraction for org in _ORGANS}
+
+    # Well-stirred hepatic CL: CL_eff = Q_h * CL_int / (Q_h + CL_int)
+    q_h = q_scaled["liver"]
+    cl_hep_eff = q_h * cl_hep_L_per_h / (q_h + cl_hep_L_per_h)
+
+    # Total systemic CL (hepatic only in this model)
+    cl_total = cl_hep_eff
+
+    # Terminal half-life from Vd and CL
+    if cl_total > 0:
+        t_half = math.log(2.0) * vd_L / cl_total
+    else:
+        t_half = float("inf")
+
+    # Forward Euler integration — flow-limited (instantaneous equilibrium) PBPK
+    # In flow-limited PBPK, tissues equilibrate instantaneously with plasma:
+    #   C_tissue = Kp_tissue * C_plasma
+    # The effective volume of distribution accounts for all tissue compartments:
+    #   Vd_eff = V_plasma + sum(Kp_org * V_org)
+    # Plasma elimination ODE:
+    #   dC_plasma/dt = -CL_eff * C_plasma / Vd_eff
+    # Cardiac output affects CL_eff via the well-stirred model (already computed).
+    # To capture CO effects on tissue redistribution, we model time-varying
+    # Kp_eff using an exponential approach:
+    #   C_tissue(t) = Kp_org * C_plasma(t) * (1 - exp(-Q_org / V_org * t))
+    #                 + C_tissue(0) * exp(-Q_org / V_org * t)
+    # This tracks the wash-in/wash-out of each tissue as a function of organ flow.
+
+    # Effective Vd for plasma ODE (steady-state distribution)
+    v_plasma = vd_L - sum(kp[org] * _ORGAN_VOLUMES[org] for org in _ORGANS)
+    v_plasma = max(v_plasma, 3.0)  # clamp to minimum physiological plasma volume
+
+    # Effective elimination rate constant for plasma
+    ke = cl_total / vd_L  # elimination from plasma using given Vd
+
+    n_steps = max(int(round(t_end_h / dt_h)), 2)
+    times = np.linspace(0.0, t_end_h, n_steps + 1)
+    n_pts = len(times)
+
+    # Initial conditions: IV bolus → drug distributed at t=0 according to Kp
+    c_plasma_arr = np.zeros(n_pts)
+    # Each tissue tracked as C_tissue (mg/L); initial equilibrium with plasma
+    c_tissue_arr: dict[str, np.ndarray] = {org: np.zeros(n_pts) for org in _ORGANS}
+
+    c0_plasma = dose_mg / vd_L
+    c_plasma_arr[0] = c0_plasma
+    for org in _ORGANS:
+        c_tissue_arr[org][0] = kp[org] * c0_plasma
+
+    # Tissue wash-in rate constants (h⁻¹): how fast each tissue equilibrates
+    k_tissue: dict[str, float] = {
+        org: q_scaled[org] / _ORGAN_VOLUMES[org] for org in _ORGANS
+    }
+
+    for i in range(n_pts - 1):
+        cp = c_plasma_arr[i]
+
+        # Plasma ODE: single-compartment elimination
+        dcp_dt = -ke * cp
+        new_cp = cp + dcp_dt * dt_h
+        c_plasma_arr[i + 1] = max(0.0, new_cp)
+
+        # Tissue ODE: first-order approach to equilibrium with plasma
+        # dC_tissue/dt = k_tissue * (Kp * C_plasma - C_tissue)
+        for org in _ORGANS:
+            ct = c_tissue_arr[org][i]
+            eq_conc = kp[org] * cp
+            dct_dt = k_tissue[org] * (eq_conc - ct)
+            new_ct = ct + dct_dt * dt_h
+            c_tissue_arr[org][i + 1] = max(0.0, new_ct)
+
+    # Build tissue concentration time courses
+    tissue_concs: dict[str, list[float]] = {}
+    for org in _ORGANS:
+        tissue_concs[org] = c_tissue_arr[org].tolist()
+
+    # AUC by trapezoidal rule
+    auc_plasma = float(np_trapz(c_plasma_arr, times))
+
+    notes_parts = [
+        f"CO fraction: {cardiac_output_fraction:.2f}; "
+        f"Q_liver_scaled: {q_h:.1f} L/h; "
+        f"CL_hep_eff: {cl_hep_eff:.3f} L/h"
+    ]
+    if cardiac_output_fraction < 0.7:
+        notes_parts.append("Reduced CO → lower hepatic CL → increased exposure")
+    elif cardiac_output_fraction > 1.3:
+        notes_parts.append("Elevated CO → higher hepatic CL → reduced exposure")
+
+    return COPBPKResult(
+        drug_name=drug_name,
+        dose_mg=dose_mg,
+        cardiac_output_fraction=cardiac_output_fraction,
+        cl_hep_effective_L_per_h=float(cl_hep_eff),
+        times_h=times.tolist(),
+        c_plasma_mg_L=c_plasma_arr.tolist(),
+        tissue_concs=tissue_concs,
+        auc_plasma=auc_plasma,
+        t_half_h=float(t_half),
+        notes="; ".join(notes_parts),
+    )
+
+
+def cardiac_output_sensitivity(
+    drug_name: str,
+    dose_mg: float,
+    cl_hep_L_per_h: float,
+    vd_L: float,
+    co_fractions: list[float],
+    organ_flows: dict[str, float] | None = None,
+    organ_kp: dict[str, float] | None = None,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.05,
+) -> list[dict]:
+    """Evaluate AUC, t½, and effective CL across a range of CO fractions.
+
+    Parameters
+    ----------
+    drug_name:
+        Compound identifier.
+    dose_mg:
+        IV bolus dose (mg).
+    cl_hep_L_per_h:
+        Nominal hepatic clearance at normal CO (L/h).
+    vd_L:
+        Volume of distribution (L).
+    co_fractions:
+        List of cardiac output fractions to evaluate; each must be in (0, 5].
+    organ_flows:
+        Normal organ flows; forwarded to :func:`simulate_co_pbpk`.
+    organ_kp:
+        Organ Kp values; forwarded to :func:`simulate_co_pbpk`.
+    t_end_h:
+        Simulation duration (h).
+    dt_h:
+        Forward Euler time step (h).
+
+    Returns
+    -------
+    list[dict]
+        One dict per CO fraction with keys:
+        ``co_fraction``, ``auc_plasma``, ``t_half_h``, ``cl_hep_effective_L_per_h``.
+    """
+    if not co_fractions:
+        raise ValueError("co_fractions must be a non-empty list")
+    for f in co_fractions:
+        if not (0 < f <= 5.0):
+            raise ValueError(f"Each co_fraction must be in (0, 5], got {f}")
+
+    results: list[dict] = []
+    for frac in co_fractions:
+        res = simulate_co_pbpk(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            cl_hep_L_per_h=cl_hep_L_per_h,
+            cardiac_output_fraction=frac,
+            organ_flows=organ_flows,
+            organ_kp=organ_kp,
+            vd_L=vd_L,
+            t_end_h=t_end_h,
+            dt_h=dt_h,
+        )
+        results.append(
+            {
+                "co_fraction": frac,
+                "auc_plasma": res.auc_plasma,
+                "t_half_h": res.t_half_h,
+                "cl_hep_effective_L_per_h": res.cl_hep_effective_L_per_h,
+            }
+        )
     return results
