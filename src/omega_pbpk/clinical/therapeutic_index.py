@@ -6,7 +6,6 @@ NTI flags, and dose ranges from Hill equation models.
 """
 
 
-
 def therapeutic_index(td50: float, ed50: float) -> float:
     """Compute the Therapeutic Index (TI = TD50 / ED50).
 

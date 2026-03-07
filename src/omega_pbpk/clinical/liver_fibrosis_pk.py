@@ -10,7 +10,6 @@ Provides functions for:
 """
 
 
-
 def fibrosis_cl_scaling(cl_normal_L_per_h: float, child_pugh_score: int) -> dict:
     """
     Scale drug clearance based on Child-Pugh hepatic function score.

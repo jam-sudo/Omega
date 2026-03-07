@@ -5,7 +5,6 @@ Predicts non-specific tissue binding parameters (fu_tissue, Kp_tissue)
 from physicochemical properties using empirical lipid/phospholipid fractions.
 """
 
-
 # Empirical lipid fractions per tissue (neutral lipid %)
 _NEUTRAL_LIPID = {
     "muscle": 0.01,
