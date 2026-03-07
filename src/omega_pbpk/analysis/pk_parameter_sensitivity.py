@@ -1,8 +1,10 @@
-"""PK parameter local sensitivity analysis — Phase 271.
+"""PK parameter local sensitivity analysis — Phases 271 & 482.
 
-Computes normalized sensitivity coefficients for PK parameters
+Phase 271: Normalized sensitivity coefficients for PK parameters
 (CL, Vd, ka, F) with respect to output metrics (AUC, Cmax, t½).
-Useful for identifying critical parameters in PBPK models.
+
+Phase 482: One-at-a-time (OAT) sensitivity of AUC to CL, Vd, ka with
+structured OATSensitivityResult, parameter ranking, and ASCII tornado chart.
 
 References
 ----------
@@ -15,7 +17,17 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-__all__ = ["SensitivityCoefficient", "PKSensitivityResult", "compute_pk_sensitivity"]
+__all__ = [
+    "SensitivityCoefficient",
+    "PKSensitivityResult",
+    "compute_pk_sensitivity",
+    # Phase 482
+    "OATSensitivityResult",
+    "oat_sensitivity",
+    "normalized_sensitivity_index",
+    "rank_parameters_by_sensitivity",
+    "plot_sensitivity_table",
+]
 
 
 @dataclass(frozen=True)
@@ -213,3 +225,267 @@ def compute_pk_sensitivity(
         most_sensitive_param_cmax=most_sens_cmax,
         notes=notes,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 482 — OAT Sensitivity
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class OATSensitivityResult:
+    """One-at-a-time sensitivity result for PK parameters vs AUC.
+
+    Fields
+    ------
+    parameter_names:
+        Names of varied parameters (e.g. ['CL', 'Vd', 'ka']).
+    sensitivity_indices:
+        Normalized sensitivity index S for each parameter at the reference point.
+    output_name:
+        Name of the output metric (e.g. 'AUC').
+    param_ref_values:
+        Reference (nominal) values for each parameter.
+    output_values_per_param:
+        n_params × n_points matrix of AUC values.
+    param_value_ranges:
+        n_params × n_points matrix of parameter values used.
+    notes:
+        Human-readable summary.
+    """
+
+    parameter_names: list[str]
+    sensitivity_indices: list[float]
+    output_name: str
+    param_ref_values: list[float]
+    output_values_per_param: list[list[float]]
+    param_value_ranges: list[list[float]]
+    notes: str
+
+
+def _auc_1cpt(dose_mg: float, cl: float, vd: float, ka: float, route: str) -> float:
+    """Compute AUC for 1-compartment model.
+
+    For IV: AUC = Dose / CL (Vd and ka not relevant).
+    For oral: AUC = Dose / CL (bioavailability assumed 1.0 for sensitivity).
+    """
+    if cl <= 0:
+        raise ValueError("cl must be > 0")
+    # AUC is independent of Vd and ka for both IV and oral (F=1)
+    return dose_mg / cl
+
+
+def normalized_sensitivity_index(
+    param_ref: float,
+    output_ref: float,
+    delta_output: float,
+    delta_param: float,
+) -> float:
+    """Compute normalized (log-log) sensitivity index.
+
+    S = (dY/dP) * (P_ref / Y_ref) ≈ (ΔY / ΔP) * (P_ref / Y_ref)
+
+    Parameters
+    ----------
+    param_ref:
+        Reference parameter value.
+    output_ref:
+        Output value at reference parameter.
+    delta_output:
+        Change in output (Y_perturbed - Y_ref).
+    delta_param:
+        Change in parameter (P_perturbed - P_ref).
+
+    Returns
+    -------
+    float
+        Normalized sensitivity index.
+    """
+    if delta_param == 0:
+        return 0.0
+    if output_ref == 0 or param_ref == 0:
+        return 0.0
+    return (delta_output / delta_param) * (param_ref / output_ref)
+
+
+def oat_sensitivity(
+    cl_ref: float,
+    vd_ref: float,
+    dose_mg: float,
+    ka_ref: float = 1.0,
+    route: str = "oral",
+    param_ranges: dict[str, tuple[float, float]] | None = None,
+    n_points: int = 11,
+) -> OATSensitivityResult:
+    """One-at-a-time sensitivity of AUC to CL, Vd, and ka.
+
+    Each parameter is varied from -50% to +50% of its reference value while
+    the other parameters are held constant.  AUC is computed at each point.
+
+    Parameters
+    ----------
+    cl_ref:
+        Reference clearance (L/h). Must be > 0.
+    vd_ref:
+        Reference volume of distribution (L). Must be > 0.
+    dose_mg:
+        Dose (mg). Must be > 0.
+    ka_ref:
+        Reference oral absorption rate (h⁻¹). Must be > 0.
+    route:
+        'oral' or 'iv'.
+    param_ranges:
+        Optional dict mapping parameter name to (low_fraction, high_fraction)
+        of reference. Defaults to (0.5, 1.5) for each parameter.
+    n_points:
+        Number of evaluation points per parameter (≥ 2).
+
+    Returns
+    -------
+    OATSensitivityResult
+    """
+    if cl_ref <= 0:
+        raise ValueError(f"cl_ref must be > 0, got {cl_ref}")
+    if vd_ref <= 0:
+        raise ValueError(f"vd_ref must be > 0, got {vd_ref}")
+    if dose_mg <= 0:
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if ka_ref <= 0:
+        raise ValueError(f"ka_ref must be > 0, got {ka_ref}")
+    if route not in ("oral", "iv"):
+        raise ValueError(f"route must be 'oral' or 'iv', got {route!r}")
+    if n_points < 2:
+        raise ValueError(f"n_points must be >= 2, got {n_points}")
+
+    _defaults: dict[str, tuple[float, float]] = {
+        "CL": (0.5, 1.5),
+        "Vd": (0.5, 1.5),
+        "ka": (0.5, 1.5),
+    }
+    if param_ranges:
+        for k, v in param_ranges.items():
+            if k in _defaults:
+                _defaults[k] = v
+
+    param_names = ["CL", "Vd", "ka"]
+    param_refs = [cl_ref, vd_ref, ka_ref]
+
+    # Reference AUC
+    auc_ref = _auc_1cpt(dose_mg, cl_ref, vd_ref, ka_ref, route)
+
+    output_values_per_param: list[list[float]] = []
+    param_value_ranges: list[list[float]] = []
+    sensitivity_indices: list[float] = []
+
+    for pname, pref in zip(param_names, param_refs, strict=True):
+        lo_frac, hi_frac = _defaults[pname]
+        lo_val = pref * lo_frac
+        hi_val = pref * hi_frac
+        # Ensure lo_val > 0
+        if lo_val <= 0:
+            lo_val = pref * 0.01
+
+        step = (hi_val - lo_val) / (n_points - 1)
+        p_values = [lo_val + j * step for j in range(n_points)]
+        param_value_ranges.append(p_values)
+
+        aucs: list[float] = []
+        for pval in p_values:
+            cl_use = pval if pname == "CL" else cl_ref
+            vd_use = pval if pname == "Vd" else vd_ref
+            ka_use = pval if pname == "ka" else ka_ref
+            aucs.append(_auc_1cpt(dose_mg, cl_use, vd_use, ka_use, route))
+        output_values_per_param.append(aucs)
+
+        # Compute sensitivity index analytically.
+        # AUC = Dose / CL  (for both IV and oral with F=1).
+        # dAUC/dCL = -Dose / CL^2  → S_CL = (dAUC/dCL) * (CL/AUC) = -1 exactly.
+        # AUC is independent of Vd and ka  → S_Vd = S_ka = 0 exactly.
+        if pname == "CL":
+            s = -1.0
+        else:
+            s = 0.0
+        sensitivity_indices.append(s)
+
+    notes = (
+        f"OAT sensitivity; route={route}; dose={dose_mg} mg; "
+        f"CL_ref={cl_ref}, Vd_ref={vd_ref}, ka_ref={ka_ref}. "
+        f"AUC_ref={auc_ref:.4f}. "
+        f"S_CL={sensitivity_indices[0]:.3f}, "
+        f"S_Vd={sensitivity_indices[1]:.3f}, "
+        f"S_ka={sensitivity_indices[2]:.3f}."
+    )
+
+    return OATSensitivityResult(
+        parameter_names=param_names,
+        sensitivity_indices=sensitivity_indices,
+        output_name="AUC",
+        param_ref_values=param_refs,
+        output_values_per_param=output_values_per_param,
+        param_value_ranges=param_value_ranges,
+        notes=notes,
+    )
+
+
+def rank_parameters_by_sensitivity(oat_result: OATSensitivityResult) -> list[dict]:
+    """Rank parameters by absolute sensitivity index (descending).
+
+    Parameters
+    ----------
+    oat_result:
+        Result from :func:`oat_sensitivity`.
+
+    Returns
+    -------
+    list[dict]
+        Each dict has keys 'parameter', 'sensitivity_index', 'rank'.
+        Sorted by |sensitivity_index| descending.
+    """
+    pairs = list(
+        zip(oat_result.parameter_names, oat_result.sensitivity_indices, strict=True)
+    )
+    pairs_sorted = sorted(pairs, key=lambda x: abs(x[1]), reverse=True)
+    return [
+        {"parameter": name, "sensitivity_index": si, "rank": rank + 1}
+        for rank, (name, si) in enumerate(pairs_sorted)
+    ]
+
+
+def plot_sensitivity_table(oat_result: OATSensitivityResult) -> str:
+    """Render an ASCII tornado chart of sensitivity indices.
+
+    Parameters
+    ----------
+    oat_result:
+        Result from :func:`oat_sensitivity`.
+
+    Returns
+    -------
+    str
+        Multi-line ASCII string.
+    """
+    ranked = rank_parameters_by_sensitivity(oat_result)
+    if not ranked:
+        return ""
+
+    bar_width = 30
+    max_abs = max(abs(r["sensitivity_index"]) for r in ranked)
+    if max_abs == 0:
+        max_abs = 1.0
+
+    lines: list[str] = [
+        f"Tornado Chart — Sensitivity of {oat_result.output_name}",
+        "-" * 60,
+        f"{'Rank':<5} {'Parameter':<12} {'S':>8}   {'Bar'}",
+        "-" * 60,
+    ]
+    for r in ranked:
+        si = r["sensitivity_index"]
+        bar_len = int(abs(si) / max_abs * bar_width)
+        bar = "#" * bar_len
+        direction = "+" if si >= 0 else "-"
+        lines.append(
+            f"{r['rank']:<5} {r['parameter']:<12} {si:>8.3f}   [{direction}] {bar}"
+        )
+    lines.append("-" * 60)
+    return "\n".join(lines)
