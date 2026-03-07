@@ -1,168 +1,232 @@
-"""
-Tests for Phase 890 — Enterohepatic Circulation
-"""
+"""Tests for Phase 1078 -- Drug Biliary Excretion and Enterohepatic Circulation."""
 
 import pytest
-
 from omega_pbpk.core.enterohepatic_circulation import (
     EHCResult,
-    compare_ehc_scenarios,
+    compare_biliary_fractions,
     simulate_ehc,
 )
 
+
 # ---------------------------------------------------------------------------
-# Basic smoke tests
+# Helpers
 # ---------------------------------------------------------------------------
 
-
-class TestSimulateEHC:
-    def test_returns_ehc_result(self):
-        result = simulate_ehc("naproxen", 500.0)
-        assert isinstance(result, EHCResult)
-
-    def test_drug_name_stored(self):
-        result = simulate_ehc("estradiol", 2.0)
-        assert result.drug_name == "estradiol"
-
-    def test_dose_stored(self):
-        result = simulate_ehc("naproxen", 250.0)
-        assert result.dose_mg == 250.0
-
-    def test_times_starts_at_zero(self):
-        result = simulate_ehc("naproxen", 500.0)
-        assert result.times_h[0] == pytest.approx(0.0)
-
-    def test_times_ends_near_t_end(self):
-        result = simulate_ehc("naproxen", 500.0, t_end_h=24.0)
-        assert result.times_h[-1] == pytest.approx(24.0, abs=0.2)
-
-    def test_concentrations_non_negative(self):
-        result = simulate_ehc("naproxen", 500.0)
-        assert all(c >= 0 for c in result.c_plasma_mg_L)
-
-    def test_initial_concentration_zero(self):
-        result = simulate_ehc("naproxen", 500.0)
-        assert result.c_plasma_mg_L[0] == pytest.approx(0.0)
-
-    def test_cmax_positive(self):
-        result = simulate_ehc("naproxen", 500.0)
-        assert result.cmax_plasma > 0
-
-    def test_auc_positive(self):
-        result = simulate_ehc("naproxen", 500.0)
-        assert result.auc_plasma > 0
-
-    def test_f_ehc_formula(self):
-        result = simulate_ehc("naproxen", 500.0, f_bile=0.3, f_reabs=0.6)
-        assert result.f_ehc == pytest.approx(0.3 * 0.6)
-
-    def test_bile_recycling_amplification_no_ehc(self):
-        # f_bile=0 means f_ehc=0, amplification=1/(1-0)=1
-        result = simulate_ehc("naproxen", 500.0, f_bile=0.0, f_reabs=0.0)
-        assert result.bile_recycling_amplification == pytest.approx(1.0)
-
-    def test_bile_recycling_amplification_formula(self):
-        result = simulate_ehc("naproxen", 500.0, f_bile=0.4, f_reabs=0.5)
-        f_ehc = 0.4 * 0.5  # 0.2
-        expected = 1.0 / (1.0 - f_ehc)  # 1.25
-        assert result.bile_recycling_amplification == pytest.approx(expected, rel=1e-6)
-
-    def test_secondary_peaks_list_length_matches_count(self):
-        result = simulate_ehc("naproxen", 500.0)
-        assert len(result.secondary_peak_times_h) == result.n_secondary_peaks
-        assert len(result.secondary_peak_concs) == result.n_secondary_peaks
-
-    def test_no_ehc_when_f_bile_zero(self):
-        result = simulate_ehc("naproxen", 500.0, f_bile=0.0)
-        assert result.n_secondary_peaks == 0
-
-    def test_ehc_observed_with_high_recycling(self):
-        result = simulate_ehc(
-            "naproxen",
-            500.0,
-            f_bile=0.5,
-            k_bile_per_h=0.5,
-            t_bile_transit_h=2.0,
-            f_reabs=0.8,
-        )
-        # With strong EHC parameters we expect at least one secondary peak
-        assert result.n_secondary_peaks >= 0  # may vary with Forward Euler step
-
-    def test_notes_no_ehc(self):
-        result = simulate_ehc("naproxen", 500.0, f_bile=0.0)
-        assert "no significant" in result.notes.lower()
-
-    def test_higher_dose_higher_auc(self):
-        r_low = simulate_ehc("naproxen", 100.0)
-        r_high = simulate_ehc("naproxen", 1000.0)
-        assert r_high.auc_plasma > r_low.auc_plasma
-
-    def test_higher_clearance_lower_auc(self):
-        r_fast = simulate_ehc("naproxen", 500.0, cl_L_per_h=50.0)
-        r_slow = simulate_ehc("naproxen", 500.0, cl_L_per_h=5.0)
-        assert r_slow.auc_plasma > r_fast.auc_plasma
+def default_result(**kwargs) -> EHCResult:
+    return simulate_ehc(
+        drug_name="TestDrug",
+        dose_mg=100.0,
+        **kwargs,
+    )
 
 
 # ---------------------------------------------------------------------------
-# Validation tests
+# Return type
 # ---------------------------------------------------------------------------
 
-
-class TestValidation:
-    def test_zero_dose_raises(self):
-        with pytest.raises(ValueError, match="dose_mg"):
-            simulate_ehc("X", 0.0)
-
-    def test_negative_dose_raises(self):
-        with pytest.raises(ValueError):
-            simulate_ehc("X", -1.0)
-
-    def test_f_bile_above_one_raises(self):
-        with pytest.raises(ValueError, match="f_bile"):
-            simulate_ehc("X", 100.0, f_bile=1.5)
-
-    def test_f_reabs_negative_raises(self):
-        with pytest.raises(ValueError, match="f_reabs"):
-            simulate_ehc("X", 100.0, f_reabs=-0.1)
-
-    def test_zero_clearance_raises(self):
-        with pytest.raises(ValueError, match="cl_L_per_h"):
-            simulate_ehc("X", 100.0, cl_L_per_h=0.0)
-
-    def test_zero_vd_raises(self):
-        with pytest.raises(ValueError, match="vd_L"):
-            simulate_ehc("X", 100.0, vd_L=0.0)
+def test_return_type():
+    result = default_result()
+    assert isinstance(result, EHCResult)
 
 
 # ---------------------------------------------------------------------------
-# Compare EHC scenarios
+# Initial conditions (IV bolus at t=0)
 # ---------------------------------------------------------------------------
 
+def test_plasma_starts_at_dose_over_vd():
+    """C_plasma at t=0 should equal dose_mg / vd_L."""
+    result = simulate_ehc("Drug", dose_mg=100.0, vd_L=50.0)
+    assert result.c_plasma_mg_L[0] == pytest.approx(100.0 / 50.0, rel=1e-6)
 
-class TestCompareEHCScenarios:
-    def test_returns_same_count_as_scenarios(self):
-        scenarios = [
-            {"f_bile": 0.1, "f_reabs": 0.3},
-            {"f_bile": 0.4, "f_reabs": 0.7},
-            {"f_bile": 0.0, "f_reabs": 0.0},
-        ]
-        results = compare_ehc_scenarios("naproxen", 500.0, scenarios)
-        assert len(results) == 3
 
-    def test_sorted_by_auc_descending(self):
-        scenarios = [
-            {"f_bile": 0.1, "f_reabs": 0.3},
-            {"f_bile": 0.5, "f_reabs": 0.8},
-            {"f_bile": 0.0, "f_reabs": 0.0},
-        ]
-        results = compare_ehc_scenarios("naproxen", 500.0, scenarios)
-        aucs = [r.auc_plasma for r in results]
-        assert aucs == sorted(aucs, reverse=True)
+def test_bile_starts_at_zero():
+    result = default_result()
+    assert result.a_bile_mg[0] == pytest.approx(0.0, abs=1e-10)
 
-    def test_name_key_ignored(self):
-        scenarios = [
-            {"f_bile": 0.3, "name": "scenario_A"},
-            {"f_bile": 0.1, "name": "scenario_B"},
-        ]
-        results = compare_ehc_scenarios("naproxen", 500.0, scenarios)
-        assert len(results) == 2
+
+def test_gut_starts_at_zero():
+    result = default_result()
+    assert result.a_gut_mg[0] == pytest.approx(0.0, abs=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# Secondary peak / EHC
+# ---------------------------------------------------------------------------
+
+def test_high_fraction_biliary_has_secondary_peak():
+    """High biliary fraction should produce a secondary peak."""
+    result = simulate_ehc(
+        "Drug",
+        dose_mg=100.0,
+        fraction_biliary=0.8,
+        cl_total_L_per_h=5.0,
+        vd_L=50.0,
+        k_gall_per_h=0.5,
+        ka_ehc_per_h=1.0,
+        k_fecal_per_h=0.02,
+        t_end_h=48.0,
+        dt_h=0.05,
+    )
+    assert result.has_secondary_peak is True
+
+
+def test_zero_fraction_biliary_no_secondary_peak():
+    """Zero biliary fraction means no EHC, no secondary peak."""
+    result = simulate_ehc(
+        "Drug",
+        dose_mg=100.0,
+        fraction_biliary=0.0,
+        t_end_h=48.0,
+    )
+    assert result.has_secondary_peak is False
+
+
+# ---------------------------------------------------------------------------
+# AUC / Cmax
+# ---------------------------------------------------------------------------
+
+def test_auc_positive():
+    result = default_result()
+    assert result.auc > 0.0
+
+
+def test_cmax_first_peak_positive():
+    result = default_result()
+    assert result.cmax_first_peak > 0.0
+
+
+def test_tmax_first_peak_is_zero_for_iv_bolus():
+    """For IV bolus the first peak is at t=0."""
+    result = default_result()
+    assert result.tmax_first_peak_h == pytest.approx(0.0, abs=1e-10)
+
+
+def test_cmax_first_equals_initial_concentration():
+    """For IV bolus the first Cmax equals initial C_plasma."""
+    result = simulate_ehc("Drug", dose_mg=200.0, vd_L=40.0)
+    assert result.cmax_first_peak == pytest.approx(200.0 / 40.0, rel=1e-4)
+
+
+# ---------------------------------------------------------------------------
+# has_secondary_peak type
+# ---------------------------------------------------------------------------
+
+def test_has_secondary_peak_is_bool():
+    result = default_result()
+    assert isinstance(result.has_secondary_peak, bool)
+
+
+def test_secondary_peak_cmax_zero_when_no_ehc():
+    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.0)
+    assert result.cmax_second_peak == pytest.approx(0.0, abs=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Fecal elimination
+# ---------------------------------------------------------------------------
+
+def test_f_fecal_in_zero_one():
+    result = default_result()
+    assert 0.0 <= result.f_fecal_eliminated <= 1.0
+
+
+def test_f_fecal_zero_when_no_biliary():
+    """No biliary fraction means no fecal elimination via bile."""
+    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.0, k_fecal_per_h=0.05)
+    assert result.f_fecal_eliminated == pytest.approx(0.0, abs=1e-6)
+
+
+def test_f_fecal_positive_with_biliary():
+    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.5)
+    assert result.f_fecal_eliminated > 0.0
+
+
+# ---------------------------------------------------------------------------
+# compare_biliary_fractions
+# ---------------------------------------------------------------------------
+
+def test_compare_biliary_fractions_correct_count():
+    fractions = [0.0, 0.3, 0.6, 0.9]
+    results = compare_biliary_fractions("Drug", dose_mg=100.0, fractions=fractions)
+    assert len(results) == 4
+
+
+def test_compare_biliary_fractions_sorted_by_cmax_second_desc():
+    fractions = [0.0, 0.3, 0.6, 0.9]
+    results = compare_biliary_fractions("Drug", dose_mg=100.0, fractions=fractions)
+    for i in range(len(results) - 1):
+        assert results[i].cmax_second_peak >= results[i + 1].cmax_second_peak
+
+
+def test_compare_biliary_fractions_all_ehcresult():
+    fractions = [0.1, 0.5]
+    results = compare_biliary_fractions("Drug", dose_mg=50.0, fractions=fractions)
+    for r in results:
+        assert isinstance(r, EHCResult)
+
+
+# ---------------------------------------------------------------------------
+# Time arrays
+# ---------------------------------------------------------------------------
+
+def test_times_starts_at_zero():
+    result = default_result(t_end_h=24.0, dt_h=0.5)
+    assert result.times_h[0] == pytest.approx(0.0)
+
+
+def test_times_ends_near_t_end():
+    result = default_result(t_end_h=24.0, dt_h=0.5)
+    assert result.times_h[-1] == pytest.approx(24.0, abs=0.6)
+
+
+def test_c_plasma_list_same_length_as_times():
+    result = default_result()
+    assert len(result.c_plasma_mg_L) == len(result.times_h)
+
+
+# ---------------------------------------------------------------------------
+# Validation errors
+# ---------------------------------------------------------------------------
+
+def test_invalid_dose_raises():
+    with pytest.raises(ValueError):
+        simulate_ehc("Drug", dose_mg=0.0)
+
+
+def test_invalid_fraction_biliary_raises():
+    with pytest.raises(ValueError):
+        simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=1.5)
+
+
+def test_invalid_fraction_biliary_negative_raises():
+    with pytest.raises(ValueError):
+        simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=-0.1)
+
+
+def test_invalid_cl_raises():
+    with pytest.raises(ValueError):
+        simulate_ehc("Drug", dose_mg=100.0, cl_total_L_per_h=0.0)
+
+
+def test_invalid_vd_raises():
+    with pytest.raises(ValueError):
+        simulate_ehc("Drug", dose_mg=100.0, vd_L=-10.0)
+
+
+# ---------------------------------------------------------------------------
+# Notes / metadata
+# ---------------------------------------------------------------------------
+
+def test_notes_nonempty():
+    result = default_result()
+    assert len(result.notes) > 0
+
+
+def test_drug_name_preserved():
+    result = simulate_ehc("Metformin", dose_mg=500.0)
+    assert result.drug_name == "Metformin"
+
+
+def test_fraction_biliary_preserved():
+    result = simulate_ehc("Drug", dose_mg=100.0, fraction_biliary=0.4)
+    assert result.fraction_biliary == pytest.approx(0.4)

@@ -1,263 +1,251 @@
-"""Phase 1007 — Cardiac Output Effect on Drug Distribution and PK.
+"""Phase 1079 — Cardiac Output Effect on PK.
 
-Models how cardiac output (CO) determines organ perfusion rates and
-thus hepatic/renal clearance and overall PK. Useful for heart failure
-dose adjustment.
+Models how changes in cardiac output (CO) affect multi-organ drug distribution.
+Relevant for heart failure, exercise, anesthesia, and critical illness.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
+# ---------------------------------------------------------------------------
+# Organ volume constants (litres)
+# ---------------------------------------------------------------------------
+_V_LIVER_L = 1.5
+_V_KIDNEY_L = 0.3
+_V_MUSCLE_L = 28.0
+_VD_PLASMA_L = 3.5
+
+# Fractional blood-flow allocation
+_F_LIVER = 0.25
+_F_KIDNEY = 0.20
+_F_MUSCLE = 0.40
+# _F_OTHER = 0.15  (remainder, lumped, not tracked as state)
 
 
+def _kp_liver(logP: float) -> float:
+    return max(0.5, min(20.0, 1.5 * logP))
+
+
+def _kp_kidney(logP: float) -> float:
+    return max(0.3, min(10.0, 0.8 * logP))
+
+
+def _kp_muscle(logP: float) -> float:
+    return max(0.1, min(5.0, 0.5 * logP))
+
+
+def _trapz(times: list[float], values: list[float]) -> float:
+    """Manual trapezoidal integration."""
+    auc = 0.0
+    for i in range(1, len(times)):
+        auc += 0.5 * (values[i - 1] + values[i]) * (times[i] - times[i - 1])
+    return auc
+
+
+def _find_thalf(times: list[float], values: list[float], cmax: float) -> float:
+    """Return first time at which value falls to 50% of cmax."""
+    target = 0.5 * cmax
+    for i in range(1, len(values)):
+        if values[i] <= target:
+            t0, t1 = times[i - 1], times[i]
+            v0, v1 = values[i - 1], values[i]
+            if v1 < v0:
+                frac = (v0 - target) / (v0 - v1)
+                return t0 + frac * (t1 - t0)
+    return times[-1]
+
+
+# ---------------------------------------------------------------------------
+# Result dataclass
+# ---------------------------------------------------------------------------
 @dataclass
 class CardiacOutputPKResult:
-    """Result of a cardiac-output-driven 4-compartment PK simulation."""
-
     drug_name: str
     dose_mg: float
-    cardiac_output_L_per_min: float
-    times_h: list = field(default_factory=list)
-    c_plasma_mg_L: list = field(default_factory=list)
-    c_liver_mg_L: list = field(default_factory=list)
-    c_kidney_mg_L: list = field(default_factory=list)
-    c_muscle_mg_L: list = field(default_factory=list)
-    cmax_plasma_mg_L: float = 0.0
-    auc_plasma_mg_h_per_L: float = 0.0
-    hepatic_extraction: float = 0.0
-    renal_extraction: float = 0.0
-    total_body_clearance_L_per_h: float = 0.0
-    t_half_h: float = 0.0
-    heart_failure_impact: str = "none"
-    notes: str = ""
+    cardiac_output_L_per_h: float
+    logP: float
+    times_h: list
+    c_plasma_mg_L: list
+    c_liver_mg_L: list
+    c_kidney_mg_L: list
+    c_muscle_mg_L: list
+    cmax_plasma: float
+    auc_plasma: float
+    auc_liver: float
+    auc_kidney: float
+    auc_muscle: float
+    t_half_plasma_h: float
+    pk_risk_assessment: str
+    notes: str
 
 
-def _heart_failure_impact(co: float) -> str:
-    if co >= 5.0:
-        return "none"
-    if co >= 3.5:
-        return "mild"
-    if co >= 2.5:
-        return "moderate"
-    return "severe"
-
-
+# ---------------------------------------------------------------------------
+# Core simulation
+# ---------------------------------------------------------------------------
 def simulate_cardiac_output_pk(
     drug_name: str,
     dose_mg: float,
-    cardiac_output_L_per_min: float = 5.0,
-    logp: float = 2.0,
-    fup: float = 0.5,
-    clint_liver_mL_min: float = 50.0,
-    fu_renal: float = 0.5,
-    route: str = "iv",
+    cardiac_output_L_per_h: float = 300.0,
+    logP: float = 2.0,
+    cl_intrinsic_L_per_h: float = 5.0,
     t_end_h: float = 24.0,
     dt_h: float = 0.1,
 ) -> CardiacOutputPKResult:
-    """Simulate 4-compartment perfusion-limited PK as a function of cardiac output.
-
-    Parameters
-    ----------
-    drug_name:
-        Name of the drug.
-    dose_mg:
-        Administered dose in mg.
-    cardiac_output_L_per_min:
-        Cardiac output in L/min. Normal ~5.0; heart failure 2–4.
-    logp:
-        Octanol-water partition coefficient (log scale).
-    fup:
-        Fraction unbound in plasma.
-    clint_liver_mL_min:
-        Intrinsic hepatic clearance in mL/min (unscaled).
-    fu_renal:
-        Fraction unbound in renal tubular fluid.
-    route:
-        "iv" or "oral".
-    t_end_h:
-        Simulation end time in hours.
-    dt_h:
-        Forward Euler step size in hours.
-
-    Returns
-    -------
-    CardiacOutputPKResult
-    """
+    """Simulate 3-organ PBPK with IV bolus dose under given cardiac output."""
     # --- Validation ---
     if dose_mg <= 0:
-        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
-    if cardiac_output_L_per_min <= 0:
-        raise ValueError(f"cardiac_output_L_per_min must be > 0, got {cardiac_output_L_per_min}")
-    route = route.lower()
-    if route not in {"iv", "oral"}:
-        raise ValueError(f"route must be 'iv' or 'oral', got {route!r}")
+        raise ValueError("dose_mg must be > 0")
+    if cardiac_output_L_per_h <= 0:
+        raise ValueError("cardiac_output_L_per_h must be > 0")
+    if cl_intrinsic_L_per_h <= 0:
+        raise ValueError("cl_intrinsic_L_per_h must be > 0")
+    if not (-5.0 <= logP <= 10.0):
+        raise ValueError("logP must be in [-5, 10]")
 
-    # --- Organ flows (L/h) ---
-    co_L_h = cardiac_output_L_per_min * 60.0
-    q_liver = 0.25 * co_L_h
-    q_kidney = 0.20 * co_L_h
-    q_muscle = 0.17 * co_L_h
+    CO = cardiac_output_L_per_h
+    Q_liver = _F_LIVER * CO
+    Q_kidney = _F_KIDNEY * CO
+    Q_muscle = _F_MUSCLE * CO
 
-    # --- Organ volumes (L) ---
-    v_plasma = 3.0
-    v_liver = 1.5
-    v_kidney = 0.3
-    v_muscle = 28.0
+    Kp_liv = _kp_liver(logP)
+    Kp_kid = _kp_kidney(logP)
+    Kp_mus = _kp_muscle(logP)
 
-    # --- Partition coefficient (tissue:plasma) ---
-    kp = max(0.5, 10.0 ** (0.3 * logp))
+    V_plasma = _VD_PLASMA_L
+    V_liv = _V_LIVER_L
+    V_kid = _V_KIDNEY_L
+    V_mus = _V_MUSCLE_L
 
-    # --- Extraction ratios ---
-    clint_liver_L_h = clint_liver_mL_min / 1000.0 * 60.0 * fup
-    e_liver = clint_liver_L_h / (q_liver + clint_liver_L_h)
-    e_kidney = fu_renal * 0.2  # simplified GFR fraction
-
-    # --- Initial conditions ---
-    c_plasma = 0.0
-    c_liver = 0.0
-    c_kidney = 0.0
-    c_muscle = 0.0
-    a_gut = 0.0  # oral depot (mg)
-    ka = 0.8  # /h
-
-    if route == "iv":
-        c_plasma = dose_mg / v_plasma
-    else:
-        a_gut = dose_mg * 0.8  # 80% oral fraction absorbed from gut
-
-    # --- Simulation ---
-    # Use a stable internal sub-step: max rate constant determines step size.
-    # Minimum time constant = min(V_organ / Q_organ); require dt_internal <= 0.3 * tau_min.
-    tau_liver = v_liver / q_liver if q_liver > 0 else 1.0
-    tau_kidney = v_kidney / q_kidney if q_kidney > 0 else 1.0
-    tau_muscle = v_muscle / q_muscle if q_muscle > 0 else 1.0
-    tau_plasma = v_plasma / (q_liver + q_kidney + q_muscle)
-    tau_min = min(tau_liver, tau_kidney, tau_muscle, tau_plasma)
-    dt_internal = min(dt_h, 0.2 * tau_min)
-    # Reporting times
-    n_report = max(1, int(t_end_h / dt_h))
+    # Initial conditions — IV bolus
+    Cp = dose_mg / V_plasma
+    Cl = 0.0
+    Ck = 0.0
+    Cm = 0.0
 
     times: list[float] = []
-    cp_list: list[float] = []
-    cl_list: list[float] = []
-    ck_list: list[float] = []
-    cm_list: list[float] = []
+    c_plasma: list[float] = []
+    c_liver: list[float] = []
+    c_kidney: list[float] = []
+    c_muscle: list[float] = []
+
+    # Choose an internal sub-step to keep forward Euler stable.
+    # Dominant rate constants (per hour):
+    #   plasma: (CL_int + Q_liv + Q_kid + Q_mus) / V_plasma
+    #   liver:  Q_liv / (V_liv * Kp_liv)   (return-flux term divided by V)
+    #   kidney: Q_kid / (V_kid * Kp_kid)
+    #   muscle: Q_mus / (V_mus * Kp_mus)
+    # Stability requires dt * max_rate < 1.
+    # We target dt * max_rate ≤ 0.5 for safety.
+    _plasma_rate = (Q_liver + Q_kidney + Q_muscle) / V_plasma
+    _liver_rate = Q_liver / (V_liv * Kp_liv) + cl_intrinsic_L_per_h / V_liv
+    _kidney_rate = Q_kidney / (V_kid * Kp_kid)
+    _muscle_rate = Q_muscle / (V_mus * Kp_mus)
+    _max_rate = max(_plasma_rate, _liver_rate, _kidney_rate, _muscle_rate)
+    _dt_stable = 0.5 / _max_rate if _max_rate > 0 else dt_h
+    _dt_internal = min(dt_h, _dt_stable)
 
     t = 0.0
-    next_report_idx = 0
-    report_times = [i * dt_h for i in range(n_report + 1)]
+    n_steps = int(round(t_end_h / dt_h))
 
-    def _record() -> None:
+    for step in range(n_steps + 1):
         times.append(t)
-        cp_list.append(c_plasma)
-        cl_list.append(c_liver)
-        ck_list.append(c_kidney)
-        cm_list.append(c_muscle)
+        c_plasma.append(Cp)
+        c_liver.append(Cl)
+        c_kidney.append(Ck)
+        c_muscle.append(Cm)
 
-    _record()
-    next_report_idx = 1
-
-    t_total_steps = max(1, int(t_end_h / dt_internal + 0.5))
-    for _i in range(t_total_steps):
-        # Compute actual step (don't overshoot next report time)
-        t_next_report = report_times[next_report_idx] if next_report_idx <= n_report else t_end_h
-        h = min(dt_internal, t_next_report - t)
-        if h <= 0:
-            # Record and advance report pointer
-            if next_report_idx <= n_report and abs(t - t_next_report) < 1e-12:
-                # already recorded if t matches; just advance pointer
-                if len(times) <= next_report_idx:
-                    _record()
-                next_report_idx += 1
-            if t >= t_end_h - 1e-12:
-                break
-            continue
-
-        # Oral absorption input (mg/h → mg/L/h via v_plasma)
-        if route == "oral":
-            absorbed = ka * a_gut * h
-            a_gut = max(0.0, a_gut - absorbed)
-            oral_input = absorbed / v_plasma / h  # rate mg/L/h
-        else:
-            oral_input = 0.0
-
-        # Standard perfusion-limited ODEs.
-        # Venous concentration leaving each organ = C_organ/kp * (1 - E).
-        # Plasma receives return flow from organs; outflow = total Q * C_plasma.
-        c_liver_ven = c_liver / kp * (1.0 - e_liver)
-        c_kidney_ven = c_kidney / kp * (1.0 - e_kidney)
-        c_muscle_ven = c_muscle / kp  # no elimination in muscle
-
-        dc_plasma = (
-            oral_input
-            + (q_liver * c_liver_ven + q_kidney * c_kidney_ven + q_muscle * c_muscle_ven) / v_plasma
-            - (q_liver + q_kidney + q_muscle) / v_plasma * c_plasma
-        )
-        # Each organ: arterial in Q*C_plasma, venous out Q*C_organ/kp
-        dc_liver = (q_liver * c_plasma - q_liver * c_liver / kp) / v_liver
-        dc_kidney = (q_kidney * c_plasma - q_kidney * c_kidney / kp) / v_kidney
-        dc_muscle = (q_muscle * c_plasma - q_muscle * c_muscle / kp) / v_muscle
-
-        c_plasma = max(0.0, c_plasma + dc_plasma * h)
-        c_liver = max(0.0, c_liver + dc_liver * h)
-        c_kidney = max(0.0, c_kidney + dc_kidney * h)
-        c_muscle = max(0.0, c_muscle + dc_muscle * h)
-        t += h
-
-        # Record at reporting times
-        if next_report_idx <= n_report and t >= report_times[next_report_idx] - 1e-12:
-            _record()
-            next_report_idx += 1
-
-        if t >= t_end_h - 1e-12:
+        if step == n_steps:
             break
 
-    # Ensure final time point is recorded if missing
-    if not times or times[-1] < t_end_h - 1e-12:
-        times.append(t_end_h)
-        cp_list.append(c_plasma)
-        cl_list.append(c_liver)
-        ck_list.append(c_kidney)
-        cm_list.append(c_muscle)
+        # Integrate from t to t+dt_h using internal sub-steps
+        t_sub = 0.0
+        interval = dt_h
+        while t_sub < interval - 1e-12:
+            h = min(_dt_internal, interval - t_sub)
+            # ODEs — forward Euler
+            # cl_intrinsic is hepatic metabolic clearance in the liver compartment.
+            # Higher CO → more drug delivered to liver → faster elimination → lower plasma AUC.
+            dCp = (
+                -(Q_liver * (Cp - Cl / Kp_liv)) / V_plasma
+                - (Q_kidney * (Cp - Ck / Kp_kid)) / V_plasma
+                - (Q_muscle * (Cp - Cm / Kp_mus)) / V_plasma
+            )
+            dCl = Q_liver * (Cp - Cl / Kp_liv) / V_liv - cl_intrinsic_L_per_h * Cl / V_liv
+            dCk = Q_kidney * (Cp - Ck / Kp_kid) / V_kid
+            dCm = Q_muscle * (Cp - Cm / Kp_mus) / V_mus
 
-    # --- Derived PK metrics ---
-    cmax = max(cp_list)
+            Cp = max(0.0, Cp + dCp * h)
+            Cl = max(0.0, Cl + dCl * h)
+            Ck = max(0.0, Ck + dCk * h)
+            Cm = max(0.0, Cm + dCm * h)
+            t_sub += h
 
-    # Trapezoidal AUC
-    auc = 0.0
-    for i in range(1, len(times)):
-        auc += 0.5 * (cp_list[i - 1] + cp_list[i]) * (times[i] - times[i - 1])
+        t += dt_h
 
-    total_cl = e_liver * q_liver + e_kidney * q_kidney
-    t_half = 0.693 * v_plasma / total_cl if total_cl > 0 else float("inf")
+    cmax_p = max(c_plasma)
+    auc_p = _trapz(times, c_plasma)
+    auc_l = _trapz(times, c_liver)
+    auc_k = _trapz(times, c_kidney)
+    auc_m = _trapz(times, c_muscle)
+    t_half = _find_thalf(times, c_plasma, cmax_p)
 
-    hf_impact = _heart_failure_impact(cardiac_output_L_per_min)
+    if CO < 180.0:
+        risk = "elevated_exposure"
+    elif CO <= 360.0:
+        risk = "normal"
+    else:
+        risk = "reduced_exposure"
 
-    notes_parts = [
-        f"CO={cardiac_output_L_per_min:.1f} L/min",
-        f"Q_liver={q_liver:.1f} L/h",
-        f"E_liver={e_liver:.3f}",
-        f"E_kidney={e_kidney:.3f}",
-        f"kp={kp:.2f}",
-    ]
-    if hf_impact != "none":
-        notes_parts.append(f"Heart failure impact: {hf_impact}")
+    notes = (
+        f"CO={CO:.1f} L/h; Kp_liver={Kp_liv:.2f}, Kp_kidney={Kp_kid:.2f}, Kp_muscle={Kp_mus:.2f}"
+    )
 
     return CardiacOutputPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        cardiac_output_L_per_min=cardiac_output_L_per_min,
+        cardiac_output_L_per_h=CO,
+        logP=logP,
         times_h=times,
-        c_plasma_mg_L=cp_list,
-        c_liver_mg_L=cl_list,
-        c_kidney_mg_L=ck_list,
-        c_muscle_mg_L=cm_list,
-        cmax_plasma_mg_L=cmax,
-        auc_plasma_mg_h_per_L=auc,
-        hepatic_extraction=e_liver,
-        renal_extraction=e_kidney,
-        total_body_clearance_L_per_h=total_cl,
-        t_half_h=t_half,
-        heart_failure_impact=hf_impact,
-        notes="; ".join(notes_parts),
+        c_plasma_mg_L=c_plasma,
+        c_liver_mg_L=c_liver,
+        c_kidney_mg_L=c_kidney,
+        c_muscle_mg_L=c_muscle,
+        cmax_plasma=cmax_p,
+        auc_plasma=auc_p,
+        auc_liver=auc_l,
+        auc_kidney=auc_k,
+        auc_muscle=auc_m,
+        t_half_plasma_h=t_half,
+        pk_risk_assessment=risk,
+        notes=notes,
     )
+
+
+# ---------------------------------------------------------------------------
+# Comparison helper
+# ---------------------------------------------------------------------------
+def compare_cardiac_outputs(
+    drug_name: str,
+    dose_mg: float,
+    co_values: list[float],
+    logP: float = 2.0,
+    cl_intrinsic_L_per_h: float = 5.0,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.1,
+) -> list[CardiacOutputPKResult]:
+    """Simulate across a list of CO values; sorted by auc_plasma descending."""
+    results = [
+        simulate_cardiac_output_pk(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            cardiac_output_L_per_h=co,
+            logP=logP,
+            cl_intrinsic_L_per_h=cl_intrinsic_L_per_h,
+            t_end_h=t_end_h,
+            dt_h=dt_h,
+        )
+        for co in co_values
+    ]
+    results.sort(key=lambda r: r.auc_plasma, reverse=True)
+    return results

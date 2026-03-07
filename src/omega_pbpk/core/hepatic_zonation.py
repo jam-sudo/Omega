@@ -1,285 +1,166 @@
-"""Hepatic zonal drug metabolism model.
+"""
+Phase 1077 -- Hepatic Zone-Specific Metabolism
 
-Models zone-dependent hepatic drug metabolism across three hepatic zones:
-  Zone 1 (periportal):     High O2, receives portal blood first
-  Zone 2 (midzonal):       Intermediate conditions
-  Zone 3 (centrilobular):  Low O2, CYP2E1/1A2/3A4 predominant, toxicity prone
-
-References:
-  - Jungermann & Kietzmann (1996). Zonation of parenchymal and nonparenchymal
-    metabolism in liver. Annu Rev Nutr.
-  - Lindros (1997). Zonation of cytochrome P450 expression, drug metabolism
-    and toxicity in liver. Gen Pharmacol.
+Models zone-specific hepatic metabolism accounting for periportal (Zone 1)
+vs. pericentral (Zone 3) enzyme expression gradients.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-_ZONE1_MASS_FRACTION = 0.35  # periportal zone fraction of liver mass
-_ZONE2_MASS_FRACTION = 0.20  # midzonal zone fraction
-_ZONE3_MASS_FRACTION = 0.45  # centrilobular zone fraction
+# Zone enzyme multipliers: (zone1, zone2, zone3)
+_CYP_ZONE_MULTIPLIERS: dict[str, tuple[float, float, float]] = {
+    "CYP3A4": (0.5, 1.0, 2.0),
+    "CYP2E1": (0.3, 0.8, 2.5),
+    "CYP2D6": (2.0, 1.0, 0.5),
+    "CYP2C9": (1.0, 1.0, 1.0),
+    "CYP1A2": (0.8, 1.0, 1.5),
+}
 
-_DEFAULT_HEPATIC_BLOOD_FLOW = 90.0  # L/h
-_DEFAULT_FU_PLASMA = 0.5
-_DEFAULT_CLINT_ZONE1 = 0.5  # mL/min/g liver
-_DEFAULT_CLINT_ZONE3 = 2.0  # mL/min/g liver
-_DEFAULT_LIVER_MASS_G = 1500.0
-
-_REACTIVE_METABOLITE_ZONE3_FRACTION_HIGH = 0.7
-_REACTIVE_METABOLITE_ZONE3_FRACTION_LOW = 0.3
-
-
-# ---------------------------------------------------------------------------
-# Result dataclass
-# ---------------------------------------------------------------------------
+_SUPPORTED_CYPS = list(_CYP_ZONE_MULTIPLIERS.keys())
 
 
 @dataclass(frozen=True)
 class HepaticZonationResult:
-    """Results of hepatic zonal metabolism simulation."""
-
     drug_name: str
-    dose_mg: float
-
-    # Zonal distribution
-    f_metabolized_zone1: float  # fraction metabolized in Zone 1 (periportal)
-    f_metabolized_zone2: float  # fraction in Zone 2 (midzonal)
-    f_metabolized_zone3: float  # fraction in Zone 3 (centrilobular)
-
-    # Toxicity-relevant metrics
-    zone3_burden_ratio: float  # Zone 3 metabolic burden relative to Zone 1
-    reactive_metabolite_zone3_fraction: float  # RM fraction in Zone 3
-
-    # PK metrics
-    cl_total_L_per_h: float
-    cl_intrinsic_zone1_L_per_h: float
-    cl_intrinsic_zone3_L_per_h: float
-    extraction_ratio: float
-
-    hepatotoxicity_risk: str  # "low", "moderate", "high"
+    cyp_enzyme: str
+    clint_total_mL_per_min_per_g: float
+    q_portal_L_per_h: float
+    fu_plasma: float
+    e_zone1: float
+    e_zone2: float
+    e_zone3: float
+    e_total: float
+    cl_hepatic_L_per_h: float
+    fu_mic: float
+    first_pass_effect: str
+    zone_sensitivity: str
     notes: str
 
 
-# ---------------------------------------------------------------------------
-# Core simulation
-# ---------------------------------------------------------------------------
+def _validate_inputs(
+    clint_total: float,
+    q_portal: float,
+    fu_plasma: float,
+    fu_mic: float,
+    liver_weight: float,
+) -> None:
+    if clint_total <= 0:
+        raise ValueError(f"clint_total_mL_per_min_per_g must be > 0, got {clint_total}")
+    if q_portal <= 0:
+        raise ValueError(f"q_portal_L_per_h must be > 0, got {q_portal}")
+    if not (0 < fu_plasma <= 1):
+        raise ValueError(f"fu_plasma must be in (0, 1], got {fu_plasma}")
+    if not (0 < fu_mic <= 1):
+        raise ValueError(f"fu_mic must be in (0, 1], got {fu_mic}")
+    if liver_weight <= 0:
+        raise ValueError(f"liver_weight_g must be > 0, got {liver_weight}")
 
 
 def simulate_hepatic_zonation(
     drug_name: str,
-    dose_mg: float,
-    hepatic_blood_flow_L_per_h: float = _DEFAULT_HEPATIC_BLOOD_FLOW,
-    fu_plasma: float = _DEFAULT_FU_PLASMA,
-    clint_zone1_mL_per_min_per_g: float = _DEFAULT_CLINT_ZONE1,
-    clint_zone3_mL_per_min_per_g: float = _DEFAULT_CLINT_ZONE3,
-    liver_mass_g: float = _DEFAULT_LIVER_MASS_G,
-    cyp_zone1_fraction: float = 0.35,
-    cyp_zone3_fraction: float = 0.50,
-    reactive_metabolite: bool = False,
+    cyp_enzyme: str,
+    clint_total_mL_per_min_per_g: float = 10.0,
+    q_portal_L_per_h: float = 60.0,
+    fu_plasma: float = 0.1,
+    fu_mic: float = 0.5,
+    liver_weight_g: float = 1500.0,
 ) -> HepaticZonationResult:
-    """Simulate zone-dependent hepatic drug metabolism.
+    """Simulate hepatic zonation-dependent metabolism using a 3-zone series model."""
+    cyp_upper = cyp_enzyme.upper()
+    if cyp_upper not in _CYP_ZONE_MULTIPLIERS:
+        raise ValueError(f"Unsupported CYP enzyme '{cyp_enzyme}'. Supported: {_SUPPORTED_CYPS}")
 
-    Uses a three-zone well-stirred liver model where each zone receives
-    equal blood flow (1/3 of total hepatic flow).
-
-    Parameters
-    ----------
-    drug_name:
-        Identifier for the drug.
-    dose_mg:
-        Administered dose in mg.
-    hepatic_blood_flow_L_per_h:
-        Total hepatic blood flow (L/h). Default 90 L/h.
-    fu_plasma:
-        Unbound fraction in plasma (0 < fu <= 1).
-    clint_zone1_mL_per_min_per_g:
-        Intrinsic clearance per gram of liver in Zone 1 (mL/min/g).
-    clint_zone3_mL_per_min_per_g:
-        Intrinsic clearance per gram of liver in Zone 3 (mL/min/g).
-    liver_mass_g:
-        Total liver mass in grams.
-    cyp_zone1_fraction:
-        Fraction of CYP enzymes in Zone 1 (informational).
-    cyp_zone3_fraction:
-        Fraction of CYP enzymes in Zone 3 (informational).
-    reactive_metabolite:
-        Whether the drug forms reactive metabolites predominantly via Zone 3 CYPs.
-
-    Returns
-    -------
-    HepaticZonationResult
-    """
-    # Input validation
-    if hepatic_blood_flow_L_per_h <= 0:
-        raise ValueError(
-            f"hepatic_blood_flow_L_per_h must be > 0, got {hepatic_blood_flow_L_per_h}"
-        )
-    if clint_zone1_mL_per_min_per_g < 0:
-        raise ValueError(
-            f"clint_zone1_mL_per_min_per_g must be >= 0, got {clint_zone1_mL_per_min_per_g}"
-        )
-    if clint_zone3_mL_per_min_per_g < 0:
-        raise ValueError(
-            f"clint_zone3_mL_per_min_per_g must be >= 0, got {clint_zone3_mL_per_min_per_g}"
-        )
-    if liver_mass_g <= 0:
-        raise ValueError(f"liver_mass_g must be > 0, got {liver_mass_g}")
-    if not (0 < fu_plasma <= 1):
-        raise ValueError(f"fu_plasma must be in (0, 1], got {fu_plasma}")
-
-    # Zonal liver mass (g)
-    mass_z1 = liver_mass_g * _ZONE1_MASS_FRACTION  # 35%
-    mass_z2 = liver_mass_g * _ZONE2_MASS_FRACTION  # 20%
-    mass_z3 = liver_mass_g * _ZONE3_MASS_FRACTION  # 45%
-
-    # Midzone CLint: average of zone1 and zone3 rates
-    clint_zone2_mL_per_min_per_g = (
-        clint_zone1_mL_per_min_per_g + clint_zone3_mL_per_min_per_g
-    ) / 2.0
-
-    # Convert CLint from mL/min/g to L/h per zone
-    # CLint_zone [L/h] = clint [mL/min/g] * mass [g] * 60 [min/h] / 1000 [mL/L]
-    cl_int_z1 = clint_zone1_mL_per_min_per_g * mass_z1 * 60.0 / 1000.0
-    cl_int_z2 = clint_zone2_mL_per_min_per_g * mass_z2 * 60.0 / 1000.0
-    cl_int_z3 = clint_zone3_mL_per_min_per_g * mass_z3 * 60.0 / 1000.0
-
-    # Blood flow per zone: equal thirds
-    q_zone = hepatic_blood_flow_L_per_h / 3.0
-
-    # Well-stirred extraction ratio per zone: E = fu * CLint / (Q + fu * CLint)
-    def _well_stirred_extraction(q: float, fu: float, cl_int: float) -> float:
-        denom = q + fu * cl_int
-        if denom <= 0:
-            return 0.0
-        return (fu * cl_int) / denom
-
-    e_z1 = _well_stirred_extraction(q_zone, fu_plasma, cl_int_z1)
-    e_z2 = _well_stirred_extraction(q_zone, fu_plasma, cl_int_z2)
-    e_z3 = _well_stirred_extraction(q_zone, fu_plasma, cl_int_z3)
-
-    # Total hepatic extraction (simplified averaging)
-    e_total = (e_z1 + e_z2 + e_z3) / 3.0
-    e_total = min(1.0, max(0.0, e_total))
-
-    cl_total = hepatic_blood_flow_L_per_h * e_total
-
-    # Fraction metabolized per zone (proportional to fu * CLint)
-    fu_clint_z1 = fu_plasma * cl_int_z1
-    fu_clint_z2 = fu_plasma * cl_int_z2
-    fu_clint_z3 = fu_plasma * cl_int_z3
-    total_fu_clint = fu_clint_z1 + fu_clint_z2 + fu_clint_z3
-
-    if total_fu_clint <= 0:
-        # No metabolism: distribute uniformly
-        f_z1 = _ZONE1_MASS_FRACTION
-        f_z2 = _ZONE2_MASS_FRACTION
-        f_z3 = _ZONE3_MASS_FRACTION
-    else:
-        f_z1 = fu_clint_z1 / total_fu_clint
-        f_z2 = fu_clint_z2 / total_fu_clint
-        f_z3 = fu_clint_z3 / total_fu_clint
-
-    # Zone 3 burden relative to Zone 1
-    if f_z1 > 0:
-        zone3_burden_ratio = f_z3 / f_z1
-    else:
-        zone3_burden_ratio = 0.0
-
-    # Reactive metabolite fraction in Zone 3
-    rm_z3_fraction = (
-        _REACTIVE_METABOLITE_ZONE3_FRACTION_HIGH
-        if reactive_metabolite
-        else _REACTIVE_METABOLITE_ZONE3_FRACTION_LOW
+    _validate_inputs(
+        clint_total_mL_per_min_per_g,
+        q_portal_L_per_h,
+        fu_plasma,
+        fu_mic,
+        liver_weight_g,
     )
 
-    # Hepatotoxicity risk classification
-    if zone3_burden_ratio > 3.0 and reactive_metabolite:
-        hepatotoxicity_risk = "high"
-    elif zone3_burden_ratio > 2.0 or (reactive_metabolite and zone3_burden_ratio > 1.0):
-        hepatotoxicity_risk = "moderate"
+    multipliers = _CYP_ZONE_MULTIPLIERS[cyp_upper]
+    # Normalize multipliers so their sum equals 3 (preserving total CLint scale)
+    mult_sum = sum(multipliers)
+    norm_multipliers = tuple(m * 3.0 / mult_sum for m in multipliers)
+
+    # Convert CLint from mL/min/g to L/h for whole liver
+    clint_total_L_per_h = clint_total_mL_per_min_per_g * liver_weight_g * 60.0 / 1000.0
+
+    # Split CLint equally across 3 zones (base), then apply zone multipliers
+    clint_per_zone_base = clint_total_L_per_h / 3.0
+    q_zone = q_portal_L_per_h / 3.0  # each zone gets 1/3 of portal flow
+
+    # Extraction ratio per zone using well-stirred model
+    # E_z = (fu * CLint_z) / (Q_zone + fu * CLint_z)
+    def zone_extraction(mult: float) -> float:
+        clint_z = clint_per_zone_base * mult
+        numerator = fu_plasma * clint_z
+        denominator = q_zone + fu_plasma * clint_z
+        return numerator / denominator
+
+    e1 = zone_extraction(norm_multipliers[0])
+    e2 = zone_extraction(norm_multipliers[1])
+    e3 = zone_extraction(norm_multipliers[2])
+
+    e_total = 1.0 - (1.0 - e1) * (1.0 - e2) * (1.0 - e3)
+    cl_hepatic = q_portal_L_per_h * e_total
+
+    # First-pass effect classification
+    if e_total < 0.3:
+        first_pass_effect = "low"
+    elif e_total <= 0.7:
+        first_pass_effect = "intermediate"
     else:
-        hepatotoxicity_risk = "low"
+        first_pass_effect = "high"
+
+    # Zone sensitivity: periportal if zone1 raw multiplier > zone3 raw multiplier
+    raw_z1 = multipliers[0]
+    raw_z3 = multipliers[2]
+    if raw_z1 > raw_z3:
+        zone_sensitivity = "periportal"
+    else:
+        zone_sensitivity = "pericentral"
 
     notes = (
-        f"{drug_name}: Zone 3 burden ratio {zone3_burden_ratio:.2f}; "
-        f"extraction ratio {e_total:.3f}; "
-        f"reactive_metabolite={reactive_metabolite}; "
-        f"CYP zone1_frac={cyp_zone1_fraction:.2f}, zone3_frac={cyp_zone3_fraction:.2f}"
+        f"{cyp_upper} shows {zone_sensitivity} dominance. "
+        f"E_total={e_total:.3f} ({first_pass_effect}). "
+        f"CL_hep={cl_hepatic:.2f} L/h."
     )
 
     return HepaticZonationResult(
         drug_name=drug_name,
-        dose_mg=dose_mg,
-        f_metabolized_zone1=f_z1,
-        f_metabolized_zone2=f_z2,
-        f_metabolized_zone3=f_z3,
-        zone3_burden_ratio=zone3_burden_ratio,
-        reactive_metabolite_zone3_fraction=rm_z3_fraction,
-        cl_total_L_per_h=cl_total,
-        cl_intrinsic_zone1_L_per_h=cl_int_z1,
-        cl_intrinsic_zone3_L_per_h=cl_int_z3,
-        extraction_ratio=e_total,
-        hepatotoxicity_risk=hepatotoxicity_risk,
+        cyp_enzyme=cyp_upper,
+        clint_total_mL_per_min_per_g=clint_total_mL_per_min_per_g,
+        q_portal_L_per_h=q_portal_L_per_h,
+        fu_plasma=fu_plasma,
+        e_zone1=e1,
+        e_zone2=e2,
+        e_zone3=e3,
+        e_total=e_total,
+        cl_hepatic_L_per_h=cl_hepatic,
+        fu_mic=fu_mic,
+        first_pass_effect=first_pass_effect,
+        zone_sensitivity=zone_sensitivity,
         notes=notes,
     )
 
 
-# ---------------------------------------------------------------------------
-# Enzyme induction comparison
-# ---------------------------------------------------------------------------
-
-
-def compare_enzyme_inducers(
+def compare_cyp_enzymes(
     drug_name: str,
-    dose_mg: float,
-    fu_plasma: float,
-    clint_z1_baseline: float,
-    fold_induction_z3_values: list[float] | None = None,
+    clint_total: float = 10.0,
+    **kwargs,
 ) -> list[HepaticZonationResult]:
-    """Compare effect of Zone 3 CYP induction on hepatic zonal metabolism.
-
-    CYP induction (e.g., by rifampin, phenobarbital) preferentially upregulates
-    CYP3A4/2E1/1A2 in Zone 3. This function evaluates a range of induction
-    fold-changes applied to the Zone 3 intrinsic clearance.
-
-    Parameters
-    ----------
-    drug_name:
-        Drug identifier.
-    dose_mg:
-        Administered dose in mg.
-    fu_plasma:
-        Unbound fraction in plasma.
-    clint_z1_baseline:
-        Zone 1 baseline intrinsic clearance (mL/min/g).
-    fold_induction_z3_values:
-        List of fold-induction values to simulate for Zone 3.
-        Default: [1, 2, 5, 10].
-
-    Returns
-    -------
-    list[HepaticZonationResult]
-        Results sorted by zone3_burden_ratio descending.
-    """
-    if fold_induction_z3_values is None:
-        fold_induction_z3_values = [1, 2, 5, 10]
-
+    """Run simulation for all 5 supported CYP enzymes, sorted by cl_hepatic descending."""
     results = []
-    for fold in fold_induction_z3_values:
-        clint_z3 = clint_z1_baseline * fold
+    for cyp in _SUPPORTED_CYPS:
         result = simulate_hepatic_zonation(
             drug_name=drug_name,
-            dose_mg=dose_mg,
-            fu_plasma=fu_plasma,
-            clint_zone1_mL_per_min_per_g=clint_z1_baseline,
-            clint_zone3_mL_per_min_per_g=clint_z3,
+            cyp_enzyme=cyp,
+            clint_total_mL_per_min_per_g=clint_total,
+            **kwargs,
         )
         results.append(result)
-
-    # Sort by zone3_burden_ratio descending (highest induction first)
-    results.sort(key=lambda r: r.zone3_burden_ratio, reverse=True)
+    results.sort(key=lambda r: r.cl_hepatic_L_per_h, reverse=True)
     return results
