@@ -1,4 +1,4 @@
-"""Excipient-drug interaction prediction — Phase 451.
+"""Excipient-drug interaction prediction — Phase 451 + Phase 757.
 
 Predicts how common pharmaceutical excipients affect drug solubility,
 permeability, and stability based on physicochemical drug properties.
@@ -327,4 +327,267 @@ def screen_excipients(
         results.append(predict_excipient_effect(drug_logp, drug_mw, name, drug_pka))
 
     results.sort(key=lambda r: r.compatibility_score, reverse=True)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Phase 757 — Drug-Excipient Interaction Predictor (F-based model)
+# ---------------------------------------------------------------------------
+
+# Bioavailability-focused excipient effects table
+EXCIPIENT_EFFECTS: dict[str, dict[str, float]] = {
+    "cremophor_el": {
+        "pgp_inhibition": 0.8,
+        "cyp3a4_inhibition": 0.3,
+        "solubility_enhancement": 2.0,
+    },
+    "tween_80": {
+        "pgp_inhibition": 0.5,
+        "cyp3a4_inhibition": 0.1,
+        "solubility_enhancement": 1.5,
+    },
+    "tpgs": {
+        "pgp_inhibition": 0.7,
+        "cyp3a4_inhibition": 0.05,
+        "solubility_enhancement": 1.8,
+    },
+    "pvp_k30": {
+        "pgp_inhibition": 0.0,
+        "cyp3a4_inhibition": 0.0,
+        "solubility_enhancement": 1.3,
+    },
+    "sds": {
+        "pgp_inhibition": 0.1,
+        "cyp3a4_inhibition": 0.0,
+        "solubility_enhancement": 3.0,
+    },
+    "hpmc": {
+        "pgp_inhibition": 0.0,
+        "cyp3a4_inhibition": 0.0,
+        "solubility_enhancement": 1.1,
+    },
+    "citric_acid": {
+        "pgp_inhibition": 0.0,
+        "cyp3a4_inhibition": 0.0,
+        "solubility_enhancement": 0.8,
+        "ph_modifier": -1.5,
+    },
+}
+
+
+@dataclass(frozen=True)
+class ExcipientInteractionResult:
+    """Result of excipient-drug interaction prediction (Phase 757).
+
+    Attributes
+    ----------
+    drug_name : str
+        Name of the drug.
+    excipients_used : str
+        Comma-joined list of excipients evaluated.
+    pgp_inhibition_combined : float
+        Combined P-gp inhibition fraction [0, 1].
+    cyp3a4_inhibition_combined : float
+        Combined CYP3A4 inhibition fraction [0, 1].
+    solubility_enhancement_fold : float
+        Multiplicative solubility enhancement fold.
+    ph_change : float
+        Net pH change from buffer excipients.
+    fa_corrected : float
+        Corrected fraction absorbed after excipient effects.
+    fg_corrected : float
+        Corrected gut-wall availability after CYP3A4 inhibition.
+    f_total : float
+        Total bioavailability with excipients (fa × fg × fh).
+    f_baseline : float
+        Baseline bioavailability without excipients (fa_base × fh).
+    f_change_pct : float
+        Percent change in F relative to baseline.
+    recommendation : str
+        Clinical recommendation based on F change.
+    notes : str
+        Summary notes on dominant excipient effects.
+    """
+
+    drug_name: str
+    excipients_used: str
+    pgp_inhibition_combined: float
+    cyp3a4_inhibition_combined: float
+    solubility_enhancement_fold: float
+    ph_change: float
+    fa_corrected: float
+    fg_corrected: float
+    f_total: float
+    f_baseline: float
+    f_change_pct: float
+    recommendation: str
+    notes: str
+
+
+def predict_excipient_interactions(
+    drug_name: str,
+    excipients: list[str],
+    fa_base: float = 0.7,
+    fm_cyp3a4: float = 0.3,
+    fh: float = 0.7,
+    is_pgp_substrate: bool = False,
+) -> ExcipientInteractionResult:
+    """Predict how a combination of excipients affects oral bioavailability.
+
+    Parameters
+    ----------
+    drug_name : str
+        Name of the drug.
+    excipients : list[str]
+        Excipient names (from EXCIPIENT_EFFECTS; unknown excipients have no effect).
+    fa_base : float
+        Base fraction absorbed (0–1).
+    fm_cyp3a4 : float
+        Fraction metabolised by CYP3A4 (0–1).
+    fh : float
+        Hepatic first-pass availability (0–1].
+    is_pgp_substrate : bool
+        If True, P-gp inhibition boosts fa further.
+
+    Returns
+    -------
+    ExcipientInteractionResult
+
+    Raises
+    ------
+    ValueError
+        If fa_base, fm_cyp3a4, or fh are out of valid range.
+    """
+    if not (0.0 <= fa_base <= 1.0):
+        raise ValueError(f"fa_base must be between 0 and 1, got {fa_base}")
+    if not (0.0 <= fm_cyp3a4 <= 1.0):
+        raise ValueError(f"fm_cyp3a4 must be between 0 and 1, got {fm_cyp3a4}")
+    if not (0.0 < fh <= 1.0):
+        raise ValueError(f"fh must be in (0, 1], got {fh}")
+
+    # Collect effects from known excipients only
+    pgp_inh_list: list[float] = []
+    cyp_inh_list: list[float] = []
+    sol_enh_list: list[float] = []
+    ph_delta: float = 0.0
+
+    for exc in excipients:
+        key = exc.lower().replace(" ", "_").replace("-", "_")
+        effects = EXCIPIENT_EFFECTS.get(key, {})
+        pgp_inh_list.append(effects.get("pgp_inhibition", 0.0))
+        cyp_inh_list.append(effects.get("cyp3a4_inhibition", 0.0))
+        sol_enh_list.append(effects.get("solubility_enhancement", 1.0))
+        ph_delta += effects.get("ph_modifier", 0.0)
+
+    # Combined effects
+    pgp_inh_combined = 1.0
+    for p in pgp_inh_list:
+        pgp_inh_combined *= 1.0 - p
+    pgp_inh_combined = 1.0 - pgp_inh_combined
+
+    cyp_inh_combined = 1.0
+    for c in cyp_inh_list:
+        cyp_inh_combined *= 1.0 - c
+    cyp_inh_combined = 1.0 - cyp_inh_combined
+
+    sol_enh_combined = 1.0
+    for s in sol_enh_list:
+        sol_enh_combined *= s
+
+    # Impact on F components
+    fa_corrected = min(1.0, fa_base * sol_enh_combined)
+    if is_pgp_substrate:
+        fa_corrected = min(1.0, fa_corrected + pgp_inh_combined * 0.2)
+
+    fg_corrected = 1.0 / (1.0 + fm_cyp3a4 * cyp_inh_combined * 5.0)
+
+    f_total = fa_corrected * fg_corrected * fh
+    f_baseline = fa_base * 1.0 * fh  # fg=1 (no inhibition), fh unchanged
+
+    if f_baseline > 0.0:
+        f_change_pct = (f_total - f_baseline) / f_baseline * 100.0
+    else:
+        f_change_pct = 0.0
+
+    # Recommendation
+    if f_change_pct > 50.0:
+        recommendation = "Significant F enhancement expected; consider dose reduction"
+    elif f_change_pct > 20.0:
+        recommendation = "Moderate F enhancement; monitor plasma levels"
+    elif f_change_pct < -20.0:
+        recommendation = "F reduction; consider dose increase"
+    else:
+        recommendation = "Minimal excipient impact on bioavailability"
+
+    # Build notes
+    note_parts: list[str] = []
+    if pgp_inh_combined > 0.3:
+        note_parts.append(f"Strong P-gp inhibition ({pgp_inh_combined:.2f})")
+    if cyp_inh_combined > 0.1:
+        note_parts.append(f"CYP3A4 inhibition ({cyp_inh_combined:.2f})")
+    if sol_enh_combined > 1.5:
+        note_parts.append(f"High solubility enhancement ({sol_enh_combined:.2f}x)")
+    elif sol_enh_combined < 1.0:
+        note_parts.append(f"Solubility reduction ({sol_enh_combined:.2f}x)")
+    if abs(ph_delta) > 0.1:
+        note_parts.append(f"pH change {ph_delta:+.1f} from buffer excipients")
+    if not note_parts:
+        note_parts.append("No dominant excipient interactions identified")
+
+    notes = "; ".join(note_parts)
+
+    return ExcipientInteractionResult(
+        drug_name=drug_name,
+        excipients_used=", ".join(excipients) if excipients else "none",
+        pgp_inhibition_combined=round(pgp_inh_combined, 6),
+        cyp3a4_inhibition_combined=round(cyp_inh_combined, 6),
+        solubility_enhancement_fold=round(sol_enh_combined, 6),
+        ph_change=round(ph_delta, 6),
+        fa_corrected=round(fa_corrected, 6),
+        fg_corrected=round(fg_corrected, 6),
+        f_total=round(f_total, 6),
+        f_baseline=round(f_baseline, 6),
+        f_change_pct=round(f_change_pct, 4),
+        recommendation=recommendation,
+        notes=notes,
+    )
+
+
+def screen_excipient_combinations(
+    drug_name: str,
+    excipient_combos: list[list[str]],
+    fa_base: float = 0.7,
+    fm_cyp3a4: float = 0.3,
+    fh: float = 0.7,
+    is_pgp_substrate: bool = False,
+) -> list[ExcipientInteractionResult]:
+    """Screen multiple excipient combinations and rank by total bioavailability.
+
+    Parameters
+    ----------
+    drug_name : str
+        Name of the drug.
+    excipient_combos : list[list[str]]
+        Each inner list is a combination of excipient names to evaluate.
+    fa_base, fm_cyp3a4, fh, is_pgp_substrate :
+        Shared drug PK parameters (see predict_excipient_interactions).
+
+    Returns
+    -------
+    list[ExcipientInteractionResult]
+        Sorted by f_total descending.
+    """
+    results: list[ExcipientInteractionResult] = []
+    for combo in excipient_combos:
+        result = predict_excipient_interactions(
+            drug_name=drug_name,
+            excipients=combo,
+            fa_base=fa_base,
+            fm_cyp3a4=fm_cyp3a4,
+            fh=fh,
+            is_pgp_substrate=is_pgp_substrate,
+        )
+        results.append(result)
+
+    results.sort(key=lambda r: r.f_total, reverse=True)
     return results

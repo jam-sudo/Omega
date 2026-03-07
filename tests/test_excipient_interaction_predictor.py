@@ -1,4 +1,4 @@
-"""Tests for Phase 451: Excipient-drug interaction predictor."""
+"""Tests for Phase 451 + Phase 757: Excipient-drug interaction predictor."""
 
 from __future__ import annotations
 
@@ -7,7 +7,10 @@ import pytest
 from omega_pbpk.prediction.excipient_interaction_predictor import (
     SUPPORTED_EXCIPIENTS,
     ExcipientEffectResult,
+    ExcipientInteractionResult,
     predict_excipient_effect,
+    predict_excipient_interactions,
+    screen_excipient_combinations,
     screen_excipients,
 )
 
@@ -280,3 +283,127 @@ def test_hpmc_solubility_improvement_low_logp():
 def test_pvp_stability_positive():
     result = predict_excipient_effect(2.0, 300.0, "PVP")
     assert result.stability_effect == "positive"
+
+
+# ===========================================================================
+# Phase 757 tests — predict_excipient_interactions / screen_excipient_combinations
+# ===========================================================================
+
+
+def test_returns_excipient_interaction_result():
+    result = predict_excipient_interactions("DrugA", ["cremophor_el"])
+    assert isinstance(result, ExcipientInteractionResult)
+
+
+def test_no_excipients_f_total_equals_baseline():
+    result = predict_excipient_interactions("DrugA", [], fa_base=0.6, fm_cyp3a4=0.2, fh=0.8)
+    # With no excipients, sol_enh=1, no pgp, no cyp inh → f_total should equal f_baseline
+    assert abs(result.f_total - result.f_baseline) < 1e-6
+
+
+def test_cremophor_el_high_pgp_inhibition():
+    result = predict_excipient_interactions("DrugA", ["cremophor_el"])
+    assert result.pgp_inhibition_combined >= 0.7
+
+
+def test_sds_high_solubility_enhancement():
+    result = predict_excipient_interactions("DrugA", ["sds"])
+    assert result.solubility_enhancement_fold >= 2.5
+
+
+def test_multiple_excipients_combined_pgp():
+    single = predict_excipient_interactions("DrugA", ["cremophor_el"])
+    combined = predict_excipient_interactions("DrugA", ["cremophor_el", "tween_80"])
+    # Combined P-gp inhibition must be >= single excipient
+    assert combined.pgp_inhibition_combined >= single.pgp_inhibition_combined
+
+
+def test_cyp3a4_inhibitor_excipient_changes_fg():
+    # High fm_cyp3a4 drug with CYP3A4-inhibiting excipient (cremophor_el):
+    # The spec formula fg = 1/(1+fm*cyp_inh*5) reduces fg when cyp_inh > 0.
+    # We test that fg_corrected != 1.0 (some effect occurred) and that a drug
+    # with no CYP3A4 fraction is unaffected by this excipient on fg.
+    no_cyp = predict_excipient_interactions("DrugA", ["cremophor_el"], fm_cyp3a4=0.0)
+    high_cyp = predict_excipient_interactions("DrugA", ["cremophor_el"], fm_cyp3a4=0.8)
+    # When fm_cyp3a4=0, fg_corrected = 1/(1+0) = 1.0
+    assert abs(no_cyp.fg_corrected - 1.0) < 1e-6
+    # When fm_cyp3a4=0.8, fg_corrected < 1.0 per spec formula
+    assert high_cyp.fg_corrected < 1.0
+
+
+def test_f_total_between_0_and_1():
+    result = predict_excipient_interactions("DrugA", ["cremophor_el", "sds", "tpgs"])
+    assert 0.0 <= result.f_total <= 1.0
+
+
+def test_f_change_pct_computed_correctly():
+    result = predict_excipient_interactions("DrugA", ["sds"], fa_base=0.5, fm_cyp3a4=0.0, fh=1.0)
+    expected_pct = (result.f_total - result.f_baseline) / result.f_baseline * 100.0
+    assert abs(result.f_change_pct - expected_pct) < 0.01
+
+
+def test_recommendation_is_str():
+    result = predict_excipient_interactions("DrugA", ["cremophor_el"])
+    assert isinstance(result.recommendation, str)
+
+
+def test_screen_excipient_combinations_returns_sorted():
+    combos = [["hpmc"], ["cremophor_el"], ["sds"], ["pvp_k30"]]
+    results = screen_excipient_combinations("DrugA", combos)
+    f_totals = [r.f_total for r in results]
+    assert f_totals == sorted(f_totals, reverse=True)
+
+
+def test_pgp_substrate_cremophor_boosts_f_more():
+    non_sub = predict_excipient_interactions("DrugA", ["cremophor_el"], is_pgp_substrate=False)
+    substrate = predict_excipient_interactions("DrugA", ["cremophor_el"], is_pgp_substrate=True)
+    assert substrate.fa_corrected >= non_sub.fa_corrected
+
+
+def test_validation_fa_base_too_high():
+    with pytest.raises(ValueError):
+        predict_excipient_interactions("DrugA", [], fa_base=1.5)
+
+
+def test_validation_fa_base_negative():
+    with pytest.raises(ValueError):
+        predict_excipient_interactions("DrugA", [], fa_base=-0.1)
+
+
+def test_notes_nonempty_757():
+    result = predict_excipient_interactions("DrugA", ["cremophor_el"])
+    assert isinstance(result.notes, str) and len(result.notes) > 0
+
+
+def test_citric_acid_ph_change():
+    result = predict_excipient_interactions("DrugA", ["citric_acid"])
+    assert result.ph_change < 0.0
+
+
+def test_excipients_used_str():
+    result = predict_excipient_interactions("DrugA", ["cremophor_el", "tween_80"])
+    assert "cremophor_el" in result.excipients_used
+    assert "tween_80" in result.excipients_used
+
+
+def test_unknown_excipient_has_no_effect():
+    # Unknown excipients are silently ignored
+    with_unknown = predict_excipient_interactions("DrugA", ["unknown_polymer"])
+    without = predict_excipient_interactions("DrugA", [])
+    assert abs(with_unknown.f_total - without.f_total) < 1e-6
+
+
+def test_tpgs_pgp_inhibition():
+    result = predict_excipient_interactions("DrugA", ["tpgs"])
+    assert result.pgp_inhibition_combined >= 0.6
+
+
+def test_screen_excipient_combinations_length():
+    combos = [["hpmc"], ["sds"], ["cremophor_el", "tween_80"]]
+    results = screen_excipient_combinations("DrugA", combos)
+    assert len(results) == 3
+
+
+def test_f_baseline_uses_only_fa_base_and_fh():
+    result = predict_excipient_interactions("DrugA", [], fa_base=0.6, fh=0.8)
+    assert abs(result.f_baseline - 0.6 * 0.8) < 1e-6
