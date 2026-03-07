@@ -3,7 +3,6 @@
 Imports are all at module top level.
 """
 
-
 import pytest
 
 from omega_pbpk.prediction.active_metabolite_predictor import (
