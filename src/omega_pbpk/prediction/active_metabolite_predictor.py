@@ -1,14 +1,23 @@
-"""Active metabolite formation and contribution prediction."""
+"""Active metabolite formation and contribution prediction.
+
+Includes Phase 692 (MetaboliteFormationResult / predict_metabolite_formation) and
+Phase 778 (ActiveMetaboliteResult / predict_active_metabolite / predict_metabolite_cascade).
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 __all__ = [
+    # Phase 692 API
     "MetaboliteFormationResult",
     "predict_metabolite_formation",
     "screen_metabolites",
     "estimate_metabolite_clearance",
+    # Phase 778 API
+    "ActiveMetaboliteResult",
+    "predict_active_metabolite",
+    "predict_metabolite_cascade",
 ]
 
 
@@ -247,3 +256,164 @@ def estimate_metabolite_clearance(
         fm = 1e-9  # avoid division by zero
     cl_metabolite = parent_cl * (1.0 / fm) * ((300.0 / mw_metabolite) ** 0.25)
     return float(cl_metabolite)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 778: Active metabolite PK consequence assessment
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ActiveMetaboliteResult:
+    """Result of active metabolite prediction and PK consequence assessment."""
+
+    parent_name: str
+    metabolite_name: str
+    pathway: str  # e.g., "CYP3A4 N-dealkylation"
+    formation_fraction: float  # fraction of parent → metabolite
+    metabolite_cl_L_per_h: float
+    metabolite_vd_L: float
+    metabolite_t_half_h: float
+    auc_ratio_met_parent: float  # metabolite AUC / parent AUC at steady state
+    pharmacological_activity: str  # "active" / "inactive" / "toxic"
+    mist_relevant: bool  # >10% of parent AUC → FDA MIST guidance
+    notes: str
+
+
+def predict_active_metabolite(
+    parent_name: str,
+    parent_dose_mg: float,
+    parent_cl_L_per_h: float,
+    parent_vd_L: float,
+    metabolite_name: str = "M1",
+    pathway: str = "CYP3A4",
+    fm: float = 0.3,
+    met_cl_L_per_h: float = 10.0,
+    met_vd_L: float = 30.0,
+    pharmacological_activity: str = "active",
+) -> ActiveMetaboliteResult:
+    """Predict active metabolite PK and safety relevance.
+
+    Computes:
+    - metabolite_t_half = 0.693 * met_vd_L / met_cl_L_per_h
+    - auc_ratio = fm * parent_CL / met_CL  (steady-state approximation)
+    - mist_relevant = auc_ratio > 0.1
+
+    Parameters
+    ----------
+    parent_name:
+        Name of the parent drug.
+    parent_dose_mg:
+        Dose of parent drug in mg.
+    parent_cl_L_per_h:
+        Total clearance of parent in L/h.
+    parent_vd_L:
+        Volume of distribution of parent in L.
+    metabolite_name:
+        Identifier for the metabolite (default "M1").
+    pathway:
+        Metabolic pathway label (e.g., "CYP3A4").
+    fm:
+        Fraction of parent metabolized via this pathway (0–1).
+    met_cl_L_per_h:
+        Clearance of metabolite in L/h (must be > 0).
+    met_vd_L:
+        Volume of distribution of metabolite in L (must be > 0).
+    pharmacological_activity:
+        Activity classification: "active", "inactive", or "toxic".
+
+    Returns
+    -------
+    ActiveMetaboliteResult
+    """
+    valid_activities = {"active", "inactive", "toxic"}
+    if pharmacological_activity not in valid_activities:
+        raise ValueError(
+            f"pharmacological_activity must be one of {valid_activities}, "
+            f"got {pharmacological_activity!r}"
+        )
+    if not (0.0 <= fm <= 1.0):
+        raise ValueError(f"fm must be in [0, 1], got {fm}")
+    if met_cl_L_per_h <= 0:
+        raise ValueError(f"met_cl_L_per_h must be > 0, got {met_cl_L_per_h}")
+    if met_vd_L <= 0:
+        raise ValueError(f"met_vd_L must be > 0, got {met_vd_L}")
+    if parent_cl_L_per_h <= 0:
+        raise ValueError(f"parent_cl_L_per_h must be > 0, got {parent_cl_L_per_h}")
+    if parent_vd_L <= 0:
+        raise ValueError(f"parent_vd_L must be > 0, got {parent_vd_L}")
+
+    metabolite_t_half_h = 0.693 * met_vd_L / met_cl_L_per_h
+
+    # Steady-state AUC ratio: AUC_met/AUC_parent = fm * CL_parent / CL_met
+    auc_ratio_met_parent = fm * parent_cl_L_per_h / met_cl_L_per_h
+
+    mist_relevant = auc_ratio_met_parent > 0.1
+
+    notes = (
+        f"t_half={metabolite_t_half_h:.2f}h; "
+        f"AUC_ratio={auc_ratio_met_parent:.3f}; "
+        f"mist={'yes' if mist_relevant else 'no'}; "
+        f"dose={parent_dose_mg:.1f}mg"
+    )
+
+    return ActiveMetaboliteResult(
+        parent_name=parent_name,
+        metabolite_name=metabolite_name,
+        pathway=pathway,
+        formation_fraction=fm,
+        metabolite_cl_L_per_h=met_cl_L_per_h,
+        metabolite_vd_L=met_vd_L,
+        metabolite_t_half_h=metabolite_t_half_h,
+        auc_ratio_met_parent=auc_ratio_met_parent,
+        pharmacological_activity=pharmacological_activity,
+        mist_relevant=mist_relevant,
+        notes=notes,
+    )
+
+
+def predict_metabolite_cascade(
+    parent_name: str,
+    parent_dose_mg: float,
+    parent_cl_L_per_h: float,
+    metabolites: list[dict],
+) -> list[ActiveMetaboliteResult]:
+    """Predict PK consequences for a cascade of metabolites.
+
+    Parameters
+    ----------
+    parent_name:
+        Name of the parent drug.
+    parent_dose_mg:
+        Dose of parent drug in mg.
+    parent_cl_L_per_h:
+        Total clearance of parent in L/h.
+    metabolites:
+        List of dicts, each with keys:
+        - metabolite_name: str
+        - pathway: str
+        - fm: float
+        - met_cl_L_per_h: float
+        - met_vd_L: float
+        - pharmacological_activity: str  (optional, default "active")
+
+    Returns
+    -------
+    List of ActiveMetaboliteResult, one per metabolite entry.
+    """
+    results = []
+    for met in metabolites:
+        result = predict_active_metabolite(
+            parent_name=parent_name,
+            parent_dose_mg=parent_dose_mg,
+            parent_cl_L_per_h=parent_cl_L_per_h,
+            parent_vd_L=met.get("parent_vd_L", 50.0),
+            metabolite_name=met.get("metabolite_name", "M1"),
+            pathway=met.get("pathway", "CYP3A4"),
+            fm=met.get("fm", 0.3),
+            met_cl_L_per_h=met.get("met_cl_L_per_h", 10.0),
+            met_vd_L=met.get("met_vd_L", 30.0),
+            pharmacological_activity=met.get("pharmacological_activity", "active"),
+        )
+        results.append(result)
+    return results
