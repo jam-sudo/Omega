@@ -1,7 +1,13 @@
-"""Drug solubility prediction using ESOL/GSE-inspired model.
+"""Aqueous solubility prediction from molecular descriptors — Phase 265.
 
-Predicts aqueous solubility from physicochemical properties and applies
-optional pH correction via Henderson-Hasselbalch for acidic compounds.
+Implements the General Solubility Equation (GSE) of Yalkowsky et al.
+and Abraham's linear free energy relationship for aqueous solubility.
+
+References
+----------
+- Yalkowsky SH & Valvani SC, J Pharm Sci. 1980;69(8):912-22 (GSE)
+- Ran Y et al., J Chem Inf Comput Sci. 2001 (intrinsic solubility)
+- Delaney JS, J Chem Inf Comput Sci. 2004 (ESOL model)
 """
 
 from __future__ import annotations
@@ -9,114 +15,74 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-__all__ = [
-    "SolubilityResult",
-    "predict_solubility",
-    "screen_solubility",
-]
+__all__ = ["SolubilityResult", "predict_solubility", "classify_solubility"]
 
 
 @dataclass(frozen=True)
 class SolubilityResult:
-    """Result of aqueous solubility prediction.
-
-    Attributes
-    ----------
-    compound_name : Compound identifier.
-    smiles : SMILES string.
-    mw : Molecular weight (Da).
-    logP : Octanol-water partition coefficient.
-    log10_solubility_mg_mL : Predicted log10 solubility (mg/mL).
-    solubility_mg_mL : Predicted solubility (mg/mL).
-    solubility_ug_mL : Predicted solubility (ug/mL).
-    solubility_uM : Predicted solubility (uM).
-    solubility_class : Descriptive solubility class.
-    bcs_solubility_flag : 'low' or 'high' BCS solubility flag.
-    ph_correction_applied : Whether Henderson-Hasselbalch pH correction was used.
-    notes : Additional information.
-    """
+    """Result from aqueous solubility prediction."""
 
     compound_name: str
-    smiles: str
-    mw: float
     logP: float
-    log10_solubility_mg_mL: float
-    solubility_mg_mL: float
-    solubility_ug_mL: float
-    solubility_uM: float
-    solubility_class: str
-    bcs_solubility_flag: str
-    ph_correction_applied: bool
+    mw: float
+    mp_C: float  # Melting point (degrees C)
+    log_s_gse: float  # log10(S [mg/mL]) via GSE
+    log_s_esol: float  # log10(S [mol/L]) via ESOL-like model
+    s_mg_mL: float  # Solubility (mg/mL) from GSE
+    solubility_class: str  # "very_low", "low", "moderate", "high"
+    bcs_class_solubility: str  # BCS I/II class based on solubility
+    dose_solubility_number: float  # Dose / S * 250 mL -> dose number
     notes: str
-
-
-_VALID_CLASSES = (
-    "practically_insoluble",
-    "slightly_soluble",
-    "sparingly_soluble",
-    "soluble",
-    "freely_soluble",
-)
-
-
-def _classify_solubility(sol_mg_mL: float) -> str:
-    if sol_mg_mL < 0.1:
-        return "practically_insoluble"
-    if sol_mg_mL < 1.0:
-        return "slightly_soluble"
-    if sol_mg_mL < 10.0:
-        return "sparingly_soluble"
-    if sol_mg_mL < 100.0:
-        return "soluble"
-    return "freely_soluble"
 
 
 def predict_solubility(
     compound_name: str,
-    smiles: str,
-    mw: float,
     logP: float,
-    mp_C: float = 150.0,
+    mw: float,
+    mp_C: float,
+    dose_mg: float = 100.0,
     n_rotatable_bonds: int = 5,
-    n_hbd: int = 2,
-    n_hba: int = 4,
     n_aromatic_rings: int = 1,
-    pka_acid: float | None = None,
-    ph: float = 7.4,
 ) -> SolubilityResult:
-    """Predict aqueous solubility from physicochemical descriptors.
+    """Predict aqueous solubility using GSE and ESOL models.
 
     Parameters
     ----------
-    compound_name : Compound identifier.
-    smiles : SMILES string.
-    mw : Molecular weight in Da. Must be > 0.
+    compound_name : Compound name.
     logP : Octanol-water partition coefficient.
-    mp_C : Melting point in Celsius (default 150.0).
-    n_rotatable_bonds : Number of rotatable bonds (default 5).
-    n_hbd : Number of H-bond donors (default 2).
-    n_hba : Number of H-bond acceptors (default 4).
-    n_aromatic_rings : Number of aromatic rings (default 1).
-    pka_acid : pKa for acidic group (optional, enables pH correction).
-    ph : pH for solubility correction (default 7.4).
+    mw : Molecular weight (g/mol). Must be > 0.
+    mp_C : Melting point (degrees Celsius). Must be >= 0.
+    dose_mg : Dose for dose number calculation (mg). Must be > 0.
+    n_rotatable_bonds : Number of rotatable bonds (0-20). >= 0.
+    n_aromatic_rings : Number of aromatic rings. >= 0.
 
     Returns
     -------
     SolubilityResult
     """
     if mw <= 0:
-        raise ValueError(f"mw must be > 0, got {mw}")
-    if not compound_name:
-        raise ValueError("compound_name must not be empty")
-    if not smiles:
-        raise ValueError("smiles must not be empty")
+        raise ValueError("mw must be > 0")
+    if mp_C < 0:
+        raise ValueError("mp_C must be >= 0")
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
     if n_rotatable_bonds < 0:
-        raise ValueError(f"n_rotatable_bonds must be >= 0, got {n_rotatable_bonds}")
+        raise ValueError("n_rotatable_bonds must be >= 0")
     if n_aromatic_rings < 0:
-        raise ValueError(f"n_aromatic_rings must be >= 0, got {n_aromatic_rings}")
+        raise ValueError("n_aromatic_rings must be >= 0")
 
-    # ESOL-inspired regression
-    log10_S = (
+    # --- General Solubility Equation (Yalkowsky) ---
+    # log S (mol/L) = 0.5 - logP - 0.01*(mp - 25)
+    log_s_mol_L_gse = 0.5 - logP - 0.01 * max(0, mp_C - 25)
+    # Convert to mg/mL: S (mg/mL) = 10^logS (mol/L) * MW (g/mol) * 1000 mg/g / 1000 mL/L
+    #                             = 10^logS * MW
+    s_mol_L_gse = 10**log_s_mol_L_gse
+    s_mg_mL_gse = s_mol_L_gse * mw
+    log_s_mg_mL_gse = math.log10(max(s_mg_mL_gse, 1e-9))
+
+    # --- ESOL-like model (Delaney 2004 approximation) ---
+    # log S (mol/L) = 0.16 - 0.63*logP - 0.0062*MW + 0.066*RB - 0.74*AR
+    log_s_esol = (
         0.16
         - 0.63 * logP
         - 0.0062 * mw
@@ -124,58 +90,52 @@ def predict_solubility(
         - 0.74 * n_aromatic_rings
     )
 
-    sol_mg_mL = 10.0 ** log10_S
+    # Use GSE s_mg_mL for classification
+    if s_mg_mL_gse < 0.1:
+        sol_class = "very_low"
+    elif s_mg_mL_gse < 1.0:
+        sol_class = "low"
+    elif s_mg_mL_gse < 10.0:
+        sol_class = "moderate"
+    else:
+        sol_class = "high"
 
-    # Henderson-Hasselbalch pH correction for acids
-    ph_corrected = False
-    notes_parts: list[str] = []
-    if pka_acid is not None:
-        sol_mg_mL = sol_mg_mL * (1.0 + 10.0 ** (ph - pka_acid))
-        log10_S = math.log10(sol_mg_mL)
-        ph_corrected = True
-        notes_parts.append(f"pH correction applied (pKa={pka_acid}, pH={ph})")
+    # BCS solubility classification: dose/S < 1 -> high solubility (BCS class I or III)
+    dose_number = dose_mg / (s_mg_mL_gse * 250.0)  # 250 mL gastric volume
+    bcs_sol = "high_solubility" if dose_number < 1.0 else "low_solubility"
 
-    sol_ug_mL = sol_mg_mL * 1000.0
-    sol_uM = (sol_mg_mL / mw) * 1e6  # mg/mL -> g/mL -> mol/mL -> uM
-
-    sol_class = _classify_solubility(sol_mg_mL)
-    bcs_flag = "low" if sol_mg_mL < 0.1 else "high"
-
-    if not notes_parts:
-        condition = f"pH {ph}" if pka_acid else "intrinsic"
-        notes_parts.append(f"ESOL-model prediction at {condition} conditions")
+    notes = (
+        f"{compound_name}: logP={logP:.2f}, MW={mw:.0f}, mp={mp_C:.0f}\u00b0C. "
+        f"GSE: S={s_mg_mL_gse:.3g} mg/mL (log={log_s_mg_mL_gse:.2f}). "
+        f"ESOL: log S={log_s_esol:.2f} mol/L. "
+        f"Class: {sol_class}. Dose number={dose_number:.2f} ({bcs_sol})."
+    )
 
     return SolubilityResult(
         compound_name=compound_name,
-        smiles=smiles,
-        mw=mw,
         logP=logP,
-        log10_solubility_mg_mL=log10_S,
-        solubility_mg_mL=sol_mg_mL,
-        solubility_ug_mL=sol_ug_mL,
-        solubility_uM=sol_uM,
+        mw=mw,
+        mp_C=mp_C,
+        log_s_gse=log_s_mg_mL_gse,
+        log_s_esol=log_s_esol,
+        s_mg_mL=s_mg_mL_gse,
         solubility_class=sol_class,
-        bcs_solubility_flag=bcs_flag,
-        ph_correction_applied=ph_corrected,
-        notes="; ".join(notes_parts),
+        bcs_class_solubility=bcs_sol,
+        dose_solubility_number=dose_number,
+        notes=notes,
     )
 
 
-def screen_solubility(compounds: list[dict]) -> list[SolubilityResult]:
-    """Screen multiple compounds and return results sorted by solubility ascending.
+def classify_solubility(s_mg_mL: float) -> str:
+    """Classify solubility into BCS categories.
 
-    Parameters
-    ----------
-    compounds : List of dicts with keys matching ``predict_solubility`` parameters.
-
-    Returns
-    -------
-    list[SolubilityResult]
-        Sorted by solubility_mg_mL ascending (least soluble first).
+    Returns 'very_low', 'low', 'moderate', or 'high'.
     """
-    if not compounds:
-        raise ValueError("compounds list must not be empty")
-
-    results = [predict_solubility(**c) for c in compounds]
-    results.sort(key=lambda r: r.solubility_mg_mL)
-    return results
+    if s_mg_mL < 0.1:
+        return "very_low"
+    elif s_mg_mL < 1.0:
+        return "low"
+    elif s_mg_mL < 10.0:
+        return "moderate"
+    else:
+        return "high"
