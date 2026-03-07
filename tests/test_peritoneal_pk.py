@@ -1,12 +1,15 @@
-"""Tests for peritoneal PK simulation (Phase 711)."""
+"""Tests for peritoneal PK simulation (Phase 711 and Phase 775)."""
 
 from __future__ import annotations
 
 import pytest
 
 from omega_pbpk.core.peritoneal_pk import (
+    IPAbsorptionResult,
     PeritonealPKResult,
+    compare_ip_vs_iv,
     compare_routes_ip_iv,
+    simulate_ip_absorption,
     simulate_peritoneal_pk,
 )
 
@@ -238,3 +241,127 @@ def test_validation_cl_zero_raises():
 def test_validation_fup_gt_1_raises():
     with pytest.raises(ValueError):
         simulate_peritoneal_pk("drug_a", dose_mg=100.0, fup=1.5)
+
+
+# ---------------------------------------------------------------------------
+# Phase 775 — IPAbsorptionResult / simulate_ip_absorption / compare_ip_vs_iv
+# ---------------------------------------------------------------------------
+
+
+def test_ip_absorption_returns_ip_absorption_result():
+    r = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    assert isinstance(r, IPAbsorptionResult)
+
+
+def test_ip_absorption_cmax_positive():
+    r = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    assert r.cmax_mg_L > 0.0
+
+
+def test_ip_absorption_auc_positive():
+    r = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    assert r.auc_mg_h_per_L > 0.0
+
+
+def test_ip_absorption_t_half_positive():
+    r = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    assert r.t_half_h > 0.0
+
+
+def test_ip_absorption_f_absorbed_in_range():
+    r = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    assert 0.0 <= r.f_absorbed <= 1.0
+
+
+def test_ip_absorption_double_dose_doubles_cmax():
+    r1 = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    r2 = simulate_ip_absorption("compound_x", dose_mg=200.0)
+    assert r2.cmax_mg_L == pytest.approx(2.0 * r1.cmax_mg_L, rel=1e-4)
+
+
+def test_ip_absorption_double_dose_doubles_auc():
+    r1 = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    r2 = simulate_ip_absorption("compound_x", dose_mg=200.0)
+    assert r2.auc_mg_h_per_L == pytest.approx(2.0 * r1.auc_mg_h_per_L, rel=1e-4)
+
+
+def test_ip_absorption_faster_ka_earlier_tmax():
+    r_slow = simulate_ip_absorption("compound_x", dose_mg=100.0, ka_peritoneal_per_h=0.1)
+    r_fast = simulate_ip_absorption("compound_x", dose_mg=100.0, ka_peritoneal_per_h=0.5)
+    assert r_fast.tmax_h <= r_slow.tmax_h
+
+
+def test_ip_absorption_higher_f_lymph_lower_auc():
+    r_low = simulate_ip_absorption("compound_x", dose_mg=100.0, f_lymph=0.01)
+    r_high = simulate_ip_absorption("compound_x", dose_mg=100.0, f_lymph=0.30)
+    assert r_high.auc_mg_h_per_L < r_low.auc_mg_h_per_L
+
+
+def test_ip_absorption_dose_zero_raises():
+    with pytest.raises(ValueError, match="dose_mg"):
+        simulate_ip_absorption("compound_x", dose_mg=0.0)
+
+
+def test_ip_absorption_dose_negative_raises():
+    with pytest.raises(ValueError, match="dose_mg"):
+        simulate_ip_absorption("compound_x", dose_mg=-50.0)
+
+
+def test_ip_absorption_ka_zero_raises():
+    with pytest.raises(ValueError, match="ka_peritoneal"):
+        simulate_ip_absorption("compound_x", dose_mg=100.0, ka_peritoneal_per_h=0.0)
+
+
+def test_ip_absorption_cl_zero_raises():
+    with pytest.raises(ValueError, match="cl_L_per_h"):
+        simulate_ip_absorption("compound_x", dose_mg=100.0, cl_L_per_h=0.0)
+
+
+def test_ip_absorption_vd_zero_raises():
+    with pytest.raises(ValueError, match="vd_L"):
+        simulate_ip_absorption("compound_x", dose_mg=100.0, vd_L=0.0)
+
+
+def test_ip_absorption_f_lymph_ge_1_raises():
+    with pytest.raises(ValueError, match="f_lymph"):
+        simulate_ip_absorption("compound_x", dose_mg=100.0, f_lymph=1.0)
+
+
+def test_ip_absorption_notes_nonempty():
+    r = simulate_ip_absorption("compound_x", dose_mg=100.0)
+    assert len(r.notes) > 0
+
+
+def test_compare_ip_vs_iv_returns_dict():
+    out = compare_ip_vs_iv("compound_x", dose_mg=100.0)
+    assert isinstance(out, dict)
+
+
+def test_compare_ip_vs_iv_expected_keys():
+    out = compare_ip_vs_iv("compound_x", dose_mg=100.0)
+    for key in (
+        "ip_result",
+        "iv_cmax_mg_L",
+        "iv_auc_mg_h_per_L",
+        "ip_auc_mg_h_per_L",
+        "ip_cmax_mg_L",
+        "auc_ratio_ip_iv",
+        "cmax_ratio_ip_iv",
+        "notes",
+    ):
+        assert key in out, f"Missing key: {key}"
+
+
+def test_compare_ip_vs_iv_ip_result_type():
+    out = compare_ip_vs_iv("compound_x", dose_mg=100.0)
+    assert isinstance(out["ip_result"], IPAbsorptionResult)
+
+
+def test_compare_ip_vs_iv_iv_cmax_positive():
+    out = compare_ip_vs_iv("compound_x", dose_mg=100.0)
+    assert out["iv_cmax_mg_L"] > 0.0
+
+
+def test_compare_ip_vs_iv_auc_ratio_positive():
+    out = compare_ip_vs_iv("compound_x", dose_mg=100.0)
+    assert out["auc_ratio_ip_iv"] > 0.0
