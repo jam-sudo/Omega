@@ -377,4 +377,359 @@ __all__ = [
     "design_adaptive_trial",
     "sample_size_calculator",
     "compare_stopping_rules",
+    # Phase 330 additions
+    "SimpleAdaptiveTrialResult",
+    "DoseFindingResult",
+    "conditional_power",
+    "simulate_adaptive_trial",
+    "simulate_dose_finding",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Phase 330: New result dataclasses and functions
+# ---------------------------------------------------------------------------
+
+from scipy.optimize import curve_fit  # noqa: E402
+from scipy.stats import norm  # noqa: E402
+
+
+@dataclass(frozen=True)
+class SimpleAdaptiveTrialResult:
+    """Result of a simplified adaptive trial simulation (Phase 330).
+
+    Attributes
+    ----------
+    drug_name : Name of the drug.
+    n_planned : Planned sample size.
+    n_enrolled : Actual patients enrolled.
+    effect_size : True effect size used.
+    stopped_early : Whether the trial stopped before full enrollment.
+    stop_reason : 'futility', 'efficacy', or 'completed'.
+    final_p_value : One-sided p-value at final analysis.
+    conditional_power_at_interim : CP computed at interim analysis.
+    trial_success : True if final_p_value < alpha.
+    notes : Summary text.
+    """
+
+    drug_name: str
+    n_planned: int
+    n_enrolled: int
+    effect_size: float
+    stopped_early: bool
+    stop_reason: str
+    final_p_value: float
+    conditional_power_at_interim: float
+    trial_success: bool
+    notes: str
+
+
+@dataclass(frozen=True)
+class DoseFindingResult:
+    """Result of a dose-finding study simulation (Phase 330).
+
+    Attributes
+    ----------
+    doses : Dose levels tested (mg).
+    true_ed50 : True ED50 (mg).
+    estimated_ed50 : Fitted ED50 (mg).
+    med_mg : Minimum effective dose (20% Emax threshold).
+    dose_response_observed : Mean observed response at each dose.
+    dose_response_fitted : Fitted response at each dose.
+    r2 : R-squared of Hill fit.
+    notes : Summary text.
+    """
+
+    doses: list[float]
+    true_ed50: float
+    estimated_ed50: float
+    med_mg: float
+    dose_response_observed: list[float]
+    dose_response_fitted: list[float]
+    r2: float
+    notes: str
+
+
+def conditional_power(
+    z_interim: float,
+    n_interim: int,
+    n_total: int,
+    effect_size: float,
+    alpha: float = 0.025,
+) -> float:
+    """Compute conditional power given interim Z-statistic.
+
+    Under the assumed effect size, calculates the probability that the
+    final test will be significant given the interim result.
+
+    CP = Phi( -(z_alpha - z_interim * sqrt(n_interim/n_total))
+               / sqrt(1 - n_interim/n_total)
+               + drift * sqrt((n_total - n_interim)/n_total) )
+
+    where drift = effect_size * sqrt(n_total).
+
+    Parameters
+    ----------
+    z_interim : float
+        Observed Z-statistic at interim.
+    n_interim : int
+        Sample size at interim analysis.
+    n_total : int
+        Planned total sample size.
+    effect_size : float
+        Assumed effect size (Cohen's d).
+    alpha : float
+        One-sided significance level.
+
+    Returns
+    -------
+    float
+        Conditional power in [0, 1].
+    """
+    if n_interim >= n_total:
+        z_alpha = float(norm.ppf(1.0 - alpha))
+        return float(norm.cdf(z_interim - z_alpha))
+
+    frac = n_interim / n_total
+    remaining_frac = 1.0 - frac
+
+    z_alpha = float(norm.ppf(1.0 - alpha))
+    drift = effect_size * math.sqrt(n_total)
+
+    numerator = (
+        -(z_alpha - z_interim * math.sqrt(frac)) / math.sqrt(remaining_frac)
+        + drift * math.sqrt(remaining_frac)
+    )
+    cp = float(norm.cdf(numerator))
+    return float(np.clip(cp, 0.0, 1.0))
+
+
+def simulate_adaptive_trial(
+    drug_name: str,
+    n_planned: int,
+    effect_size: float,
+    effect_variability: float = 0.3,
+    alpha: float = 0.025,
+    power: float = 0.8,
+    interim_fraction: float = 0.5,
+    futility_boundary: float = 0.1,
+    efficacy_boundary: float = 0.99,
+    rng_seed: int | None = None,
+) -> SimpleAdaptiveTrialResult:
+    """Simulate an adaptive clinical trial with one interim analysis.
+
+    At the interim (n * interim_fraction), conditional power is computed.
+    The trial stops early for futility or efficacy based on the boundaries.
+
+    Parameters
+    ----------
+    drug_name : str
+        Name of the drug.
+    n_planned : int
+        Planned total sample size.
+    effect_size : float
+        True mean treatment effect (Cohen's d > 0).
+    effect_variability : float
+        Standard deviation of individual responses.
+    alpha : float
+        One-sided significance level.
+    power : float
+        Target power (informational).
+    interim_fraction : float
+        Fraction of patients enrolled at interim analysis, in (0.2, 0.8).
+    futility_boundary : float
+        Stop for futility if conditional power < this value.
+    efficacy_boundary : float
+        Stop for efficacy if conditional power > this value.
+    rng_seed : int or None
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    SimpleAdaptiveTrialResult
+    """
+    if n_planned < 4:
+        raise ValueError("n_planned must be >= 4")
+    if effect_size <= 0:
+        raise ValueError("effect_size must be > 0")
+    if not (0.0 < alpha < 0.5):
+        raise ValueError("alpha must be in (0, 0.5)")
+    if not (0.0 < power < 1.0):
+        raise ValueError("power must be in (0, 1)")
+    if not (0.2 < interim_fraction < 0.8):
+        raise ValueError("interim_fraction must be in (0.2, 0.8)")
+
+    rng = np.random.default_rng(rng_seed)
+
+    # Generate all patient responses: each ~ N(effect_size, effect_variability^2)
+    responses = rng.normal(loc=effect_size, scale=effect_variability, size=n_planned)
+
+    n_interim = max(2, int(n_planned * interim_fraction))
+
+    # Interim analysis
+    interim_data = responses[:n_interim]
+    sd_interim = float(np.std(interim_data, ddof=1))
+    sd_interim = max(sd_interim, 1e-9)
+    z_interim = float(np.mean(interim_data)) / (sd_interim / math.sqrt(n_interim))
+
+    cp_interim = conditional_power(z_interim, n_interim, n_planned, effect_size, alpha)
+
+    stopped_early = False
+    stop_reason = "completed"
+    n_enrolled = n_planned
+
+    if cp_interim < futility_boundary:
+        stopped_early = True
+        stop_reason = "futility"
+        n_enrolled = n_interim
+    elif cp_interim > efficacy_boundary:
+        stopped_early = True
+        stop_reason = "efficacy"
+        n_enrolled = n_interim
+
+    # Final analysis on enrolled data
+    final_data = responses[:n_enrolled]
+    n_final = len(final_data)
+    sd_final = float(np.std(final_data, ddof=1))
+    sd_final = max(sd_final, 1e-9)
+    z_final = float(np.mean(final_data)) / (sd_final / math.sqrt(n_final))
+
+    final_p_value = float(1.0 - norm.cdf(z_final))
+    trial_success = final_p_value < alpha
+
+    notes = (
+        f"Drug: {drug_name}. "
+        f"n_planned={n_planned}, n_enrolled={n_enrolled}. "
+        f"Interim Z={z_interim:.3f}, CP={cp_interim:.3f}. "
+        f"Final Z={z_final:.3f}, p={final_p_value:.4f}. "
+        f"Target power={power}, alpha={alpha}."
+    )
+
+    return SimpleAdaptiveTrialResult(
+        drug_name=drug_name,
+        n_planned=n_planned,
+        n_enrolled=n_enrolled,
+        effect_size=effect_size,
+        stopped_early=stopped_early,
+        stop_reason=stop_reason,
+        final_p_value=final_p_value,
+        conditional_power_at_interim=cp_interim,
+        trial_success=trial_success,
+        notes=notes,
+    )
+
+
+def _hill_model(d: np.ndarray, ed50: float, hill_n: float) -> np.ndarray:
+    """Hill (Emax) model: E(d) = d^n / (ED50^n + d^n)."""
+    d = np.asarray(d, dtype=float)
+    ed50 = max(ed50, 1e-12)
+    return d**hill_n / (ed50**hill_n + d**hill_n)
+
+
+def simulate_dose_finding(
+    doses: list[float],
+    true_ed50: float,
+    hill_n: float = 2.0,
+    n_per_dose: int = 30,
+    alpha: float = 0.05,
+    variability: float = 0.2,
+    rng_seed: int | None = None,
+) -> DoseFindingResult:
+    """Simulate a dose-finding study and fit a Hill dose-response curve.
+
+    Parameters
+    ----------
+    doses : list[float]
+        Dose levels (mg) to test (all must be > 0).
+    true_ed50 : float
+        True ED50 (mg).
+    hill_n : float
+        Hill exponent.
+    n_per_dose : int
+        Subjects per dose group.
+    alpha : float
+        Significance level (informational).
+    variability : float
+        Standard deviation of noise.
+    rng_seed : int or None
+        Random seed.
+
+    Returns
+    -------
+    DoseFindingResult
+    """
+    if not doses:
+        raise ValueError("doses must be non-empty")
+    if any(d <= 0 for d in doses):
+        raise ValueError("all doses must be > 0")
+    if true_ed50 <= 0:
+        raise ValueError("true_ed50 must be > 0")
+    if hill_n <= 0:
+        raise ValueError("hill_n must be > 0")
+    if n_per_dose < 1:
+        raise ValueError("n_per_dose must be >= 1")
+
+    rng = np.random.default_rng(rng_seed)
+    doses_arr = np.array(sorted(doses), dtype=float)
+
+    true_response = _hill_model(doses_arr, true_ed50, hill_n)
+
+    observed = []
+    for tr in true_response:
+        subjects = rng.normal(loc=tr, scale=variability, size=n_per_dose)
+        observed.append(float(np.clip(np.mean(subjects), 0.0, None)))
+
+    observed_arr = np.array(observed, dtype=float)
+
+    estimated_ed50 = true_ed50
+    fitted_response = true_response.copy()
+    r2 = 0.0
+    fitted_hill_n = hill_n
+
+    try:
+        p0 = [float(np.median(doses_arr)), hill_n]
+        bounds = ([1e-6, 0.1], [float(doses_arr.max() * 100), 20.0])
+        popt, _ = curve_fit(
+            _hill_model,
+            doses_arr,
+            observed_arr,
+            p0=p0,
+            bounds=bounds,
+            maxfev=5000,
+        )
+        estimated_ed50 = float(popt[0])
+        fitted_hill_n = float(popt[1])
+        fitted_response = _hill_model(doses_arr, estimated_ed50, fitted_hill_n)
+
+        ss_res = float(np.sum((observed_arr - fitted_response) ** 2))
+        ss_tot = float(np.sum((observed_arr - np.mean(observed_arr)) ** 2))
+        r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+        r2 = float(np.clip(r2, 0.0, 1.0))
+    except (RuntimeError, ValueError):
+        pass
+
+    # MED: lowest dose where fitted response >= 20% Emax (Emax=1 for Hill)
+    threshold = 0.20
+    med_mg = float("nan")
+    for d, f in zip(doses_arr.tolist(), fitted_response.tolist(), strict=True):
+        if f >= threshold:
+            med_mg = d
+            break
+
+    notes = (
+        f"True ED50={true_ed50} mg, estimated ED50={estimated_ed50:.3f} mg. "
+        f"Hill n (simulation)={hill_n}, fitted n={fitted_hill_n:.3f}. "
+        f"R\u00b2={r2:.4f}. MED (20% Emax)={med_mg} mg. "
+        f"n_per_dose={n_per_dose}, variability={variability}."
+    )
+
+    return DoseFindingResult(
+        doses=doses_arr.tolist(),
+        true_ed50=true_ed50,
+        estimated_ed50=estimated_ed50,
+        med_mg=med_mg,
+        dose_response_observed=observed_arr.tolist(),
+        dose_response_fitted=fitted_response.tolist(),
+        r2=r2,
+        notes=notes,
+    )
