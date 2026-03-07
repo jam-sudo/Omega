@@ -1,303 +1,404 @@
-"""Oral absorption window simulation.
+"""Drug absorption window simulation — Phase 473.
 
-Simulates how GI transit time and regional absorption windows affect
-bioavailability for drugs with site-specific absorption.  Models drug
-movement through stomach, upper SI, lower SI, and colon with region-specific
-permeability and transit rates.
+Simulates time-dependent drug absorption as the drug transits through GI segments,
+limited by dissolution rate and permeability. Uses a forward Euler ODE integration.
+
+GI Segments
+-----------
+- Stomach:   0.5 h transit, pH 1.5
+- Duodenum:  0.25 h transit, pH 6.0
+- Jejunum:   1.5 h transit, pH 6.5  (main absorption site)
+- Ileum:     2.0 h transit, pH 7.2
+- Colon:     4.0 h transit, pH 7.4  (limited absorption)
+
+References
+----------
+- Yu LX & Amidon GL, Pharm Res. 1999;16:1014-18
+- Jamei M et al., Curr Drug Metab. 2009;10:26-40
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
+# ---------------------------------------------------------------------------
+# Segment definitions: (name, transit_h, pH, volume_mL, radius_cm)
+# ---------------------------------------------------------------------------
+_SEGMENTS = [
+    ("stomach",  0.50,  1.5, 250.0, 3.5),
+    ("duodenum", 0.25,  6.0,  50.0, 1.5),
+    ("jejunum",  1.50,  6.5, 150.0, 1.5),
+    ("ileum",    2.00,  7.2, 200.0, 1.5),
+    ("colon",    4.00,  7.4, 300.0, 2.0),
+]
 
-_VALID_WINDOWS = {"upper_si", "full_si", "colon_included", "stomach_only"}
+# Fraction of dose absorbed from colon relative to SI (penalised)
+_COLON_ABSORPTION_FACTOR = 0.15
 
-# GI segment geometry
-_STOMACH_RADIUS_CM = 3.5
-_SI_RADIUS_CM = 1.75
-_COLON_RADIUS_CM = 3.0
+# Base effective permeability (cm/s) for logP reference drug (logP=2)
+_PEFF_REF_CM_S = 2.0e-4
+
+# Dissolution rate constant base (h^-1)
+_KDISS_BASE = 0.5
+
+
+def _fraction_un_ionized(ph: float, pka: float, drug_type: str) -> float:
+    """Fraction of drug in un-ionized (neutral) form via Henderson-Hasselbalch."""
+    if pka is None:
+        return 1.0
+    if drug_type == "neutral":
+        return 1.0
+    if drug_type == "acid":
+        denom = 1.0 + 10.0 ** (ph - pka)
+        return 1.0 / denom
+    # base
+    denom = 1.0 + 10.0 ** (pka - ph)
+    return 1.0 / denom
+
+
+def _ph_adjusted_solubility(
+    sol_ph7: float,
+    ph: float,
+    pka: float | None,
+    drug_type: str,
+) -> float:
+    """Estimate solubility at given pH using Henderson-Hasselbalch.
+
+    For acids: S(pH) = S(pH7) * (1 + 10^(pH-pKa)) / (1 + 10^(7-pKa))
+    For bases: S(pH) = S(pH7) * (1 + 10^(pKa-pH)) / (1 + 10^(pKa-7))
+    Neutral: S constant.
+    """
+    if pka is None or drug_type == "neutral":
+        return sol_ph7
+    if drug_type == "acid":
+        num = 1.0 + 10.0 ** (ph - pka)
+        den = 1.0 + 10.0 ** (7.0 - pka)
+    else:  # base
+        num = 1.0 + 10.0 ** (pka - ph)
+        den = 1.0 + 10.0 ** (pka - 7.0)
+    # Avoid division by zero for extreme pKa values
+    if den < 1e-12:
+        return sol_ph7
+    return sol_ph7 * num / den
+
+
+def _peff_from_logp(logP: float, mw: float) -> float:
+    """Estimate effective intestinal permeability (cm/s) from logP and MW.
+
+    Uses a simplified QSPR: Peff ~ Pref * 10^((logP-2)/3) / (MW/300)^0.5
+    Clamped to [1e-7, 5e-3] cm/s.
+    """
+    log_factor = (logP - 2.0) / 3.0
+    mw_factor = (mw / 300.0) ** 0.5
+    peff = _PEFF_REF_CM_S * (10.0 ** log_factor) / mw_factor
+    return max(1e-7, min(peff, 5e-3))
 
 
 @dataclass(frozen=True)
 class AbsorptionWindowResult:
-    """Results from an absorption window simulation."""
+    """Results from a drug absorption window simulation."""
 
     drug_name: str
     dose_mg: float
-    absorption_window: str  # "upper_si", "full_si", "colon_included", "stomach_only"
-
-    # Regional absorption contributions (fraction of dose)
-    f_absorbed_stomach: float
-    f_absorbed_upper_si: float  # duodenum + proximal jejunum
-    f_absorbed_lower_si: float  # distal jejunum + ileum
-    f_absorbed_colon: float
-    f_absorbed_total: float  # sum of above
-
-    # Transit and timing
-    stomach_emptying_h: float
-    small_intestine_transit_h: float  # total SI transit time
-    colon_transit_h: float
-
-    # Optimal formulation recommendation
-    recommended_formulation: str  # "immediate_release", "modified_release_4h", "modified_release_8h"
-
     times_h: list[float]
-    absorption_rate_mg_per_h: list[float]  # total absorption rate over time
-
+    fraction_absorbed: list[float]
+    fa_total: float
+    lag_time_h: float
+    window_width_h: float
+    limiting_factor: str  # 'dissolution', 'permeability', 'transit'
     notes: str
+
+
+def estimate_lag_time(
+    absorbed_fraction_profile: list[float],
+    times_h: list[float],
+    threshold: float = 0.05,
+) -> float:
+    """Estimate absorption lag time (hours).
+
+    Returns the time at which cumulative absorbed fraction first reaches
+    ``threshold`` fraction of the total absorbed. Default threshold is 5%.
+
+    Parameters
+    ----------
+    absorbed_fraction_profile:
+        Cumulative fraction absorbed at each time point.
+    times_h:
+        Corresponding simulation time points (h).
+    threshold:
+        Fraction of maximum absorbed fraction that defines "onset" (default 0.05).
+
+    Returns
+    -------
+    float
+        Lag time in hours. Returns 0.0 if threshold never reached.
+    """
+    if not absorbed_fraction_profile or not times_h:
+        return 0.0
+    fa_max = max(absorbed_fraction_profile) if absorbed_fraction_profile else 0.0
+    if fa_max <= 0.0:
+        return 0.0
+    cutoff = threshold * fa_max
+    for t, fa in zip(times_h, absorbed_fraction_profile, strict=False):
+        if fa >= cutoff:
+            return float(t)
+    return float(times_h[-1])
+
+
+def calculate_window_width(
+    absorbed_fraction_profile: list[float],
+    times_h: list[float],
+    threshold: float = 0.9,
+) -> float:
+    """Calculate absorption window width (hours).
+
+    Returns the time elapsed between first reaching 5% of max absorption
+    and reaching ``threshold`` fraction of max absorption (default 90%).
+
+    Parameters
+    ----------
+    absorbed_fraction_profile:
+        Cumulative fraction absorbed at each time point.
+    times_h:
+        Corresponding simulation time points (h).
+    threshold:
+        Fraction of max absorbed fraction at which the window closes (default 0.9).
+
+    Returns
+    -------
+    float
+        Window width in hours. Returns 0.0 if threshold never reached.
+    """
+    if not absorbed_fraction_profile or not times_h:
+        return 0.0
+    fa_max = max(absorbed_fraction_profile) if absorbed_fraction_profile else 0.0
+    if fa_max <= 0.0:
+        return 0.0
+
+    onset_cutoff = 0.05 * fa_max
+    close_cutoff = threshold * fa_max
+
+    t_onset = None
+    t_close = None
+    for t, fa in zip(times_h, absorbed_fraction_profile, strict=False):
+        if t_onset is None and fa >= onset_cutoff:
+            t_onset = t
+        if t_onset is not None and fa >= close_cutoff:
+            t_close = t
+            break
+
+    if t_onset is None or t_close is None:
+        return 0.0
+    return float(t_close - t_onset)
 
 
 def simulate_absorption_window(
     drug_name: str,
     dose_mg: float,
-    peff_cm_per_s: float,
-    solubility_mg_mL: float,
-    dose_volume_mL: float = 250.0,
-    stomach_emptying_h: float = 0.5,
-    si_transit_h: float = 4.0,
-    colon_transit_h: float = 20.0,
-    dose_number: float | None = None,
-    absorption_window: str = "full_si",
-    f_degraded_colon: float = 0.8,
-    t_end_h: float = 28.0,
-    dt_h: float = 0.1,
+    logP: float,
+    mw: float,
+    pka: float | None = None,
+    drug_type: str = "acid",
+    solubility_pH7_mg_mL: float = 1.0,
+    t_end_h: float = 8.0,
+    dt_h: float = 0.05,
 ) -> AbsorptionWindowResult:
-    """Simulate oral drug absorption considering GI transit and window constraints.
+    """Simulate drug absorption as it transits through GI segments.
+
+    For each segment the model tracks:
+    - Undissolved drug mass (mg)
+    - Dissolved drug mass (mg)
+    - Cumulative absorbed mass (mg)
+
+    ODE (forward Euler per segment with transit):
+    - d(undissolved)/dt = -k_diss * undissolved - k_transit * undissolved
+    - d(dissolved)/dt  = k_diss * undissolved - k_abs * dissolved
+                         - k_transit * dissolved
+    - d(absorbed)/dt   = k_abs * dissolved
 
     Parameters
     ----------
-    drug_name : str
-        Name of the drug.
-    dose_mg : float
+    drug_name:
+        Identifier for the drug.
+    dose_mg:
         Administered dose (mg).
-    peff_cm_per_s : float
-        Effective intestinal permeability (cm/s), must be > 0.
-    solubility_mg_mL : float
-        Aqueous solubility (mg/mL), must be > 0.
-    dose_volume_mL : float
-        Volume of water co-administered (mL).
-    stomach_emptying_h : float
-        Gastric emptying time (h), must be > 0.
-    si_transit_h : float
-        Total small intestinal transit time (h), must be > 0.
-    colon_transit_h : float
-        Colonic transit time (h), must be > 0.
-    dose_number : float or None
-        Dose number (Dn = dose / (solubility * dose_volume)); computed if None.
-    absorption_window : str
-        One of "upper_si", "full_si", "colon_included", "stomach_only".
-    f_degraded_colon : float
-        Fraction of drug degraded/metabolised in colon (reduces colonic absorption).
-    t_end_h : float
+    logP:
+        Lipophilicity (log octanol-water partition coefficient).
+    mw:
+        Molecular weight (g/mol).
+    pka:
+        Acid/base dissociation constant (None for neutral drugs).
+    drug_type:
+        'acid', 'base', or 'neutral'.
+    solubility_pH7_mg_mL:
+        Aqueous solubility at pH 7 (mg/mL). Must be > 0.
+    t_end_h:
         Simulation end time (h).
-    dt_h : float
-        Integration time step (h).
+    dt_h:
+        Forward Euler time step (h).
 
     Returns
     -------
     AbsorptionWindowResult
     """
     # --- Input validation ---
-    if dose_mg <= 0:
+    if not drug_name or not isinstance(drug_name, str):
+        raise ValueError("drug_name must be a non-empty string")
+    if dose_mg <= 0.0:
         raise ValueError("dose_mg must be > 0")
-    if peff_cm_per_s <= 0:
-        raise ValueError("peff_cm_per_s must be > 0")
-    if solubility_mg_mL <= 0:
-        raise ValueError("solubility_mg_mL must be > 0")
-    if stomach_emptying_h <= 0:
-        raise ValueError("stomach_emptying_h must be > 0")
-    if si_transit_h <= 0:
-        raise ValueError("si_transit_h must be > 0")
-    if colon_transit_h <= 0:
-        raise ValueError("colon_transit_h must be > 0")
-    if absorption_window not in _VALID_WINDOWS:
-        raise ValueError(
-            f"absorption_window must be one of {sorted(_VALID_WINDOWS)}, "
-            f"got '{absorption_window}'"
-        )
+    if mw <= 0.0:
+        raise ValueError("mw must be > 0")
+    if solubility_pH7_mg_mL <= 0.0:
+        raise ValueError("solubility_pH7_mg_mL must be > 0")
+    if t_end_h <= 0.0:
+        raise ValueError("t_end_h must be > 0")
+    if dt_h <= 0.0:
+        raise ValueError("dt_h must be > 0")
+    if drug_type not in ("acid", "base", "neutral"):
+        raise ValueError("drug_type must be 'acid', 'base', or 'neutral'")
 
-    # --- Dose number ---
-    if dose_number is None:
-        dose_number = dose_mg / (solubility_mg_mL * dose_volume_mL)
+    # --- Derived permeability ---
+    peff_cm_s = _peff_from_logp(logP, mw)
+    peff_h = peff_cm_s * 3600.0  # cm/h
 
-    # --- Dissolution limitation factor ---
-    # If Dn > 1 drug is poorly soluble; scale absorption by dissolved fraction
-    diss_factor = min(1.0, 1.0 / dose_number) if dose_number > 0 else 1.0
+    # --- Build time grid ---
+    n_steps = int(t_end_h / dt_h) + 1
+    times: list[float] = [i * dt_h for i in range(n_steps)]
 
-    # --- Regional absorption rate constants (h⁻¹) ---
-    # ka = 2 * Peff / radius [s⁻¹] * 3600 [h⁻¹]
-    peff_h = peff_cm_per_s * 3600.0  # cm/h
+    # --- State variables across all segments ---
+    # Each segment has: undissolved_mg, dissolved_mg
+    n_seg = len(_SEGMENTS)
+    undissolved = [0.0] * n_seg
+    dissolved = [0.0] * n_seg
 
-    # Base ka values
-    ka_stom_base = 2.0 * peff_h / _STOMACH_RADIUS_CM
-    ka_usi_base = 2.0 * peff_h / _SI_RADIUS_CM
-    ka_lsi_base = 2.0 * peff_h / _SI_RADIUS_CM * 0.7  # reduced permeability in lower SI
-    ka_col_base = 2.0 * peff_h / _COLON_RADIUS_CM * (1.0 - f_degraded_colon)
+    # Dose starts entirely undissolved in stomach
+    undissolved[0] = dose_mg
 
-    # Apply dissolution limitation and absorption window constraints
-    if absorption_window == "stomach_only":
-        ka_stom = ka_stom_base * diss_factor
-        ka_usi = 0.0
-        ka_lsi = 0.0
-        ka_col = 0.0
-    elif absorption_window == "upper_si":
-        ka_stom = ka_stom_base * diss_factor
-        ka_usi = ka_usi_base * diss_factor
-        ka_lsi = 0.0
-        ka_col = 0.0
-    elif absorption_window == "full_si":
-        ka_stom = ka_stom_base * diss_factor
-        ka_usi = ka_usi_base * diss_factor
-        ka_lsi = ka_lsi_base * diss_factor
-        ka_col = 0.0
-    else:  # "colon_included"
-        ka_stom = ka_stom_base * diss_factor
-        ka_usi = ka_usi_base * diss_factor
-        ka_lsi = ka_lsi_base * diss_factor
-        ka_col = ka_col_base * diss_factor
+    # Cumulative absorbed mass (mg)
+    absorbed_total = 0.0
 
-    # --- Transit rate constants (h⁻¹) ---
-    k_stom_exit = 1.0 / stomach_emptying_h
-    k_si_exit = 1.0 / si_transit_h  # split equally between upper/lower SI
-    k_col_exit = 1.0 / colon_transit_h
+    # Profile of cumulative absorbed fraction over time
+    fa_profile: list[float] = [0.0] * n_steps
 
-    # --- Time grid ---
-    n_steps = max(int(t_end_h / dt_h) + 1, 2)
-    times = np.linspace(0.0, t_end_h, n_steps)
+    # Dissolution rate limitedness tracker
+    total_dissolution_flux = 0.0
+    total_absorption_flux = 0.0
+    total_transit_undissolved = 0.0  # undissolved drug lost to transit (dissolution-limited signal)
 
-    # --- State variables ---
-    m_stomach = dose_mg
-    m_upper_si = 0.0
-    m_lower_si = 0.0
-    m_colon = 0.0
+    for step in range(1, n_steps):
+        new_undissolved = [0.0] * n_seg
+        new_dissolved = [0.0] * n_seg
+        d_absorbed = 0.0
 
-    # Accumulated absorbed mass per region
-    abs_stomach = 0.0
-    abs_usi = 0.0
-    abs_lsi = 0.0
-    abs_col = 0.0
+        for si, (seg_name, transit_h, ph, volume_mL, radius_cm) in enumerate(_SEGMENTS):
+            # Skip empty segments
+            if undissolved[si] < 1e-15 and dissolved[si] < 1e-15:
+                continue
 
-    abs_rate_arr = np.zeros(n_steps)
+            # Transit rate constant
+            k_transit = 1.0 / transit_h  # h^-1
 
-    for i in range(1, n_steps):
-        # Absorption fluxes (mg/h) from each compartment
-        flux_abs_stom = ka_stom * m_stomach
-        flux_abs_usi = ka_usi * m_upper_si
-        flux_abs_lsi = ka_lsi * m_lower_si
-        flux_abs_col = ka_col * m_colon
+            # pH-adjusted solubility (mg/mL)
+            sol_ph = _ph_adjusted_solubility(
+                solubility_pH7_mg_mL, ph, pka, drug_type
+            )
+            # Maximum dissolved drug capacity in this segment (mg)
+            max_dissolved_mg = sol_ph * volume_mL
 
-        # Transit fluxes (mg/h)
-        flux_stom_to_usi = k_stom_exit * m_stomach
-        flux_usi_to_lsi = (k_si_exit * 0.5) * m_upper_si
-        flux_lsi_to_col = (k_si_exit * 0.5) * m_lower_si
-        flux_col_exit = k_col_exit * m_colon
+            # Dissolution rate constant (h^-1) — first order approximation
+            # Enhanced by solubility (higher sol => faster dissolution)
+            k_diss = _KDISS_BASE * min(sol_ph / solubility_pH7_mg_mL, 10.0)
 
-        # Total rate at this step for tracking
-        total_abs_rate = flux_abs_stom + flux_abs_usi + flux_abs_lsi + flux_abs_col
-        abs_rate_arr[i] = total_abs_rate
+            # Permeability-based absorption rate (h^-1)
+            # ka = 2 * Peff / radius (cylinder approximation)
+            f_neut = _fraction_un_ionized(ph, pka, drug_type) if pka is not None else 1.0
+            ka = 2.0 * peff_h * f_neut / radius_cm
 
-        # Update masses (forward Euler)
-        m_stomach = max(
-            m_stomach + (-(flux_stom_to_usi + flux_abs_stom)) * dt_h, 0.0
-        )
-        m_upper_si = max(
-            m_upper_si + (flux_stom_to_usi - flux_usi_to_lsi - flux_abs_usi) * dt_h,
-            0.0,
-        )
-        m_lower_si = max(
-            m_lower_si + (flux_usi_to_lsi - flux_lsi_to_col - flux_abs_lsi) * dt_h,
-            0.0,
-        )
-        m_colon = max(
-            m_colon + (flux_lsi_to_col - flux_col_exit - flux_abs_col) * dt_h, 0.0
-        )
+            # Colon: strongly reduced absorption
+            if seg_name == "colon":
+                ka *= _COLON_ABSORPTION_FACTOR
 
-        # Accumulate absorbed mass per region
-        abs_stomach += flux_abs_stom * dt_h
-        abs_usi += flux_abs_usi * dt_h
-        abs_lsi += flux_abs_lsi * dt_h
-        abs_col += flux_abs_col * dt_h
+            # Dissolution limited by capacity
+            capacity_fraction = max(
+                0.0,
+                1.0 - dissolved[si] / max_dissolved_mg if max_dissolved_mg > 0 else 0.0,
+            )
+            eff_k_diss = k_diss * capacity_fraction
 
-    # Normalise by dose
-    f_abs_stom = abs_stomach / dose_mg
-    f_abs_usi = abs_usi / dose_mg
-    f_abs_lsi = abs_lsi / dose_mg
-    f_abs_col = abs_col / dose_mg
-    f_abs_total = f_abs_stom + f_abs_usi + f_abs_lsi + f_abs_col
+            # Fluxes (mg/h)
+            flux_diss = eff_k_diss * undissolved[si]
+            flux_abs = ka * dissolved[si]
+            flux_transit_u = k_transit * undissolved[si]
+            flux_transit_d = k_transit * dissolved[si]
 
-    # --- Formulation recommendation ---
-    if f_abs_total > 0.8:
-        recommended_formulation = "immediate_release"
-    elif (f_abs_lsi + f_abs_col) < 0.1:
-        # Absorption mostly in upper SI → MR could extend absorption
-        recommended_formulation = "modified_release_4h"
+            # Accumulate limitedness diagnostics
+            total_dissolution_flux += flux_diss * dt_h
+            total_absorption_flux += flux_abs * dt_h
+            total_transit_undissolved += flux_transit_u * dt_h
+
+            # Forward Euler update
+            du = -(flux_diss + flux_transit_u) * dt_h
+            dd = (flux_diss - flux_abs - flux_transit_d) * dt_h
+            new_undissolved[si] += max(undissolved[si] + du, 0.0)
+            new_dissolved[si] += max(dissolved[si] + dd, 0.0)
+            d_absorbed += flux_abs * dt_h
+
+            # Transit to next segment (if not last)
+            if si + 1 < n_seg:
+                new_undissolved[si + 1] += flux_transit_u * dt_h
+                new_dissolved[si + 1] += flux_transit_d * dt_h
+
+        absorbed_total += d_absorbed
+        undissolved = new_undissolved
+        dissolved = new_dissolved
+        fa_profile[step] = min(absorbed_total / dose_mg, 1.0)
+
+    fa_total = fa_profile[-1]
+
+    # --- Lag time and window width ---
+    lag_time_h = estimate_lag_time(fa_profile, times)
+    window_width_h = calculate_window_width(fa_profile, times)
+
+    # --- Identify limiting factor ---
+    # Dissolution-limited: significant undissolved drug transits out
+    # (meaning dissolution couldn't keep up → undissolved exited GI)
+    # Permeability-limited: dissolution faster than absorption
+    # Transit-limited: even with good dissolution and permeability, drug runs out of time
+    eps = 1e-12
+    total_drug_processed = total_dissolution_flux + total_transit_undissolved + eps
+    f_undissolved_transit = total_transit_undissolved / total_drug_processed
+
+    if f_undissolved_transit > 0.25:
+        # More than 25% of drug processed exited as undissolved → dissolution-limited
+        limiting_factor = "dissolution"
+    elif total_dissolution_flux > total_absorption_flux * 2.0 + eps:
+        # Dissolution much faster than absorption → permeability-limited
+        limiting_factor = "permeability"
     else:
-        recommended_formulation = "modified_release_8h"
+        limiting_factor = "transit"
 
-    # --- Notes ---
-    notes_parts = [f"Dose number Dn={dose_number:.2f}."]
-    if dose_number > 1:
-        notes_parts.append("BCS II/IV: dissolution-limited absorption.")
-    if absorption_window == "stomach_only":
-        notes_parts.append("Absorption restricted to stomach — limited bioavailability expected.")
-    elif absorption_window == "upper_si":
-        notes_parts.append("Absorption restricted to upper small intestine.")
+    # --- Compose notes ---
+    dose_number = dose_mg / (solubility_pH7_mg_mL * 250.0)  # reference 250 mL
+    notes_parts = [
+        f"logP={logP:.1f}, MW={mw:.0f} g/mol, Peff={peff_cm_s:.2e} cm/s.",
+        f"Dose number (250 mL)={dose_number:.2f}.",
+    ]
+    if pka is not None:
+        notes_parts.append(f"pKa={pka}, drug_type={drug_type}.")
+    if fa_total < 0.3:
+        notes_parts.append("Low bioavailability predicted.")
+    elif fa_total > 0.8:
+        notes_parts.append("High bioavailability predicted.")
     notes = " ".join(notes_parts)
 
     return AbsorptionWindowResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
-        absorption_window=absorption_window,
-        f_absorbed_stomach=f_abs_stom,
-        f_absorbed_upper_si=f_abs_usi,
-        f_absorbed_lower_si=f_abs_lsi,
-        f_absorbed_colon=f_abs_col,
-        f_absorbed_total=f_abs_total,
-        stomach_emptying_h=stomach_emptying_h,
-        small_intestine_transit_h=si_transit_h,
-        colon_transit_h=colon_transit_h,
-        recommended_formulation=recommended_formulation,
-        times_h=times.tolist(),
-        absorption_rate_mg_per_h=abs_rate_arr.tolist(),
+        times_h=times,
+        fraction_absorbed=fa_profile,
+        fa_total=fa_total,
+        lag_time_h=lag_time_h,
+        window_width_h=window_width_h,
+        limiting_factor=limiting_factor,
         notes=notes,
     )
-
-
-def compare_absorption_windows(
-    drug_name: str,
-    dose_mg: float,
-    peff_cm_per_s: float,
-    solubility_mg_mL: float,
-) -> dict:
-    """Compare all four absorption windows for a given drug.
-
-    Parameters
-    ----------
-    drug_name : str
-        Drug name.
-    dose_mg : float
-        Administered dose (mg).
-    peff_cm_per_s : float
-        Effective permeability (cm/s).
-    solubility_mg_mL : float
-        Aqueous solubility (mg/mL).
-
-    Returns
-    -------
-    dict with keys: "upper_si", "full_si", "colon_included", "stomach_only",
-    "highest_f_absorbed" (window name with highest total absorption fraction).
-    """
-    results: dict[str, AbsorptionWindowResult] = {}
-    for window in _VALID_WINDOWS:
-        results[window] = simulate_absorption_window(
-            drug_name=drug_name,
-            dose_mg=dose_mg,
-            peff_cm_per_s=peff_cm_per_s,
-            solubility_mg_mL=solubility_mg_mL,
-            absorption_window=window,
-        )
-
-    best_window = max(results, key=lambda w: results[w].f_absorbed_total)
-    return {**results, "highest_f_absorbed": best_window}
