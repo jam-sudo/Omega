@@ -204,7 +204,6 @@ def high_fat_meal_impact(
 # ===========================================================================
 
 
-
 @dataclass(frozen=True)
 class FoodEffectPKResult:
     """Simulation-based drug-food interaction result (Phase 743)."""
