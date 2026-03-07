@@ -1,7 +1,7 @@
-"""Multi-layer skin PBPK model for topically applied drugs.
+"""Transdermal/dermal drug absorption PBPK model.
 
-Four-compartment forward-Euler model:
-  Stratum Corneum → Viable Epidermis → Dermis → Systemic
+4-compartment forward Euler ODE:
+    Patch/gel dose -> Stratum Corneum -> Viable Epidermis -> Dermis -> Plasma
 """
 
 from __future__ import annotations
@@ -9,239 +9,221 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-import numpy as np
+__all__ = ["SkinPKResult", "simulate_skin_pk", "compare_transdermal_routes"]
 
-from omega_pbpk._compat import np_trapz
+_VALID_ROUTES = {"patch", "gel"}
 
 
 @dataclass
-class SkinPBPKResult:
-    """Result of a multi-layer skin PBPK simulation."""
+class SkinPKResult:
+    """Result of a transdermal/dermal PK simulation."""
 
     drug_name: str
-    dose_mg_cm2: float
-    application_area_cm2: float
-    times_h: list[float] = field(default_factory=list)
-    a_sc_mg: list[float] = field(default_factory=list)
-    a_vep_mg: list[float] = field(default_factory=list)
-    a_derm_mg: list[float] = field(default_factory=list)
-    c_sys_mg_L: list[float] = field(default_factory=list)
-    cmax_sys: float = 0.0
-    auc_sys: float = 0.0
-    f_systemic: float = 0.0
+    dose_mg: float
+    route: str
+    logP: float
+    mw: float
+    times_h: list = field(default_factory=list)
+    a_sc_mg: list = field(default_factory=list)
+    a_ve_mg: list = field(default_factory=list)
+    a_d_mg: list = field(default_factory=list)
+    c_plasma_mg_L: list = field(default_factory=list)
+    cmax_mg_L: float = 0.0
+    tmax_h: float = 0.0
+    auc_mg_h_per_L: float = 0.0
+    t_half_h: float = 0.0
+    k_sc_ve_per_h: float = 0.0
+    lag_time_h: float = 0.0
     notes: str = ""
 
 
-def simulate_skin_pbpk(
-    drug_name: str,
-    dose_mg_cm2: float,
-    application_area_cm2: float,
-    cl_sys_L_per_h: float,
-    vd_sys_L: float,
-    t_end_h: float = 24.0,
-    dt_h: float = 0.05,
-    k_sc_per_h: float = 0.1,
-    k_vep_per_h: float = 0.5,
-    k_dermis_per_h: float = 2.0,
-    k_sys_per_h: float = 3.0,
-) -> SkinPBPKResult:
-    """Simulate topical drug absorption through a 4-layer skin model.
+def _compute_k_sc_ve(logP: float, mw: float) -> float:
+    """SC to VE permeation rate (1/h), clamped to [0.01, 5.0]."""
+    rate = 0.1 * math.exp(0.5 * logP) * math.sqrt(200.0 / mw)
+    return max(0.01, min(5.0, rate))
 
-    Layers (forward Euler ODEs):
-      SC  : dA_sc/dt  = -k_sc * A_sc
-      VEP : dA_vep/dt = k_sc * A_sc  - k_vep * A_vep
-      Derm: dA_derm/dt= k_vep * A_vep - k_derm * A_derm
-      Sys : dC_sys/dt = k_derm * A_derm / Vd - ke * C_sys
+
+def simulate_skin_pk(
+    drug_name: str,
+    dose_mg: float,
+    logP: float = 2.0,
+    mw: float = 300.0,
+    route: str = "patch",
+    cl_L_per_h: float = 5.0,
+    vd_L: float = 100.0,
+    t_end_h: float = 48.0,
+    dt_h: float = 0.1,
+) -> SkinPKResult:
+    """Simulate transdermal/dermal drug absorption.
 
     Parameters
     ----------
-    drug_name : str
-        Identifier for the drug.
-    dose_mg_cm2 : float
-        Applied dose per unit area (mg/cm²), must be > 0.
-    application_area_cm2 : float
-        Application area (cm²), must be > 0.
-    cl_sys_L_per_h : float
-        Systemic clearance (L/h), must be >= 0.
-    vd_sys_L : float
-        Systemic volume of distribution (L), must be > 0.
-    t_end_h : float
+    drug_name:
+        Name of the drug.
+    dose_mg:
+        Total dose in the patch or gel (mg).
+    logP:
+        Octanol-water partition coefficient.
+    mw:
+        Molecular weight (g/mol).
+    route:
+        "patch" or "gel".
+    cl_L_per_h:
+        Systemic clearance (L/h).
+    vd_L:
+        Volume of distribution (L).
+    t_end_h:
         Simulation end time (h).
-    dt_h : float
-        Integration step size (h).
-    k_sc_per_h : float
-        First-order transfer rate from stratum corneum (1/h).
-    k_vep_per_h : float
-        First-order transfer rate from viable epidermis (1/h).
-    k_dermis_per_h : float
-        First-order transfer rate from dermis to systemic (1/h).
-    k_sys_per_h : float
-        Systemic elimination rate constant (1/h); used as ke when cl/vd not provided.
-        Note: ke is computed as cl_sys / vd_sys; k_sys_per_h is kept for backward compat.
+    dt_h:
+        Step size (h).
 
     Returns
     -------
-    SkinPBPKResult
+    SkinPKResult
     """
-    if not drug_name:
-        raise ValueError("drug_name must be a non-empty string")
-    if dose_mg_cm2 <= 0:
-        raise ValueError("dose_mg_cm2 must be > 0")
-    if application_area_cm2 <= 0:
-        raise ValueError("application_area_cm2 must be > 0")
-    if cl_sys_L_per_h < 0:
-        raise ValueError("cl_sys_L_per_h must be >= 0")
-    if vd_sys_L <= 0:
-        raise ValueError("vd_sys_L must be > 0")
-    if t_end_h <= 0:
-        raise ValueError("t_end_h must be > 0")
-    if dt_h <= 0:
-        raise ValueError("dt_h must be > 0")
-    if k_sc_per_h < 0:
-        raise ValueError("k_sc_per_h must be >= 0")
-    if k_vep_per_h < 0:
-        raise ValueError("k_vep_per_h must be >= 0")
-    if k_dermis_per_h < 0:
-        raise ValueError("k_dermis_per_h must be >= 0")
-    if k_sys_per_h < 0:
-        raise ValueError("k_sys_per_h must be >= 0")
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
+    if mw <= 0:
+        raise ValueError("mw must be > 0")
+    if cl_L_per_h <= 0:
+        raise ValueError("cl_L_per_h must be > 0")
+    if vd_L <= 0:
+        raise ValueError("vd_L must be > 0")
+    if route not in _VALID_ROUTES:
+        raise ValueError(f"route must be one of {_VALID_ROUTES}, got '{route}'")
 
-    total_dose_mg = dose_mg_cm2 * application_area_cm2
+    # Rate constants
+    k_dose_to_sc = 2.0 if route == "gel" else 0.5  # 1/h
+    k_sc_ve = _compute_k_sc_ve(logP, mw)
+    k_ve_d = 2.0  # 1/h
+    k_d_sys = 0.5  # 1/h
+    ke = cl_L_per_h / vd_L  # 1/h
 
-    # Eliminate using actual CL/Vd; k_sys_per_h is a fallback for ke
-    ke = cl_sys_L_per_h / vd_sys_L if cl_sys_L_per_h > 0 else k_sys_per_h
+    # State variables
+    a_patch = dose_mg  # remaining in patch/gel
+    a_sc = 0.0  # amount in stratum corneum (mg)
+    a_ve = 0.0  # amount in viable epidermis (mg)
+    a_d = 0.0  # amount in dermis (mg)
+    c_plasma = 0.0  # plasma concentration (mg/L)
 
-    n_steps = max(1, int(math.ceil(t_end_h / dt_h)))
-    times = [0.0] * (n_steps + 1)
-    a_sc = [0.0] * (n_steps + 1)
-    a_vep = [0.0] * (n_steps + 1)
-    a_derm = [0.0] * (n_steps + 1)
-    c_sys = [0.0] * (n_steps + 1)
-
-    # Initial conditions
-    a_sc[0] = total_dose_mg
+    n_steps = int(t_end_h / dt_h) + 1
+    times: list[float] = []
+    a_sc_list: list[float] = []
+    a_ve_list: list[float] = []
+    a_d_list: list[float] = []
+    c_plasma_list: list[float] = []
 
     for i in range(n_steps):
-        t_now = i * dt_h
-        times[i] = t_now
+        t = i * dt_h
+        times.append(t)
+        a_sc_list.append(a_sc)
+        a_ve_list.append(a_ve)
+        a_d_list.append(a_d)
+        c_plasma_list.append(c_plasma)
 
-        sc_i = a_sc[i]
-        vep_i = a_vep[i]
-        derm_i = a_derm[i]
-        csys_i = c_sys[i]
+        # Derivatives
+        d_a_patch = -k_dose_to_sc * a_patch
+        d_a_sc = k_dose_to_sc * a_patch - k_sc_ve * a_sc
+        d_a_ve = k_sc_ve * a_sc - k_ve_d * a_ve
+        d_a_d = k_ve_d * a_ve - k_d_sys * a_d
+        d_c_plasma = k_d_sys * a_d / vd_L - ke * c_plasma
 
-        da_sc = -k_sc_per_h * sc_i
-        da_vep = k_sc_per_h * sc_i - k_vep_per_h * vep_i
-        da_derm = k_vep_per_h * vep_i - k_dermis_per_h * derm_i
-        dc_sys = k_dermis_per_h * derm_i / vd_sys_L - ke * csys_i
+        # Forward Euler
+        a_patch += d_a_patch * dt_h
+        a_sc += d_a_sc * dt_h
+        a_ve += d_a_ve * dt_h
+        a_d += d_a_d * dt_h
+        c_plasma += d_c_plasma * dt_h
 
-        a_sc[i + 1] = max(0.0, sc_i + dt_h * da_sc)
-        a_vep[i + 1] = max(0.0, vep_i + dt_h * da_vep)
-        a_derm[i + 1] = max(0.0, derm_i + dt_h * da_derm)
-        c_sys[i + 1] = max(0.0, csys_i + dt_h * dc_sys)
+        # Clamp negatives
+        a_patch = max(0.0, a_patch)
+        a_sc = max(0.0, a_sc)
+        a_ve = max(0.0, a_ve)
+        a_d = max(0.0, a_d)
+        c_plasma = max(0.0, c_plasma)
 
-    times[n_steps] = n_steps * dt_h
+    # Compute summary metrics
+    cmax = max(c_plasma_list)
+    tmax = times[c_plasma_list.index(cmax)] if cmax > 0 else 0.0
 
-    # AUC via trapezoidal rule
-    t_arr = np.array(times)
-    c_arr = np.array(c_sys)
-    auc = float(np_trapz(c_arr, t_arr))
-    cmax = float(max(c_sys))
+    # Trapezoidal AUC
+    auc = 0.0
+    for i in range(1, len(times)):
+        auc += 0.5 * (c_plasma_list[i - 1] + c_plasma_list[i]) * (times[i] - times[i - 1])
 
-    # Fraction reaching systemic (based on cumulative absorbed amount reaching systemic)
-    # Approximated as AUC * CL / total_dose
-    amount_sys = auc * cl_sys_L_per_h if cl_sys_L_per_h > 0 else cmax * vd_sys_L
-    f_systemic = float(np.clip(amount_sys / total_dose_mg, 0.0, 1.0)) if total_dose_mg > 0 else 0.0
+    t_half = math.log(2.0) / ke if ke > 0 else 0.0
 
-    return SkinPBPKResult(
+    # Lag time: time to reach 5% of cmax
+    threshold = 0.05 * cmax
+    lag_time = 0.0
+    if cmax > 0:
+        for i, c in enumerate(c_plasma_list):
+            if c >= threshold:
+                lag_time = times[i]
+                break
+
+    notes = (
+        f"Route: {route}; k_sc_ve={k_sc_ve:.4f} 1/h; logP={logP}; MW={mw} g/mol; ke={ke:.4f} 1/h"
+    )
+
+    return SkinPKResult(
         drug_name=drug_name,
-        dose_mg_cm2=dose_mg_cm2,
-        application_area_cm2=application_area_cm2,
+        dose_mg=dose_mg,
+        route=route,
+        logP=logP,
+        mw=mw,
         times_h=times,
-        a_sc_mg=a_sc,
-        a_vep_mg=a_vep,
-        a_derm_mg=a_derm,
-        c_sys_mg_L=c_sys,
-        cmax_sys=cmax,
-        auc_sys=auc,
-        f_systemic=f_systemic,
-        notes="Forward-Euler 4-layer skin PBPK: SC→VEP→Dermis→Systemic",
+        a_sc_mg=a_sc_list,
+        a_ve_mg=a_ve_list,
+        a_d_mg=a_d_list,
+        c_plasma_mg_L=c_plasma_list,
+        cmax_mg_L=cmax,
+        tmax_h=tmax,
+        auc_mg_h_per_L=auc,
+        t_half_h=t_half,
+        k_sc_ve_per_h=k_sc_ve,
+        lag_time_h=lag_time,
+        notes=notes,
     )
 
 
-def compare_penetration_enhancers(
+def compare_transdermal_routes(
     drug_name: str,
-    dose_mg_cm2: float,
-    area_cm2: float,
-    cl_sys: float,
-    vd_sys: float,
-    enhancer_factors: list[dict],
-) -> list[dict]:
-    """Compare penetration enhancers by systemic AUC.
+    dose_mg: float,
+    logP: float = 2.0,
+    mw: float = 300.0,
+) -> dict:
+    """Compare patch vs gel transdermal delivery.
 
     Parameters
     ----------
-    drug_name : str
-        Drug identifier.
-    dose_mg_cm2 : float
-        Applied dose per unit area (mg/cm²).
-    area_cm2 : float
-        Application area (cm²).
-    cl_sys : float
-        Systemic clearance (L/h).
-    vd_sys : float
-        Systemic volume of distribution (L).
-    enhancer_factors : list[dict]
-        Each entry must have ``name`` (str) and ``k_sc_mult`` (float >= 0).
-        Example: [{"name": "baseline", "k_sc_mult": 1.0},
-                  {"name": "DMSO", "k_sc_mult": 3.0}]
+    drug_name:
+        Name of the drug.
+    dose_mg:
+        Dose in mg.
+    logP:
+        Octanol-water partition coefficient.
+    mw:
+        Molecular weight (g/mol).
 
     Returns
     -------
-    list[dict]
-        One dict per enhancer with keys: name, k_sc_mult, auc_sys, cmax_sys, f_systemic.
-        Sorted by auc_sys descending.
+    dict with keys: patch_result, gel_result, gel_faster, notes
     """
-    if not drug_name:
-        raise ValueError("drug_name must be a non-empty string")
-    if dose_mg_cm2 <= 0:
-        raise ValueError("dose_mg_cm2 must be > 0")
-    if area_cm2 <= 0:
-        raise ValueError("area_cm2 must be > 0")
-    if cl_sys < 0:
-        raise ValueError("cl_sys must be >= 0")
-    if vd_sys <= 0:
-        raise ValueError("vd_sys must be > 0")
-    if not enhancer_factors:
-        raise ValueError("enhancer_factors must be a non-empty list")
+    patch_result = simulate_skin_pk(drug_name, dose_mg, logP=logP, mw=mw, route="patch")
+    gel_result = simulate_skin_pk(drug_name, dose_mg, logP=logP, mw=mw, route="gel")
 
-    results: list[dict] = []
-    for ef in enhancer_factors:
-        name = ef.get("name", "unknown")
-        k_sc_mult = float(ef.get("k_sc_mult", 1.0))
-        if k_sc_mult < 0:
-            raise ValueError(f"k_sc_mult must be >= 0 (got {k_sc_mult} for '{name}')")
+    gel_faster = gel_result.tmax_h < patch_result.tmax_h
 
-        sim = simulate_skin_pbpk(
-            drug_name=drug_name,
-            dose_mg_cm2=dose_mg_cm2,
-            application_area_cm2=area_cm2,
-            cl_sys_L_per_h=cl_sys,
-            vd_sys_L=vd_sys,
-            k_sc_per_h=0.1 * k_sc_mult,
-        )
-        results.append(
-            {
-                "name": name,
-                "k_sc_mult": k_sc_mult,
-                "auc_sys": sim.auc_sys,
-                "cmax_sys": sim.cmax_sys,
-                "f_systemic": sim.f_systemic,
-            }
-        )
+    notes = (
+        f"Patch tmax={patch_result.tmax_h:.1f}h, Cmax={patch_result.cmax_mg_L:.4f} mg/L; "
+        f"Gel tmax={gel_result.tmax_h:.1f}h, Cmax={gel_result.cmax_mg_L:.4f} mg/L; "
+        f"Gel faster={gel_faster}"
+    )
 
-    results.sort(key=lambda r: r["auc_sys"], reverse=True)
-    return results
-
-
-__all__ = ["SkinPBPKResult", "simulate_skin_pbpk", "compare_penetration_enhancers"]
+    return {
+        "patch_result": patch_result,
+        "gel_result": gel_result,
+        "gel_faster": gel_faster,
+        "notes": notes,
+    }

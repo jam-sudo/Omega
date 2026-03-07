@@ -1,10 +1,13 @@
-"""PK parameter local sensitivity analysis — Phases 271 & 482.
+"""PK parameter local sensitivity analysis — Phases 271, 482, 624 & 683.
 
 Phase 271: Normalized sensitivity coefficients for PK parameters
 (CL, Vd, ka, F) with respect to output metrics (AUC, Cmax, t½).
 
 Phase 482: One-at-a-time (OAT) sensitivity of AUC to CL, Vd, ka with
 structured OATSensitivityResult, parameter ranking, and ASCII tornado chart.
+
+Phase 683: Generic OAT sensitivity via compute_ota_sensitivity, rank_pk_parameters,
+sensitivity_tornado_data, analyze_pk_sensitivity with Forward Euler 1-cpt model.
 
 References
 ----------
@@ -27,6 +30,12 @@ __all__ = [
     "normalized_sensitivity_index",
     "rank_parameters_by_sensitivity",
     "plot_sensitivity_table",
+    # Phase 683
+    "PKSensitivityResult683",
+    "compute_ota_sensitivity",
+    "rank_pk_parameters",
+    "sensitivity_tornado_data",
+    "analyze_pk_sensitivity",
 ]
 
 
@@ -801,4 +810,261 @@ def analytical_pk_sensitivity(
             f"dose={dose_mg} mg; CL={cl_L_per_h} L/h; Vd={vd_L} L; "
             f"most_sensitive={most_sensitive}"
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 683 — Generic OAT sensitivity + 1-cpt Forward Euler analysis
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PKSensitivityResult683:
+    """PK sensitivity analysis result for Phase 683.
+
+    Attributes
+    ----------
+    compound_name : str
+    base_auc : float
+    base_cmax : float
+    most_sensitive_param : str
+    most_sensitive_S : float
+    cl_sensitivity : float
+    vd_sensitivity : float
+    ka_sensitivity : float
+    notes : str
+    """
+
+    compound_name: str
+    base_auc: float
+    base_cmax: float
+    most_sensitive_param: str
+    most_sensitive_S: float
+    cl_sensitivity: float
+    vd_sensitivity: float
+    ka_sensitivity: float
+    notes: str
+
+
+def _simulate_1cpt_oral(
+    dose_mg: float,
+    f_oral: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    ka_per_h: float,
+    t_end_h: float,
+    dt_h: float,
+) -> tuple[float, float]:
+    """Forward Euler 1-compartment oral model.
+
+    Returns (auc_mg_h_per_L, cmax_mg_per_L).
+    """
+    a_gut = dose_mg * f_oral
+    c = 0.0
+    ke = cl_L_per_h / vd_L
+    auc = 0.0
+    cmax = 0.0
+    t = 0.0
+    while t < t_end_h:
+        da_gut = -ka_per_h * a_gut
+        dc = ka_per_h * a_gut / vd_L - ke * c
+        a_gut = a_gut + da_gut * dt_h
+        c_new = c + dc * dt_h
+        # trapezoidal AUC
+        auc += 0.5 * (c + c_new) * dt_h
+        c = c_new
+        if c > cmax:
+            cmax = c
+        t += dt_h
+    return auc, cmax
+
+
+def compute_ota_sensitivity(
+    base_params: dict,
+    param_names: list[str],
+    output_fn,
+    delta_fraction: float = 0.1,
+) -> dict:
+    """One-at-a-time (OAT) normalized elasticity sensitivity.
+
+    For each parameter in *param_names*, perturbs it up and down by
+    *delta_fraction* (central difference) and computes the normalized
+    elasticity S = (dY/Y) / (dX/X).
+
+    Parameters
+    ----------
+    base_params : dict
+        Nominal parameter values.
+    param_names : list[str]
+        Parameters to perturb.
+    output_fn : callable(dict) -> float
+        Model function returning a scalar metric.
+    delta_fraction : float
+        Fractional perturbation (default 0.1 = 10%).
+
+    Returns
+    -------
+    dict
+        {param_name: sensitivity_index} sorted by |S| descending.
+    """
+    y0 = output_fn(base_params)
+    sensitivities: dict[str, float] = {}
+    for pname in param_names:
+        base_val = base_params[pname]
+        params_up = {**base_params, pname: base_val * (1.0 + delta_fraction)}
+        params_down = {**base_params, pname: base_val * (1.0 - delta_fraction)}
+        y_up = output_fn(params_up)
+        y_down = output_fn(params_down)
+        # Normalized elasticity: ((y_up - y_down) / (2*delta*base_val)) * (base_val / y0)
+        if y0 != 0.0 and base_val != 0.0:
+            s = ((y_up - y_down) / (2.0 * delta_fraction * base_val)) * (base_val / y0)
+        else:
+            s = 0.0
+        sensitivities[pname] = s
+
+    # Sort by |S| descending
+    return dict(sorted(sensitivities.items(), key=lambda item: abs(item[1]), reverse=True))
+
+
+def rank_pk_parameters(sensitivity_dict: dict) -> list[tuple[str, float]]:
+    """Rank parameters by absolute sensitivity index (descending).
+
+    Parameters
+    ----------
+    sensitivity_dict : dict
+        Output from :func:`compute_ota_sensitivity`.
+
+    Returns
+    -------
+    list[tuple[str, float]]
+        (param_name, sensitivity_index) sorted by |S| descending.
+    """
+    return sorted(sensitivity_dict.items(), key=lambda item: abs(item[1]), reverse=True)
+
+
+def sensitivity_tornado_data(sensitivity_dict: dict) -> list[dict]:
+    """Convert sensitivity dict to tornado chart data.
+
+    Parameters
+    ----------
+    sensitivity_dict : dict
+        Output from :func:`compute_ota_sensitivity`.
+
+    Returns
+    -------
+    list[dict]
+        Each entry: {"param": str, "sensitivity": float, "direction": "positive"/"negative"}.
+        Sorted by |sensitivity| descending.
+    """
+    ranked = rank_pk_parameters(sensitivity_dict)
+    result = []
+    for pname, s in ranked:
+        direction = "positive" if s >= 0.0 else "negative"
+        result.append({"param": pname, "sensitivity": s, "direction": direction})
+    return result
+
+
+def analyze_pk_sensitivity(
+    compound_name: str,
+    dose_mg: float,
+    cl_L_per_h: float,
+    vd_L: float,
+    ka_per_h: float,
+    f_oral: float = 1.0,
+    t_end_h: float = 24.0,
+    dt_h: float = 0.1,
+) -> PKSensitivityResult683:
+    """OAT sensitivity analysis for CL, Vd, ka using 1-cpt oral Forward Euler.
+
+    Parameters
+    ----------
+    compound_name : str
+    dose_mg : float  (> 0)
+    cl_L_per_h : float  (> 0)
+    vd_L : float  (> 0)
+    ka_per_h : float  (> 0)
+    f_oral : float  (0 < f_oral <= 1)
+    t_end_h : float  Simulation end time (h).
+    dt_h : float  Forward Euler step size (h).
+
+    Returns
+    -------
+    PKSensitivityResult683
+    """
+    if dose_mg <= 0:
+        raise ValueError("dose_mg must be > 0")
+    if cl_L_per_h <= 0:
+        raise ValueError("cl_L_per_h must be > 0")
+    if vd_L <= 0:
+        raise ValueError("vd_L must be > 0")
+    if ka_per_h <= 0:
+        raise ValueError("ka_per_h must be > 0")
+    if not (0.0 < f_oral <= 1.0):
+        raise ValueError("f_oral must be in (0, 1]")
+
+    base_params = {
+        "dose_mg": dose_mg,
+        "cl_L_per_h": cl_L_per_h,
+        "vd_L": vd_L,
+        "ka_per_h": ka_per_h,
+        "f_oral": f_oral,
+        "t_end_h": t_end_h,
+        "dt_h": dt_h,
+    }
+
+    def _auc_fn(params: dict) -> float:
+        auc, _ = _simulate_1cpt_oral(
+            params["dose_mg"],
+            params["f_oral"],
+            params["cl_L_per_h"],
+            params["vd_L"],
+            params["ka_per_h"],
+            params["t_end_h"],
+            params["dt_h"],
+        )
+        return auc
+
+    def _cmax_fn(params: dict) -> float:
+        _, cmax = _simulate_1cpt_oral(
+            params["dose_mg"],
+            params["f_oral"],
+            params["cl_L_per_h"],
+            params["vd_L"],
+            params["ka_per_h"],
+            params["t_end_h"],
+            params["dt_h"],
+        )
+        return cmax
+
+    param_names = ["cl_L_per_h", "vd_L", "ka_per_h"]
+    auc_sensitivities = compute_ota_sensitivity(base_params, param_names, _auc_fn)
+
+    base_auc, base_cmax = _simulate_1cpt_oral(
+        dose_mg, f_oral, cl_L_per_h, vd_L, ka_per_h, t_end_h, dt_h
+    )
+
+    cl_s = auc_sensitivities.get("cl_L_per_h", 0.0)
+    vd_s = auc_sensitivities.get("vd_L", 0.0)
+    ka_s = auc_sensitivities.get("ka_per_h", 0.0)
+
+    # Most sensitive param for AUC
+    most_sensitive_param = max(auc_sensitivities, key=lambda k: abs(auc_sensitivities[k]))
+    most_sensitive_s = auc_sensitivities[most_sensitive_param]
+
+    notes = (
+        f"{compound_name}: 1-cpt oral OAT sensitivity. "
+        f"AUC={base_auc:.4f} mg·h/L, Cmax={base_cmax:.4f} mg/L. "
+        f"Most sensitive (AUC): {most_sensitive_param} (S={most_sensitive_s:.3f})."
+    )
+
+    return PKSensitivityResult683(
+        compound_name=compound_name,
+        base_auc=base_auc,
+        base_cmax=base_cmax,
+        most_sensitive_param=most_sensitive_param,
+        most_sensitive_S=most_sensitive_s,
+        cl_sensitivity=cl_s,
+        vd_sensitivity=vd_s,
+        ka_sensitivity=ka_s,
+        notes=notes,
     )
