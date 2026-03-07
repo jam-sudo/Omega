@@ -68,12 +68,15 @@ def test_linear_sensitivity_equals_one():
 
 
 def test_inverse_relationship_sensitivity_negative_one():
-    """For y = 1/x, S_index should be approximately -1.0."""
+    """For y = 1/x, S_index should be approximately -1.0.
+
+    Use a small perturbation (±10%) to get a close finite-difference approximation.
+    """
     nominal = 10.0
-    low = 5.0
-    high = 15.0
+    low = 9.0  # -10%
+    high = 11.0  # +10%
     si = compute_sensitivity_index("x", nominal, low, high, 1.0 / low, 1.0 / high, 1.0 / nominal)
-    assert abs(si.s_index - (-1.0)) < 0.1  # OAT finite difference approx
+    assert abs(si.s_index - (-1.0)) < 0.05  # OAT finite difference approx
 
 
 def test_zero_sensitivity_when_outcome_unchanged():
@@ -169,17 +172,21 @@ def test_sorted_by_abs_s_index_descending():
 
 
 def test_cl_on_auc_sensitivity_approximately_minus_one():
-    """AUC = D/CL → S(CL, AUC) ≈ -1.0."""
+    """AUC = D/CL → S(CL, AUC) ≈ -1.0.
+
+    Use a small symmetric perturbation to get a close finite-difference approximation.
+    """
     dose = 100.0
 
     def auc(params: dict[str, float]) -> float:
         return dose / params["CL"]
 
-    params = {"CL": (5.0, 10.0, 20.0)}
+    # ±10% symmetric perturbation for accurate finite difference
+    params = {"CL": (9.0, 10.0, 11.0)}
     results = rank_pk_sensitivity(params, auc, outcome_name="AUC")
     si = results[0]
     assert si.parameter_name == "CL"
-    assert abs(si.s_index - (-1.0)) < 0.1
+    assert abs(si.s_index - (-1.0)) < 0.05
 
 
 def test_three_params_highest_abs_s_is_rank1():
