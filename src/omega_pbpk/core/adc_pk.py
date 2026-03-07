@@ -1,312 +1,333 @@
-"""Antibody-Drug Conjugate (ADC) pharmacokinetics model.
+"""Antibody-Drug Conjugate (ADC) pharmacokinetics — Phase 497.
 
-Models the complex PK of ADCs including:
-- Linker stability and deconjugation kinetics
-- DAR (drug-antibody ratio) distribution over time
-- Payload release and independent small-molecule PK
-- Total antibody (conjugated + unconjugated) tracking
+Three-compartment model:
+1. Intact ADC (plasma)
+2. Deconjugated antibody (free Ab after linker cleavage)
+3. Released payload (free small molecule)
 
-ADC-specific considerations:
-- Deconjugation rate depends on linker stability (k_deconj)
-- Higher k_deconj → faster payload release
-- Free payload has small-molecule PK (high CL, large Vd)
-- ADC has antibody-like PK (low CL, small Vd, ~IgG)
-- DAR decreases over time as payload deconjugates
+ODE system (IV bolus at t=0):
+    dC_ADC/dt     = -(k_deconj + ke_adc) * C_ADC
+    dC_Ab_free/dt = k_deconj * C_ADC - ke_ab * C_Ab_free
+    dC_payload/dt = dar * k_deconj * C_ADC * (Vd_adc/Vd_payload)
+                    - ke_payload * C_payload
 
 References
 ----------
 - Shah DK & Betts AM. J Pharmacokinet Pharmacodyn 2012;39:67-86
-- Cilliers C et al. Clin Pharmacol Ther 2016;99:63-77
-- Kamath AV. Drug Metab Dispos 2016;44:1958-64
+- Gibiansky & Gibiansky, AAPS J. 2014;16:303-14
+- Deslandes, Br J Clin Pharmacol. 2021;87:9-17
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
-
-import numpy as np
-
-from omega_pbpk._compat import np_trapz
+from dataclasses import dataclass, field
 
 __all__ = [
     "ADCPKResult",
     "simulate_adc_pk",
-    "compare_linker_stability",
+    "calculate_dar_distribution",
+    "therapeutic_index_adc",
+    "linker_stability",
 ]
 
 
-@dataclass(frozen=True)
+@dataclass
 class ADCPKResult:
-    """Results from ADC pharmacokinetic simulation.
+    """Results from ADC PK simulation.
 
     Attributes
     ----------
-    drug_name : ADC drug name.
-    total_antibody_dose_mg : Total antibody dose (mg).
-    dar_initial : Drug-antibody ratio at time 0.
-    times_h : Simulation time points (h).
-    c_total_antibody_mg_L : Total antibody concentration (conjugated + unconjugated) (mg/L).
-    c_conjugated_mg_L : Intact ADC (conjugated) concentration (mg/L).
-    c_free_payload_mg_L : Free released payload concentration (mg/L).
-    c_unconjugated_ab_mg_L : Naked antibody (unconjugated) concentration (mg/L).
-    dar_mean_over_time : Mean DAR at each time point.
-    auc_total_antibody : AUC of total antibody (mg*h/L).
-    auc_conjugated : AUC of conjugated ADC (mg*h/L).
-    auc_free_payload : AUC of free payload (mg*h/L).
-    t_half_antibody_h : Antibody half-life (h).
-    t_half_payload_h : Free payload half-life (h).
-    payload_antibody_auc_ratio : Free payload AUC / total antibody AUC.
-    fraction_deconjugated_by_24h : Fraction deconjugated at 24 h.
-    fraction_deconjugated_by_168h : Fraction deconjugated at 168 h (1 week).
-    notes : Simulation summary.
+    drug_name : Name of the ADC drug.
+    dar : Drug-to-antibody ratio.
+    times_days : Simulation time points (days).
+    c_adc_mg_L : Intact ADC concentration (mg/L).
+    c_antibody_free_mg_L : Deconjugated antibody concentration (mg/L).
+    c_payload_mg_L : Free payload concentration (mg/L).
+    cmax_adc_mg_L : Peak ADC concentration (mg/L).
+    cmax_payload_mg_L : Peak payload concentration (mg/L).
+    auc_adc_mg_day_L : AUC for ADC (mg*day/L).
+    auc_payload_mg_day_L : AUC for payload (mg*day/L).
+    t_half_adc_days : ADC terminal half-life (days).
+    notes : Summary text.
     """
 
     drug_name: str
-    total_antibody_dose_mg: float
-    dar_initial: float
+    dar: int
+    times_days: list[float] = field(default_factory=list)
+    c_adc_mg_L: list[float] = field(default_factory=list)
+    c_antibody_free_mg_L: list[float] = field(default_factory=list)
+    c_payload_mg_L: list[float] = field(default_factory=list)
+    cmax_adc_mg_L: float = 0.0
+    cmax_payload_mg_L: float = 0.0
+    auc_adc_mg_day_L: float = 0.0
+    auc_payload_mg_day_L: float = 0.0
+    t_half_adc_days: float = 0.0
+    notes: str = ""
 
-    times_h: list[float]
 
-    c_total_antibody_mg_L: list[float]
-    c_conjugated_mg_L: list[float]
-    c_free_payload_mg_L: list[float]
-    c_unconjugated_ab_mg_L: list[float]
-
-    dar_mean_over_time: list[float]
-
-    auc_total_antibody: float
-    auc_conjugated: float
-    auc_free_payload: float
-
-    t_half_antibody_h: float
-    t_half_payload_h: float
-
-    payload_antibody_auc_ratio: float
-
-    fraction_deconjugated_by_24h: float
-    fraction_deconjugated_by_168h: float
-
-    notes: str
+def _trapz(times: list[float], values: list[float]) -> float:
+    """Manual trapezoidal integration."""
+    auc = 0.0
+    for i in range(1, len(times)):
+        dt = times[i] - times[i - 1]
+        auc += 0.5 * (values[i] + values[i - 1]) * dt
+    return auc
 
 
 def simulate_adc_pk(
     drug_name: str,
-    total_antibody_dose_mg: float,
-    cl_antibody_L_per_day: float = 0.2,
-    vd_antibody_L: float = 3.0,
-    dar_initial: float = 4.0,
+    dose_mg_per_kg: float,
+    weight_kg: float = 70.0,
+    dar: int = 4,
+    cl_adc_L_per_day: float = 0.3,
+    vd_adc_L: float = 3.0,
     k_deconj_per_day: float = 0.1,
-    cl_payload_L_per_h: float = 20.0,
-    vd_payload_L: float = 100.0,
-    mw_antibody_kDa: float = 150.0,
-    mw_payload_Da: float = 500.0,
-    route: str = "iv",
-    t_end_h: float = 672.0,
-    dt_h: float = 1.0,
+    cl_payload_L_per_day: float = 15.0,
+    vd_payload_L: float = 50.0,
+    ka_payload_per_day: float = 0.0,
+    t_end_days: float = 21.0,
+    dt_days: float = 0.05,
 ) -> ADCPKResult:
-    """Simulate ADC pharmacokinetics following IV bolus administration.
-
-    Uses a 3-compartment Forward Euler model tracking:
-    1. Conjugated ADC in plasma
-    2. Unconjugated (naked) antibody in plasma
-    3. Free payload in plasma
+    """Simulate ADC pharmacokinetics using a 3-compartment model (IV bolus).
 
     Parameters
     ----------
-    drug_name : ADC drug name.
-    total_antibody_dose_mg : Total antibody dose (mg).
-    cl_antibody_L_per_day : Antibody clearance (L/day). Default 0.2.
-    vd_antibody_L : Antibody volume of distribution (L). Default 3.0.
-    dar_initial : Drug-antibody ratio at time 0. Default 4.0.
-    k_deconj_per_day : Deconjugation rate constant (day^-1). Default 0.1.
-    cl_payload_L_per_h : Payload clearance (L/h). Default 20.0.
-    vd_payload_L : Payload volume of distribution (L). Default 100.0.
-    mw_antibody_kDa : Antibody molecular weight (kDa). Default 150.0.
-    mw_payload_Da : Payload molecular weight (Da). Default 500.0.
-    route : Route of administration. Default "iv".
-    t_end_h : Simulation end time (h). Default 672 (28 days).
-    dt_h : Time step (h). Default 1.0.
+    drug_name : Name of the ADC.
+    dose_mg_per_kg : Dose in mg/kg.
+    weight_kg : Patient weight (kg).
+    dar : Drug-to-antibody ratio (average payload per antibody).
+    cl_adc_L_per_day : ADC clearance (L/day).
+    vd_adc_L : ADC volume of distribution (L).
+    k_deconj_per_day : Linker deconjugation rate constant (1/day).
+    cl_payload_L_per_day : Payload clearance (L/day).
+    vd_payload_L : Payload volume of distribution (L).
+    ka_payload_per_day : Payload absorption rate (kept for API compatibility, unused for IV).
+    t_end_days : Simulation end time (days).
+    dt_days : Integration step size (days).
 
     Returns
     -------
-    ADCPKResult with full concentration-time profiles.
-
-    Raises
-    ------
-    ValueError
-        If input parameters violate constraints.
+    ADCPKResult
     """
-    if total_antibody_dose_mg <= 0:
-        raise ValueError(f"total_antibody_dose_mg must be > 0, got {total_antibody_dose_mg}")
-    if cl_antibody_L_per_day <= 0:
-        raise ValueError(f"cl_antibody_L_per_day must be > 0, got {cl_antibody_L_per_day}")
-    if vd_antibody_L <= 0:
-        raise ValueError(f"vd_antibody_L must be > 0, got {vd_antibody_L}")
-    if dar_initial < 1.0:
-        raise ValueError(f"dar_initial must be >= 1, got {dar_initial}")
+    if dose_mg_per_kg <= 0:
+        raise ValueError(f"dose_mg_per_kg must be > 0, got {dose_mg_per_kg}")
+    if weight_kg <= 0:
+        raise ValueError(f"weight_kg must be > 0, got {weight_kg}")
+    if dar < 1:
+        raise ValueError(f"dar must be >= 1, got {dar}")
+    if cl_adc_L_per_day <= 0:
+        raise ValueError(f"cl_adc_L_per_day must be > 0, got {cl_adc_L_per_day}")
+    if vd_adc_L <= 0:
+        raise ValueError(f"vd_adc_L must be > 0, got {vd_adc_L}")
     if k_deconj_per_day < 0:
         raise ValueError(f"k_deconj_per_day must be >= 0, got {k_deconj_per_day}")
-    if cl_payload_L_per_h <= 0:
-        raise ValueError(f"cl_payload_L_per_h must be > 0, got {cl_payload_L_per_h}")
+    if cl_payload_L_per_day <= 0:
+        raise ValueError(f"cl_payload_L_per_day must be > 0, got {cl_payload_L_per_day}")
     if vd_payload_L <= 0:
         raise ValueError(f"vd_payload_L must be > 0, got {vd_payload_L}")
-    if mw_antibody_kDa <= 0:
-        raise ValueError(f"mw_antibody_kDa must be > 0, got {mw_antibody_kDa}")
-    if mw_payload_Da <= 0:
-        raise ValueError(f"mw_payload_Da must be > 0, got {mw_payload_Da}")
+    if t_end_days <= 0:
+        raise ValueError(f"t_end_days must be > 0, got {t_end_days}")
+    if dt_days <= 0:
+        raise ValueError(f"dt_days must be > 0, got {dt_days}")
 
-    # Convert antibody PK to per-hour units
-    cl_antibody_L_per_h = cl_antibody_L_per_day / 24.0
-    k_deconj = k_deconj_per_day / 24.0  # h^-1
+    total_dose_mg = dose_mg_per_kg * weight_kg
 
-    # Rate constants
-    ke_ab = cl_antibody_L_per_h / vd_antibody_L  # h^-1
-    ke_payload = cl_payload_L_per_h / vd_payload_L  # h^-1
+    # Elimination rate constants (1/day)
+    ke_adc = cl_adc_L_per_day / vd_adc_L
+    ke_ab = ke_adc  # deconjugated Ab retains antibody-like clearance
+    ke_payload = cl_payload_L_per_day / vd_payload_L
 
-    # Payload mass release factor: payload released per unit mass of ADC deconjugated
-    # moles_payload / moles_ADC = dar_initial
-    # mass_payload = moles_payload * mw_payload_Da/1000 [kDa → g/mol cancel]
-    # mass_ADC = moles_ADC * mw_antibody_kDa
-    # ratio = dar_initial * mw_payload_Da / (mw_antibody_kDa * 1000)
-    payload_mass_ratio = dar_initial * (mw_payload_Da / 1000.0) / mw_antibody_kDa
+    # Volume ratio for mass-balance scaling of payload release
+    vol_ratio = vd_adc_L / vd_payload_L
 
-    # Initial conditions (IV bolus)
-    c_adc0 = total_antibody_dose_mg / vd_antibody_L  # mg/L
-    c_unconj0 = 0.0
-    c_payload0 = 0.0
+    # Initial conditions: IV bolus for ADC, zero for others
+    c_adc = total_dose_mg / vd_adc_L
+    c_ab_free = 0.0
+    c_payload = 0.0
 
-    n_steps = int(t_end_h / dt_h) + 1
-    times = np.linspace(0.0, t_end_h, n_steps)
+    times: list[float] = [0.0]
+    c_adc_list: list[float] = [c_adc]
+    c_ab_list: list[float] = [c_ab_free]
+    c_payload_list: list[float] = [c_payload]
 
-    c_adc_arr = np.zeros(n_steps)
-    c_unconj_arr = np.zeros(n_steps)
-    c_payload_arr = np.zeros(n_steps)
+    t = 0.0
+    n_steps = int(round(t_end_days / dt_days))
 
-    c_adc = c_adc0
-    c_unconj = c_unconj0
-    c_payload = c_payload0
+    for _ in range(n_steps):
+        dc_adc = -(k_deconj_per_day + ke_adc) * c_adc
+        dc_ab = k_deconj_per_day * c_adc - ke_ab * c_ab_free
+        dc_payload = (
+            dar * k_deconj_per_day * c_adc * vol_ratio - ke_payload * c_payload
+        )
 
-    for i in range(n_steps):
-        c_adc_arr[i] = c_adc
-        c_unconj_arr[i] = c_unconj
-        c_payload_arr[i] = c_payload
+        c_adc = max(0.0, c_adc + dc_adc * dt_days)
+        c_ab_free = max(0.0, c_ab_free + dc_ab * dt_days)
+        c_payload = max(0.0, c_payload + dc_payload * dt_days)
 
-        if i == n_steps - 1:
-            break
+        t += dt_days
+        times.append(t)
+        c_adc_list.append(c_adc)
+        c_ab_list.append(c_ab_free)
+        c_payload_list.append(c_payload)
 
-        # ODEs (Forward Euler)
-        # Conjugated ADC: lost by antibody elimination and deconjugation
-        dc_adc = -(ke_ab + k_deconj) * c_adc
+    cmax_adc = max(c_adc_list)
+    cmax_payload = max(c_payload_list)
+    auc_adc = _trapz(times, c_adc_list)
+    auc_payload = _trapz(times, c_payload_list)
 
-        # Unconjugated antibody: gained from deconjugation, lost by elimination
-        dc_unconj = k_deconj * c_adc - ke_ab * c_unconj
-
-        # Free payload: gained from ADC deconjugation, lost by payload CL
-        # rate of payload formation (mg/L/h) = k_deconj * c_adc * (Vd_ab / Vd_payload) * mass_ratio
-        payload_formation = k_deconj * c_adc * (vd_antibody_L / vd_payload_L) * payload_mass_ratio
-        dc_payload = payload_formation - ke_payload * c_payload
-
-        c_adc = max(0.0, c_adc + dc_adc * dt_h)
-        c_unconj = max(0.0, c_unconj + dc_unconj * dt_h)
-        c_payload = max(0.0, c_payload + dc_payload * dt_h)
-
-    # Total antibody = conjugated + unconjugated
-    c_total_ab_arr = c_adc_arr + c_unconj_arr
-
-    # DAR over time: simplified exponential decay of DAR
-    dar_arr = dar_initial * np.exp(-k_deconj * times)
-
-    # AUC via trapezoidal
-    auc_total_ab = float(np_trapz(c_total_ab_arr, times))
-    auc_conjugated = float(np_trapz(c_adc_arr, times))
-    auc_free_payload = float(np_trapz(c_payload_arr, times))
-
-    # Half-lives
-    t_half_antibody_h = math.log(2.0) / ke_ab if ke_ab > 0 else float("inf")
-    t_half_payload_h = math.log(2.0) / ke_payload if ke_payload > 0 else float("inf")
-
-    # Payload / antibody AUC ratio
-    payload_antibody_auc_ratio = auc_free_payload / auc_total_ab if auc_total_ab > 0 else 0.0
-
-    # Deconjugation fractions
-    f_deconj_24h = 1.0 - math.exp(-k_deconj * 24.0)
-    f_deconj_168h = 1.0 - math.exp(-k_deconj * 168.0)
+    # Analytical t_half for ADC
+    k_total_adc = k_deconj_per_day + ke_adc
+    t_half_adc = math.log(2) / k_total_adc if k_total_adc > 0 else float("inf")
 
     notes = (
-        f"{drug_name} ADC PK: DAR={dar_initial:.1f}, dose={total_antibody_dose_mg:.1f} mg. "
-        f"AUC_ADC={auc_conjugated:.1f} mg*h/L, AUC_payload={auc_free_payload:.3f} mg*h/L. "
-        f"t½_antibody={t_half_antibody_h:.1f} h, t½_payload={t_half_payload_h:.2f} h. "
-        f"Deconj@24h={f_deconj_24h:.1%}, Deconj@168h={f_deconj_168h:.1%}."
+        f"ADC: {drug_name}, DAR={dar}, Dose={total_dose_mg:.1f} mg, "
+        f"t½_ADC={t_half_adc:.2f} d, Cmax_payload={cmax_payload:.4f} mg/L"
     )
 
     return ADCPKResult(
         drug_name=drug_name,
-        total_antibody_dose_mg=total_antibody_dose_mg,
-        dar_initial=dar_initial,
-        times_h=times.tolist(),
-        c_total_antibody_mg_L=c_total_ab_arr.tolist(),
-        c_conjugated_mg_L=c_adc_arr.tolist(),
-        c_free_payload_mg_L=c_payload_arr.tolist(),
-        c_unconjugated_ab_mg_L=c_unconj_arr.tolist(),
-        dar_mean_over_time=dar_arr.tolist(),
-        auc_total_antibody=auc_total_ab,
-        auc_conjugated=auc_conjugated,
-        auc_free_payload=auc_free_payload,
-        t_half_antibody_h=t_half_antibody_h,
-        t_half_payload_h=t_half_payload_h,
-        payload_antibody_auc_ratio=payload_antibody_auc_ratio,
-        fraction_deconjugated_by_24h=f_deconj_24h,
-        fraction_deconjugated_by_168h=f_deconj_168h,
+        dar=dar,
+        times_days=times,
+        c_adc_mg_L=c_adc_list,
+        c_antibody_free_mg_L=c_ab_list,
+        c_payload_mg_L=c_payload_list,
+        cmax_adc_mg_L=cmax_adc,
+        cmax_payload_mg_L=cmax_payload,
+        auc_adc_mg_day_L=auc_adc,
+        auc_payload_mg_day_L=auc_payload,
+        t_half_adc_days=t_half_adc,
         notes=notes,
     )
 
 
-def compare_linker_stability(
-    drug_name: str,
-    total_antibody_dose_mg: float,
-    k_deconj_values: list[float] | None = None,
-    **kwargs,
-) -> list[ADCPKResult]:
-    """Compare ADC PK across different linker stabilities.
+def calculate_dar_distribution(
+    initial_dar: float,
+    k_deconj: float,
+    t_days: float,
+) -> dict[str, float]:
+    """Calculate drug-to-antibody ratio distribution over time.
 
-    Higher k_deconj → more payload release (less stable linker).
-    Results are sorted by auc_conjugated descending (most stable linker first).
+    Models payload loss from the ADC as a first-order process.
+    The remaining average DAR decreases exponentially.
 
     Parameters
     ----------
-    drug_name : ADC drug name.
-    total_antibody_dose_mg : Total antibody dose (mg).
-    k_deconj_values : List of deconjugation rate constants (day^-1).
-        Default: [0.01, 0.05, 0.1, 0.3].
-    **kwargs : Additional keyword arguments passed to simulate_adc_pk.
+    initial_dar : Starting average DAR (e.g., 4 or 8).
+    k_deconj : Deconjugation rate constant (1/day).
+    t_days : Time point (days).
 
     Returns
     -------
-    list[ADCPKResult]
-        Results sorted by auc_conjugated descending (most stable first).
-
-    Raises
-    ------
-    ValueError
-        If k_deconj_values is empty.
+    dict with keys: 'mean_dar', 'fraction_remaining', 'fraction_deconjugated',
+                    'initial_dar', 't_days'
     """
-    if k_deconj_values is None:
-        k_deconj_values = [0.01, 0.05, 0.1, 0.3]
+    if initial_dar < 0:
+        raise ValueError(f"initial_dar must be >= 0, got {initial_dar}")
+    if k_deconj < 0:
+        raise ValueError(f"k_deconj must be >= 0, got {k_deconj}")
+    if t_days < 0:
+        raise ValueError(f"t_days must be >= 0, got {t_days}")
 
-    if not k_deconj_values:
-        raise ValueError("k_deconj_values must not be empty")
+    fraction_remaining = math.exp(-k_deconj * t_days)
+    fraction_deconjugated = 1.0 - fraction_remaining
+    mean_dar = initial_dar * fraction_remaining
 
-    results: list[ADCPKResult] = []
-    for k_val in k_deconj_values:
-        result = simulate_adc_pk(
-            drug_name=drug_name,
-            total_antibody_dose_mg=total_antibody_dose_mg,
-            k_deconj_per_day=k_val,
-            **kwargs,
+    return {
+        "mean_dar": mean_dar,
+        "fraction_remaining": fraction_remaining,
+        "fraction_deconjugated": fraction_deconjugated,
+        "initial_dar": initial_dar,
+        "t_days": t_days,
+    }
+
+
+def therapeutic_index_adc(
+    cmax_payload_mg_L: float,
+    target_conc_mg_L: float,
+    toxic_conc_mg_L: float,
+) -> float:
+    """Calculate the therapeutic index for an ADC payload.
+
+    TI = toxic_conc / target_conc.
+
+    Parameters
+    ----------
+    cmax_payload_mg_L : Achieved peak payload concentration (mg/L).
+    target_conc_mg_L : Minimum effective payload concentration (mg/L).
+    toxic_conc_mg_L : Toxic threshold payload concentration (mg/L).
+
+    Returns
+    -------
+    float
+        Therapeutic index (toxic_conc / target_conc). Values > 1 indicate margin.
+    """
+    if target_conc_mg_L <= 0:
+        raise ValueError(f"target_conc_mg_L must be > 0, got {target_conc_mg_L}")
+    if toxic_conc_mg_L <= 0:
+        raise ValueError(f"toxic_conc_mg_L must be > 0, got {toxic_conc_mg_L}")
+    if cmax_payload_mg_L < 0:
+        raise ValueError(f"cmax_payload_mg_L must be >= 0, got {cmax_payload_mg_L}")
+
+    return toxic_conc_mg_L / target_conc_mg_L
+
+
+def linker_stability(
+    linker_type: str,
+    temperature_C: float = 37.0,
+    ph: float = 7.4,
+) -> float:
+    """Estimate linker stability as fraction intact per day.
+
+    Models plasma stability for three linker classes:
+    - 'cleavable': acid-labile or protease-sensitive; moderately stable at neutral pH
+    - 'non_cleavable': thioether-based; very stable across pH range
+    - 'disulfide': pH/redox-sensitive; less stable at acidic pH
+
+    Parameters
+    ----------
+    linker_type : One of 'cleavable', 'non_cleavable', 'disulfide'.
+    temperature_C : Temperature (°C). Higher temperature decreases stability.
+    ph : pH of the environment. Lower pH destabilizes cleavable/disulfide linkers.
+
+    Returns
+    -------
+    float
+        Fraction of linker intact per day (0–1). Higher = more stable.
+    """
+    valid_linker_types = {"cleavable", "non_cleavable", "disulfide"}
+    if linker_type not in valid_linker_types:
+        raise ValueError(
+            f"linker_type must be one of {valid_linker_types}, got {linker_type!r}"
         )
-        results.append(result)
+    if temperature_C <= 0:
+        raise ValueError(f"temperature_C must be > 0, got {temperature_C}")
 
-    # Sort by auc_conjugated descending (most stable = highest conjugated AUC = first)
-    results.sort(key=lambda r: r.auc_conjugated, reverse=True)
-    return results
+    # Base stability at 37°C, pH 7.4 (plasma conditions)
+    base_stability = {
+        "non_cleavable": 0.98,  # Very stable; minimal plasma deconjugation
+        "cleavable": 0.92,       # Moderately stable in plasma, cleaved intracellularly
+        "disulfide": 0.85,       # Reduced by plasma thiols; pH-sensitive
+    }
+
+    stability = base_stability[linker_type]
+
+    # Temperature correction: Q10 rule approximation (10°C → 2x degradation rate)
+    temp_factor = 2.0 ** ((temperature_C - 37.0) / 10.0)
+    degradation_rate = (1.0 - stability) * temp_factor
+    stability = max(0.0, 1.0 - degradation_rate)
+
+    # pH correction
+    if linker_type == "cleavable":
+        # Acid-labile linkers less stable at low pH
+        if ph < 7.0:
+            stability = stability * (0.7 + 0.3 * (ph / 7.0))
+        elif ph > 7.5:
+            stability = min(1.0, stability * 1.02)
+    elif linker_type == "disulfide":
+        # Disulfide bonds sensitive to reducing environments and low pH
+        if ph < 7.0:
+            stability = stability * (0.5 + 0.4 * (ph / 7.0))
+    # non_cleavable: negligible pH effect
+
+    return max(0.0, min(1.0, stability))
