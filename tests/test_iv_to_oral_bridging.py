@@ -1,4 +1,5 @@
 """Tests for iv_to_oral_bridging module."""
+
 import math
 
 import pytest
@@ -10,6 +11,7 @@ from omega_pbpk.clinical.iv_to_oral_bridging import (
 )
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_result(
     drug_name="TestDrug",
@@ -39,6 +41,7 @@ def make_result(
 
 # ── basic construction ────────────────────────────────────────────────────────
 
+
 def test_returns_ivoral_bridge_result():
     result = make_result()
     assert isinstance(result, IVOralBridgeResult)
@@ -65,6 +68,7 @@ def test_t_half_iv_computed():
 
 # ── hepatic extraction ────────────────────────────────────────────────────────
 
+
 def test_high_cl_drug_low_fh():
     # CL = 75 L/h, Qh = 80 L/h → EH ≈ 0.9375, FH ≈ 0.0625
     result = make_result(cl_iv_L_per_h=75.0)
@@ -78,6 +82,7 @@ def test_low_cl_drug_high_fh():
 
 
 # ── BCS class effects ─────────────────────────────────────────────────────────
+
 
 def test_bcs_I_higher_fa_than_bcs_IV():
     r1 = make_result(bcs_class="I")
@@ -115,6 +120,7 @@ def test_bcs_IV_fa_floored_at_010():
 
 # ── f_oral = fa * fg * fh ─────────────────────────────────────────────────────
 
+
 def test_f_oral_equals_fa_fg_fh():
     result = make_result()
     expected = result.fa_predicted * result.fg_predicted * result.fh_predicted
@@ -129,6 +135,7 @@ def test_high_cl_gives_low_f_oral():
 
 # ── tmax > 0 ──────────────────────────────────────────────────────────────────
 
+
 def test_tmax_positive():
     result = make_result()
     assert result.tmax_predicted_h > 0.0
@@ -141,6 +148,7 @@ def test_cmax_positive():
 
 # ── AUC oral predicted ────────────────────────────────────────────────────────
 
+
 def test_auc_oral_predicted_consistent():
     result = make_result(oral_dose_mg=100.0, cl_iv_L_per_h=10.0)
     expected = 100.0 * result.f_oral_predicted / 10.0
@@ -148,6 +156,7 @@ def test_auc_oral_predicted_consistent():
 
 
 # ── validation with observed AUC ──────────────────────────────────────────────
+
 
 def test_prediction_error_pct_with_observed():
     # If observed AUC implies exactly the predicted F, error should be ~0
@@ -195,6 +204,7 @@ def test_prediction_error_reasonable():
 
 # ── predict_oral_bioavailability ──────────────────────────────────────────────
 
+
 def test_predict_oral_bioavailability_returns_dict():
     result = predict_oral_bioavailability(
         drug_name="DrugX",
@@ -222,6 +232,7 @@ def test_predict_oral_bioavailability_values():
 
 
 # ── invalid inputs ────────────────────────────────────────────────────────────
+
 
 def test_invalid_bcs_class_raises():
     with pytest.raises(ValueError, match="BCS class"):

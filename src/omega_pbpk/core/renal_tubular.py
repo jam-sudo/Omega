@@ -91,9 +91,7 @@ def simulate_tubular_handling(
     # At zero concentration, secretion rate = 0 so cl_sec = Vmax/Km (linear limit)
     if plasma_conc_mg_L > 0:
         secretion_rate = (
-            vmax_secretion_mg_per_min
-            * plasma_conc_mg_L
-            / (km_secretion_mg_L + plasma_conc_mg_L)
+            vmax_secretion_mg_per_min * plasma_conc_mg_L / (km_secretion_mg_L + plasma_conc_mg_L)
         )  # mg/min
         cl_sec = secretion_rate / plasma_conc_mg_L  # mL/min
     else:
@@ -120,8 +118,10 @@ def simulate_tubular_handling(
     fe_urine = cl_renal / cl_total if cl_total > 0 else 0.0
     fe_urine = min(1.0, max(0.0, fe_urine))
 
-    sat_label = "low" if secretion_saturation_pct < 20 else (
-        "moderate" if secretion_saturation_pct < 60 else "high"
+    sat_label = (
+        "low"
+        if secretion_saturation_pct < 20
+        else ("moderate" if secretion_saturation_pct < 60 else "high")
     )
     notes = (
         f"Transporter: {transporter}; "

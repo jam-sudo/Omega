@@ -35,13 +35,11 @@ class TestArrheniusRate:
 
     def test_higher_ea_more_temperature_sensitive(self):
         """Higher Ea → larger ratio k(40)/k(25)."""
-        ratio_low_ea = (
-            arrhenius_rate(0.01, ea_kJ_mol=50.0, t_C=40.0)
-            / arrhenius_rate(0.01, ea_kJ_mol=50.0, t_C=25.0)
+        ratio_low_ea = arrhenius_rate(0.01, ea_kJ_mol=50.0, t_C=40.0) / arrhenius_rate(
+            0.01, ea_kJ_mol=50.0, t_C=25.0
         )
-        ratio_high_ea = (
-            arrhenius_rate(0.01, ea_kJ_mol=120.0, t_C=40.0)
-            / arrhenius_rate(0.01, ea_kJ_mol=120.0, t_C=25.0)
+        ratio_high_ea = arrhenius_rate(0.01, ea_kJ_mol=120.0, t_C=40.0) / arrhenius_rate(
+            0.01, ea_kJ_mol=120.0, t_C=25.0
         )
         assert ratio_high_ea > ratio_low_ea
 
@@ -97,8 +95,7 @@ class TestPredictShelfLife:
         # At T_ref same as T, k_at_T = k_ref
         expected = limit / k_ref
         result = predict_shelf_life(
-            k_ref, ea_kJ_mol=80.0, degradation_limit_pct=limit,
-            t_C=25.0, t_ref_C=25.0, order=0
+            k_ref, ea_kJ_mol=80.0, degradation_limit_pct=limit, t_C=25.0, t_ref_C=25.0, order=0
         )
         assert math.isclose(result, expected, rel_tol=1e-9)
 
@@ -197,9 +194,7 @@ class TestAcceleratedStabilityStudy:
             0.01, ea_kJ_mol=80.0, temperatures_C=[25.0, 40.0, 60.0]
         )
         assert (
-            result.shelf_life_months[0]
-            > result.shelf_life_months[1]
-            > result.shelf_life_months[2]
+            result.shelf_life_months[0] > result.shelf_life_months[1] > result.shelf_life_months[2]
         )
 
     def test_humidity_correction_increases_rate(self):
@@ -208,9 +203,7 @@ class TestAcceleratedStabilityStudy:
         assert r2.rate_constants[0] > r1.rate_constants[0]
 
     def test_humidity_correction_in_notes(self):
-        result = accelerated_stability_study(
-            0.01, ea_kJ_mol=80.0, humidity_correction=1.5
-        )
+        result = accelerated_stability_study(0.01, ea_kJ_mol=80.0, humidity_correction=1.5)
         assert "humidity" in result.notes.lower()
 
     def test_q10_factor_stored(self):

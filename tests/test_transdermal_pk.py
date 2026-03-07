@@ -8,8 +8,8 @@ from omega_pbpk.core.transdermal_pk import (
     simulate_transdermal_pk,
 )
 
-
 # ── Validation ──────────────────────────────────────────────────────────
+
 
 def test_negative_dose_raises():
     with pytest.raises(ValueError, match="dose_mg_cm2"):
@@ -43,9 +43,13 @@ def test_zero_k_sc_raises():
 
 # ── Basic result structure ──────────────────────────────────────────────
 
+
 def _default_result() -> TransdermalPKResult:
     return simulate_transdermal_pk(
-        "TestDrug", dose_mg_cm2=1.0, area_cm2=10.0, t_end_h=24.0,
+        "TestDrug",
+        dose_mg_cm2=1.0,
+        area_cm2=10.0,
+        t_end_h=24.0,
     )
 
 
@@ -83,6 +87,7 @@ def test_concentration_arrays_same_length():
 
 # ── PK metrics ──────────────────────────────────────────────────────────
 
+
 def test_cmax_plasma_positive():
     r = _default_result()
     assert r.cmax_plasma > 0
@@ -115,6 +120,7 @@ def test_skin_to_plasma_ratio_positive():
 
 # ── Area proportionality ───────────────────────────────────────────────
 
+
 def test_larger_area_higher_cmax():
     r1 = simulate_transdermal_pk("D", dose_mg_cm2=1.0, area_cm2=10.0, t_end_h=48.0)
     r2 = simulate_transdermal_pk("D", dose_mg_cm2=1.0, area_cm2=20.0, t_end_h=48.0)
@@ -137,19 +143,29 @@ def test_larger_area_higher_auc():
 
 # ── k_sc effects ────────────────────────────────────────────────────────
 
+
 def test_higher_k_sc_earlier_tmax():
-    r_slow = simulate_transdermal_pk("D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.01, t_end_h=72.0)
-    r_fast = simulate_transdermal_pk("D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.1, t_end_h=72.0)
+    r_slow = simulate_transdermal_pk(
+        "D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.01, t_end_h=72.0
+    )
+    r_fast = simulate_transdermal_pk(
+        "D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.1, t_end_h=72.0
+    )
     assert r_fast.tmax_plasma_h < r_slow.tmax_plasma_h
 
 
 def test_higher_k_sc_higher_cmax():
-    r_slow = simulate_transdermal_pk("D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.01, t_end_h=72.0)
-    r_fast = simulate_transdermal_pk("D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.1, t_end_h=72.0)
+    r_slow = simulate_transdermal_pk(
+        "D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.01, t_end_h=72.0
+    )
+    r_fast = simulate_transdermal_pk(
+        "D", dose_mg_cm2=1.0, area_cm2=10.0, k_sc_per_h=0.1, t_end_h=72.0
+    )
     assert r_fast.cmax_plasma > r_slow.cmax_plasma
 
 
 # ── SC depot depletion ──────────────────────────────────────────────────
+
 
 def test_sc_concentration_decreases():
     r = _default_result()
@@ -162,6 +178,7 @@ def test_plasma_starts_at_zero():
 
 
 # ── compare_formulations ───────────────────────────────────────────────
+
 
 def test_compare_formulations_count():
     forms = [
@@ -191,6 +208,7 @@ def test_compare_formulations_different_cmax():
 
 
 # ── Notes ───────────────────────────────────────────────────────────────
+
 
 def test_notes_is_list():
     r = _default_result()

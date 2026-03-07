@@ -254,7 +254,6 @@ def screen_genotoxicity(compounds: list[dict]) -> list[GenotoxResult]:
     Returns sorted by total_weight descending.
     """
     results = [
-        assess_genotoxicity(c["name"], c["smiles"], c.get("daily_dose_mg", 1.0))
-        for c in compounds
+        assess_genotoxicity(c["name"], c["smiles"], c.get("daily_dose_mg", 1.0)) for c in compounds
     ]
     return sorted(results, key=lambda r: r.total_weight, reverse=True)

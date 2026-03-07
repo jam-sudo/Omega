@@ -124,9 +124,7 @@ def predict_shelf_life(
         If inputs are invalid or order is unsupported.
     """
     if not (0 < degradation_limit_pct < 100):
-        raise ValueError(
-            f"degradation_limit_pct must be in (0, 100), got {degradation_limit_pct}"
-        )
+        raise ValueError(f"degradation_limit_pct must be in (0, 100), got {degradation_limit_pct}")
     if order not in (0, 1):
         raise ValueError(f"order must be 0 or 1, got {order}")
 
@@ -177,9 +175,7 @@ def accelerated_stability_study(
         If humidity_correction < 1.0 or other inputs are invalid.
     """
     if humidity_correction < 1.0:
-        raise ValueError(
-            f"humidity_correction must be >= 1.0, got {humidity_correction}"
-        )
+        raise ValueError(f"humidity_correction must be >= 1.0, got {humidity_correction}")
     if temperatures_C is None:
         temperatures_C = list(_DEFAULT_TEMPERATURES_C)
     if not temperatures_C:
@@ -251,9 +247,7 @@ def q10_extrapolation(
         If t_half_25C_months <= 0 or q10 <= 0.
     """
     if t_half_25C_months <= 0:
-        raise ValueError(
-            f"t_half_25C_months must be > 0, got {t_half_25C_months}"
-        )
+        raise ValueError(f"t_half_25C_months must be > 0, got {t_half_25C_months}")
     if q10 <= 0:
         raise ValueError(f"q10 must be > 0, got {q10}")
 

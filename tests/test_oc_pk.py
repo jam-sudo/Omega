@@ -6,7 +6,6 @@ import pytest
 
 from omega_pbpk.clinical.oc_pk import OCPKResult, inducer_impact, simulate_oc_pk
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

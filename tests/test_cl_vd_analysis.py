@@ -144,7 +144,11 @@ def test_high_cl_fraction_value(result5):
 
 
 def test_dosing_counts_sum_le_n(result5):
-    total = result5.n_once_daily_candidates + result5.n_twice_daily_candidates + result5.n_rapid_clearance
+    total = (
+        result5.n_once_daily_candidates
+        + result5.n_twice_daily_candidates
+        + result5.n_rapid_clearance
+    )
     assert total <= result5.n_compounds
 
 

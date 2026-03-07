@@ -182,14 +182,10 @@ def simulate_enzyme_kinetics(
     """
     valid_types = {"none", "competitive", "uncompetitive", "mixed"}
     if inhibition_type not in valid_types:
-        raise ValueError(
-            f"inhibition_type must be one of {valid_types}, got '{inhibition_type}'"
-        )
+        raise ValueError(f"inhibition_type must be one of {valid_types}, got '{inhibition_type}'")
 
     if inhibition_type != "none" and ki_uM is None:
-        raise ValueError(
-            f"ki_uM must be provided when inhibition_type='{inhibition_type}'"
-        )
+        raise ValueError(f"ki_uM must be provided when inhibition_type='{inhibition_type}'")
 
     if n_points < 2:
         raise ValueError(f"n_points must be >= 2, got {n_points}")
@@ -248,8 +244,7 @@ def simulate_enzyme_kinetics(
                 mixed_inhibition(s, vmax, km, ki_uM, ki_prime, inhibitor_uM)  # type: ignore[arg-type]
             )
         notes = (
-            f"Mixed inhibition: Km_app={km_apparent:.3f} uM, "
-            f"Vmax_app={vmax_apparent:.3f} uM/min."
+            f"Mixed inhibition: Km_app={km_apparent:.3f} uM, Vmax_app={vmax_apparent:.3f} uM/min."
         )
 
     max_rate = max(rates) if rates else 0.0

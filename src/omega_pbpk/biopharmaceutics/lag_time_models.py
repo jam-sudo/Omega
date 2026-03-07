@@ -90,8 +90,7 @@ def calculate_lag_times(
     """
     if formulation_type not in _VALID_FORMULATIONS:
         raise ValueError(
-            f"formulation_type must be one of {_VALID_FORMULATIONS}; "
-            f"got '{formulation_type}'"
+            f"formulation_type must be one of {_VALID_FORMULATIONS}; got '{formulation_type}'"
         )
 
     # Gastric emptying

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.analysis.potency_selectivity import (
@@ -14,7 +12,6 @@ from omega_pbpk.analysis.potency_selectivity import (
     potency_optimization_score,
     selectivity_profile,
 )
-
 
 # ---------------------------------------------------------------------------
 # ligand_efficiency tests
@@ -202,9 +199,7 @@ class TestSelectivityProfile:
 
 class TestPotencyOptimizationScore:
     def test_returns_float_in_0_1(self):
-        score = potency_optimization_score(
-            pIC50=8.0, logP=2.0, mw=350.0, hbd=2, psa=90.0
-        )
+        score = potency_optimization_score(pIC50=8.0, logP=2.0, mw=350.0, hbd=2, psa=90.0)
         assert 0.0 <= score <= 1.0
 
     def test_ideal_compound_scores_high(self):

@@ -38,6 +38,7 @@ _VALID_TISSUES = frozenset(_VOLUME_FRACTIONS.keys())
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PerfusionLimitedPBPKResult:
     """Simulation output from the perfusion-limited PBPK model."""
@@ -56,6 +57,7 @@ class PerfusionLimitedPBPKResult:
 # ---------------------------------------------------------------------------
 # Main simulation function
 # ---------------------------------------------------------------------------
+
 
 def simulate_perfusion_limited_pbpk(
     drug_name: str,
@@ -142,8 +144,7 @@ def simulate_perfusion_limited_pbpk(
     # --- Tissue volumes ---
     # V_i = vd_total * vf_i * kp_i
     tissue_volumes: dict[str, float] = {
-        t: vd_total_L * _VOLUME_FRACTIONS[t] * kp_tissues[t]
-        for t in _VALID_TISSUES
+        t: vd_total_L * _VOLUME_FRACTIONS[t] * kp_tissues[t] for t in _VALID_TISSUES
     }
 
     # --- Compute stable internal dt via CFL condition ---
@@ -217,9 +218,7 @@ def simulate_perfusion_limited_pbpk(
         c_plasma_arr[step + 1] = c_plasma
         for t_name in _VALID_TISSUES:
             v_i = tissue_volumes[t_name]
-            tissue_arr[t_name][step + 1] = (
-                tissue_amounts[t_name] / v_i if v_i > 0 else 0.0
-            )
+            tissue_arr[t_name][step + 1] = tissue_amounts[t_name] / v_i if v_i > 0 else 0.0
 
     # --- PK metrics ---
     c_arr = np.array(c_plasma_arr, dtype=float)

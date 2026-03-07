@@ -9,7 +9,6 @@ from omega_pbpk.clinical.drug_holiday import (
     simulate_drug_holiday,
 )
 
-
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
@@ -47,30 +46,22 @@ def test_invalid_vd_negative():
 
 def test_invalid_dosing_interval_zero():
     with pytest.raises(ValueError, match="dosing_interval_h"):
-        simulate_drug_holiday(
-            "Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, dosing_interval_h=0
-        )
+        simulate_drug_holiday("Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, dosing_interval_h=0)
 
 
 def test_invalid_n_doses_before_zero():
     with pytest.raises(ValueError, match="n_doses_before"):
-        simulate_drug_holiday(
-            "Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, n_doses_before=0
-        )
+        simulate_drug_holiday("Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, n_doses_before=0)
 
 
 def test_invalid_holiday_duration_zero():
     with pytest.raises(ValueError, match="holiday_duration_h"):
-        simulate_drug_holiday(
-            "Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, holiday_duration_h=0
-        )
+        simulate_drug_holiday("Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, holiday_duration_h=0)
 
 
 def test_invalid_n_doses_after_zero():
     with pytest.raises(ValueError, match="n_doses_after"):
-        simulate_drug_holiday(
-            "Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, n_doses_after=0
-        )
+        simulate_drug_holiday("Drug", dose_mg=100, cl_L_per_h=5, vd_L=50, n_doses_after=0)
 
 
 def test_invalid_ka_zero():

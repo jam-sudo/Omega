@@ -52,8 +52,8 @@ def _lognormal_samples_bm(
     rng: random.Random,
 ) -> list[float]:
     """Sample n log-normal values using Box-Muller via stdlib random."""
-    sigma_log = math.sqrt(math.log(1.0 + cv ** 2))
-    mu_log = math.log(mean) - 0.5 * sigma_log ** 2
+    sigma_log = math.sqrt(math.log(1.0 + cv**2))
+    mu_log = math.log(mean) - 0.5 * sigma_log**2
     samples: list[float] = []
     while len(samples) < n:
         u1 = rng.random()
@@ -373,7 +373,7 @@ def _box_muller_lognormal(
     c = 1013904223
     m = 2**32
 
-    state = (seed & 0xFFFFFFFF)
+    state = seed & 0xFFFFFFFF
     samples: list[float] = []
 
     i = 0
@@ -445,7 +445,7 @@ def _simulate_multidose_1cpt(
     concs: list[float] = [0.0] * (n_steps + 1)
 
     # State variables
-    c_gut = 0.0   # mg in gut compartment
+    c_gut = 0.0  # mg in gut compartment
     c_plasma = 0.0  # mg/L in plasma
 
     # Pre-compute dose times

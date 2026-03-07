@@ -1,16 +1,16 @@
 """Tests for Phase 339 — Drug Crystal Habit Effects."""
 
 import pytest
+
 from omega_pbpk.biopharmaceutics.crystal_habit import (
-    CrystalHabitResult,
     calculate_crystal_habit_dissolution,
     compare_crystal_habits,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper: convenience wrapper with small dose for faster simulation
 # ---------------------------------------------------------------------------
+
 
 def _calc(habit: str, particle_size_um: float = 10.0, dose_mg: float = 100.0, **kw):
     return calculate_crystal_habit_dissolution(
@@ -25,6 +25,7 @@ def _calc(habit: str, particle_size_um: float = 10.0, dose_mg: float = 100.0, **
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_habit_raises(self):
@@ -60,6 +61,7 @@ class TestInputValidation:
 # SSA ordering
 # ---------------------------------------------------------------------------
 
+
 class TestSSAOrdering:
     def test_needle_has_highest_ssa(self):
         needle = _calc("needle")
@@ -90,6 +92,7 @@ class TestSSAOrdering:
 # Dissolution ordering (faster dissolution = lower t90)
 # ---------------------------------------------------------------------------
 
+
 class TestDissolutionOrdering:
     def test_needle_fastest_dissolution(self):
         needle = _calc("needle", solubility_mg_mL=2.0)
@@ -113,6 +116,7 @@ class TestDissolutionOrdering:
 # ---------------------------------------------------------------------------
 # Fraction dissolved monotonicity and bounds
 # ---------------------------------------------------------------------------
+
 
 class TestFractionDissolved:
     @pytest.mark.parametrize("habit", ["needle", "plate", "cube", "sphere"])
@@ -141,6 +145,7 @@ class TestFractionDissolved:
 # Dissolution rate
 # ---------------------------------------------------------------------------
 
+
 class TestDissolutionRate:
     @pytest.mark.parametrize("habit", ["needle", "plate", "cube", "sphere"])
     def test_dissolution_rate_positive(self, habit):
@@ -157,6 +162,7 @@ class TestDissolutionRate:
 # Bioavailability factors
 # ---------------------------------------------------------------------------
 
+
 class TestBioavailabilityFactors:
     def test_needle_highest_ba_factor(self):
         results = {h: _calc(h) for h in ("needle", "plate", "cube", "sphere")}
@@ -172,12 +178,12 @@ class TestBioavailabilityFactors:
 # Notes
 # ---------------------------------------------------------------------------
 
+
 class TestNotes:
     @pytest.mark.parametrize("habit", ["needle", "plate", "cube", "sphere"])
     def test_notes_contain_drug_name(self, habit):
         r = calculate_crystal_habit_dissolution(
-            drug_name="Ibuprofen", habit=habit,
-            particle_size_um=20.0, dose_mg=400.0
+            drug_name="Ibuprofen", habit=habit, particle_size_um=20.0, dose_mg=400.0
         )
         assert "Ibuprofen" in r.notes
 
@@ -189,6 +195,7 @@ class TestNotes:
 # ---------------------------------------------------------------------------
 # Dataclass immutability
 # ---------------------------------------------------------------------------
+
 
 class TestDataclass:
     def test_frozen_dataclass(self):
@@ -207,6 +214,7 @@ class TestDataclass:
 # ---------------------------------------------------------------------------
 # compare_crystal_habits
 # ---------------------------------------------------------------------------
+
 
 class TestCompareHabits:
     def test_returns_all_four_habits(self):

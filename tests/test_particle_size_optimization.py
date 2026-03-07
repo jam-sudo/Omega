@@ -5,16 +5,15 @@ from __future__ import annotations
 import pytest
 
 from omega_pbpk.biopharmaceutics.particle_size_optimization import (
-    ParticleSizeResult,
     ParticleSizeOptResult,
-    dissolution_rate,
-    time_to_dissolve,
-    dissolution_profile,
-    optimize_particle_size,
-    biopharmaceutics_classification,
+    ParticleSizeResult,
     _optimize_particle_size_phase450,
+    biopharmaceutics_classification,
+    dissolution_profile,
+    dissolution_rate,
+    optimize_particle_size,
+    time_to_dissolve,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers — Phase 450 new optimize_particle_size API

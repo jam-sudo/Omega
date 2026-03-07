@@ -14,10 +14,10 @@ from omega_pbpk.clinical.ddi_severity import (
     summarize_risk_profile,
 )
 
-
 # ---------------------------------------------------------------------------
 # classify_ddi_severity
 # ---------------------------------------------------------------------------
+
 
 class TestClassifyDdiSeverity:
     def test_returns_dataclass(self):
@@ -102,6 +102,7 @@ class TestClassifyDdiSeverity:
 # recommend_clinical_action
 # ---------------------------------------------------------------------------
 
+
 class TestRecommendClinicalAction:
     def test_negligible_no_action(self):
         rec = recommend_clinical_action("negligible", "DrugA", "DrugB")
@@ -128,6 +129,7 @@ class TestRecommendClinicalAction:
 # ---------------------------------------------------------------------------
 # batch_classify
 # ---------------------------------------------------------------------------
+
 
 class TestBatchClassify:
     def _sample_list(self):
@@ -187,13 +189,14 @@ class TestBatchClassify:
 # summarize_risk_profile
 # ---------------------------------------------------------------------------
 
+
 class TestSummarizeRiskProfile:
     def _mixed_list(self):
         return [
-            {"substrate": "A", "perpetrator": "X", "aucr": 8.0},   # strong
-            {"substrate": "B", "perpetrator": "Y", "aucr": 3.0},   # moderate
-            {"substrate": "C", "perpetrator": "Z", "aucr": 1.5},   # weak
-            {"substrate": "D", "perpetrator": "W", "aucr": 1.1},   # negligible
+            {"substrate": "A", "perpetrator": "X", "aucr": 8.0},  # strong
+            {"substrate": "B", "perpetrator": "Y", "aucr": 3.0},  # moderate
+            {"substrate": "C", "perpetrator": "Z", "aucr": 1.5},  # weak
+            {"substrate": "D", "perpetrator": "W", "aucr": 1.1},  # negligible
         ]
 
     def test_returns_dataclass(self):
@@ -218,19 +221,13 @@ class TestSummarizeRiskProfile:
         assert 0.0 <= result.overall_risk_score <= 1.0
 
     def test_all_negligible_low_score(self):
-        data = [
-            {"substrate": f"Drug{i}", "perpetrator": "X", "aucr": 1.0}
-            for i in range(4)
-        ]
+        data = [{"substrate": f"Drug{i}", "perpetrator": "X", "aucr": 1.0} for i in range(4)]
         result = summarize_risk_profile(data)
         assert result.overall_risk_score == 0.0
         assert result.n_negligible == 4
 
     def test_all_strong_high_score(self):
-        data = [
-            {"substrate": f"Drug{i}", "perpetrator": "X", "aucr": 10.0}
-            for i in range(4)
-        ]
+        data = [{"substrate": f"Drug{i}", "perpetrator": "X", "aucr": 10.0} for i in range(4)]
         result = summarize_risk_profile(data)
         assert result.overall_risk_score == 1.0
         assert result.n_strong == 4

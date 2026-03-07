@@ -17,6 +17,7 @@ VALID_CATS = {"low", "moderate", "high", "very_high"}
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _single_safe_drug() -> list[DrugEntry]:
     return [DrugEntry(name="aspirin_low", drug_class="other")]
 
@@ -24,8 +25,16 @@ def _single_safe_drug() -> list[DrugEntry]:
 def _high_risk_regimen() -> list[DrugEntry]:
     """10 high-risk drugs with major DDIs each."""
     classes = [
-        "anticoagulant", "nsaid", "benzodiazepine", "opioid", "antipsychotic",
-        "digoxin", "insulin", "anticholinergic", "diuretic", "antiepileptic",
+        "anticoagulant",
+        "nsaid",
+        "benzodiazepine",
+        "opioid",
+        "antipsychotic",
+        "digoxin",
+        "insulin",
+        "anticholinergic",
+        "diuretic",
+        "antiepileptic",
     ]
     drugs = []
     for i, cls in enumerate(classes):
@@ -46,6 +55,7 @@ def _high_risk_regimen() -> list[DrugEntry]:
 # Validation tests
 # ---------------------------------------------------------------------------
 
+
 def test_empty_drugs_raises():
     with pytest.raises(ValueError, match="empty"):
         assess_polypharmacy_burden([])
@@ -64,6 +74,7 @@ def test_invalid_age_negative_raises():
 # ---------------------------------------------------------------------------
 # Basic structural tests
 # ---------------------------------------------------------------------------
+
 
 def test_returns_polypharmacy_result():
     result = assess_polypharmacy_burden(_single_safe_drug())
@@ -113,6 +124,7 @@ def test_recommendation_nonempty():
 # High-risk regimen
 # ---------------------------------------------------------------------------
 
+
 def test_high_risk_regimen_high_or_very_high():
     drugs = _high_risk_regimen()
     result = assess_polypharmacy_burden(drugs)
@@ -141,6 +153,7 @@ def test_other_drug_class_not_high_risk():
 # Age effect
 # ---------------------------------------------------------------------------
 
+
 def test_elderly_higher_score_than_young():
     drugs = [
         DrugEntry(name="lorazepam", drug_class="benzodiazepine"),
@@ -161,6 +174,7 @@ def test_age_boundary_65():
 # ---------------------------------------------------------------------------
 # DDI scoring
 # ---------------------------------------------------------------------------
+
 
 def test_ddi_burden_increases_with_more_pairs():
     single_ddi = [
@@ -205,6 +219,7 @@ def test_minor_ddi_lower_than_major():
 # ---------------------------------------------------------------------------
 # Notes field
 # ---------------------------------------------------------------------------
+
 
 def test_notes_contains_total():
     drugs = _single_safe_drug()

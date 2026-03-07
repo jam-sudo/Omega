@@ -80,8 +80,7 @@ def test_concentration_increases_then_decreases():
     """Urine concentration should rise to a peak then fall."""
     times = [0.5, 1.0, 2.0, 5.0, 10.0, 24.0]
     concs = [
-        predict_urine_concentration(DRUG, DOSE, t, CL, VD, fe_urine=FE).c_urine_ng_mL
-        for t in times
+        predict_urine_concentration(DRUG, DOSE, t, CL, VD, fe_urine=FE).c_urine_ng_mL for t in times
     ]
     # Must be non-zero at middle times
     assert max(concs) > 0.0
@@ -124,9 +123,7 @@ def test_dose_linearity_plasma():
 
 def test_above_cutoff_consistent_with_concentration_high():
     """above_cutoff=True when c_urine > cutoff."""
-    r = predict_urine_concentration(
-        DRUG, 500.0, 2.0, CL, VD, fe_urine=FE, cutoff_ng_mL=1.0
-    )
+    r = predict_urine_concentration(DRUG, 500.0, 2.0, CL, VD, fe_urine=FE, cutoff_ng_mL=1.0)
     assert r.above_cutoff is True
     assert r.c_urine_ng_mL > r.cutoff_ng_mL
 
@@ -134,9 +131,7 @@ def test_above_cutoff_consistent_with_concentration_high():
 def test_above_cutoff_consistent_with_concentration_low():
     """above_cutoff=False when c_urine < cutoff."""
     # At t=100h drug is essentially gone
-    r = predict_urine_concentration(
-        DRUG, 10.0, 100.0, CL, VD, fe_urine=FE, cutoff_ng_mL=1e9
-    )
+    r = predict_urine_concentration(DRUG, 10.0, 100.0, CL, VD, fe_urine=FE, cutoff_ng_mL=1e9)
     assert r.above_cutoff is False
     assert r.c_urine_ng_mL <= r.cutoff_ng_mL
 
@@ -226,17 +221,13 @@ def test_cumulative_pct_increases_with_time():
 
 
 def test_detection_window_positive_for_reasonable_dose():
-    r = predict_urine_concentration(
-        DRUG, 500.0, 1.0, CL, VD, fe_urine=FE, cutoff_ng_mL=50.0
-    )
+    r = predict_urine_concentration(DRUG, 500.0, 1.0, CL, VD, fe_urine=FE, cutoff_ng_mL=50.0)
     assert r.detection_window_h > 0.0
 
 
 def test_detection_window_zero_if_never_detected():
     # Tiny dose, huge cutoff
-    r = predict_urine_concentration(
-        DRUG, 0.001, 1.0, CL, VD, fe_urine=FE, cutoff_ng_mL=1e9
-    )
+    r = predict_urine_concentration(DRUG, 0.001, 1.0, CL, VD, fe_urine=FE, cutoff_ng_mL=1e9)
     assert r.detection_window_h == 0.0
 
 
@@ -247,9 +238,7 @@ def test_detection_window_zero_if_never_detected():
 
 def test_creatinine_correction_formula():
     """Creatinine-corrected = c_urine_ng_mL / (creatinine_mg_dL / 100)."""
-    r = predict_urine_concentration(
-        DRUG, DOSE, 2.0, CL, VD, fe_urine=FE, creatinine_mg_dL=100.0
-    )
+    r = predict_urine_concentration(DRUG, DOSE, 2.0, CL, VD, fe_urine=FE, creatinine_mg_dL=100.0)
     expected = r.c_urine_ng_mL / 1.0  # creatinine_mg_dL / 100 = 1.0
     assert r.creatinine_corrected_ng_per_mg_creatinine == pytest.approx(expected, rel=1e-6)
 
@@ -258,7 +247,9 @@ def test_creatinine_correction_scales_inversely():
     """Higher creatinine → lower corrected concentration."""
     r1 = predict_urine_concentration(DRUG, DOSE, 2.0, CL, VD, fe_urine=FE, creatinine_mg_dL=50.0)
     r2 = predict_urine_concentration(DRUG, DOSE, 2.0, CL, VD, fe_urine=FE, creatinine_mg_dL=200.0)
-    assert r1.creatinine_corrected_ng_per_mg_creatinine > r2.creatinine_corrected_ng_per_mg_creatinine
+    assert (
+        r1.creatinine_corrected_ng_per_mg_creatinine > r2.creatinine_corrected_ng_per_mg_creatinine
+    )
 
 
 # ---------------------------------------------------------------------------

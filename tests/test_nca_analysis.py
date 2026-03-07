@@ -10,8 +10,8 @@ from omega_pbpk.clinical.nca_analysis import (
     perform_nca,
 )
 
-
 # ── Helper: generate IV bolus profile ────────────────────────────────
+
 
 def _iv_profile(dose=100.0, cl=10.0, vd=50.0, n_points=20, t_end=24.0):
     """Generate synthetic IV bolus C-t data with known PK parameters."""
@@ -39,6 +39,7 @@ def _oral_profile(dose=100.0, ka=1.5, ke=0.1, vd=50.0, n_points=25, t_end=48.0):
 
 
 # ── Basic IV NCA ─────────────────────────────────────────────────────
+
 
 class TestIVBolus:
     def test_returns_nca_result(self):
@@ -91,6 +92,7 @@ class TestIVBolus:
 
 # ── AUC tests ────────────────────────────────────────────────────────
 
+
 class TestAUC:
     def test_auc_0_inf_greater_than_auc_0_t(self):
         t, c = _iv_profile()
@@ -116,6 +118,7 @@ class TestAUC:
 
 # ── Oral profile ─────────────────────────────────────────────────────
 
+
 class TestOral:
     def test_oral_tmax_positive(self):
         t, c = _oral_profile()
@@ -135,6 +138,7 @@ class TestOral:
 
 # ── MRT ──────────────────────────────────────────────────────────────
 
+
 class TestMRT:
     def test_mrt_positive(self):
         t, c = _iv_profile()
@@ -151,6 +155,7 @@ class TestMRT:
 
 
 # ── Validation ───────────────────────────────────────────────────────
+
 
 class TestValidation:
     def test_mismatched_lengths_raises(self):
@@ -175,6 +180,7 @@ class TestValidation:
 
 
 # ── compare_nca ──────────────────────────────────────────────────────
+
 
 class TestCompare:
     def test_returns_correct_count(self):

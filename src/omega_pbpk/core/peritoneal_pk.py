@@ -197,10 +197,7 @@ def simulate_peritoneal_pk(
 
         # Forward Euler
         dc_peri = -k_peri_out * c_peri
-        dc_sys = (
-            k_peritoneal_abs_per_h * c_peri * peritoneal_volume_L / vd_sys_L
-            - ke * c_sys
-        )
+        dc_sys = k_peritoneal_abs_per_h * c_peri * peritoneal_volume_L / vd_sys_L - ke * c_sys
 
         c_peri = max(0.0, c_peri + dc_peri * dt_h)
         c_sys = max(0.0, c_sys + dc_sys * dt_h)

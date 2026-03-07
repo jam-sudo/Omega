@@ -222,13 +222,11 @@ def geriatric_pk_scaling(
         )
     if dist_lower == "lipophilic":
         notes.append(
-            f"Lipophilic drug: Vd increased by fat fraction "
-            f"({fat_frac:.2f} vs 0.15 normal)"
+            f"Lipophilic drug: Vd increased by fat fraction ({fat_frac:.2f} vs 0.15 normal)"
         )
     elif dist_lower == "hydrophilic":
         notes.append(
-            f"Hydrophilic drug: Vd reduced by muscle fraction "
-            f"({muscle_frac:.2f} vs 0.40 normal)"
+            f"Hydrophilic drug: Vd reduced by muscle fraction ({muscle_frac:.2f} vs 0.40 normal)"
         )
     if scr_mg_dL > 1.5:
         notes.append(
@@ -240,18 +238,16 @@ def geriatric_pk_scaling(
         dose_recommendation = "Standard adult dose may be appropriate; monitor for toxicity"
     elif dose_adj >= 0.75:
         dose_recommendation = (
-            f"Reduce dose by ~{(1-dose_adj)*100:.0f}% "
-            f"(dose adjustment factor: {dose_adj:.2f})"
+            f"Reduce dose by ~{(1 - dose_adj) * 100:.0f}% (dose adjustment factor: {dose_adj:.2f})"
         )
     elif dose_adj >= 0.5:
         dose_recommendation = (
-            f"Significant dose reduction required (~{(1-dose_adj)*100:.0f}%); "
+            f"Significant dose reduction required (~{(1 - dose_adj) * 100:.0f}%); "
             f"consider extended dosing interval"
         )
     else:
         dose_recommendation = (
-            f"Major dose reduction required ({dose_adj:.2f}x normal); "
-            f"specialist review recommended"
+            f"Major dose reduction required ({dose_adj:.2f}x normal); specialist review recommended"
         )
 
     # Add age group note

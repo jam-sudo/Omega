@@ -13,7 +13,6 @@ from omega_pbpk.clinical.population_pk_sim import (
     summarize_population,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic structure and reproducibility
 # ---------------------------------------------------------------------------
@@ -110,7 +109,7 @@ class TestBSVVariability:
         r = simulate_population(500, 5.0, 50.0, 100.0, omega_cl=omega, omega_vd=0.0, seed=99)
         gcv = _gcv(r.cl_values)
         # GCV = sqrt(exp(omega²) - 1) ≈ omega for small omega
-        expected_gcv = math.sqrt(math.exp(omega ** 2) - 1.0)
+        expected_gcv = math.sqrt(math.exp(omega**2) - 1.0)
         assert abs(gcv - expected_gcv) < 0.05  # within 5 percentage points
 
 
@@ -163,7 +162,9 @@ class TestPercentileOrdering:
 class TestOralRoute:
     def test_oral_gives_cmax_after_time_zero(self):
         """For oral dosing, Cmax should NOT occur at t=0 (absorption phase)."""
-        r = simulate_population(5, 5.0, 50.0, 100.0, route="oral", omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, seed=0)
+        r = simulate_population(
+            5, 5.0, 50.0, 100.0, route="oral", omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, seed=0
+        )
         for i, profile in enumerate(r.concentration_profiles):
             cmax_idx = profile.index(max(profile))
             assert cmax_idx > 0, f"Subject {i}: Cmax at t=0 for oral route"
@@ -219,7 +220,15 @@ class TestSummarizePopulation:
     def test_required_keys_present(self):
         r = simulate_population(20, 5.0, 50.0, 100.0, seed=0)
         summary = summarize_population(r)
-        for key in ("cmax_p5", "cmax_p50", "cmax_p95", "auc_p5", "auc_p50", "auc_p95", "n_subjects"):
+        for key in (
+            "cmax_p5",
+            "cmax_p50",
+            "cmax_p95",
+            "auc_p5",
+            "auc_p50",
+            "auc_p95",
+            "n_subjects",
+        ):
             assert key in summary
 
     def test_p5_lt_p50_lt_p95_in_summary(self):

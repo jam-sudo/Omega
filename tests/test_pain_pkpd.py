@@ -6,10 +6,10 @@ import pytest
 
 from omega_pbpk.clinical.pain_pkpd import PainPKPDResult, simulate_pain_pkpd
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def morphine_iv() -> PainPKPDResult:
@@ -37,6 +37,7 @@ def morphine_oral() -> PainPKPDResult:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_dose_zero():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -82,9 +83,7 @@ def test_invalid_tolerance_k_negative():
 
 def test_invalid_tolerance_max_below_one():
     with pytest.raises(ValueError, match="tolerance_max"):
-        simulate_pain_pkpd(
-            "morphine", dose_mg=10.0, cl_L_per_h=4.0, vd_L=200.0, tolerance_max=0.5
-        )
+        simulate_pain_pkpd("morphine", dose_mg=10.0, cl_L_per_h=4.0, vd_L=200.0, tolerance_max=0.5)
 
 
 def test_invalid_route():
@@ -103,6 +102,7 @@ def test_invalid_f_oral_zero():
 # IV-specific checks
 # ---------------------------------------------------------------------------
 
+
 def test_iv_initial_plasma_concentration(morphine_iv: PainPKPDResult):
     expected = 10.0 / 200.0  # dose / vd
     assert abs(morphine_iv.c_plasma_mg_L[0] - expected) < 1e-9
@@ -119,6 +119,7 @@ def test_auc_positive(morphine_iv: PainPKPDResult):
 # ---------------------------------------------------------------------------
 # Effect compartment and PD
 # ---------------------------------------------------------------------------
+
 
 def test_effect_compartment_rises(morphine_iv: PainPKPDResult):
     """Effect compartment should have values > 0 after equilibration."""
@@ -158,6 +159,7 @@ def test_duration_effective_nonnegative(morphine_iv: PainPKPDResult):
 # Array length consistency
 # ---------------------------------------------------------------------------
 
+
 def test_array_lengths_consistent(morphine_iv: PainPKPDResult):
     n = len(morphine_iv.times_h)
     assert len(morphine_iv.c_plasma_mg_L) == n
@@ -171,6 +173,7 @@ def test_array_lengths_consistent(morphine_iv: PainPKPDResult):
 # Dose linearity (approx)
 # ---------------------------------------------------------------------------
 
+
 def test_dose_linearity_cmax():
     r1 = simulate_pain_pkpd("morphine", dose_mg=10.0, cl_L_per_h=4.0, vd_L=200.0)
     r2 = simulate_pain_pkpd("morphine", dose_mg=20.0, cl_L_per_h=4.0, vd_L=200.0)
@@ -183,6 +186,7 @@ def test_dose_linearity_cmax():
 # Drug name stored
 # ---------------------------------------------------------------------------
 
+
 def test_drug_name_stored():
     r = simulate_pain_pkpd("oxycodone", dose_mg=5.0, cl_L_per_h=3.0, vd_L=100.0)
     assert r.drug_name == "oxycodone"
@@ -191,6 +195,7 @@ def test_drug_name_stored():
 # ---------------------------------------------------------------------------
 # Oral route works
 # ---------------------------------------------------------------------------
+
 
 def test_oral_route_cmax_positive(morphine_oral: PainPKPDResult):
     assert morphine_oral.cmax_plasma > 0.0

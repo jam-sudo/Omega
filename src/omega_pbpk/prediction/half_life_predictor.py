@@ -23,8 +23,8 @@ class HalfLifeResult:
     t_half_h: float
     cl_L_per_h_per_kg: float
     vd_L_per_kg: float
-    vd_L: float            # for 70 kg
-    cl_L_per_h: float      # for 70 kg
+    vd_L: float  # for 70 kg
+    cl_L_per_h: float  # for 70 kg
     half_life_class: str
     confidence: str
     notes: str

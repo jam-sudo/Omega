@@ -151,9 +151,7 @@ def simulate_desensitization(
     Returns:
         DesensitizationResult with full time-course and summary metrics.
     """
-    _validate_inputs(
-        dose_mg, cl_L_per_h, vd_L, ec50_mg_L, k_desens_per_h, k_resens_per_h, n_doses
-    )
+    _validate_inputs(dose_mg, cl_L_per_h, vd_L, ec50_mg_L, k_desens_per_h, k_resens_per_h, n_doses)
 
     ke = cl_L_per_h / vd_L  # elimination rate constant (1/h)
     t_half = math.log(2.0) / ke
@@ -167,9 +165,9 @@ def simulate_desensitization(
     dose_times_h = [i * interval_h for i in range(n_doses)]
 
     # State variables
-    a_depot = 0.0   # absorption depot (mg)
-    c = 0.0         # plasma concentration (mg/L)
-    r = 1.0         # active receptor fraction (0–1)
+    a_depot = 0.0  # absorption depot (mg)
+    c = 0.0  # plasma concentration (mg/L)
+    r = 1.0  # active receptor fraction (0–1)
 
     times = np.zeros(n_steps + 1)
     arr_c = np.zeros(n_steps + 1)

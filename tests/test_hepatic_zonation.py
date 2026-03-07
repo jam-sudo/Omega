@@ -16,8 +16,6 @@ Coverage:
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.hepatic_zonation import (
@@ -80,7 +78,8 @@ class TestFractionMetabolized:
     def test_equal_clint_equal_fractions(self):
         """When zone1 == zone3 CLint, fractions should reflect zone mass distribution."""
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=1.0,
             clint_zone3_mL_per_min_per_g=1.0,
         )
@@ -91,7 +90,8 @@ class TestFractionMetabolized:
 
     def test_higher_zone3_clint_higher_zone3_fraction(self):
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=0.5,
             clint_zone3_mL_per_min_per_g=4.0,
         )
@@ -99,7 +99,8 @@ class TestFractionMetabolized:
 
     def test_higher_zone1_clint_higher_zone1_fraction(self):
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=5.0,
             clint_zone3_mL_per_min_per_g=0.1,
         )
@@ -109,7 +110,8 @@ class TestFractionMetabolized:
 
     def test_all_fractions_non_negative(self):
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=0.1,
             clint_zone3_mL_per_min_per_g=3.0,
         )
@@ -120,7 +122,8 @@ class TestFractionMetabolized:
     def test_zero_clint_distributes_uniformly(self):
         """Zero CLint: no metabolism, fractions fall back to zone mass fractions."""
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=0.0,
             clint_zone3_mL_per_min_per_g=0.0,
         )
@@ -137,7 +140,8 @@ class TestFractionMetabolized:
 class TestPKMetrics:
     def test_extraction_ratio_in_bounds(self):
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=5.0,
             clint_zone3_mL_per_min_per_g=10.0,
         )
@@ -157,7 +161,8 @@ class TestPKMetrics:
 
     def test_zone3_burden_ratio_definition(self):
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=1.0,
             clint_zone3_mL_per_min_per_g=2.0,
         )
@@ -200,7 +205,8 @@ class TestHepatotoxicityRisk:
     def test_low_risk_default(self):
         """Default low CLint ratio → low risk."""
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=1.0,
             clint_zone3_mL_per_min_per_g=1.0,
             reactive_metabolite=False,
@@ -211,7 +217,8 @@ class TestHepatotoxicityRisk:
         """zone3_burden_ratio > 3 AND reactive_metabolite → high."""
         # Very high zone3 CLint will push burden ratio > 3
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=0.1,
             clint_zone3_mL_per_min_per_g=5.0,
             reactive_metabolite=True,
@@ -221,7 +228,8 @@ class TestHepatotoxicityRisk:
     def test_moderate_risk_high_burden_no_reactive(self):
         """zone3_burden_ratio > 2 WITHOUT reactive metabolite → moderate."""
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=0.1,
             clint_zone3_mL_per_min_per_g=3.0,
             reactive_metabolite=False,
@@ -231,7 +239,8 @@ class TestHepatotoxicityRisk:
     def test_moderate_risk_reactive_low_burden(self):
         """reactive_metabolite AND zone3_burden_ratio > 1 → at least moderate."""
         result = simulate_hepatic_zonation(
-            _DRUG, _DOSE,
+            _DRUG,
+            _DOSE,
             clint_zone1_mL_per_min_per_g=1.0,
             clint_zone3_mL_per_min_per_g=2.0,
             reactive_metabolite=True,
@@ -241,7 +250,8 @@ class TestHepatotoxicityRisk:
     def test_risk_in_valid_set(self):
         for clint3 in [0.5, 2.0, 5.0, 10.0]:
             result = simulate_hepatic_zonation(
-                _DRUG, _DOSE,
+                _DRUG,
+                _DOSE,
                 clint_zone1_mL_per_min_per_g=0.5,
                 clint_zone3_mL_per_min_per_g=clint3,
                 reactive_metabolite=True,
@@ -259,20 +269,24 @@ class TestCompareEnzymeInducers:
     def test_returns_correct_length(self):
         fold_vals = [1, 2, 5, 10]
         results = compare_enzyme_inducers(
-            _DRUG, _DOSE, fu_plasma=0.5, clint_z1_baseline=1.0,
+            _DRUG,
+            _DOSE,
+            fu_plasma=0.5,
+            clint_z1_baseline=1.0,
             fold_induction_z3_values=fold_vals,
         )
         assert len(results) == len(fold_vals)
 
     def test_returns_default_length(self):
-        results = compare_enzyme_inducers(
-            _DRUG, _DOSE, fu_plasma=0.5, clint_z1_baseline=1.0
-        )
+        results = compare_enzyme_inducers(_DRUG, _DOSE, fu_plasma=0.5, clint_z1_baseline=1.0)
         assert len(results) == 4  # default [1, 2, 5, 10]
 
     def test_sorted_descending(self):
         results = compare_enzyme_inducers(
-            _DRUG, _DOSE, fu_plasma=0.5, clint_z1_baseline=1.0,
+            _DRUG,
+            _DOSE,
+            fu_plasma=0.5,
+            clint_z1_baseline=1.0,
             fold_induction_z3_values=[1, 2, 5, 10],
         )
         ratios = [r.zone3_burden_ratio for r in results]
@@ -280,7 +294,10 @@ class TestCompareEnzymeInducers:
 
     def test_higher_fold_induction_higher_burden(self):
         results = compare_enzyme_inducers(
-            _DRUG, _DOSE, fu_plasma=0.5, clint_z1_baseline=1.0,
+            _DRUG,
+            _DOSE,
+            fu_plasma=0.5,
+            clint_z1_baseline=1.0,
             fold_induction_z3_values=[1, 10],
         )
         # After sorting descending, first result should have higher burden
@@ -288,13 +305,19 @@ class TestCompareEnzymeInducers:
 
     def test_all_results_are_hepatic_zonation_result(self):
         results = compare_enzyme_inducers(
-            _DRUG, _DOSE, fu_plasma=0.5, clint_z1_baseline=0.5,
+            _DRUG,
+            _DOSE,
+            fu_plasma=0.5,
+            clint_z1_baseline=0.5,
         )
         assert all(isinstance(r, HepaticZonationResult) for r in results)
 
     def test_single_fold_value(self):
         results = compare_enzyme_inducers(
-            _DRUG, _DOSE, fu_plasma=0.5, clint_z1_baseline=1.0,
+            _DRUG,
+            _DOSE,
+            fu_plasma=0.5,
+            clint_z1_baseline=1.0,
             fold_induction_z3_values=[3],
         )
         assert len(results) == 1

@@ -3,6 +3,7 @@
 Round continuous pharmacokinetic-optimised doses to available tablet/capsule
 strengths.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,8 +18,8 @@ class DoseRoundingResult:
     rounded_dose_mg: float
     tablet_strength_mg: float
     n_tablets: int
-    dose_error_pct: float        # (rounded - target) / target * 100
-    regimen_description: str     # e.g. "2 x 50 mg tablets"
+    dose_error_pct: float  # (rounded - target) / target * 100
+    regimen_description: str  # e.g. "2 x 50 mg tablets"
     within_10pct: bool
     notes: str
 
@@ -68,10 +69,7 @@ def round_dose(
             candidate = strength * n
             err = abs(candidate - target_dose_mg) / target_dose_mg
             if err < best_err or (
-                prefer_fewer_tablets
-                and err == best_err
-                and best is not None
-                and n < best[1]
+                prefer_fewer_tablets and err == best_err and best is not None and n < best[1]
             ):
                 best_err = err
                 best = (strength, n, candidate)

@@ -11,7 +11,6 @@ from omega_pbpk.core.skin_layers import (
     simulate_skin_layers,
 )
 
-
 # ── potts_guy_psc ─────────────────────────────────────────────────────
 
 

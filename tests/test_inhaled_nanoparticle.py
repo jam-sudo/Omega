@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.inhaled_nanoparticle import (
@@ -12,7 +10,6 @@ from omega_pbpk.core.inhaled_nanoparticle import (
     compare_particle_sizes,
     simulate_inhaled_nanoparticle_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Input validation tests
@@ -65,12 +62,22 @@ class TestInputValidation:
 class TestDepositionFractions:
     def test_fractions_sum_to_one_or_less_small_particle(self):
         dep = calculate_lung_deposition("Drug", 1.0, 10.0)
-        total = dep["f_oropharyngeal"] + dep["f_tracheobronchial"] + dep["f_alveolar"] + dep["f_exhaled"]
+        total = (
+            dep["f_oropharyngeal"]
+            + dep["f_tracheobronchial"]
+            + dep["f_alveolar"]
+            + dep["f_exhaled"]
+        )
         assert abs(total - 1.0) < 1e-9
 
     def test_fractions_sum_to_one_or_less_large_particle(self):
         dep = calculate_lung_deposition("Drug", 10.0, 10.0)
-        total = dep["f_oropharyngeal"] + dep["f_tracheobronchial"] + dep["f_alveolar"] + dep["f_exhaled"]
+        total = (
+            dep["f_oropharyngeal"]
+            + dep["f_tracheobronchial"]
+            + dep["f_alveolar"]
+            + dep["f_exhaled"]
+        )
         assert abs(total - 1.0) < 1e-9
 
     def test_all_fractions_non_negative(self):

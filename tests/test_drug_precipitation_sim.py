@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.biopharmaceutics.drug_precipitation_sim import (
@@ -13,10 +12,10 @@ from omega_pbpk.biopharmaceutics.drug_precipitation_sim import (
     supersaturation_maintenance_time,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(
     S=4.0,
@@ -41,6 +40,7 @@ def _run(
 # ---------------------------------------------------------------------------
 # Return type and structure
 # ---------------------------------------------------------------------------
+
 
 class TestPrecipitationSimResultStructure:
     def test_returns_dataclass(self):
@@ -75,6 +75,7 @@ class TestPrecipitationSimResultStructure:
 # Initial conditions
 # ---------------------------------------------------------------------------
 
+
 class TestInitialConditions:
     def test_initial_c_dissolved_equals_S_times_ceq(self):
         r = _run(S=3.0, c_eq=0.2)
@@ -92,6 +93,7 @@ class TestInitialConditions:
 # ---------------------------------------------------------------------------
 # Precipitation dynamics
 # ---------------------------------------------------------------------------
+
 
 class TestPrecipitationDynamics:
     def test_c_dissolved_decreases_over_time(self):
@@ -127,6 +129,7 @@ class TestPrecipitationDynamics:
 # No precipitation at S=1
 # ---------------------------------------------------------------------------
 
+
 class TestNoSupersaturation:
     def test_S_equals_1_no_precipitation(self):
         r = _run(S=1.0, c_eq=0.1, k=0.5)
@@ -140,12 +143,15 @@ class TestNoSupersaturation:
 
     def test_S_equals_1_no_precipitation_note(self):
         r = _run(S=1.0)
-        assert "No precipitation" in r.notes or r.fraction_precipitated == pytest.approx(0.0, abs=1e-9)
+        assert "No precipitation" in r.notes or r.fraction_precipitated == pytest.approx(
+            0.0, abs=1e-9
+        )
 
 
 # ---------------------------------------------------------------------------
 # fraction_precipitated
 # ---------------------------------------------------------------------------
+
 
 class TestFractionPrecipitated:
     def test_fraction_in_0_1(self):
@@ -164,6 +170,7 @@ class TestFractionPrecipitated:
 # ---------------------------------------------------------------------------
 # supersaturation_maintenance_time
 # ---------------------------------------------------------------------------
+
 
 class TestSupersaturationMaintenanceTime:
     def test_returns_float(self):
@@ -196,6 +203,7 @@ class TestSupersaturationMaintenanceTime:
 # estimate_absorption_loss
 # ---------------------------------------------------------------------------
 
+
 class TestEstimateAbsorptionLoss:
     def test_returns_float(self):
         r = _run()
@@ -225,6 +233,7 @@ class TestEstimateAbsorptionLoss:
 # ---------------------------------------------------------------------------
 # compare_polymer_inhibition
 # ---------------------------------------------------------------------------
+
 
 class TestComparePolymerInhibition:
     def test_returns_list(self):
@@ -266,6 +275,7 @@ class TestComparePolymerInhibition:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_negative_solubility_raises(self):

@@ -172,7 +172,7 @@ def _combined_aucr(substrate: dict, perpetrators: list[dict]) -> float:
         # Combined R via additive inhibition: R_combined = 1 + sum(R_j - 1)
         combined_r = 1.0
         for perp in perpetrators:
-            combined_r += (_r_value(perp, cyp) - 1.0)
+            combined_r += _r_value(perp, cyp) - 1.0
 
         denom = fm / combined_r + (1.0 - fm)
         if denom <= 0.0:
@@ -320,9 +320,7 @@ def simulate_sequential_ddi(
 
     for name in order:
         if name not in perp_by_name:
-            raise ValueError(
-                f"Perpetrator '{name}' in order not found in perpetrators list."
-            )
+            raise ValueError(f"Perpetrator '{name}' in order not found in perpetrators list.")
 
     aucr_progression: list[float] = []
     current_perpetrators: list[dict] = []

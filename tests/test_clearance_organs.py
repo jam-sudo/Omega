@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.clearance_organs import (
@@ -12,7 +11,6 @@ from omega_pbpk.core.clearance_organs import (
     simulate_multiorgancl,
     total_clearance,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

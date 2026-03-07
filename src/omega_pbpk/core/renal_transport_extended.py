@@ -263,8 +263,15 @@ def simulate_renal_transport(
     RenalTransportResult
     """
     _validate_simulate_inputs(
-        dose_mg, cl_hepatic_L_per_h, vd_L, gfr_mL_per_min, fu_plasma,
-        vmax_OAT, km_OAT, vmax_OCT, km_OCT,
+        dose_mg,
+        cl_hepatic_L_per_h,
+        vd_L,
+        gfr_mL_per_min,
+        fu_plasma,
+        vmax_OAT,
+        km_OAT,
+        vmax_OCT,
+        km_OCT,
     )
 
     # GFR in L/h
@@ -456,8 +463,5 @@ def drug_drug_renal_interaction(
         "inhibitor": inhibitor.get("drug_name", "unknown"),
         "substrate": substrate.get("drug_name", "unknown"),
         "i_kidney_mg_L": round(i_kidney, 6),
-        "notes": (
-            f"I_kidney={i_kidney:.4f} mg/L; "
-            f"Ki_OAT={ki_oat} mg/L; Ki_OCT={ki_oct} mg/L."
-        ),
+        "notes": (f"I_kidney={i_kidney:.4f} mg/L; Ki_OAT={ki_oat} mg/L; Ki_OCT={ki_oct} mg/L."),
     }

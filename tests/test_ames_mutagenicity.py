@@ -1,4 +1,5 @@
 """Tests for Phase 182 — ames_mutagenicity module."""
+
 import dataclasses
 
 import pytest
@@ -28,6 +29,7 @@ HYDRAZINE = "NN"
 # ---------------------------------------------------------------------------
 # Basic prediction
 # ---------------------------------------------------------------------------
+
 
 def test_nitrobenzene_positive():
     # nitro_aromatic weight=3 → alert_score=3, score = 3*15 + logP*2
@@ -77,6 +79,7 @@ def test_hydrazine_alert():
 # Alert counts and structure
 # ---------------------------------------------------------------------------
 
+
 def test_all_alerts_present_in_result():
     result = predict_ames_mutagenicity("test", NITROBENZENE, 123.1, 1.85)
     assert len(result.alerts) == 10  # one per ALERTS entry
@@ -104,6 +107,7 @@ def test_result_dataclass_frozen():
 # Score boundaries
 # ---------------------------------------------------------------------------
 
+
 def test_borderline_prediction():
     # Need score 30-60: one alert weight=2 → 2*15=30 + logP*2
     # Use epoxide SMILES "C1OC1" with logP=0 → score=30 (borderline boundary)
@@ -124,6 +128,7 @@ def test_mutagenicity_score_capped_at_100():
 # Mitigation
 # ---------------------------------------------------------------------------
 
+
 def test_nitro_aromatic_mitigation():
     result = predict_ames_mutagenicity("nitrobenzene", NITROBENZENE, 123.1, 1.85)
     # nitro_aromatic alert fires → mitigation should mention bioisostere or nitro
@@ -138,6 +143,7 @@ def test_no_alerts_mitigation():
 # ---------------------------------------------------------------------------
 # screen_ames
 # ---------------------------------------------------------------------------
+
 
 def test_screen_ames_sorted_descending():
     compounds = [
@@ -167,6 +173,7 @@ def test_screen_ames_empty_list():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_empty_smiles_raises():
     with pytest.raises(ValueError, match="smiles"):

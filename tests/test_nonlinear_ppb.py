@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.nonlinear_ppb import (
-    NonlinearPPBPKResult,
-    NonlinearPPBResult,
     fu_concentration_profile,
     nonlinear_fu,
     simulate_nonlinear_ppb_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # nonlinear_fu — validation
@@ -148,20 +144,23 @@ def test_profile_empty_raises():
 
 def test_pk_invalid_dose():
     with pytest.raises(ValueError, match="dose_mg"):
-        simulate_nonlinear_ppb_pk(dose_mg=0.0, vd_L=50.0, cl_L_per_h=5.0,
-                                  bmax_mg_L=2.0, kd_mg_L=1.0)
+        simulate_nonlinear_ppb_pk(
+            dose_mg=0.0, vd_L=50.0, cl_L_per_h=5.0, bmax_mg_L=2.0, kd_mg_L=1.0
+        )
 
 
 def test_pk_invalid_vd():
     with pytest.raises(ValueError, match="vd_L"):
-        simulate_nonlinear_ppb_pk(dose_mg=100.0, vd_L=0.0, cl_L_per_h=5.0,
-                                  bmax_mg_L=2.0, kd_mg_L=1.0)
+        simulate_nonlinear_ppb_pk(
+            dose_mg=100.0, vd_L=0.0, cl_L_per_h=5.0, bmax_mg_L=2.0, kd_mg_L=1.0
+        )
 
 
 def test_pk_invalid_cl():
     with pytest.raises(ValueError, match="cl_L_per_h"):
-        simulate_nonlinear_ppb_pk(dose_mg=100.0, vd_L=50.0, cl_L_per_h=-1.0,
-                                  bmax_mg_L=2.0, kd_mg_L=1.0)
+        simulate_nonlinear_ppb_pk(
+            dose_mg=100.0, vd_L=50.0, cl_L_per_h=-1.0, bmax_mg_L=2.0, kd_mg_L=1.0
+        )
 
 
 # ---------------------------------------------------------------------------

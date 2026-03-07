@@ -1,6 +1,7 @@
 """Tests for Monte Carlo population PK simulation (Phase 186)."""
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.population_simulation import (
@@ -9,10 +10,10 @@ from omega_pbpk.clinical.population_simulation import (
     summarize_population_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic smoke tests
 # ---------------------------------------------------------------------------
+
 
 def test_returns_population_sim_result():
     result = simulate_population_pk(
@@ -43,6 +44,7 @@ def test_dose_mg_stored():
 # ---------------------------------------------------------------------------
 # IV route — zero BSV analytical checks
 # ---------------------------------------------------------------------------
+
 
 def test_iv_zero_bsv_cmax_equals_dose_over_vd():
     result = simulate_population_pk(
@@ -95,6 +97,7 @@ def test_iv_zero_bsv_cv_near_zero():
 # Oral route
 # ---------------------------------------------------------------------------
 
+
 def test_oral_route_stored():
     result = simulate_population_pk("Drug", 100.0, 5.0, 50.0, route="oral")
     assert result.route == "oral"
@@ -102,20 +105,43 @@ def test_oral_route_stored():
 
 def test_oral_auc_scales_with_bioavailability():
     r1 = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="oral", f_oral=1.0,
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=10
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="oral",
+        f_oral=1.0,
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=10,
     )
     r2 = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="oral", f_oral=0.5,
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=10
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="oral",
+        f_oral=0.5,
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=10,
     )
     assert math.isclose(r1.auc_mean / r2.auc_mean, 2.0, rel_tol=1e-6)
 
 
 def test_oral_cmax_positive():
     result = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="oral",
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=10
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="oral",
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=10,
     )
     assert result.cmax_mean > 0
 
@@ -124,26 +150,55 @@ def test_oral_cmax_positive():
 # Linear PK: 2x dose → 2x Cmax mean
 # ---------------------------------------------------------------------------
 
+
 def test_linear_pk_dose_proportionality_iv():
     r1 = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="iv",
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=20
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="iv",
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=20,
     )
     r2 = simulate_population_pk(
-        "Drug", 200.0, 5.0, 50.0, route="iv",
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=20
+        "Drug",
+        200.0,
+        5.0,
+        50.0,
+        route="iv",
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=20,
     )
     assert math.isclose(r2.cmax_mean / r1.cmax_mean, 2.0, rel_tol=1e-6)
 
 
 def test_linear_pk_dose_proportionality_oral_auc():
     r1 = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="oral",
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=20
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="oral",
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=20,
     )
     r2 = simulate_population_pk(
-        "Drug", 200.0, 5.0, 50.0, route="oral",
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=20
+        "Drug",
+        200.0,
+        5.0,
+        50.0,
+        route="oral",
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=20,
     )
     assert math.isclose(r2.auc_mean / r1.auc_mean, 2.0, rel_tol=1e-6)
 
@@ -152,13 +207,21 @@ def test_linear_pk_dose_proportionality_oral_auc():
 # BSV / variability
 # ---------------------------------------------------------------------------
 
+
 def test_bsv_cv_approximately_omega_cl(seed=42):
     """For large n, CL CV% ≈ omega_cl * 100 (log-normal approx for small omega)."""
     omega_cl = 0.3
     result = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="iv",
-        omega_cl=omega_cl, omega_vd=0.0, omega_ka=0.0,
-        n_subjects=1000, seed=seed,
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="iv",
+        omega_cl=omega_cl,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=1000,
+        seed=seed,
     )
     # AUC CV is driven by CL BSV for IV; accept wide tolerance
     assert 15 < result.auc_cv_pct < 45  # roughly 30% ± 15
@@ -166,12 +229,28 @@ def test_bsv_cv_approximately_omega_cl(seed=42):
 
 def test_higher_omega_increases_cv():
     r1 = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="iv",
-        omega_cl=0.1, omega_vd=0.0, omega_ka=0.0, n_subjects=500, seed=0
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="iv",
+        omega_cl=0.1,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=500,
+        seed=0,
     )
     r2 = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="iv",
-        omega_cl=0.5, omega_vd=0.0, omega_ka=0.0, n_subjects=500, seed=0
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="iv",
+        omega_cl=0.5,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=500,
+        seed=0,
     )
     assert r2.auc_cv_pct > r1.auc_cv_pct
 
@@ -179,6 +258,7 @@ def test_higher_omega_increases_cv():
 # ---------------------------------------------------------------------------
 # Seed reproducibility
 # ---------------------------------------------------------------------------
+
 
 def test_same_seed_same_result():
     r1 = simulate_population_pk("Drug", 100.0, 5.0, 50.0, seed=123)
@@ -197,6 +277,7 @@ def test_different_seed_different_result():
 # n_subjects
 # ---------------------------------------------------------------------------
 
+
 def test_n_subjects_stored():
     result = simulate_population_pk("Drug", 100.0, 5.0, 50.0, n_subjects=250)
     assert result.n_subjects == 250
@@ -212,6 +293,7 @@ def test_single_subject():
 # Percentile ordering
 # ---------------------------------------------------------------------------
 
+
 def test_percentile_ordering_cmax():
     result = simulate_population_pk("Drug", 100.0, 5.0, 50.0, n_subjects=200)
     assert result.cmax_p5 <= result.cmax_mean <= result.cmax_p95
@@ -226,11 +308,19 @@ def test_percentile_ordering_auc():
 # t_half consistency
 # ---------------------------------------------------------------------------
 
+
 def test_t_half_mean_consistent_with_typical():
     """t_half ≈ 0.693 * Vd / CL with zero BSV."""
     result = simulate_population_pk(
-        "Drug", 100.0, 5.0, 50.0, route="iv",
-        omega_cl=0.0, omega_vd=0.0, omega_ka=0.0, n_subjects=10
+        "Drug",
+        100.0,
+        5.0,
+        50.0,
+        route="iv",
+        omega_cl=0.0,
+        omega_vd=0.0,
+        omega_ka=0.0,
+        n_subjects=10,
     )
     expected = 0.693 * 50.0 / 5.0
     assert math.isclose(result.t_half_mean_h, expected, rel_tol=1e-6)
@@ -239,6 +329,7 @@ def test_t_half_mean_consistent_with_typical():
 # ---------------------------------------------------------------------------
 # summarize_population_pk
 # ---------------------------------------------------------------------------
+
 
 def test_summarize_basic():
     subjects = [{"cmax": 2.0, "auc": 20.0}] * 10
@@ -262,6 +353,7 @@ def test_summarize_empty_raises():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_n_subjects_zero():
     with pytest.raises(ValueError, match="n_subjects"):

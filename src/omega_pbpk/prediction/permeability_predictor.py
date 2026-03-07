@@ -110,7 +110,7 @@ def predict_papp_caco2(
     log_papp = 0.6 * logP - 0.01 * mw - 0.3 * hbd - 0.02 * psa + 0.005 * hba - 5.5
     # Clamp logPapp to [-9, -4] => Papp in [1e-9, 1e-4]
     log_papp = max(-9.0, min(-4.0, log_papp))
-    papp = 10.0 ** log_papp
+    papp = 10.0**log_papp
 
     category = _papp_category(papp)
     bcs_class = permeability_classification(papp)
@@ -157,7 +157,7 @@ def predict_peff_intestinal(papp_cm_s: float) -> float:
     if papp_cm_s <= 0:
         raise ValueError("papp_cm_s must be > 0")
     log_peff = 0.98 * math.log10(papp_cm_s) + 0.15
-    return 10.0 ** log_peff
+    return 10.0**log_peff
 
 
 def mdck_to_caco2(papp_mdck_cm_s: float) -> float:
@@ -178,7 +178,7 @@ def mdck_to_caco2(papp_mdck_cm_s: float) -> float:
     if papp_mdck_cm_s <= 0:
         raise ValueError("papp_mdck_cm_s must be > 0")
     log_caco2 = 0.85 * math.log10(papp_mdck_cm_s) + 0.3
-    return 10.0 ** log_caco2
+    return 10.0**log_caco2
 
 
 def permeability_classification(papp_cm_s: float) -> str:
@@ -232,7 +232,7 @@ def predict_cnss_permeability(
         raise ValueError("psa must be >= 0")
 
     log_pcns = 0.4 * logP - 0.008 * mw - 0.2 * hbd - 0.003 * psa - 3.0
-    return 10.0 ** log_pcns
+    return 10.0**log_pcns
 
 
 def _papp_category(papp_cm_s: float) -> str:
@@ -247,6 +247,7 @@ def _papp_category(papp_cm_s: float) -> str:
 # ---------------------------------------------------------------------------
 # Legacy API (Phase 175 — retained for backward compatibility)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class _LegacyPermeabilityResult:
@@ -315,7 +316,7 @@ def predict_permeability(
     log10_papp = -5.0 - 0.015 * psa - 0.003 * mw + 0.4 * logP + charge_effect
     # Clamp to physical range: -8 to -4 in log10
     log10_papp = max(-8.0, min(-4.0, log10_papp))
-    papp_cm_s = 10.0 ** log10_papp
+    papp_cm_s = 10.0**log10_papp
 
     # Convert to x10^-6 cm/s (standard Caco-2 units) for classification
     papp_1e6 = papp_cm_s * 1e6

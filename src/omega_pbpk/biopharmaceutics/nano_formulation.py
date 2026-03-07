@@ -147,15 +147,11 @@ def simulate_nano_formulation(
     if dose_mg <= 0:
         raise ValueError(f"dose_mg must be positive, got {dose_mg}")
     if nano_type not in _VALID_NANO_TYPES:
-        raise ValueError(
-            f"nano_type must be one of {_VALID_NANO_TYPES}, got '{nano_type}'"
-        )
+        raise ValueError(f"nano_type must be one of {_VALID_NANO_TYPES}, got '{nano_type}'")
     if particle_size_nm <= 0:
         raise ValueError(f"particle_size_nm must be positive, got {particle_size_nm}")
     if not (0 < drug_loading_pct <= 100):
-        raise ValueError(
-            f"drug_loading_pct must be in (0, 100], got {drug_loading_pct}"
-        )
+        raise ValueError(f"drug_loading_pct must be in (0, 100], got {drug_loading_pct}")
     if cl_L_per_h <= 0:
         raise ValueError(f"cl_L_per_h must be positive, got {cl_L_per_h}")
     if vd_L <= 0:
@@ -277,9 +273,7 @@ def size_release_relationship(
     if any(s <= 0 for s in sizes_nm):
         raise ValueError("All particle sizes must be positive")
     if nano_type not in _VALID_NANO_TYPES:
-        raise ValueError(
-            f"nano_type must be one of {_VALID_NANO_TYPES}, got '{nano_type}'"
-        )
+        raise ValueError(f"nano_type must be one of {_VALID_NANO_TYPES}, got '{nano_type}'")
     if dose_mg <= 0:
         raise ValueError(f"dose_mg must be positive, got {dose_mg}")
     if cl_L_per_h <= 0:

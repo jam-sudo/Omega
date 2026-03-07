@@ -13,7 +13,6 @@ from omega_pbpk.prediction.lipophilicity_distribution import (
     predict_vss,
 )
 
-
 # ---------------------------------------------------------------------------
 # logD_at_pH tests
 # ---------------------------------------------------------------------------

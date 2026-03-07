@@ -25,8 +25,8 @@ _ZONE3_MASS_FRACTION = 0.45  # centrilobular zone fraction
 
 _DEFAULT_HEPATIC_BLOOD_FLOW = 90.0  # L/h
 _DEFAULT_FU_PLASMA = 0.5
-_DEFAULT_CLINT_ZONE1 = 0.5   # mL/min/g liver
-_DEFAULT_CLINT_ZONE3 = 2.0   # mL/min/g liver
+_DEFAULT_CLINT_ZONE1 = 0.5  # mL/min/g liver
+_DEFAULT_CLINT_ZONE3 = 2.0  # mL/min/g liver
 _DEFAULT_LIVER_MASS_G = 1500.0
 
 _REACTIVE_METABOLITE_ZONE3_FRACTION_HIGH = 0.7
@@ -199,9 +199,7 @@ def simulate_hepatic_zonation(
     # Hepatotoxicity risk classification
     if zone3_burden_ratio > 3.0 and reactive_metabolite:
         hepatotoxicity_risk = "high"
-    elif zone3_burden_ratio > 2.0 or (
-        reactive_metabolite and zone3_burden_ratio > 1.0
-    ):
+    elif zone3_burden_ratio > 2.0 or (reactive_metabolite and zone3_burden_ratio > 1.0):
         hepatotoxicity_risk = "moderate"
     else:
         hepatotoxicity_risk = "low"

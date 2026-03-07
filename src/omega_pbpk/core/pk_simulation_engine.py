@@ -361,9 +361,11 @@ def simulate_pk(
         d_gut = -ka_per_h * gut
 
         # Central compartment
-        oral_input = (ka_per_h * gut / vd_L) if route == "oral" or any(
-            e["route"] == "oral" for e in schedule
-        ) else 0.0
+        oral_input = (
+            (ka_per_h * gut / vd_L)
+            if route == "oral" or any(e["route"] == "oral" for e in schedule)
+            else 0.0
+        )
         if n_compartments == 1:
             d_c1 = -(ke) * c1 + oral_input
             d_a2 = 0.0

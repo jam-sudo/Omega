@@ -86,9 +86,7 @@ def simulate_precipitation(
     if dt_h <= 0:
         raise ValueError("dt_h must be > 0")
     if polymer not in _POLYMER_FACTORS:
-        raise ValueError(
-            f"Unknown polymer '{polymer}'. Choose from {list(_POLYMER_FACTORS)}"
-        )
+        raise ValueError(f"Unknown polymer '{polymer}'. Choose from {list(_POLYMER_FACTORS)}")
 
     c_eq = equilibrium_solubility_mg_mL
     k = precipitation_rate_per_h * _POLYMER_FACTORS[polymer]
@@ -134,9 +132,7 @@ def simulate_precipitation(
     if initial_supersaturation <= 1.0:
         notes_parts.append("No precipitation: initial supersaturation <= 1.")
     if polymer != "no_polymer":
-        notes_parts.append(
-            f"Polymer {polymer} applied: effective k_precip = {k:.4f}/h."
-        )
+        notes_parts.append(f"Polymer {polymer} applied: effective k_precip = {k:.4f}/h.")
     notes = " ".join(notes_parts) if notes_parts else "Simulation completed normally."
 
     return PrecipitationSimResult(
@@ -290,9 +286,7 @@ def compare_polymer_inhibition(
 
     for p in polymers:
         if p not in _POLYMER_FACTORS:
-            raise ValueError(
-                f"Unknown polymer '{p}'. Choose from {list(_POLYMER_FACTORS)}"
-            )
+            raise ValueError(f"Unknown polymer '{p}'. Choose from {list(_POLYMER_FACTORS)}")
 
     results = []
     for polymer in polymers:

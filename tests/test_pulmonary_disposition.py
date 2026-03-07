@@ -11,7 +11,6 @@ from omega_pbpk.core.pulmonary_disposition import (
     simulate_inhaled_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # simulate_inhaled_pk — basic behaviour
 # ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ class SensitivityRankResult:
 
     param_names: list[str] = field(default_factory=list)
     sensitivity_indices: list[float] = field(default_factory=list)  # same order as param_names
-    ranked_params: list[str] = field(default_factory=list)          # sorted descending
+    ranked_params: list[str] = field(default_factory=list)  # sorted descending
     ranked_indices: list[float] = field(default_factory=list)
     output_key: str = ""
     base_output: float = 0.0
@@ -78,9 +78,7 @@ def rank_parameters(
     # Validate param_ranges keys are in base_params
     for key in param_ranges:
         if key not in base_params:
-            raise ValueError(
-                f"param_ranges key '{key}' not found in base_params."
-            )
+            raise ValueError(f"param_ranges key '{key}' not found in base_params.")
 
     # Evaluate base output
     base_result = pk_function(dict(base_params))
@@ -109,9 +107,7 @@ def rank_parameters(
             hi = base_val * 1.20
 
         if lo >= hi:
-            raise ValueError(
-                f"For param '{param}', low ({lo}) must be < high ({hi})."
-            )
+            raise ValueError(f"For param '{param}', low ({lo}) must be < high ({hi}).")
 
         # Sample n_samples points across [lo, hi]
         step = (hi - lo) / (n_samples - 1) if n_samples > 1 else 0.0

@@ -18,8 +18,8 @@ class ProteinBindingResult:
 
     drug_name: str
     c_total_mg_L: float
-    kon: float               # L/(mg·h)
-    koff: float              # 1/h
+    kon: float  # L/(mg·h)
+    koff: float  # 1/h
     protein_conc_mg_L: float
     times_h: list[float] = field(default_factory=list)
     c_free_mg_L: list[float] = field(default_factory=list)

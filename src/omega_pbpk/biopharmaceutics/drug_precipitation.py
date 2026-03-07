@@ -234,7 +234,7 @@ def supersaturation_stability(
     results: list[dict] = []
 
     for sr in supersaturation_ratios:
-        k_eff = k_precip_base_per_h * sr ** 2
+        k_eff = k_precip_base_per_h * sr**2
         initial_conc = sr * solubility_mg_mL
 
         res = simulate_precipitation(
@@ -259,5 +259,3 @@ def supersaturation_stability(
         )
 
     return results
-
-

@@ -149,7 +149,7 @@ def predict_adme_summary(
     absorption_notes = "; ".join(absorption_notes_parts)
 
     # Lipinski Rule of Five
-    lipinski_pass = (mw <= 500.0 and logP <= 5.0 and n_hbd <= 5 and n_hba <= 10)
+    lipinski_pass = mw <= 500.0 and logP <= 5.0 and n_hbd <= 5 and n_hba <= 10
 
     # =========================================================================
     # DISTRIBUTION

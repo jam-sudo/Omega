@@ -66,9 +66,7 @@ def _compute_auc_trap(times: list[float], concentrations: list[float]) -> float:
     return auc
 
 
-def _estimate_half_life(
-    times: list[float], concentrations: list[float], cmax: float
-) -> float:
+def _estimate_half_life(times: list[float], concentrations: list[float], cmax: float) -> float:
     """Estimate terminal half-life from the log-linear tail.
 
     Finds the point where concentration drops below cmax/2 and uses
@@ -213,10 +211,7 @@ def simulate_two_pore_pk(
     auc = _compute_auc_trap(times, c_central_list)
     t_half = _estimate_half_life(times, c_central_list, cmax)
 
-    notes = (
-        f"Two-pore IV bolus; perm_factor={perm_factor:.4f}; "
-        f"ke={ke:.4f}/day; n_steps={n_steps}"
-    )
+    notes = f"Two-pore IV bolus; perm_factor={perm_factor:.4f}; ke={ke:.4f}/day; n_steps={n_steps}"
 
     return TwoPorePKResult(
         drug_name=drug_name,

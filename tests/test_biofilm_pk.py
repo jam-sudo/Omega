@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.biofilm_pk import (
@@ -10,7 +9,6 @@ from omega_pbpk.core.biofilm_pk import (
     assess_biofilm_eradication,
     simulate_biofilm_pk,
 )
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

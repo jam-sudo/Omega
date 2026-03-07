@@ -142,18 +142,18 @@ def test_feasibility_values():
 
 def test_feasibility_feasible_for_high_kp():
     # Very high logP → very high Kp → small area needed
-    r = predict_transdermal_flux("HiLogP", logP=5.0, mw=150.0,
-                                 target_dose_mg_per_day=1.0,
-                                 patch_concentration_mg_mL=100.0)
+    r = predict_transdermal_flux(
+        "HiLogP", logP=5.0, mw=150.0, target_dose_mg_per_day=1.0, patch_concentration_mg_mL=100.0
+    )
     assert r.patch_area_cm2_needed < 50.0
     assert r.feasibility == "feasible"
 
 
 def test_feasibility_infeasible_for_low_kp():
     # Very low Kp → huge area needed
-    r = predict_transdermal_flux("LoLogP", logP=-3.0, mw=600.0,
-                                 target_dose_mg_per_day=100.0,
-                                 patch_concentration_mg_mL=1.0)
+    r = predict_transdermal_flux(
+        "LoLogP", logP=-3.0, mw=600.0, target_dose_mg_per_day=100.0, patch_concentration_mg_mL=1.0
+    )
     assert r.feasibility == "infeasible"
 
 

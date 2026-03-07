@@ -3,6 +3,7 @@
 Non-Compartmental Analysis (NCA) of PK concentration-time data
 for IV and oral routes.
 """
+
 from __future__ import annotations
 
 import math
@@ -201,7 +202,7 @@ def calculate_nca(
     # AUMC_last = integral of t*C from 0 to t_last (linear trapezoid)
     aumc_last = _trapezoid_first_moment(times_valid, concs_valid)
     # Extrapolation: AUMC_extra = t_last*C_last/lambda_z + C_last/lambda_z^2
-    aumc_extra = t_last * c_last / lambda_z + c_last / (lambda_z ** 2)
+    aumc_extra = t_last * c_last / lambda_z + c_last / (lambda_z**2)
     aumc_total = aumc_last + aumc_extra
 
     # --- MRT ---
@@ -229,9 +230,7 @@ def calculate_nca(
     if route == "oral" and f_for_oral is None:
         notes_parts.append("CL reported as apparent CL/F (bioavailability unknown).")
     if pct_extrapolated > 20.0:
-        notes_parts.append(
-            f"High extrapolation: {pct_extrapolated:.1f}% of AUC_inf extrapolated."
-        )
+        notes_parts.append(f"High extrapolation: {pct_extrapolated:.1f}% of AUC_inf extrapolated.")
     if r2_term < 0.95:
         notes_parts.append(
             f"Poor terminal fit: R2={r2_term:.3f}. Lambda_z estimate may be unreliable."

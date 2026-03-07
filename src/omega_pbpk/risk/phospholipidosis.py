@@ -32,7 +32,7 @@ class PhospholipidosisResult:
     daily_dose_mg: float
     cad_score: float
     dipl_score: float
-    risk_category: str      # 'low' / 'moderate' / 'high'
+    risk_category: str  # 'low' / 'moderate' / 'high'
     ec50_lysosome_nM: float
     notes: str
 

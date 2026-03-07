@@ -133,8 +133,7 @@ def solubility_vs_ph(
     step = (ph_max - ph_min) / (n_points - 1)
     ph_values = [ph_min + i * step for i in range(n_points)]
     solubilities = [
-        _hh_solubility(ph, pka, drug_type, intrinsic_solubility_mg_mL)
-        for ph in ph_values
+        _hh_solubility(ph, pka, drug_type, intrinsic_solubility_mg_mL) for ph in ph_values
     ]
 
     return {"ph_values": ph_values, "solubility_mg_mL": solubilities}
@@ -174,9 +173,7 @@ def optimal_ph_for_solubility(
             f"intrinsic_solubility_mg_mL must be > 0, got {intrinsic_solubility_mg_mL}"
         )
     if target_solubility_mg_mL <= 0:
-        raise ValueError(
-            f"target_solubility_mg_mL must be > 0, got {target_solubility_mg_mL}"
-        )
+        raise ValueError(f"target_solubility_mg_mL must be > 0, got {target_solubility_mg_mL}")
     if mw <= 0:
         raise ValueError(f"mw must be > 0, got {mw}")
 
@@ -190,8 +187,7 @@ def optimal_ph_for_solubility(
     n = int(round((_PH_MAX - _PH_MIN) / _STEP)) + 1
     ph_values = [_PH_MIN + i * _STEP for i in range(n)]
     solubilities = [
-        _hh_solubility(ph, pka, drug_type, intrinsic_solubility_mg_mL)
-        for ph in ph_values
+        _hh_solubility(ph, pka, drug_type, intrinsic_solubility_mg_mL) for ph in ph_values
     ]
 
     max_sol = max(solubilities)
@@ -295,9 +291,7 @@ def predict_stability_ph(
 
     ph_min, ph_max = stability_range
     if ph_min >= ph_max:
-        raise ValueError(
-            f"stability_range[0] must be < stability_range[1], got {stability_range}"
-        )
+        raise ValueError(f"stability_range[0] must be < stability_range[1], got {stability_range}")
 
     in_range = ph_min <= optimal_ph <= ph_max
     stability_concern = not in_range

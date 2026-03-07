@@ -70,7 +70,7 @@ def lag_time_analytical(
 
     # Convert thickness from µm to cm
     thickness_cm = membrane_thickness_um * 1e-4
-    return (thickness_cm ** 2) / (6.0 * diffusion_coeff_cm2_h)
+    return (thickness_cm**2) / (6.0 * diffusion_coeff_cm2_h)
 
 
 def steady_state_flux(
@@ -239,9 +239,7 @@ def simulate_franz_diffusion(
     lag_t = lag_time_analytical(membrane_thickness_um, diffusion_coeff_cm2_h)
 
     # Estimate Papp from post-lag fluxes
-    post_lag_fluxes = [
-        flux_list[i] for i, t in enumerate(times) if t > lag_t
-    ]
+    post_lag_fluxes = [flux_list[i] for i, t in enumerate(times) if t > lag_t]
     if post_lag_fluxes:
         mean_post_lag_flux = sum(post_lag_fluxes) / len(post_lag_fluxes)
         papp = calculate_permeability_coefficient(mean_post_lag_flux, initial_donor_conc)

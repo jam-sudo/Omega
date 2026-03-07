@@ -8,7 +8,6 @@ from omega_pbpk.biopharmaceutics.dissolution_absorption import (
     simulate_dissolution_absorption,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic functionality
 # ---------------------------------------------------------------------------

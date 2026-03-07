@@ -10,7 +10,6 @@ from omega_pbpk.prediction.permeability_ph import (
     ph_permeability_profile,
 )
 
-
 # ---------------------------------------------------------------------------
 # fraction_unionized
 # ---------------------------------------------------------------------------

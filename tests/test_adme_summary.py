@@ -74,11 +74,25 @@ class TestADMESummaryType:
     def test_has_all_fields(self):
         result = predict_adme_summary(**CAFFEINE_LIKE)
         fields = [
-            "drug_name", "mw", "logP", "psa", "n_hbd", "n_hba",
-            "bcs_class", "lipinski_pass", "absorption_class", "absorption_notes",
-            "vd_estimated_L_per_kg", "ppb_pct", "cns_penetration",
-            "primary_cyp", "excretion_route", "t_half_estimated_h",
-            "risk_flags", "overall_adme_score", "notes",
+            "drug_name",
+            "mw",
+            "logP",
+            "psa",
+            "n_hbd",
+            "n_hba",
+            "bcs_class",
+            "lipinski_pass",
+            "absorption_class",
+            "absorption_notes",
+            "vd_estimated_L_per_kg",
+            "ppb_pct",
+            "cns_penetration",
+            "primary_cyp",
+            "excretion_route",
+            "t_half_estimated_h",
+            "risk_flags",
+            "overall_adme_score",
+            "notes",
         ]
         for f in fields:
             assert hasattr(result, f), f"Missing field: {f}"
@@ -146,8 +160,14 @@ class TestLipinski:
         assert result.lipinski_pass is False
 
     def test_borderline_mw_500_pass(self):
-        params = {**CAFFEINE_LIKE, "drug_name": "Border", "mw": 500.0, "logP": 4.0,
-                  "n_hbd": 4, "n_hba": 9}
+        params = {
+            **CAFFEINE_LIKE,
+            "drug_name": "Border",
+            "mw": 500.0,
+            "logP": 4.0,
+            "n_hbd": 4,
+            "n_hba": 9,
+        }
         result = predict_adme_summary(**params)
         assert result.lipinski_pass is True
 
@@ -173,9 +193,14 @@ class TestDistribution:
         # logP=2, PSA=50, MW=300 → should penetrate CNS
         params = dict(
             drug_name="CNSDrug",
-            mw=300.0, logP=2.0, psa=50.0,
-            n_hbd=1, n_hba=3, pka=8.0,
-            molecule_type="base", fu_plasma=0.2,
+            mw=300.0,
+            logP=2.0,
+            psa=50.0,
+            n_hbd=1,
+            n_hba=3,
+            pka=8.0,
+            molecule_type="base",
+            fu_plasma=0.2,
         )
         result = predict_adme_summary(**params)
         assert result.cns_penetration is True
@@ -206,9 +231,14 @@ class TestMetabolismExcretion:
     def test_acid_cyp2c9(self):
         params = dict(
             drug_name="Acid",
-            mw=250.0, logP=1.0, psa=60.0,
-            n_hbd=1, n_hba=3, pka=4.0,
-            molecule_type="acid", fu_plasma=0.2,
+            mw=250.0,
+            logP=1.0,
+            psa=60.0,
+            n_hbd=1,
+            n_hba=3,
+            pka=4.0,
+            molecule_type="acid",
+            fu_plasma=0.2,
         )
         result = predict_adme_summary(**params)
         assert result.primary_cyp == "CYP2C9"
@@ -216,9 +246,14 @@ class TestMetabolismExcretion:
     def test_basic_amine_cyp2d6(self):
         params = dict(
             drug_name="Base",
-            mw=250.0, logP=2.0, psa=40.0,
-            n_hbd=1, n_hba=3, pka=9.0,
-            molecule_type="base", fu_plasma=0.3,
+            mw=250.0,
+            logP=2.0,
+            psa=40.0,
+            n_hbd=1,
+            n_hba=3,
+            pka=9.0,
+            molecule_type="base",
+            fu_plasma=0.3,
         )
         result = predict_adme_summary(**params)
         assert result.primary_cyp == "CYP2D6"
@@ -252,9 +287,14 @@ class TestRiskFlags:
         # Very lipophilic + CNS active
         params = dict(
             drug_name="NarrowTI",
-            mw=350.0, logP=5.5, psa=50.0,
-            n_hbd=1, n_hba=3, pka=8.0,
-            molecule_type="base", fu_plasma=0.01,
+            mw=350.0,
+            logP=5.5,
+            psa=50.0,
+            n_hbd=1,
+            n_hba=3,
+            pka=8.0,
+            molecule_type="base",
+            fu_plasma=0.01,
         )
         result = predict_adme_summary(**params)
         assert "narrow_TI_risk" in result.risk_flags

@@ -15,6 +15,7 @@ from omega_pbpk.biopharmaceutics.dissolution_media_effect import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _sim(**kw) -> DissolutionMediaResult:
     defaults = dict(
         drug_name="TestDrug",
@@ -33,6 +34,7 @@ def _sim(**kw) -> DissolutionMediaResult:
 # ---------------------------------------------------------------------------
 # Return type and basic structure
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_dissolution_media_result(self):
@@ -74,6 +76,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # Physics / monotonicity
 # ---------------------------------------------------------------------------
+
 
 class TestPhysics:
     def test_pct_dissolved_non_decreasing(self):
@@ -120,6 +123,7 @@ class TestPhysics:
 # Milestone times
 # ---------------------------------------------------------------------------
 
+
 class TestMilestoneTimes:
     def test_t50_none_when_not_reached(self):
         # Very large dose, low solubility — unlikely to hit 50 %
@@ -145,6 +149,7 @@ class TestMilestoneTimes:
 # ---------------------------------------------------------------------------
 # Validation / error handling
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_empty_drug_name_raises(self):
@@ -191,6 +196,7 @@ class TestValidation:
 # ---------------------------------------------------------------------------
 # compare_media
 # ---------------------------------------------------------------------------
+
 
 class TestCompareMedia:
     def test_returns_dict(self):

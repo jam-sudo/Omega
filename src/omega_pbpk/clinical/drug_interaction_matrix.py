@@ -112,15 +112,11 @@ def _validate_drug(drug: dict[str, Any], index: int) -> None:
     required = {"name", "cyp_substrates", "cyp_inhibitors", "cyp_inducers", "c_max_uM", "fm"}
     missing = required - set(drug.keys())
     if missing:
-        raise ValueError(
-            f"Drug at index {index} is missing required keys: {missing}"
-        )
+        raise ValueError(f"Drug at index {index} is missing required keys: {missing}")
     if not isinstance(drug["name"], str) or not drug["name"].strip():
         raise ValueError(f"Drug at index {index} has an empty or non-string 'name'.")
     if drug["c_max_uM"] < 0:
-        raise ValueError(
-            f"Drug '{drug['name']}': c_max_uM must be ≥ 0, got {drug['c_max_uM']}."
-        )
+        raise ValueError(f"Drug '{drug['name']}': c_max_uM must be ≥ 0, got {drug['c_max_uM']}.")
     if drug["fm"] and not math.isclose(sum(drug["fm"].values()), 1.0, abs_tol=0.05):
         raise ValueError(
             f"Drug '{drug['name']}': fm values should sum to ~1.0, "

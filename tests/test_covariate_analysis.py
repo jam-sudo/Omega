@@ -17,16 +17,12 @@ from omega_pbpk.analysis.covariate_analysis import (
 
 SUBJECTS_WEIGHT = [
     {"subject": i + 1, "weight_kg": w, "age": 40, "sex": "M", "cl": cl, "vd": 50.0}
-    for i, (w, cl) in enumerate(
-        [(50, 3.5), (60, 4.0), (70, 4.8), (80, 5.5), (90, 6.2), (100, 7.0)]
-    )
+    for i, (w, cl) in enumerate([(50, 3.5), (60, 4.0), (70, 4.8), (80, 5.5), (90, 6.2), (100, 7.0)])
 ]
 
 SUBJECTS_AGE = [
     {"subject": i + 1, "weight_kg": 70, "age": a, "sex": "M", "cl": cl, "vd": 50.0}
-    for i, (a, cl) in enumerate(
-        [(20, 6.5), (30, 5.8), (40, 5.2), (50, 4.5), (60, 3.8), (70, 3.2)]
-    )
+    for i, (a, cl) in enumerate([(20, 6.5), (30, 5.8), (40, 5.2), (50, 4.5), (60, 3.8), (70, 3.2)])
 ]
 
 SUBJECTS_SEX = [
@@ -43,6 +39,7 @@ SUBJECTS_SEX = [
 # Dataclass structure
 # ---------------------------------------------------------------------------
 
+
 class TestCovariateAnalysisResultStructure:
     def test_is_frozen_dataclass(self):
         res = analyze_covariate_effect(SUBJECTS_WEIGHT, "cl", "weight_kg")
@@ -52,10 +49,15 @@ class TestCovariateAnalysisResultStructure:
     def test_required_fields_present(self):
         res = analyze_covariate_effect(SUBJECTS_WEIGHT, "cl", "weight_kg")
         for field in (
-            "pk_param", "covariate", "n_subjects",
-            "beta_exponent", "r_squared",
-            "mean_pk_low", "mean_pk_high",
-            "pk_change_75_vs_25_pct", "notes",
+            "pk_param",
+            "covariate",
+            "n_subjects",
+            "beta_exponent",
+            "r_squared",
+            "mean_pk_low",
+            "mean_pk_high",
+            "pk_change_75_vs_25_pct",
+            "notes",
         ):
             assert hasattr(res, field), f"Missing field: {field}"
 
@@ -75,6 +77,7 @@ class TestCovariateAnalysisResultStructure:
 # ---------------------------------------------------------------------------
 # Continuous covariate (weight_kg, age)
 # ---------------------------------------------------------------------------
+
 
 class TestContinuousCovariate:
     def test_beta_exponent_is_float(self):
@@ -122,6 +125,7 @@ class TestContinuousCovariate:
 # Categorical covariate (sex)
 # ---------------------------------------------------------------------------
 
+
 class TestCategoricalCovariate:
     def test_beta_exponent_nan_for_sex(self):
         res = analyze_covariate_effect(SUBJECTS_SEX, "cl", "sex")
@@ -151,6 +155,7 @@ class TestCategoricalCovariate:
 # Input validation
 # ---------------------------------------------------------------------------
 
+
 class TestInputValidationAnalysis:
     def test_empty_pk_data_raises(self):
         with pytest.raises(ValueError):
@@ -177,9 +182,7 @@ class TestInputValidationAnalysis:
             analyze_covariate_effect(SUBJECTS_WEIGHT, "cl", "nonexistent_cov")
 
     def test_invalid_sex_value_raises(self):
-        bad_data = [
-            {**rec, "sex": "X"} for rec in SUBJECTS_SEX
-        ]
+        bad_data = [{**rec, "sex": "X"} for rec in SUBJECTS_SEX]
         with pytest.raises(ValueError):
             analyze_covariate_effect(bad_data, "cl", "sex")
 
@@ -199,6 +202,7 @@ class TestInputValidationAnalysis:
 # dose_by_covariate
 # ---------------------------------------------------------------------------
 
+
 class TestDoseByCovariate:
     def test_returns_list_of_dicts(self):
         result = dose_by_covariate(SUBJECTS_WEIGHT, "cl", "weight_kg", 50.0, 100.0)
@@ -212,8 +216,13 @@ class TestDoseByCovariate:
     def test_required_keys_present(self):
         result = dose_by_covariate(SUBJECTS_WEIGHT, "cl", "weight_kg", 50.0, 100.0)
         for rec in result:
-            for key in ("subject", "covariate_value", "individual_pk",
-                        "population_pk", "recommended_dose_mg"):
+            for key in (
+                "subject",
+                "covariate_value",
+                "individual_pk",
+                "population_pk",
+                "recommended_dose_mg",
+            ):
                 assert key in rec
 
     def test_higher_cl_lower_dose(self):

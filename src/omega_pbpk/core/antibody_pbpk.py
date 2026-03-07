@@ -86,10 +86,10 @@ def _estimate_half_life(times: np.ndarray, conc: np.ndarray) -> float:
     n_pts = len(t_fit)
     sum_t = np.sum(t_fit)
     sum_lnc = np.sum(ln_c)
-    sum_t2 = np.sum(t_fit ** 2)
+    sum_t2 = np.sum(t_fit**2)
     sum_t_lnc = np.sum(t_fit * ln_c)
 
-    denom = n_pts * sum_t2 - sum_t ** 2
+    denom = n_pts * sum_t2 - sum_t**2
     if abs(denom) < 1e-30:
         return float("nan")
 
@@ -211,9 +211,12 @@ def simulate_antibody_pk(
             # Convert central conc to nM for TMDD math
             cc_nM = cc[i] * 1e6 / mw_kDa
 
-            dr = (ksyn - kdeg * r_nM[i]
-                  - kon_per_nM_per_day * cc_nM * r_nM[i]
-                  + koff_per_day * rc_nM[i])
+            dr = (
+                ksyn
+                - kdeg * r_nM[i]
+                - kon_per_nM_per_day * cc_nM * r_nM[i]
+                + koff_per_day * rc_nM[i]
+            )
             drc = kon_per_nM_per_day * cc_nM * r_nM[i] - (koff_per_day + kint_per_day) * rc_nM[i]
 
             r_nM[i + 1] = max(0.0, r_nM[i] + dr * dt)
@@ -223,8 +226,13 @@ def simulate_antibody_pk(
             tmdd_loss_mg_per_day = kint_per_day * rc_nM[i] * mw_kDa / 1e6 * vc
 
         # Central compartment ODE
-        dcc = (sc_input - cl_eff * cc[i] - k12_per_day * vc * cc[i]
-               + k21_per_day * vt * ct[i] - tmdd_loss_mg_per_day) / vc
+        dcc = (
+            sc_input
+            - cl_eff * cc[i]
+            - k12_per_day * vc * cc[i]
+            + k21_per_day * vt * ct[i]
+            - tmdd_loss_mg_per_day
+        ) / vc
         cc[i + 1] = max(0.0, cc[i] + dcc * dt)
 
         # Tissue compartment ODE

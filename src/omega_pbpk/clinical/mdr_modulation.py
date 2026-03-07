@@ -65,6 +65,7 @@ class MDRResult:
 
 # ── internal solver ─────────────────────────────────────────────────────────
 
+
 def _run_euler(
     dose_mg: float,
     cl_L_per_h: float,
@@ -96,14 +97,9 @@ def _run_euler(
 
         if i < n_steps:
             dc_plasma = (
-                -ke * c_plasma
-                - k_in_per_h * c_plasma
-                + (k_out_per_h + effective_efflux) * c_intra
+                -ke * c_plasma - k_in_per_h * c_plasma + (k_out_per_h + effective_efflux) * c_intra
             )
-            dc_intra = (
-                k_in_per_h * c_plasma
-                - (k_out_per_h + effective_efflux) * c_intra
-            )
+            dc_intra = k_in_per_h * c_plasma - (k_out_per_h + effective_efflux) * c_intra
             c_plasma = max(0.0, c_plasma + dc_plasma * dt)
             c_intra = max(0.0, c_intra + dc_intra * dt)
 
@@ -111,6 +107,7 @@ def _run_euler(
 
 
 # ── validation ──────────────────────────────────────────────────────────────
+
 
 def _validate_common(
     dose_mg: float,
@@ -141,6 +138,7 @@ def _validate_common(
 
 
 # ── public API ──────────────────────────────────────────────────────────────
+
 
 def simulate_mdr_effect(
     drug_name: str,
@@ -189,15 +187,25 @@ def simulate_mdr_effect(
         If any numeric constraint is violated.
     """
     _validate_common(
-        dose_mg, cl_L_per_h, vd_L,
-        mdr_efflux_rate_per_h, k_in_per_h, k_out_per_h,
-        inhibitor_fraction, t_end_h,
+        dose_mg,
+        cl_L_per_h,
+        vd_L,
+        mdr_efflux_rate_per_h,
+        k_in_per_h,
+        k_out_per_h,
+        inhibitor_fraction,
+        t_end_h,
     )
 
     times, cp, ci = _run_euler(
-        dose_mg, cl_L_per_h, vd_L,
-        mdr_efflux_rate_per_h, k_in_per_h, k_out_per_h,
-        inhibitor_fraction, t_end_h,
+        dose_mg,
+        cl_L_per_h,
+        vd_L,
+        mdr_efflux_rate_per_h,
+        k_in_per_h,
+        k_out_per_h,
+        inhibitor_fraction,
+        t_end_h,
     )
 
     t_arr = np.asarray(times)
@@ -212,14 +220,24 @@ def simulate_mdr_effect(
         mdr_fold_change = 1.0
     else:
         _, _, ci_base = _run_euler(
-            dose_mg, cl_L_per_h, vd_L,
-            mdr_efflux_rate_per_h, k_in_per_h, k_out_per_h,
-            0.0, t_end_h,
+            dose_mg,
+            cl_L_per_h,
+            vd_L,
+            mdr_efflux_rate_per_h,
+            k_in_per_h,
+            k_out_per_h,
+            0.0,
+            t_end_h,
         )
         base_times, _, _ = _run_euler(
-            dose_mg, cl_L_per_h, vd_L,
-            mdr_efflux_rate_per_h, k_in_per_h, k_out_per_h,
-            0.0, t_end_h,
+            dose_mg,
+            cl_L_per_h,
+            vd_L,
+            mdr_efflux_rate_per_h,
+            k_in_per_h,
+            k_out_per_h,
+            0.0,
+            t_end_h,
         )
         auc_base = float(np_trapz(np.asarray(ci_base), np.asarray(base_times)))
         mdr_fold_change = auc_intra / auc_base if auc_base > 0 else float("inf")

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
@@ -14,10 +12,10 @@ from omega_pbpk.analysis.dose_response import (
     screen_dose_response_compounds,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers: generate synthetic dose-response data
 # ---------------------------------------------------------------------------
+
 
 def _hill_curve(doses, e0, emax, ec50, n):
     d = np.array(doses, dtype=float)
@@ -223,8 +221,7 @@ class TestFitDoseResponseValidation:
 
     def test_infinite_response_raises(self):
         with pytest.raises(ValueError, match="finite"):
-            fit_dose_response("DrugA", [1.0, 10.0, 100.0, 1000.0],
-                              [0.0, float("inf"), 50.0, 90.0])
+            fit_dose_response("DrugA", [1.0, 10.0, 100.0, 1000.0], [0.0, float("inf"), 50.0, 90.0])
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +335,9 @@ class TestScreenDoseResponseCompounds:
         assert len(results) == 1
 
     def test_missing_name_raises(self):
-        compounds = [{"doses_mg": [1.0, 10.0, 100.0, 1000.0], "responses": [10.0, 50.0, 80.0, 95.0]}]
+        compounds = [
+            {"doses_mg": [1.0, 10.0, 100.0, 1000.0], "responses": [10.0, 50.0, 80.0, 95.0]}
+        ]
         with pytest.raises(ValueError, match="name"):
             screen_dose_response_compounds(compounds)
 

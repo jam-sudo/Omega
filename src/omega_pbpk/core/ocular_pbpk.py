@@ -52,14 +52,14 @@ _V_RETINA_L = _V_RETINA_ML * 0.001
 # ---------------------------------------------------------------------------
 # Default transfer rates (per hour)
 # ---------------------------------------------------------------------------
-_KD = 30.0          # tear drainage (/h)
+_KD = 30.0  # tear drainage (/h)
 _K_TC_DEFAULT = 0.5  # tear → cornea default (/h) at corneal_perm = 1.5e-3 cm/h
-_K_CA = 0.4          # cornea → aqueous (/h)
-_K_AV = 0.05         # aqueous → vitreous (/h)
-_K_AS = 0.1          # aqueous → systemic (trabecular meshwork) (/h)
-_K_VR = 0.02         # vitreous → retina (/h)
-_K_VS = 0.005        # vitreous → systemic (posterior path) (/h)
-_K_RE = 0.1          # retina elimination (/h)
+_K_CA = 0.4  # cornea → aqueous (/h)
+_K_AV = 0.05  # aqueous → vitreous (/h)
+_K_AS = 0.1  # aqueous → systemic (trabecular meshwork) (/h)
+_K_VR = 0.02  # vitreous → retina (/h)
+_K_VS = 0.005  # vitreous → systemic (posterior path) (/h)
+_K_RE = 0.1  # retina elimination (/h)
 
 _VALID_ROUTES = {"topical", "intravitreal"}
 
@@ -152,9 +152,7 @@ def simulate_ocular_pk(
     if vd_sys_L <= 0:
         raise ValueError("vd_sys_L must be > 0")
     if route not in _VALID_ROUTES:
-        raise ValueError(
-            f"Unknown route '{route}'. Choose from: {sorted(_VALID_ROUTES)}"
-        )
+        raise ValueError(f"Unknown route '{route}'. Choose from: {sorted(_VALID_ROUTES)}")
 
     # Transfer rates
     k_tc = (corneal_perm_cm_h / 1.5e-3) * _K_TC_DEFAULT
@@ -198,9 +196,7 @@ def simulate_ocular_pk(
         da_aqueous = (flux_ca - flux_av - flux_as) * dt_h
         da_vitreous = (flux_av - flux_vr - flux_vs) * dt_h
         da_retina = (flux_vr - flux_re) * dt_h
-        dcp = (
-            (flux_as + flux_vs + flux_re * 0.5) / vd_sys_L - ke_sys * cp[i]
-        ) * dt_h
+        dcp = ((flux_as + flux_vs + flux_re * 0.5) / vd_sys_L - ke_sys * cp[i]) * dt_h
 
         a_tear[i + 1] = max(0.0, a_tear[i] + da_tear)
         a_cornea[i + 1] = max(0.0, a_cornea[i] + da_cornea)
@@ -271,12 +267,20 @@ def compare_routes(
     """
     return [
         simulate_ocular_pk(
-            drug_name, dose_mg, route="topical",
-            cl_sys_L_per_h=cl_sys_L_per_h, vd_sys_L=vd_sys_L, **kwargs,
+            drug_name,
+            dose_mg,
+            route="topical",
+            cl_sys_L_per_h=cl_sys_L_per_h,
+            vd_sys_L=vd_sys_L,
+            **kwargs,
         ),
         simulate_ocular_pk(
-            drug_name, dose_mg, route="intravitreal",
-            cl_sys_L_per_h=cl_sys_L_per_h, vd_sys_L=vd_sys_L, **kwargs,
+            drug_name,
+            dose_mg,
+            route="intravitreal",
+            cl_sys_L_per_h=cl_sys_L_per_h,
+            vd_sys_L=vd_sys_L,
+            **kwargs,
         ),
     ]
 

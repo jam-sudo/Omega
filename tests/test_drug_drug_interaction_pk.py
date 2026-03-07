@@ -27,6 +27,7 @@ BASE = dict(
 
 # ── Input validation ──────────────────────────────────────────────────────────
 
+
 def test_dose_victim_zero():
     with pytest.raises(ValueError, match="dose_victim_mg"):
         simulate_ddi_pk(**{**BASE, "dose_victim_mg": 0.0})
@@ -94,6 +95,7 @@ def test_invalid_route():
 
 # ── No inhibition effect ──────────────────────────────────────────────────────
 
+
 def test_very_large_ki_aucr_near_one():
     """When Ki >> inhibitor concentration, virtually no inhibition."""
     result = simulate_ddi_pk(**{**BASE, "ki_mg_L": 1e9})
@@ -101,6 +103,7 @@ def test_very_large_ki_aucr_near_one():
 
 
 # ── Competitive inhibition ────────────────────────────────────────────────────
+
 
 def test_competitive_aucr_greater_than_one():
     """Competitive inhibitor reduces victim CL → AUC increases."""
@@ -138,6 +141,7 @@ def test_inhibition_type_stored():
 
 # ── MBI inhibition ────────────────────────────────────────────────────────────
 
+
 def test_mbi_inhibition_type_stored():
     result = simulate_ddi_pk(
         **{**BASE, "inhibition_type": "mbi", "kinact_per_h": 0.5, "ki_mg_L": 0.01}
@@ -154,6 +158,7 @@ def test_mbi_aucr_greater_than_one():
 
 # ── fm_cyp sensitivity ────────────────────────────────────────────────────────
 
+
 def test_small_fm_cyp_minimal_ddi():
     """Very small fm_cyp → DDI is minimal (AUCR close to 1)."""
     result = simulate_ddi_pk(**{**BASE, "fm_cyp": 0.01})
@@ -167,6 +172,7 @@ def test_full_fm_cyp_maximal_ddi():
 
 
 # ── IV route ─────────────────────────────────────────────────────────────────
+
 
 def test_iv_route_works():
     result = simulate_ddi_pk(**{**BASE, "route": "iv"})

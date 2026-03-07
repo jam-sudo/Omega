@@ -35,9 +35,7 @@ _VALID_DRUG_TYPES = ("acid", "base", "neutral", "zwitterion")
 
 def _validate_drug_type(drug_type: str) -> None:
     if drug_type not in _VALID_DRUG_TYPES:
-        raise ValueError(
-            f"drug_type must be one of {_VALID_DRUG_TYPES}, got '{drug_type}'"
-        )
+        raise ValueError(f"drug_type must be one of {_VALID_DRUG_TYPES}, got '{drug_type}'")
 
 
 def _validate_ph(ph: float) -> None:
@@ -135,9 +133,7 @@ def ionization_profile(
     _validate_drug_type(drug_type)
     ph_min, ph_max = ph_range
     if ph_min < 0 or ph_max > 14 or ph_min >= ph_max:
-        raise ValueError(
-            f"ph_range must be within [0, 14] and min < max, got {ph_range}"
-        )
+        raise ValueError(f"ph_range must be within [0, 14] and min < max, got {ph_range}")
     if n_points < 2:
         raise ValueError(f"n_points must be >= 2, got {n_points}")
 
@@ -161,10 +157,7 @@ def predict_gi_charge_states(pka: float, drug_type: str = "acid") -> GIChargeRes
     _validate_pka(pka)
     _validate_drug_type(drug_type)
 
-    fn = {
-        seg: fraction_neutral(_GI_PH[seg], pka, drug_type)
-        for seg in _GI_PH
-    }
+    fn = {seg: fraction_neutral(_GI_PH[seg], pka, drug_type) for seg in _GI_PH}
 
     # Best absorption where fraction neutral is highest (neutral form permeates best)
     best_seg = max(fn, key=lambda s: fn[s])
@@ -222,9 +215,7 @@ def solubility_from_ionization(
     _validate_drug_type(drug_type)
 
     if intrinsic_sol_mg_mL < 0:
-        raise ValueError(
-            f"intrinsic_sol_mg_mL must be >= 0, got {intrinsic_sol_mg_mL}"
-        )
+        raise ValueError(f"intrinsic_sol_mg_mL must be >= 0, got {intrinsic_sol_mg_mL}")
 
     if drug_type == "neutral":
         return intrinsic_sol_mg_mL

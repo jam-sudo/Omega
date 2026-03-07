@@ -164,8 +164,13 @@ class TestEffectiveKa:
             effective_ka(1e-4, 0.5, 100.0, 0.5, bcs_class=0)
 
     def test_ka_peff_correct(self):
-        result = effective_ka(peff_cm_s=1e-4, dissolution_rate_mg_per_min=0.5,
-                               dose_mg=100.0, solubility_mg_mL=0.5, bcs_class=1)
+        result = effective_ka(
+            peff_cm_s=1e-4,
+            dissolution_rate_mg_per_min=0.5,
+            dose_mg=100.0,
+            solubility_mg_mL=0.5,
+            bcs_class=1,
+        )
         assert result.ka_peff_per_h == pytest.approx(ka_from_peff(1e-4), rel=1e-6)
 
     def test_frozen_dataclass(self):

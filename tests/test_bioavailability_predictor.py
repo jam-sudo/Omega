@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.prediction.bioavailability_predictor import (
@@ -11,16 +10,16 @@ from omega_pbpk.prediction.bioavailability_predictor import (
     screen_bioavailability,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _base_kwargs(**overrides):
     """Return a minimal valid set of kwargs for predict_bioavailability."""
     defaults = dict(
         compound_name="TestDrug",
-        peff_cm_per_s=3e-4,       # high Peff
+        peff_cm_per_s=3e-4,  # high Peff
         solubility_mg_mL=1.0,
         dose_mg=10.0,
         mw=300.0,
@@ -35,27 +34,32 @@ def _base_kwargs(**overrides):
 # fa prediction tests
 # ---------------------------------------------------------------------------
 
+
 class TestFaPrediction:
     def test_high_peff_low_dn_gives_fa_095(self):
         """High Peff (>2e-4) and Dn < 1 → fa ≈ 0.95."""
-        r = predict_bioavailability(**_base_kwargs(
-            peff_cm_per_s=5e-4,
-            solubility_mg_mL=5.0,
-            dose_mg=100.0,
-            dose_volume_mL=250.0,
-        ))
+        r = predict_bioavailability(
+            **_base_kwargs(
+                peff_cm_per_s=5e-4,
+                solubility_mg_mL=5.0,
+                dose_mg=100.0,
+                dose_volume_mL=250.0,
+            )
+        )
         # Dn = 100/(5*250) = 0.08 < 1 → fa = 0.95
         assert abs(r.fa_predicted - 0.95) < 1e-6
         assert r.fa_basis == "permeability"
 
     def test_high_peff_high_dn_solubility_limited(self):
         """High Peff but Dn > 1 → solubility limited, fa < 0.95."""
-        r = predict_bioavailability(**_base_kwargs(
-            peff_cm_per_s=3e-4,
-            solubility_mg_mL=0.001,
-            dose_mg=500.0,
-            dose_volume_mL=250.0,
-        ))
+        r = predict_bioavailability(
+            **_base_kwargs(
+                peff_cm_per_s=3e-4,
+                solubility_mg_mL=0.001,
+                dose_mg=500.0,
+                dose_volume_mL=250.0,
+            )
+        )
         # Dn = 500/(0.001*250) = 2000 >> 1 → fa much less than 0.95
         assert r.fa_predicted < 0.95
         assert r.fa_basis == "solubility_limited"
@@ -89,6 +93,7 @@ class TestFaPrediction:
 # fg prediction tests
 # ---------------------------------------------------------------------------
 
+
 class TestFgPrediction:
     def test_no_clint_gut_gives_default_fg(self):
         """Without clint_gut, fg defaults to 0.9."""
@@ -118,6 +123,7 @@ class TestFgPrediction:
 # fh prediction tests
 # ---------------------------------------------------------------------------
 
+
 class TestFhPrediction:
     def test_no_clint_hep_gives_default_fh(self):
         """Without clint_hep, fh defaults to 0.85."""
@@ -133,10 +139,12 @@ class TestFhPrediction:
 
     def test_low_clint_hep_gives_high_fh(self):
         """Low hepatic CLint → fh close to 1.0."""
-        r = predict_bioavailability(**_base_kwargs(
-            clint_hep_uL_per_min_per_mg=0.1,
-            fu_plasma=0.5,
-        ))
+        r = predict_bioavailability(
+            **_base_kwargs(
+                clint_hep_uL_per_min_per_mg=0.1,
+                fu_plasma=0.5,
+            )
+        )
         assert r.fh_predicted > 0.9
 
     def test_fh_in_unit_interval(self):
@@ -150,6 +158,7 @@ class TestFhPrediction:
 # f_oral combined tests
 # ---------------------------------------------------------------------------
 
+
 class TestFOral:
     def test_f_oral_equals_product(self):
         """f_oral_predicted = fa * fg * fh."""
@@ -159,19 +168,23 @@ class TestFOral:
 
     def test_f_oral_in_unit_interval(self):
         """f_oral must be in [0, 1]."""
-        r = predict_bioavailability(**_base_kwargs(
-            clint_hep_uL_per_min_per_mg=50.0,
-            clint_gut_uL_per_min_per_mg=30.0,
-        ))
+        r = predict_bioavailability(
+            **_base_kwargs(
+                clint_hep_uL_per_min_per_mg=50.0,
+                clint_gut_uL_per_min_per_mg=30.0,
+            )
+        )
         assert 0.0 <= r.f_oral_predicted <= 1.0
 
     def test_default_assumptions(self):
         """No CLint provided: f_oral ≈ fa * 0.9 * 0.85."""
-        r = predict_bioavailability(**_base_kwargs(
-            peff_cm_per_s=5e-4,
-            solubility_mg_mL=5.0,
-            dose_mg=50.0,
-        ))
+        r = predict_bioavailability(
+            **_base_kwargs(
+                peff_cm_per_s=5e-4,
+                solubility_mg_mL=5.0,
+                dose_mg=50.0,
+            )
+        )
         expected = r.fa_predicted * 0.9 * 0.85
         assert r.f_oral_predicted == pytest.approx(expected, rel=1e-5)
 
@@ -180,13 +193,16 @@ class TestFOral:
 # Uncertainty bounds tests
 # ---------------------------------------------------------------------------
 
+
 class TestUncertainty:
     def test_low_below_predicted_below_high(self):
         """f_oral_low < f_oral_predicted < f_oral_high (strictly)."""
-        r = predict_bioavailability(**_base_kwargs(
-            peff_cm_per_s=3e-4,
-            clint_hep_uL_per_min_per_mg=20.0,
-        ))
+        r = predict_bioavailability(
+            **_base_kwargs(
+                peff_cm_per_s=3e-4,
+                clint_hep_uL_per_min_per_mg=20.0,
+            )
+        )
         # Only strictly less if f_oral is not 0 or 1
         if r.f_oral_predicted > 0:
             assert r.f_oral_low <= r.f_oral_predicted
@@ -209,6 +225,7 @@ class TestUncertainty:
 # Literature comparison tests
 # ---------------------------------------------------------------------------
 
+
 class TestLiteratureComparison:
     def test_no_literature_gives_none_fold(self):
         """Without literature value, prediction_accuracy_fold is None."""
@@ -219,18 +236,22 @@ class TestLiteratureComparison:
     def test_accuracy_fold_near_one_when_pred_equals_literature(self):
         """When predicted ≈ literature, fold ≈ 1."""
         # First compute what the predicted f_oral would be
-        r0 = predict_bioavailability(**_base_kwargs(
-            peff_cm_per_s=5e-4,
-            solubility_mg_mL=5.0,
-            dose_mg=50.0,
-        ))
+        r0 = predict_bioavailability(
+            **_base_kwargs(
+                peff_cm_per_s=5e-4,
+                solubility_mg_mL=5.0,
+                dose_mg=50.0,
+            )
+        )
         # Then use that same value as literature
-        r = predict_bioavailability(**_base_kwargs(
-            peff_cm_per_s=5e-4,
-            solubility_mg_mL=5.0,
-            dose_mg=50.0,
-            f_oral_literature=r0.f_oral_predicted,
-        ))
+        r = predict_bioavailability(
+            **_base_kwargs(
+                peff_cm_per_s=5e-4,
+                solubility_mg_mL=5.0,
+                dose_mg=50.0,
+                f_oral_literature=r0.f_oral_predicted,
+            )
+        )
         assert r.prediction_accuracy_fold == pytest.approx(1.0, rel=1e-6)
 
     def test_accuracy_fold_computed_correctly(self):
@@ -246,6 +267,7 @@ class TestLiteratureComparison:
 # CL and t½ tests
 # ---------------------------------------------------------------------------
 
+
 class TestPKMetrics:
     def test_cl_nonnegative(self):
         r = predict_bioavailability(**_base_kwargs(clint_hep_uL_per_min_per_mg=50.0))
@@ -257,12 +279,8 @@ class TestPKMetrics:
 
     def test_vd_L_overrides_estimate(self):
         """Providing vd_L changes t_half proportionally."""
-        r1 = predict_bioavailability(**_base_kwargs(
-            clint_hep_uL_per_min_per_mg=100.0, vd_L=10.0
-        ))
-        r2 = predict_bioavailability(**_base_kwargs(
-            clint_hep_uL_per_min_per_mg=100.0, vd_L=100.0
-        ))
+        r1 = predict_bioavailability(**_base_kwargs(clint_hep_uL_per_min_per_mg=100.0, vd_L=10.0))
+        r2 = predict_bioavailability(**_base_kwargs(clint_hep_uL_per_min_per_mg=100.0, vd_L=100.0))
         assert r2.t_half_predicted_h > r1.t_half_predicted_h
 
 
@@ -270,13 +288,16 @@ class TestPKMetrics:
 # Recommendation and notes tests
 # ---------------------------------------------------------------------------
 
+
 class TestRecommendation:
     def test_recommendation_nonempty(self):
         r = predict_bioavailability(**_base_kwargs())
         assert len(r.recommendation) > 0
 
     def test_high_f_oral_positive_recommendation(self):
-        r = predict_bioavailability(**_base_kwargs(peff_cm_per_s=5e-4, solubility_mg_mL=5.0, dose_mg=10.0))
+        r = predict_bioavailability(
+            **_base_kwargs(peff_cm_per_s=5e-4, solubility_mg_mL=5.0, dose_mg=10.0)
+        )
         assert "oral" in r.recommendation.lower() or "excellent" in r.recommendation.lower()
 
     def test_notes_nonempty(self):
@@ -293,6 +314,7 @@ class TestRecommendation:
 # ---------------------------------------------------------------------------
 # Input validation tests
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_fu_plasma_raises(self):
@@ -316,15 +338,37 @@ class TestInputValidation:
 # Screen function tests
 # ---------------------------------------------------------------------------
 
+
 class TestScreenBioavailability:
     def _compounds(self):
         return [
-            {"name": "HighF", "peff": 5e-4, "solubility": 5.0, "dose_mg": 10.0,
-             "mw": 300.0, "logP": 2.0, "fu_plasma": 0.1},
-            {"name": "LowF", "peff": 0.3e-4, "solubility": 0.01, "dose_mg": 500.0,
-             "mw": 600.0, "logP": 5.0, "fu_plasma": 0.05},
-            {"name": "MidF", "peff": 2e-4, "solubility": 1.0, "dose_mg": 100.0,
-             "mw": 400.0, "logP": 3.0, "fu_plasma": 0.2},
+            {
+                "name": "HighF",
+                "peff": 5e-4,
+                "solubility": 5.0,
+                "dose_mg": 10.0,
+                "mw": 300.0,
+                "logP": 2.0,
+                "fu_plasma": 0.1,
+            },
+            {
+                "name": "LowF",
+                "peff": 0.3e-4,
+                "solubility": 0.01,
+                "dose_mg": 500.0,
+                "mw": 600.0,
+                "logP": 5.0,
+                "fu_plasma": 0.05,
+            },
+            {
+                "name": "MidF",
+                "peff": 2e-4,
+                "solubility": 1.0,
+                "dose_mg": 100.0,
+                "mw": 400.0,
+                "logP": 3.0,
+                "fu_plasma": 0.2,
+            },
         ]
 
     def test_screen_returns_list(self):

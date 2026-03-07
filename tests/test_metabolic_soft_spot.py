@@ -3,16 +3,15 @@
 import pytest
 
 from omega_pbpk.prediction.metabolic_soft_spot import (
-    MetabolicSoftSpotResult,
     SoftSpotAlert,
     predict_soft_spots,
     rank_compounds_by_metabolic_stability,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic construction
 # ---------------------------------------------------------------------------
+
 
 def test_soft_spot_alert_frozen():
     alert = SoftSpotAlert("n_dealkylation", "high", "CYP3A4", "desc")
@@ -29,6 +28,7 @@ def test_result_is_frozen():
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_empty_smiles_raises():
     with pytest.raises(ValueError, match="smiles"):
@@ -53,6 +53,7 @@ def test_negative_mw_raises():
 # ---------------------------------------------------------------------------
 # Alert detection
 # ---------------------------------------------------------------------------
+
 
 def test_n_dealkylation_detected():
     """CN(C)c1ccccc1 has N(C) motif."""
@@ -98,6 +99,7 @@ def test_no_lipophilicity_alert_low_logP():
 # CLint and stability
 # ---------------------------------------------------------------------------
 
+
 def test_low_mw_low_logP_high_stability():
     """Small hydrophilic compound with no alerts → high stability."""
     result = predict_soft_spots("SmallHydro", "CCO", logP=0.5, mw=46.0)
@@ -109,9 +111,7 @@ def test_low_mw_low_logP_high_stability():
 def test_high_alert_compound_low_stability():
     """Compound with multiple high/moderate alerts → low stability."""
     # N(C) gives high, aromatic gives moderate, logP>3 gives moderate
-    result = predict_soft_spots(
-        "HighMet", "CN(C)c1ccccc1OC", logP=3.5, mw=200.0
-    )
+    result = predict_soft_spots("HighMet", "CN(C)c1ccccc1OC", logP=3.5, mw=200.0)
     # Should have n_dealkylation (high), so CLint elevated
     assert result.n_high_risk >= 1
 
@@ -122,9 +122,7 @@ def test_clint_bounds():
     r1 = predict_soft_spots("A", "O", logP=-5.0, mw=18.0)
     assert r1.predicted_clint_uL_per_min_per_mg >= 1.0
     # Extreme number of alerts → ceiling
-    r2 = predict_soft_spots(
-        "B", "CN(C)c1ccccc1CN(C)c1ccccc1OCS", logP=8.0, mw=50.0
-    )
+    r2 = predict_soft_spots("B", "CN(C)c1ccccc1CN(C)c1ccccc1OCS", logP=8.0, mw=50.0)
     assert r2.predicted_clint_uL_per_min_per_mg <= 300.0
 
 
@@ -138,6 +136,7 @@ def test_n_high_risk_count():
 # ---------------------------------------------------------------------------
 # Primary CYP
 # ---------------------------------------------------------------------------
+
 
 def test_primary_cyp_from_high_alerts():
     """When high-risk alert is CYP3A4, primary_cyp = CYP3A4."""
@@ -155,6 +154,7 @@ def test_primary_cyp_default_when_no_alerts():
 # ---------------------------------------------------------------------------
 # Ranking
 # ---------------------------------------------------------------------------
+
 
 def test_rank_returns_sorted_list():
     compounds = [

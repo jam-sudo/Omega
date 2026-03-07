@@ -137,7 +137,7 @@ def time_to_dissolve(
     R_cm = radius_um * 1e-4
 
     # t = R^2 * rho / (2 * D * Cs)  [Higuchi shrinking sphere]
-    return (R_cm ** 2 * rho_mg_cm3) / (2.0 * D_cm2_h * Cs_mg_cm3)
+    return (R_cm**2 * rho_mg_cm3) / (2.0 * D_cm2_h * Cs_mg_cm3)
 
 
 def dissolution_profile(

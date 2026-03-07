@@ -1,11 +1,13 @@
 """Tests for hepatic clearance models — Phase 276."""
+
 import pytest
+
 from omega_pbpk.core.hepatic_clearance_models import (
     HepaticCLResult,
-    well_stirred_model,
-    parallel_tube_model,
-    dispersion_model,
     compare_hepatic_models,
+    dispersion_model,
+    parallel_tube_model,
+    well_stirred_model,
 )
 
 QH = 90.0  # L/h default hepatic blood flow

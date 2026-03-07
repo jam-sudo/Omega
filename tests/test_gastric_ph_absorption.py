@@ -126,7 +126,9 @@ def test_result_is_frozen_dataclass():
 
 def test_fa_total_in_range():
     for scenario in ["fasted", "fed", "ppi", "achlorhydria"]:
-        r = simulate_gastric_ph_absorption(DRUG, "acid", PKA_ACID, S0, DOSE, PEFF, scenario=scenario)
+        r = simulate_gastric_ph_absorption(
+            DRUG, "acid", PKA_ACID, S0, DOSE, PEFF, scenario=scenario
+        )
         assert 0.0 <= r.fa_total <= 1.0
 
 
@@ -137,7 +139,9 @@ def test_fraction_ionized_and_unionized_sum_to_one_stomach():
 
 def test_fraction_ionized_and_unionized_sum_to_one_intestine():
     r = simulate_gastric_ph_absorption(DRUG, "acid", PKA_ACID, S0, DOSE, PEFF)
-    assert r.fraction_ionized_intestine + r.fraction_unionized_intestine == pytest.approx(1.0, abs=1e-9)
+    assert r.fraction_ionized_intestine + r.fraction_unionized_intestine == pytest.approx(
+        1.0, abs=1e-9
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +151,9 @@ def test_fraction_ionized_and_unionized_sum_to_one_intestine():
 
 def test_acid_fasted_better_absorbed_than_ppi():
     """Fasted (low gastric pH) → acid better dissolved in stomach."""
-    r_fasted = simulate_gastric_ph_absorption(DRUG, "acid", PKA_ACID, S0, DOSE, PEFF, scenario="fasted")
+    r_fasted = simulate_gastric_ph_absorption(
+        DRUG, "acid", PKA_ACID, S0, DOSE, PEFF, scenario="fasted"
+    )
     r_ppi = simulate_gastric_ph_absorption(DRUG, "acid", PKA_ACID, S0, DOSE, PEFF, scenario="ppi")
     # At low pH, acid is unionized → less soluble in stomach,
     # but at intestine pH 6.5 both are similar. With PPI raising gastric pH to 6.5,
@@ -165,7 +171,9 @@ def test_acid_ppi_decreases_or_minimal():
 
 
 def test_acid_achlorhydria_gastric_ph_7():
-    r = simulate_gastric_ph_absorption(DRUG, "acid", PKA_ACID, S0, DOSE, PEFF, scenario="achlorhydria")
+    r = simulate_gastric_ph_absorption(
+        DRUG, "acid", PKA_ACID, S0, DOSE, PEFF, scenario="achlorhydria"
+    )
     assert r.gastric_ph == pytest.approx(7.0)
 
 
@@ -199,9 +207,13 @@ def test_neutral_drug_no_ph_effect_direction():
 
 
 def test_neutral_drug_solubility_constant():
-    r_fasted = simulate_gastric_ph_absorption(DRUG, "neutral", 7.0, S0, DOSE, PEFF, scenario="fasted")
+    r_fasted = simulate_gastric_ph_absorption(
+        DRUG, "neutral", 7.0, S0, DOSE, PEFF, scenario="fasted"
+    )
     r_ppi = simulate_gastric_ph_absorption(DRUG, "neutral", 7.0, S0, DOSE, PEFF, scenario="ppi")
-    assert r_fasted.solubility_stomach_mg_mL == pytest.approx(r_ppi.solubility_stomach_mg_mL, rel=1e-6)
+    assert r_fasted.solubility_stomach_mg_mL == pytest.approx(
+        r_ppi.solubility_stomach_mg_mL, rel=1e-6
+    )
 
 
 # ---------------------------------------------------------------------------

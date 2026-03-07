@@ -1,4 +1,5 @@
 """Simple parameter sensitivity analysis for 1-compartment PK."""
+
 from __future__ import annotations
 
 import math
@@ -16,15 +17,15 @@ __all__ = [
 class SensitivityEntry:
     parameter: str
     nominal_value: float
-    low_value: float      # -perturbation% from nominal
-    high_value: float     # +perturbation% from nominal
+    low_value: float  # -perturbation% from nominal
+    high_value: float  # +perturbation% from nominal
     low_auc: float
     high_auc: float
     low_cmax: float
     high_cmax: float
-    auc_sensitivity: float    # (high_auc - low_auc) / (2 * nominal_auc)  — normalized
+    auc_sensitivity: float  # (high_auc - low_auc) / (2 * nominal_auc)  — normalized
     cmax_sensitivity: float
-    rank: int             # 1 = most sensitive
+    rank: int  # 1 = most sensitive
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class SensitivityReport:
     nominal_auc: float
     nominal_cmax: float
     entries: list[SensitivityEntry]
-    most_sensitive_auc: str   # parameter name
+    most_sensitive_auc: str  # parameter name
     most_sensitive_cmax: str
     notes: str
 
@@ -58,8 +59,7 @@ def _compute_pk(
             ka += 1e-9
         tmax = math.log(ka / ke) / (ka - ke)
         cmax = abs(
-            (dose * f * ka) / (vd * (ka - ke))
-            * (math.exp(-ke * tmax) - math.exp(-ka * tmax))
+            (dose * f * ka) / (vd * (ka - ke)) * (math.exp(-ke * tmax) - math.exp(-ka * tmax))
         )
     return auc, cmax
 
@@ -108,9 +108,7 @@ def run_sensitivity_analysis(
     if not (0 < perturbation_pct < 100):
         raise ValueError("perturbation_pct must be in (0, 100)")
 
-    nominal_auc, nominal_cmax = _compute_pk(
-        dose_mg, cl_L_per_h, vd_L, ka_per_h, f_oral, route
-    )
+    nominal_auc, nominal_cmax = _compute_pk(dose_mg, cl_L_per_h, vd_L, ka_per_h, f_oral, route)
 
     nominal_params: dict = {
         "dose_mg": dose_mg,

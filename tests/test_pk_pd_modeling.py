@@ -16,6 +16,7 @@ from omega_pbpk.analysis.pk_pd_modeling import (
 
 # ── Emax model fitting ────────────────────────────────────────────────────────
 
+
 def _generate_emax_data(
     emax: float = 100.0, ec50: float = 10.0, n: float = 1.0
 ) -> tuple[list[float], list[float]]:
@@ -85,13 +86,16 @@ def test_fit_emax_higher_conc_higher_effect():
     concs, effs = _generate_emax_data()
     result = fit_emax_model(concs, effs, emax_guess=100.0, ec50_guess=10.0)
     # Verify monotonicity: predicted effect increases with concentration
-    preds = [result.emax * c**result.hill_n / (result.ec50**result.hill_n + c**result.hill_n)
-             for c in sorted(concs)]
+    preds = [
+        result.emax * c**result.hill_n / (result.ec50**result.hill_n + c**result.hill_n)
+        for c in sorted(concs)
+    ]
     for i in range(1, len(preds)):
         assert preds[i] >= preds[i - 1]
 
 
 # ── Emax validation errors ────────────────────────────────────────────────────
+
 
 def test_fit_emax_empty_concentrations_raises():
     with pytest.raises(ValueError, match="concentrations"):
@@ -119,6 +123,7 @@ def test_fit_emax_negative_concentration_raises():
 
 
 # ── Indirect response model fitting ──────────────────────────────────────────
+
 
 def _generate_ir_data(
     effect_type: str = "inhibit_kin",
@@ -170,8 +175,13 @@ def _generate_ir_data(
 def test_fit_ir_returns_result_type():
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert isinstance(result, IndirectResponseResult)
 
@@ -180,8 +190,13 @@ def test_fit_ir_baseline_r0_equals_kin_over_kout():
     """R0 should equal kin / kout."""
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     expected_r0 = 10.0 / result.kout
     assert result.r0 == pytest.approx(expected_r0, rel=1e-4)
@@ -190,8 +205,13 @@ def test_fit_ir_baseline_r0_equals_kin_over_kout():
 def test_fit_ir_r_predicted_length_matches_times():
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert len(result.r_predicted) == len(times)
 
@@ -200,8 +220,13 @@ def test_fit_ir_r_squared_at_most_1():
     """R² is at most 1.0 (can be negative for poor fits)."""
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert result.r_squared <= 1.0
 
@@ -209,8 +234,13 @@ def test_fit_ir_r_squared_at_most_1():
 def test_fit_ir_inhibit_kout_type():
     times, responses = _generate_ir_data(effect_type="inhibit_kout")
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kout"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kout",
     )
     assert result.effect_type == "inhibit_kout"
 
@@ -218,8 +248,13 @@ def test_fit_ir_inhibit_kout_type():
 def test_fit_ir_effect_type_stored_correctly():
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert result.effect_type == "inhibit_kin"
 
@@ -227,8 +262,13 @@ def test_fit_ir_effect_type_stored_correctly():
 def test_fit_ir_kout_positive():
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert result.kout > 0.0
 
@@ -236,8 +276,13 @@ def test_fit_ir_kout_positive():
 def test_fit_ir_imax_in_valid_range():
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert 0.0 < result.imax <= 1.0
 
@@ -245,8 +290,13 @@ def test_fit_ir_imax_in_valid_range():
 def test_fit_ir_notes_not_empty():
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert len(result.notes) > 0
 
@@ -254,19 +304,30 @@ def test_fit_ir_notes_not_empty():
 def test_fit_ir_times_stored_correctly():
     times, responses = _generate_ir_data()
     result = fit_indirect_response_model(
-        times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-        effect_type="inhibit_kin"
+        times,
+        responses,
+        kin=10.0,
+        kout_guess=0.5,
+        imax_guess=0.8,
+        ic50_guess=5.0,
+        effect_type="inhibit_kin",
     )
     assert result.times == times
 
 
 # ── Indirect response validation errors ──────────────────────────────────────
 
+
 def test_fit_ir_empty_times_raises():
     with pytest.raises(ValueError, match="times"):
         fit_indirect_response_model(
-            [], [1.0], kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-            effect_type="inhibit_kin"
+            [],
+            [1.0],
+            kin=10.0,
+            kout_guess=0.5,
+            imax_guess=0.8,
+            ic50_guess=5.0,
+            effect_type="inhibit_kin",
         )
 
 
@@ -274,16 +335,26 @@ def test_fit_ir_invalid_effect_type_raises():
     times, responses = _generate_ir_data()
     with pytest.raises(ValueError, match="effect_type"):
         fit_indirect_response_model(
-            times, responses, kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-            effect_type="stimulate_kin"
+            times,
+            responses,
+            kin=10.0,
+            kout_guess=0.5,
+            imax_guess=0.8,
+            ic50_guess=5.0,
+            effect_type="stimulate_kin",
         )
 
 
 def test_fit_ir_mismatched_lengths_raises():
     with pytest.raises(ValueError, match="length"):
         fit_indirect_response_model(
-            [1.0, 2.0], [1.0], kin=10.0, kout_guess=0.5, imax_guess=0.8, ic50_guess=5.0,
-            effect_type="inhibit_kin"
+            [1.0, 2.0],
+            [1.0],
+            kin=10.0,
+            kout_guess=0.5,
+            imax_guess=0.8,
+            ic50_guess=5.0,
+            effect_type="inhibit_kin",
         )
 
 
@@ -291,8 +362,13 @@ def test_fit_ir_negative_kout_raises():
     times, responses = _generate_ir_data()
     with pytest.raises(ValueError, match="kout_guess"):
         fit_indirect_response_model(
-            times, responses, kin=10.0, kout_guess=-0.5, imax_guess=0.8, ic50_guess=5.0,
-            effect_type="inhibit_kin"
+            times,
+            responses,
+            kin=10.0,
+            kout_guess=-0.5,
+            imax_guess=0.8,
+            ic50_guess=5.0,
+            effect_type="inhibit_kin",
         )
 
 
@@ -300,12 +376,18 @@ def test_fit_ir_imax_above_one_raises():
     times, responses = _generate_ir_data()
     with pytest.raises(ValueError, match="imax_guess"):
         fit_indirect_response_model(
-            times, responses, kin=10.0, kout_guess=0.5, imax_guess=1.5, ic50_guess=5.0,
-            effect_type="inhibit_kin"
+            times,
+            responses,
+            kin=10.0,
+            kout_guess=0.5,
+            imax_guess=1.5,
+            ic50_guess=5.0,
+            effect_type="inhibit_kin",
         )
 
 
 # ── pdp_index ─────────────────────────────────────────────────────────────────
+
 
 def test_pdp_index_zero_if_effect_auc_zero():
     assert pdp_index(auc=10.0, effect_auc=0.0) == 0.0

@@ -59,6 +59,7 @@ class LiverZonationResult:
 # Core helpers
 # ---------------------------------------------------------------------------
 
+
 def zone_extraction_ratio(
     zone_cl_int: float,
     flow_per_zone_L_per_h: float,
@@ -115,8 +116,7 @@ def calculate_outlet_concentration(
         raise ValueError(f"n_zones must be >= 1, got {n_zones}")
     if len(cl_int_per_zone) != n_zones:
         raise ValueError(
-            f"cl_int_per_zone must have length n_zones={n_zones}, "
-            f"got {len(cl_int_per_zone)}"
+            f"cl_int_per_zone must have length n_zones={n_zones}, got {len(cl_int_per_zone)}"
         )
     if flow_L_per_h <= 0:
         raise ValueError(f"flow_L_per_h must be > 0, got {flow_L_per_h}")
@@ -175,16 +175,12 @@ def periportal_vs_centrilobular(
     cl_uniform = cl_int_total / 2.0
 
     # Periportal first (zone1=periportal, zone2=centrilobular)
-    c_out_pp_first = calculate_outlet_concentration(
-        1.0, 2, [cl_pp, cl_cl], flow_L_per_h, fu_plasma
-    )
+    c_out_pp_first = calculate_outlet_concentration(1.0, 2, [cl_pp, cl_cl], flow_L_per_h, fu_plasma)
     e_pp_first = 1.0 - c_out_pp_first
     cl_hep_pp_first = flow_L_per_h * e_pp_first
 
     # Centrilobular first (zone1=centrilobular, zone2=periportal)
-    c_out_cl_first = calculate_outlet_concentration(
-        1.0, 2, [cl_cl, cl_pp], flow_L_per_h, fu_plasma
-    )
+    c_out_cl_first = calculate_outlet_concentration(1.0, 2, [cl_cl, cl_pp], flow_L_per_h, fu_plasma)
     e_cl_first = 1.0 - c_out_cl_first
     cl_hep_cl_first = flow_L_per_h * e_cl_first
 
@@ -207,8 +203,7 @@ def periportal_vs_centrilobular(
         "e_uniform": e_uniform,
         "cl_hepatic_uniform": cl_hep_uniform,
         "notes": (
-            f"zonation_factor={zonation_factor}: CLint_pp={cl_pp:.3f} "
-            f"CLint_cl={cl_cl:.3f} L/h"
+            f"zonation_factor={zonation_factor}: CLint_pp={cl_pp:.3f} CLint_cl={cl_cl:.3f} L/h"
         ),
     }
 
@@ -216,6 +211,7 @@ def periportal_vs_centrilobular(
 # ---------------------------------------------------------------------------
 # Main simulation
 # ---------------------------------------------------------------------------
+
 
 def simulate_liver_zonation(
     drug_name: str,

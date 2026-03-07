@@ -13,27 +13,27 @@ class ADMETProfile:
     mw: float
     logP: float
     # Absorption
-    hia_pct: float                    # Human intestinal absorption (%)
+    hia_pct: float  # Human intestinal absorption (%)
     oral_bioavailability_pct: float
     # Distribution
-    vss_L_per_kg: float               # Steady-state Vd per kg
-    fup: float                        # Unbound plasma fraction
-    bbb_penetration: bool             # CNS penetration
+    vss_L_per_kg: float  # Steady-state Vd per kg
+    fup: float  # Unbound plasma fraction
+    bbb_penetration: bool  # CNS penetration
     # Metabolism
     cyp3a4_substrate: bool
     cyp2d6_substrate: bool
-    t_half_h: float                   # predicted terminal half-life
+    t_half_h: float  # predicted terminal half-life
     # Excretion
     cl_total_L_per_h_per_kg: float
-    fe_renal: float                   # renal excretion fraction
+    fe_renal: float  # renal excretion fraction
     # Toxicity flags
-    herg_risk: bool                   # hERG inhibition risk
-    ames_risk: bool                   # mutagenicity risk
+    herg_risk: bool  # hERG inhibition risk
+    ames_risk: bool  # mutagenicity risk
     hepatotoxicity_risk: bool
     # Drug-likeness
-    lipinski_pass: bool               # Rule of Five
-    pains_flag: bool                  # PAINS alert (simplified)
-    composite_score: float            # 0–100, higher = better ADMET
+    lipinski_pass: bool  # Rule of Five
+    pains_flag: bool  # PAINS alert (simplified)
+    composite_score: float  # 0–100, higher = better ADMET
     notes: str
 
 
@@ -84,7 +84,7 @@ def predict_admet_profile(
     # ------------------------------------------------------------------ #
     # Distribution
     # ------------------------------------------------------------------ #
-    vss = max(0.1, 0.5 + logP * 0.3)           # L/kg rough estimate
+    vss = max(0.1, 0.5 + logP * 0.3)  # L/kg rough estimate
     fup = max(0.01, min(1.0, 1.0 - 0.1 * logP))  # simplified PPB
 
     bbb = (1.0 <= logP <= 4.0) and (mw < 450.0) and (psa < 90.0)
@@ -95,8 +95,8 @@ def predict_admet_profile(
     cyp3a4_sub = (logP > 2.0) and (mw > 300.0)
     cyp2d6_sub = ("N" in smiles) and (mw < 400.0)
 
-    cl_est = max(0.01, logP * 0.5 + 0.5)       # L/h/kg rough
-    t_half = 0.693 * vss / cl_est              # hours
+    cl_est = max(0.01, logP * 0.5 + 0.5)  # L/h/kg rough
+    t_half = 0.693 * vss / cl_est  # hours
 
     # ------------------------------------------------------------------ #
     # Excretion
@@ -125,10 +125,10 @@ def predict_admet_profile(
     # Composite score 0–100
     # ------------------------------------------------------------------ #
     score = 0.0
-    score += ba_pct * 0.3                       # max 30
-    score += (0.0 if herg_risk else 1.0) * 20   # max 20
-    score += (0.0 if ames_risk else 1.0) * 20   # max 20
-    score += (15.0 if lipinski else 0.0)        # 15
+    score += ba_pct * 0.3  # max 30
+    score += (0.0 if herg_risk else 1.0) * 20  # max 20
+    score += (0.0 if ames_risk else 1.0) * 20  # max 20
+    score += 15.0 if lipinski else 0.0  # 15
     score += (0.0 if hepatotox_risk else 1.0) * 15  # max 15
     score = min(100.0, max(0.0, score))
 

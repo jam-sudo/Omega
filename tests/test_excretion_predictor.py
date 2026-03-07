@@ -16,6 +16,7 @@ from omega_pbpk.prediction.excretion_predictor import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _predict(**kwargs) -> RenalExcretionResult:
     defaults = dict(
         mw=250.0,
@@ -33,6 +34,7 @@ def _predict(**kwargs) -> RenalExcretionResult:
 # Basic structure
 # ---------------------------------------------------------------------------
 
+
 class TestRenalExcretionResultStructure:
     def test_returns_correct_type(self):
         result = _predict()
@@ -44,8 +46,9 @@ class TestRenalExcretionResultStructure:
             result.mw = 999.0  # type: ignore[misc]
 
     def test_fields_preserved(self):
-        result = _predict(mw=300.0, logP=2.0, pka=8.0, molecule_type="base",
-                          fu_plasma=0.3, gfr_mL_per_min=90.0)
+        result = _predict(
+            mw=300.0, logP=2.0, pka=8.0, molecule_type="base", fu_plasma=0.3, gfr_mL_per_min=90.0
+        )
         assert result.mw == 300.0
         assert result.logP == 2.0
         assert result.pka == 8.0
@@ -62,6 +65,7 @@ class TestRenalExcretionResultStructure:
 # ---------------------------------------------------------------------------
 # Filtration clearance
 # ---------------------------------------------------------------------------
+
 
 class TestFiltrationClearance:
     def test_cl_filtration_equals_gfr_times_fup(self):
@@ -83,6 +87,7 @@ class TestFiltrationClearance:
 # ---------------------------------------------------------------------------
 # Reabsorption
 # ---------------------------------------------------------------------------
+
 
 class TestReabsorption:
     def test_reabsorption_between_0_and_1(self):
@@ -107,6 +112,7 @@ class TestReabsorption:
 # Renal clearance
 # ---------------------------------------------------------------------------
 
+
 class TestRenalClearance:
     def test_cl_renal_nonnegative(self):
         result = _predict()
@@ -130,6 +136,7 @@ class TestRenalClearance:
 # ---------------------------------------------------------------------------
 # Ionization effects
 # ---------------------------------------------------------------------------
+
 
 class TestIonizationEffects:
     def test_neutral_ionization_zero(self):
@@ -165,6 +172,7 @@ class TestIonizationEffects:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestPredictValidation:
     def test_negative_mw_raises(self):
@@ -208,11 +216,16 @@ class TestPredictValidation:
 # urine_pH_sensitivity
 # ---------------------------------------------------------------------------
 
+
 class TestUrinePHSensitivity:
     def _sweep(self, **kwargs):
         defaults = dict(
-            mw=250.0, logP=1.0, pka=5.0, molecule_type="acid",
-            fu_plasma=0.5, gfr_mL_per_min=120.0,
+            mw=250.0,
+            logP=1.0,
+            pka=5.0,
+            molecule_type="acid",
+            fu_plasma=0.5,
+            gfr_mL_per_min=120.0,
             urine_pH_values=[4.5, 5.0, 6.0, 7.0, 8.0],
         )
         defaults.update(kwargs)
@@ -230,8 +243,12 @@ class TestUrinePHSensitivity:
     def test_result_keys_present(self):
         result = self._sweep()
         expected_keys = {
-            "urine_pH", "cl_filtration_mL_per_min", "f_reabsorption",
-            "cl_renal_mL_per_min", "cl_renal_L_per_h", "ionization_fraction",
+            "urine_pH",
+            "cl_filtration_mL_per_min",
+            "f_reabsorption",
+            "cl_renal_mL_per_min",
+            "cl_renal_L_per_h",
+            "ionization_fraction",
         }
         for r in result:
             assert expected_keys <= set(r.keys())
@@ -251,13 +268,23 @@ class TestUrinePHSensitivity:
     def test_empty_ph_list_raises(self):
         with pytest.raises(ValueError, match="urine_pH_values"):
             urine_pH_sensitivity(
-                mw=250.0, logP=1.0, pka=5.0, molecule_type="acid",
-                fu_plasma=0.5, gfr_mL_per_min=120.0, urine_pH_values=[],
+                mw=250.0,
+                logP=1.0,
+                pka=5.0,
+                molecule_type="acid",
+                fu_plasma=0.5,
+                gfr_mL_per_min=120.0,
+                urine_pH_values=[],
             )
 
     def test_zero_gfr_raises(self):
         with pytest.raises(ValueError, match="gfr_mL_per_min"):
             urine_pH_sensitivity(
-                mw=250.0, logP=1.0, pka=5.0, molecule_type="acid",
-                fu_plasma=0.5, gfr_mL_per_min=0.0, urine_pH_values=[6.0],
+                mw=250.0,
+                logP=1.0,
+                pka=5.0,
+                molecule_type="acid",
+                fu_plasma=0.5,
+                gfr_mL_per_min=0.0,
+                urine_pH_values=[6.0],
             )

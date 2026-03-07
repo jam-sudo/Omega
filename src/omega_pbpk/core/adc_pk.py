@@ -157,9 +157,7 @@ def simulate_adc_pk(
     for _ in range(n_steps):
         dc_adc = -(k_deconj_per_day + ke_adc) * c_adc
         dc_ab = k_deconj_per_day * c_adc - ke_ab * c_ab_free
-        dc_payload = (
-            dar * k_deconj_per_day * c_adc * vol_ratio - ke_payload * c_payload
-        )
+        dc_payload = dar * k_deconj_per_day * c_adc * vol_ratio - ke_payload * c_payload
 
         c_adc = max(0.0, c_adc + dc_adc * dt_days)
         c_ab_free = max(0.0, c_ab_free + dc_ab * dt_days)
@@ -297,17 +295,15 @@ def linker_stability(
     """
     valid_linker_types = {"cleavable", "non_cleavable", "disulfide"}
     if linker_type not in valid_linker_types:
-        raise ValueError(
-            f"linker_type must be one of {valid_linker_types}, got {linker_type!r}"
-        )
+        raise ValueError(f"linker_type must be one of {valid_linker_types}, got {linker_type!r}")
     if temperature_C <= 0:
         raise ValueError(f"temperature_C must be > 0, got {temperature_C}")
 
     # Base stability at 37°C, pH 7.4 (plasma conditions)
     base_stability = {
         "non_cleavable": 0.98,  # Very stable; minimal plasma deconjugation
-        "cleavable": 0.92,       # Moderately stable in plasma, cleaved intracellularly
-        "disulfide": 0.85,       # Reduced by plasma thiols; pH-sensitive
+        "cleavable": 0.92,  # Moderately stable in plasma, cleaved intracellularly
+        "disulfide": 0.85,  # Reduced by plasma thiols; pH-sensitive
     }
 
     stability = base_stability[linker_type]

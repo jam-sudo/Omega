@@ -10010,6 +10010,7 @@ def api_minimal_pbpk_vss(body: dict):
     """Calculate Vss from tissue Kp values (minimal PBPK)."""
     try:
         from omega_pbpk.core.minimal_pbpk import vss_calculator as _vss_calc
+
         vss = _vss_calc(
             fup=float(body.get("fup", 0.1)),
             kp_rpt=float(body.get("kp_rpt", 2.0)),
@@ -11176,6 +11177,7 @@ def api_bbb_efflux_compare_inhibition(body: dict):
             for r in results
         ]
     }
+
 
 # Phase 176 — Dose Proportionality (power model)
 # ---------------------------------------------------------------------------

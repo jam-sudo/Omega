@@ -182,9 +182,7 @@ def predict_ka(
     if logP > 5.0:
         notes.append("High logP may improve permeability but reduce aqueous solubility")
     if particle_radius_um > 100:
-        notes.append(
-            f"Large particles ({particle_radius_um:.0f} µm) — consider micronization "
-        )
+        notes.append(f"Large particles ({particle_radius_um:.0f} µm) — consider micronization ")
     if mw > 500:
         notes.append(f"High MW ({mw:.0f} Da) — may reduce permeability (Lipinski violation)")
 

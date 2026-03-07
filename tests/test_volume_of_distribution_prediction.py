@@ -14,6 +14,7 @@ from omega_pbpk.prediction.volume_of_distribution_prediction import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _predict(**kw):
     defaults = dict(
         mw=350.0,
@@ -32,6 +33,7 @@ def _predict(**kw):
 # ---------------------------------------------------------------------------
 # Basic result structure
 # ---------------------------------------------------------------------------
+
 
 class TestVdResultType:
     def test_returns_result_object(self):
@@ -80,6 +82,7 @@ class TestVdResultType:
 # Vd classification thresholds
 # ---------------------------------------------------------------------------
 
+
 class TestVdClassification:
     def test_low_vd_classification(self):
         # High fu_plasma, low logP → low Vd
@@ -110,6 +113,7 @@ class TestVdClassification:
 # Tissue binding factor
 # ---------------------------------------------------------------------------
 
+
 class TestTissueBindingFactor:
     def test_tissue_binding_factor_positive(self):
         r = _predict()
@@ -138,6 +142,7 @@ class TestTissueBindingFactor:
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestVdValidation:
     def test_zero_mw_raises(self):
@@ -172,6 +177,7 @@ class TestVdValidation:
 # ---------------------------------------------------------------------------
 # vd_sensitivity sweep
 # ---------------------------------------------------------------------------
+
 
 class TestVdSensitivity:
     def test_returns_list_of_dicts(self):
@@ -225,7 +231,5 @@ class TestVdSensitivity:
             vd_sensitivity(mw=300.0, logP_values=[2.0], psa=70.0, fu_plasma=0.0)
 
     def test_pka_passed_through(self):
-        results = vd_sensitivity(
-            mw=350.0, logP_values=[2.0], psa=70.0, fu_plasma=0.3, pka=7.4
-        )
+        results = vd_sensitivity(mw=350.0, logP_values=[2.0], psa=70.0, fu_plasma=0.3, pka=7.4)
         assert len(results) == 1

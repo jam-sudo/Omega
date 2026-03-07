@@ -6,7 +6,6 @@ import pytest
 
 from omega_pbpk.clinical.inflammation_pd import InflammationPDResult, simulate_inflammation_pd
 
-
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
@@ -49,16 +48,12 @@ def test_imax_gt_one_raises():
 
 def test_k_cyto_prod_zero_raises():
     with pytest.raises(ValueError, match="k_cyto_prod must be > 0"):
-        simulate_inflammation_pd(
-            "Drug", dose_mg=100.0, cl_L_per_h=1.0, vd_L=10.0, k_cyto_prod=0.0
-        )
+        simulate_inflammation_pd("Drug", dose_mg=100.0, cl_L_per_h=1.0, vd_L=10.0, k_cyto_prod=0.0)
 
 
 def test_k_cyto_deg_zero_raises():
     with pytest.raises(ValueError, match="k_cyto_deg must be > 0"):
-        simulate_inflammation_pd(
-            "Drug", dose_mg=100.0, cl_L_per_h=1.0, vd_L=10.0, k_cyto_deg=0.0
-        )
+        simulate_inflammation_pd("Drug", dose_mg=100.0, cl_L_per_h=1.0, vd_L=10.0, k_cyto_deg=0.0)
 
 
 def test_baseline_cyto_zero_raises():
@@ -70,9 +65,7 @@ def test_baseline_cyto_zero_raises():
 
 def test_invalid_route_raises():
     with pytest.raises(ValueError, match="route must be"):
-        simulate_inflammation_pd(
-            "Drug", dose_mg=100.0, cl_L_per_h=1.0, vd_L=10.0, route="sc"
-        )
+        simulate_inflammation_pd("Drug", dose_mg=100.0, cl_L_per_h=1.0, vd_L=10.0, route="sc")
 
 
 def test_f_oral_zero_raises():

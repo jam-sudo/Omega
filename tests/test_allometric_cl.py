@@ -14,7 +14,6 @@ from omega_pbpk.prediction.allometric_cl import (
     predict_human_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Reference animal data (synthetic power-law data)
 # ---------------------------------------------------------------------------

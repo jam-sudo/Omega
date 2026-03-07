@@ -123,8 +123,9 @@ def simulate_microbiome_drug_fate(
 
     for i in range(n_steps):
         c_lumen = a_gut / gut_volume_L  # mg/L
-        met_rate_per_h = microbiome_metabolism_rate(c_lumen, vmax_gut_mg_per_h, km_gut_mg_L,
-                                                    microbiome_density)
+        met_rate_per_h = microbiome_metabolism_rate(
+            c_lumen, vmax_gut_mg_per_h, km_gut_mg_L, microbiome_density
+        )
         # mass metabolized per step (mg)
         mass_met_step = min(met_rate_per_h * dt_h, a_gut)
 
@@ -148,10 +149,7 @@ def simulate_microbiome_drug_fate(
     f_metabolized = total_metabolized / dose_mg
 
     density_label = f"microbiome_density={microbiome_density:.2f}"
-    notes = (
-        f"{drug_name}: {density_label}; "
-        f"f_metabolized_by_microbiome={f_metabolized:.3f}"
-    )
+    notes = f"{drug_name}: {density_label}; f_metabolized_by_microbiome={f_metabolized:.3f}"
 
     return MicrobiomePKResult(
         drug_name=drug_name,
@@ -191,12 +189,26 @@ def antibiotic_disruption_effect(
         'auc_ratio' (disrupted AUC / normal AUC).
     """
     normal = simulate_microbiome_drug_fate(
-        drug_name, dose_mg, ka_abs_per_h, vmax_gut_mg_per_h, km_gut_mg_L,
-        cl_L_per_h, vd_L, microbiome_density=1.0, **kwargs
+        drug_name,
+        dose_mg,
+        ka_abs_per_h,
+        vmax_gut_mg_per_h,
+        km_gut_mg_L,
+        cl_L_per_h,
+        vd_L,
+        microbiome_density=1.0,
+        **kwargs,
     )
     disrupted = simulate_microbiome_drug_fate(
-        drug_name, dose_mg, ka_abs_per_h, vmax_gut_mg_per_h, km_gut_mg_L,
-        cl_L_per_h, vd_L, microbiome_density=disruption_factor, **kwargs
+        drug_name,
+        dose_mg,
+        ka_abs_per_h,
+        vmax_gut_mg_per_h,
+        km_gut_mg_L,
+        cl_L_per_h,
+        vd_L,
+        microbiome_density=disruption_factor,
+        **kwargs,
     )
     auc_ratio = disrupted.auc / max(normal.auc, 1e-12)
     return {
@@ -262,7 +274,7 @@ def prodrug_activation(
     c_plasma = np.zeros(n_steps + 1)
 
     a_prodrug = prodrug_dose_mg  # lumen prodrug mass (mg)
-    a_active = 0.0              # lumen active drug mass (mg)
+    a_active = 0.0  # lumen active drug mass (mg)
     c_p = 0.0
     ke = cl_L_per_h / vd_L
 

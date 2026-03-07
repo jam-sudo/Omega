@@ -16,8 +16,19 @@ from omega_pbpk.prediction.tissue_distribution import (
 # ---------------------------------------------------------------------------
 
 TISSUES_13 = {
-    "adipose", "bone", "brain", "gut", "heart", "kidney",
-    "liver", "lung", "muscle", "skin", "spleen", "thymus", "gonads",
+    "adipose",
+    "bone",
+    "brain",
+    "gut",
+    "heart",
+    "kidney",
+    "liver",
+    "lung",
+    "muscle",
+    "skin",
+    "spleen",
+    "thymus",
+    "gonads",
 }
 
 
@@ -81,15 +92,11 @@ class TestPredictTissueKpQspr:
 
     def test_highest_is_max(self):
         result = predict_tissue_kp_qspr(3.0, None, None, 0.1)
-        assert result.kp_values[result.highest_kp_tissue] == max(
-            result.kp_values.values()
-        )
+        assert result.kp_values[result.highest_kp_tissue] == max(result.kp_values.values())
 
     def test_lowest_is_min(self):
         result = predict_tissue_kp_qspr(3.0, None, None, 0.1)
-        assert result.kp_values[result.lowest_kp_tissue] == min(
-            result.kp_values.values()
-        )
+        assert result.kp_values[result.lowest_kp_tissue] == min(result.kp_values.values())
 
     def test_pka_acid_stored_in_notes(self):
         result = predict_tissue_kp_qspr(2.0, pka_acid=4.5, pka_base=None, fu_plasma=0.1)

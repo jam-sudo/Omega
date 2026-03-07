@@ -11,7 +11,6 @@ from omega_pbpk.clinical.neonatal_pk import (
     neonatal_scaling,
 )
 
-
 # ---------------------------------------------------------------------------
 # neonatal_scaling tests
 # ---------------------------------------------------------------------------
@@ -148,7 +147,9 @@ def test_absolute_dose_consistent():
         age_days=7.0,
         weight_kg=3.0,
     )
-    assert pytest.approx(res.neonatal_dose_mg, rel=1e-6) == res.neonatal_dose_mg_per_kg * res.weight_kg
+    assert (
+        pytest.approx(res.neonatal_dose_mg, rel=1e-6) == res.neonatal_dose_mg_per_kg * res.weight_kg
+    )
 
 
 def test_caution_cyp3a4_immature():

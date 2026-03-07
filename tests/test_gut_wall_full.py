@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.core.gut_wall_full import (
@@ -174,9 +173,7 @@ class TestPgpEffect:
 class TestMassBalance:
     def test_f_metabolized_plus_portal_approx_fa(self):
         r = _run()
-        assert r.f_metabolized_gut + r.f_parent_portal == pytest.approx(
-            r.fa_total, abs=1e-9
-        )
+        assert r.f_metabolized_gut + r.f_parent_portal == pytest.approx(r.fa_total, abs=1e-9)
 
     def test_f_parent_portal_eq_fa_times_fg(self):
         r = _run()
@@ -273,9 +270,7 @@ class TestSensitivity:
         assert len(results) == 4  # default [0.5, 1.0, 2.0, 5.0]
 
     def test_high_fold_change_lowest_fg(self):
-        results = gut_availability_sensitivity(
-            **BASE_KWARGS, cyp3a4_fold_changes=[0.1, 5.0]
-        )
+        results = gut_availability_sensitivity(**BASE_KWARGS, cyp3a4_fold_changes=[0.1, 5.0])
         # sorted descending: first has higher fg, last has lower
         assert results[0].fg_total >= results[-1].fg_total
 

@@ -14,6 +14,7 @@ from omega_pbpk.core.polymer_drug_release import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _default(**kw) -> PolymerReleaseResult:
     defaults = dict(
         drug_name="TestDrug",
@@ -32,6 +33,7 @@ def _default(**kw) -> PolymerReleaseResult:
 # ---------------------------------------------------------------------------
 # Return type and basic structure
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_polymer_release_result(self):
@@ -73,6 +75,7 @@ class TestReturnType:
 # Mass conservation
 # ---------------------------------------------------------------------------
 
+
 class TestMassConservation:
     def test_mass_balance_erosion(self):
         """m_remaining + m_released should always equal dose_mg."""
@@ -113,6 +116,7 @@ class TestMassConservation:
 # f_released approaches 1 for long runs
 # ---------------------------------------------------------------------------
 
+
 class TestFReleased:
     def test_erosion_f_released_high_at_end(self):
         """Erosion model should release nearly all drug given enough time."""
@@ -135,6 +139,7 @@ class TestFReleased:
 # ---------------------------------------------------------------------------
 # Mechanism comparison: erosion vs diffusion
 # ---------------------------------------------------------------------------
+
 
 class TestMechanismComparison:
     def test_erosion_flatter_than_diffusion(self):
@@ -160,6 +165,7 @@ class TestMechanismComparison:
 # ---------------------------------------------------------------------------
 # PK metrics
 # ---------------------------------------------------------------------------
+
 
 class TestPKMetrics:
     def test_cmax_positive(self):
@@ -190,6 +196,7 @@ class TestPKMetrics:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_drug_name(self):
@@ -236,6 +243,7 @@ class TestInputValidation:
 # ---------------------------------------------------------------------------
 # compare_mechanisms
 # ---------------------------------------------------------------------------
+
 
 class TestCompareMechanisms:
     def test_returns_dict_with_three_keys(self):

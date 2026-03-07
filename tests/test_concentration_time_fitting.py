@@ -35,9 +35,7 @@ def _oral_data(
     return [scale * (math.exp(-ke * t) - math.exp(-ka * t)) for t in times]
 
 
-def _biexp_data(
-    A: float, alpha: float, B: float, beta: float, times: list[float]
-) -> list[float]:
+def _biexp_data(A: float, alpha: float, B: float, beta: float, times: list[float]) -> list[float]:
     """Generate biexponential concentrations."""
     return [A * math.exp(-alpha * t) + B * math.exp(-beta * t) for t in times]
 

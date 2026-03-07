@@ -10,9 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-VALID_TRANSPORTERS = frozenset(
-    {"P-gp", "BCRP", "OATP1B1", "OATP1B3", "OAT1", "OAT3", "OCT2"}
-)
+VALID_TRANSPORTERS = frozenset({"P-gp", "BCRP", "OATP1B1", "OATP1B3", "OAT1", "OAT3", "OCT2"})
 
 _INTESTINAL_TRANSPORTERS = frozenset({"P-gp", "BCRP"})
 _HEPATIC_TRANSPORTERS = frozenset({"OATP1B1", "OATP1B3"})
@@ -25,17 +23,17 @@ class TransporterIVIVEResult:
     victim_drug: str
     transporter: str
 
-    ic50_vitro_uM: float        # In vitro IC50 (µM)
-    c_inlet_uM: float           # Intestinal or hepatic inlet concentration (µM)
-    c_systemic_uM: float        # Systemic plasma concentration (µM)
+    ic50_vitro_uM: float  # In vitro IC50 (µM)
+    c_inlet_uM: float  # Intestinal or hepatic inlet concentration (µM)
+    c_systemic_uM: float  # Systemic plasma concentration (µM)
 
     # Static IVIVE predictions
-    r_value: float              # R = 1 + C_inlet / IC50
-    r2_value: float             # R2 for gut: 1 + (Dose/250mL) / IC50 (in µM)
+    r_value: float  # R = 1 + C_inlet / IC50
+    r2_value: float  # R2 for gut: 1 + (Dose/250mL) / IC50 (in µM)
     predicted_auc_ratio: float  # Predicted victim AUC ratio (capped at 5)
 
     # Clinical relevance
-    ddi_category: str           # "no_ddi", "weak", "moderate", "strong"
+    ddi_category: str  # "no_ddi", "weak", "moderate", "strong"
     clinical_significance: str
     requires_clinical_study: bool  # predicted AUC ratio > 1.25
 
@@ -238,9 +236,7 @@ def summarize_transporter_risk(results: list[TransporterIVIVEResult]) -> dict:
     dict
         Keys: "high_risk_count" (int), "transporter_summary" (dict transporter→max R).
     """
-    high_risk_count = sum(
-        1 for r in results if r.ddi_category in ("moderate", "strong")
-    )
+    high_risk_count = sum(1 for r in results if r.ddi_category in ("moderate", "strong"))
 
     transporter_summary: dict[str, float] = {}
     for r in results:

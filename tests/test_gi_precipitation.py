@@ -10,10 +10,10 @@ from omega_pbpk.biopharmaceutics.gi_precipitation import (
     simulate_gi_precipitation,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _default(**kw) -> GIPrecipitationResult:
     defaults = dict(
@@ -37,6 +37,7 @@ def _default(**kw) -> GIPrecipitationResult:
 # ---------------------------------------------------------------------------
 # simulate_gi_precipitation — basic tests
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateGIPrecipitation:
     def test_returns_dataclass(self):
@@ -193,17 +194,14 @@ class TestSimulateGIPrecipitation:
 # effect_of_supersaturation_inhibitors
 # ---------------------------------------------------------------------------
 
+
 class TestEffectOfSupersaturationInhibitors:
     def test_returns_list(self):
-        results = effect_of_supersaturation_inhibitors(
-            "TestDrug", 50.0, 0.05
-        )
+        results = effect_of_supersaturation_inhibitors("TestDrug", 50.0, 0.05)
         assert isinstance(results, list)
 
     def test_default_returns_four_results(self):
-        results = effect_of_supersaturation_inhibitors(
-            "TestDrug", 50.0, 0.05
-        )
+        results = effect_of_supersaturation_inhibitors("TestDrug", 50.0, 0.05)
         assert len(results) == 4
 
     def test_custom_k_precip_values_length(self):
@@ -213,14 +211,10 @@ class TestEffectOfSupersaturationInhibitors:
         assert len(results) == 2
 
     def test_sorted_descending_f_absorbed(self):
-        results = effect_of_supersaturation_inhibitors(
-            "TestDrug", 100.0, 0.05
-        )
+        results = effect_of_supersaturation_inhibitors("TestDrug", 100.0, 0.05)
         f_abs = [r.f_absorbed for r in results]
         assert f_abs == sorted(f_abs, reverse=True)
 
     def test_returns_gi_precipitation_result_objects(self):
-        results = effect_of_supersaturation_inhibitors(
-            "TestDrug", 50.0, 0.1
-        )
+        results = effect_of_supersaturation_inhibitors("TestDrug", 50.0, 0.1)
         assert all(isinstance(r, GIPrecipitationResult) for r in results)

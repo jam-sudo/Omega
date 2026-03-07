@@ -17,6 +17,7 @@ from omega_pbpk.core.perfusion_limited_pbpk import (
 
 _DEFAULT_KP = {"liver": 2.0, "kidney": 1.5, "muscle": 0.8, "fat": 3.0}
 
+
 def _sim(**kw):
     """Run simulation with convenient defaults."""
     defaults = dict(
@@ -37,6 +38,7 @@ def _sim(**kw):
 # ---------------------------------------------------------------------------
 # Return type and structure
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_result_type(self):
@@ -75,6 +77,7 @@ class TestReturnType:
 # Initial conditions
 # ---------------------------------------------------------------------------
 
+
 class TestInitialConditions:
     def test_initial_plasma_conc_equals_dose_over_vd_plasma(self):
         dose = 100.0
@@ -91,6 +94,7 @@ class TestInitialConditions:
 # ---------------------------------------------------------------------------
 # Physical constraints
 # ---------------------------------------------------------------------------
+
 
 class TestPhysicalConstraints:
     def test_plasma_conc_non_negative(self):
@@ -117,6 +121,7 @@ class TestPhysicalConstraints:
 # ---------------------------------------------------------------------------
 # PK metrics
 # ---------------------------------------------------------------------------
+
 
 class TestPKMetrics:
     def test_auc_plasma_positive(self):
@@ -155,6 +160,7 @@ class TestPKMetrics:
 # Tissue distribution
 # ---------------------------------------------------------------------------
 
+
 class TestTissueDistribution:
     def test_high_kp_tissue_accumulates_more(self):
         # Liver has kp=2.0 with high flow=54 L/h, muscle has kp=0.8 with flow=15 L/h.
@@ -184,6 +190,7 @@ class TestTissueDistribution:
 # Parameter sensitivity
 # ---------------------------------------------------------------------------
 
+
 class TestParameterSensitivity:
     def test_zero_clearance_higher_auc(self):
         r1 = _sim(cl_hep_L_per_h=0.0)
@@ -206,6 +213,7 @@ class TestParameterSensitivity:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_negative_dose_raises(self):

@@ -125,12 +125,22 @@ class TestPredictBBBResult:
 
     def test_pgp_substrate_reduces_score(self):
         r_no_pgp = predict_bbb_penetration(
-            drug_name="NoPgp", mw=300.0, logP=2.0, psa=60.0,
-            n_hbd=2, is_pgp_substrate=False, logD_pH74=1.5,
+            drug_name="NoPgp",
+            mw=300.0,
+            logP=2.0,
+            psa=60.0,
+            n_hbd=2,
+            is_pgp_substrate=False,
+            logD_pH74=1.5,
         )
         r_pgp = predict_bbb_penetration(
-            drug_name="Pgp", mw=300.0, logP=2.0, psa=60.0,
-            n_hbd=2, is_pgp_substrate=True, logD_pH74=1.5,
+            drug_name="Pgp",
+            mw=300.0,
+            logP=2.0,
+            psa=60.0,
+            n_hbd=2,
+            is_pgp_substrate=True,
+            logD_pH74=1.5,
         )
         assert r_pgp.cns_score == r_no_pgp.cns_score - 1
 
@@ -149,19 +159,34 @@ class TestPredictBBBResult:
 
     def test_high_psa_low_log_bb(self):
         r_low = predict_bbb_penetration(
-            drug_name="LowPSA", mw=300.0, logP=2.0, psa=30.0,
-            n_hbd=1, is_pgp_substrate=False, logD_pH74=1.5,
+            drug_name="LowPSA",
+            mw=300.0,
+            logP=2.0,
+            psa=30.0,
+            n_hbd=1,
+            is_pgp_substrate=False,
+            logD_pH74=1.5,
         )
         r_high = predict_bbb_penetration(
-            drug_name="HighPSA", mw=300.0, logP=2.0, psa=120.0,
-            n_hbd=1, is_pgp_substrate=False, logD_pH74=1.5,
+            drug_name="HighPSA",
+            mw=300.0,
+            logP=2.0,
+            psa=120.0,
+            n_hbd=1,
+            is_pgp_substrate=False,
+            logD_pH74=1.5,
         )
         assert r_high.log_bb < r_low.log_bb
 
     def test_stored_fields(self):
         result = predict_bbb_penetration(
-            drug_name="StoredTest", mw=350.0, logP=1.5, psa=75.0,
-            n_hbd=2, is_pgp_substrate=False, logD_pH74=1.2,
+            drug_name="StoredTest",
+            mw=350.0,
+            logP=1.5,
+            psa=75.0,
+            n_hbd=2,
+            is_pgp_substrate=False,
+            logD_pH74=1.2,
         )
         assert result.drug_name == "StoredTest"
         assert result.mw == 350.0
@@ -178,8 +203,13 @@ class TestPredictBBBResult:
             (0.0, 50.0, 300.0, 1, False),
         ]:
             result = predict_bbb_penetration(
-                drug_name="RangeTest", mw=mw_val, logP=logP_val, psa=psa_val,
-                n_hbd=hbd, is_pgp_substrate=pgp, logD_pH74=logP_val,
+                drug_name="RangeTest",
+                mw=mw_val,
+                logP=logP_val,
+                psa=psa_val,
+                n_hbd=hbd,
+                is_pgp_substrate=pgp,
+                logD_pH74=logP_val,
             )
             assert 0 <= result.cns_score <= 5
 
@@ -233,9 +263,17 @@ class TestSimulateCNSPK:
 
     def test_required_keys(self):
         result = self._run()
-        for key in ["times_h", "c_plasma_mg_L", "c_brain_mg_L", "kp_uu",
-                    "cmax_plasma_mg_L", "cmax_brain_mg_L", "auc_plasma_mg_h_L",
-                    "auc_brain_mg_h_L", "auc_brain_plasma_ratio"]:
+        for key in [
+            "times_h",
+            "c_plasma_mg_L",
+            "c_brain_mg_L",
+            "kp_uu",
+            "cmax_plasma_mg_L",
+            "cmax_brain_mg_L",
+            "auc_plasma_mg_h_L",
+            "auc_brain_mg_h_L",
+            "auc_brain_plasma_ratio",
+        ]:
             assert key in result
 
     def test_plasma_starts_at_dose_over_vd(self):

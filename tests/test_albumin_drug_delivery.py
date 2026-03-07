@@ -14,10 +14,10 @@ from omega_pbpk.core.albumin_drug_delivery import (
     simulate_albumin_facilitated_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # albumin_binding — unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestAlbuminBinding:
     """Tests for the albumin_binding() function."""
@@ -100,6 +100,7 @@ class TestAlbuminBinding:
 # ---------------------------------------------------------------------------
 # simulate_albumin_facilitated_pk — unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateAlbuminFacilitatedPk:
     """Tests for the simulate_albumin_facilitated_pk() function."""
@@ -208,6 +209,7 @@ class TestSimulateAlbuminFacilitatedPk:
 # compare_facilitation — tests
 # ---------------------------------------------------------------------------
 
+
 class TestCompareFacilitation:
     """Tests for compare_facilitation() function."""
 
@@ -218,7 +220,11 @@ class TestCompareFacilitation:
             cl_intrinsic_L_per_h=5.0,
             ka_albumin=0.01,
         )
-        assert set(result.keys()) == {"no_facilitation", "partial_facilitation", "full_facilitation"}
+        assert set(result.keys()) == {
+            "no_facilitation",
+            "partial_facilitation",
+            "full_facilitation",
+        }
 
     def test_each_value_is_albumin_delivery_result(self):
         result = compare_facilitation(

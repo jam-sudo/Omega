@@ -20,29 +20,29 @@ class BioavailabilityPredictionResult:
     compound_name: str
 
     # Input in vitro data
-    fa_predicted: float      # Fraction absorbed (from Peff/BCS)
-    fg_predicted: float      # Gut availability (from CLint_gut)
-    fh_predicted: float      # Hepatic availability (from CLint_hep)
+    fa_predicted: float  # Fraction absorbed (from Peff/BCS)
+    fg_predicted: float  # Gut availability (from CLint_gut)
+    fh_predicted: float  # Hepatic availability (from CLint_hep)
 
     # Components
     f_oral_predicted: float  # = fa * fg * fh
 
     # Confidence
-    fa_basis: str    # "permeability", "solubility_limited", "unknown"
-    fg_basis: str    # "cyp3a4_clint", "assumed_high"
-    fh_basis: str    # "well_stirred", "parallel_tube", "assumed"
+    fa_basis: str  # "permeability", "solubility_limited", "unknown"
+    fg_basis: str  # "cyp3a4_clint", "assumed_high"
+    fh_basis: str  # "well_stirred", "parallel_tube", "assumed"
 
     # Comparison
     f_oral_literature: float | None  # if provided
     prediction_accuracy_fold: float | None  # |pred/lit|, None if no literature
 
     # Uncertainty
-    f_oral_low: float   # Conservative estimate (5th pct)
+    f_oral_low: float  # Conservative estimate (5th pct)
     f_oral_high: float  # Optimistic estimate (95th pct)
 
     # Additional metrics
-    cl_predicted_L_per_h: float   # Predicted systemic CL
-    t_half_predicted_h: float     # Predicted half-life
+    cl_predicted_L_per_h: float  # Predicted systemic CL
+    t_half_predicted_h: float  # Predicted half-life
 
     recommendation: str
     notes: str
@@ -60,7 +60,9 @@ def _predict_fa(
     dose_volume_mL: float,
 ) -> tuple[float, str]:
     """Predict fraction absorbed and basis string."""
-    dose_number = dose_mg / (solubility_mg_mL * dose_volume_mL) if solubility_mg_mL > 0 else float("inf")
+    dose_number = (
+        dose_mg / (solubility_mg_mL * dose_volume_mL) if solubility_mg_mL > 0 else float("inf")
+    )
 
     if peff_cm_per_s >= 2e-4:
         if dose_number < 1.0:
@@ -202,7 +204,9 @@ def predict_bioavailability(
 
     fa, fa_basis = _predict_fa(peff_cm_per_s, solubility_mg_mL, dose_mg, dose_volume_mL)
     fg, fg_basis = _predict_fg(clint_gut_uL_per_min_per_mg, fu_plasma, hepatic_blood_flow_L_per_h)
-    fh, cl_hep, fh_basis = _predict_fh(clint_hep_uL_per_min_per_mg, fu_plasma, hepatic_blood_flow_L_per_h)
+    fh, cl_hep, fh_basis = _predict_fh(
+        clint_hep_uL_per_min_per_mg, fu_plasma, hepatic_blood_flow_L_per_h
+    )
 
     f_oral = fa * fg * fh
     f_oral = _clamp(f_oral, 0.0, 1.0)

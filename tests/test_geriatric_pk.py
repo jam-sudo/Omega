@@ -38,6 +38,7 @@ def run(**overrides):
 # Helper function tests
 # ---------------------------------------------------------------------------
 
+
 class TestCalcGFR:
     def test_age_40_is_120(self):
         assert _calc_gfr(40) == pytest.approx(120.0)
@@ -109,6 +110,7 @@ class TestBodyComposition:
 # ---------------------------------------------------------------------------
 # Main function tests
 # ---------------------------------------------------------------------------
+
 
 class TestGeriatricPKScaling:
     def test_returns_correct_type(self):
@@ -211,6 +213,7 @@ class TestGeriatricPKScaling:
 # ---------------------------------------------------------------------------
 # Validation error tests
 # ---------------------------------------------------------------------------
+
 
 class TestGeriatricPKValidation:
     def test_empty_drug_name(self):

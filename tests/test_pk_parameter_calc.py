@@ -1,5 +1,7 @@
 """Tests for Phase 374 — Pharmacokinetic Parameter Calculator (NCA)."""
+
 import math
+
 import pytest
 
 from omega_pbpk.clinical.pk_parameter_calc import (
@@ -8,10 +10,10 @@ from omega_pbpk.clinical.pk_parameter_calc import (
     compare_nca_parameters,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers to generate monoexponential data
 # ---------------------------------------------------------------------------
+
 
 def _mono_iv_data(C0: float, ke: float, times: list[float]) -> list[float]:
     """Generate monoexponential IV decay concentrations."""
@@ -23,13 +25,13 @@ def _mono_iv_data(C0: float, ke: float, times: list[float]) -> list[float]:
 # ---------------------------------------------------------------------------
 
 TIMES = [0.0, 0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0, 24.0]
-C0 = 10.0    # mg/L
-KE = 0.1     # per h
+C0 = 10.0  # mg/L
+KE = 0.1  # per h
 CONCS = _mono_iv_data(C0, KE, TIMES)
 DOSE = 100.0  # mg
 
 # Analytical values for monoexponential IV
-EXPECTED_AUC_INF = C0 / KE       # = 100 mg*h/L
+EXPECTED_AUC_INF = C0 / KE  # = 100 mg*h/L
 EXPECTED_T_HALF = math.log(2) / KE  # ≈ 6.93 h
 EXPECTED_CL = DOSE / EXPECTED_AUC_INF  # = 1.0 L/h
 
@@ -37,6 +39,7 @@ EXPECTED_CL = DOSE / EXPECTED_AUC_INF  # = 1.0 L/h
 # ---------------------------------------------------------------------------
 # Structure tests
 # ---------------------------------------------------------------------------
+
 
 class TestNCAResultStructure:
     def test_returns_nca_result(self):
@@ -65,6 +68,7 @@ class TestNCAResultStructure:
 # Cmax / Tmax tests
 # ---------------------------------------------------------------------------
 
+
 class TestCmaxTmax:
     def test_cmax_equals_max_concentration(self):
         result = calculate_nca("Drug", DOSE, TIMES, CONCS, route="iv")
@@ -87,6 +91,7 @@ class TestCmaxTmax:
 # ---------------------------------------------------------------------------
 # Lambda_z and t_half tests
 # ---------------------------------------------------------------------------
+
 
 class TestLambdaZ:
     def test_lambda_z_positive(self):
@@ -111,6 +116,7 @@ class TestLambdaZ:
 # AUC tests
 # ---------------------------------------------------------------------------
 
+
 class TestAUC:
     def test_auc_inf_ge_auc_last(self):
         result = calculate_nca("Drug", DOSE, TIMES, CONCS, route="iv")
@@ -130,6 +136,7 @@ class TestAUC:
 # MRT tests
 # ---------------------------------------------------------------------------
 
+
 class TestMRT:
     def test_mrt_positive(self):
         result = calculate_nca("Drug", DOSE, TIMES, CONCS, route="iv")
@@ -144,6 +151,7 @@ class TestMRT:
 # ---------------------------------------------------------------------------
 # CL and Vd tests
 # ---------------------------------------------------------------------------
+
 
 class TestCLVd:
     def test_cl_close_to_expected_iv(self):
@@ -162,8 +170,12 @@ class TestCLVd:
     def test_cl_oral_with_bioavailability(self):
         times_oral = [0.5, 1.0, 2.0, 4.0, 8.0, 12.0, 24.0]
         concs_oral = [2.0, 4.0, 5.0, 3.0, 1.5, 0.5, 0.1]
-        result_no_f = calculate_nca("Drug", 100.0, times_oral, concs_oral, route="oral", f_for_oral=None)
-        result_with_f = calculate_nca("Drug", 100.0, times_oral, concs_oral, route="oral", f_for_oral=0.5)
+        result_no_f = calculate_nca(
+            "Drug", 100.0, times_oral, concs_oral, route="oral", f_for_oral=None
+        )
+        result_with_f = calculate_nca(
+            "Drug", 100.0, times_oral, concs_oral, route="oral", f_for_oral=0.5
+        )
         # CL with F=0.5 should be half of apparent CL
         assert abs(result_with_f.cl_obs_L_per_h - 0.5 * result_no_f.cl_obs_L_per_h) < 1e-9
 
@@ -171,6 +183,7 @@ class TestCLVd:
 # ---------------------------------------------------------------------------
 # Bioavailability tests
 # ---------------------------------------------------------------------------
+
 
 class TestFOral:
     def test_f_oral_none_for_iv(self):
@@ -194,6 +207,7 @@ class TestFOral:
 # Adequate sampling flag
 # ---------------------------------------------------------------------------
 
+
 class TestAdequateSampling:
     def test_adequate_sampling_true_for_good_data(self):
         # Use more terminal points on perfect monoexponential
@@ -209,10 +223,18 @@ class TestAdequateSampling:
 # compare_nca_parameters tests
 # ---------------------------------------------------------------------------
 
+
 class TestCompareNCA:
     def test_returns_dict(self):
         r1 = calculate_nca("Drug", DOSE, TIMES, CONCS, route="iv", n_terminal_points=4)
-        r2 = calculate_nca("Drug", DOSE * 2, TIMES, _mono_iv_data(C0 * 2, KE, TIMES), route="iv", n_terminal_points=4)
+        r2 = calculate_nca(
+            "Drug",
+            DOSE * 2,
+            TIMES,
+            _mono_iv_data(C0 * 2, KE, TIMES),
+            route="iv",
+            n_terminal_points=4,
+        )
         summary = compare_nca_parameters([r1, r2])
         assert isinstance(summary, dict)
 
@@ -227,7 +249,7 @@ class TestCompareNCA:
     def test_summary_stat_keys(self):
         r1 = calculate_nca("Drug", DOSE, TIMES, CONCS, route="iv")
         summary = compare_nca_parameters([r1])
-        for param, stats in summary.items():
+        for _param, stats in summary.items():
             assert "mean" in stats
             assert "cv_pct" in stats
             assert "range" in stats
@@ -239,6 +261,7 @@ class TestCompareNCA:
 # ---------------------------------------------------------------------------
 # Input validation tests
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_raises_on_mismatched_lengths(self):

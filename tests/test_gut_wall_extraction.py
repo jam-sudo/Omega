@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.gut_wall_extraction import (
@@ -83,17 +81,20 @@ class TestFgFromClintGut:
     def test_clint_equals_qgut_gives_eg_half(self):
         # CLint*fu = Qgut → EG = 0.5, fg = 0.5
         qgut = 18.0
-        r = gut_wall_extraction(peff_cm_s=1e-4, clint_gut_L_per_h=qgut, qgut_L_per_h=qgut,
-                                 fu_gut=1.0)
+        r = gut_wall_extraction(
+            peff_cm_s=1e-4, clint_gut_L_per_h=qgut, qgut_L_per_h=qgut, fu_gut=1.0
+        )
         assert r.eg == pytest.approx(0.5, rel=1e-6)
         assert r.fg == pytest.approx(0.5, rel=1e-6)
 
     def test_fu_gut_scales_effective_clint(self):
         # fu_gut=0.5 should halve the effective CLint
-        r_full = gut_wall_extraction(peff_cm_s=1e-4, clint_gut_L_per_h=36.0,
-                                      qgut_L_per_h=18.0, fu_gut=1.0)
-        r_half = gut_wall_extraction(peff_cm_s=1e-4, clint_gut_L_per_h=72.0,
-                                      qgut_L_per_h=18.0, fu_gut=0.5)
+        r_full = gut_wall_extraction(
+            peff_cm_s=1e-4, clint_gut_L_per_h=36.0, qgut_L_per_h=18.0, fu_gut=1.0
+        )
+        r_half = gut_wall_extraction(
+            peff_cm_s=1e-4, clint_gut_L_per_h=72.0, qgut_L_per_h=18.0, fu_gut=0.5
+        )
         assert r_full.eg == pytest.approx(r_half.eg, rel=1e-6)
 
 
@@ -225,9 +226,7 @@ class TestSensitivityAnalysis:
         assert len(rows) == 2 * 2 * 2  # 8 rows
 
     def test_row_has_required_keys(self):
-        rows = sensitivity_analysis(
-            peff_range=[2e-4], fg_range=[0.8], fh_range=[0.6]
-        )
+        rows = sensitivity_analysis(peff_range=[2e-4], fg_range=[0.8], fh_range=[0.6])
         assert len(rows) == 1
         row = rows[0]
         assert "peff_cm_s" in row
@@ -237,9 +236,7 @@ class TestSensitivityAnalysis:
         assert "F" in row
 
     def test_f_equals_fa_times_fg_times_fh(self):
-        rows = sensitivity_analysis(
-            peff_range=[3e-4], fg_range=[0.7], fh_range=[0.5]
-        )
+        rows = sensitivity_analysis(peff_range=[3e-4], fg_range=[0.7], fh_range=[0.5])
         row = rows[0]
         assert row["F"] == pytest.approx(row["fa"] * row["fg"] * row["fh"], rel=1e-6)
 

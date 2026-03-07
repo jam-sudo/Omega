@@ -124,8 +124,9 @@ def partition_variability(
 
     for i, grp in enumerate(values_list):
         if not grp:
-            raise ValueError(f"Group {i} ('{source_names[i]}') is empty; all groups must have "
-                             "at least one value")
+            raise ValueError(
+                f"Group {i} ('{source_names[i]}') is empty; all groups must have at least one value"
+            )
         for j, v in enumerate(grp):
             if not math.isfinite(v):
                 raise ValueError(
@@ -147,8 +148,7 @@ def partition_variability(
     # SS decomposition
     total_ss = sum((x - grand_mean) ** 2 for x in all_values)
     between_ss = sum(
-        n_i * (gm - grand_mean) ** 2
-        for n_i, gm in zip(group_ns, group_means, strict=True)
+        n_i * (gm - grand_mean) ** 2 for n_i, gm in zip(group_ns, group_means, strict=True)
     )
     within_ss = max(0.0, total_ss - between_ss)
 

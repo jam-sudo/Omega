@@ -96,9 +96,7 @@ def emax_model(conc: float, emax: float, ec50: float, e0: float = 0.0) -> float:
     return e0 + emax * conc / (ec50 + conc)
 
 
-def sigmoidal_emax(
-    conc: float, emax: float, ec50: float, hill_n: float, e0: float = 0.0
-) -> float:
+def sigmoidal_emax(conc: float, emax: float, ec50: float, hill_n: float, e0: float = 0.0) -> float:
     """Sigmoidal (Hill) Emax model.
 
     E = E0 + Emax * C^n / (EC50^n + C^n)
@@ -278,9 +276,7 @@ def simulate_pkpd(
     if route == "iv":
         c_plasma = _simulate_pk_iv(dose_mg, cl_L_per_h, vd_L, times_h, dt_h)
     else:
-        c_plasma = _simulate_pk_oral(
-            dose_mg, cl_L_per_h, vd_L, ka_per_h, f, times_h
-        )
+        c_plasma = _simulate_pk_oral(dose_mg, cl_L_per_h, vd_L, ka_per_h, f, times_h)
 
     # ------------------------------------------------------------------
     # PD simulation
@@ -288,9 +284,7 @@ def simulate_pkpd(
     ke0 = 0.1  # effect compartment rate constant (h⁻¹)
 
     if model == "direct":
-        effect = [
-            sigmoidal_emax(c, emax, ec50_mg_L, hill_n, e0) for c in c_plasma
-        ]
+        effect = [sigmoidal_emax(c, emax, ec50_mg_L, hill_n, e0) for c in c_plasma]
     else:
         # Effect compartment: forward Euler
         # dCe/dt = ke0 * (Cp - Ce)
@@ -375,9 +369,7 @@ def calculate_pdp_index(
         If lists have different lengths or fewer than 2 points.
     """
     if len(effect_time_series) != len(times_h):
-        raise ValueError(
-            "effect_time_series and times_h must have the same length."
-        )
+        raise ValueError("effect_time_series and times_h must have the same length.")
     if len(times_h) < 2:
         raise ValueError("At least 2 time points are required.")
 
@@ -423,9 +415,7 @@ def time_above_ec50(
     if ec50_mg_L <= 0:
         raise ValueError(f"ec50_mg_L must be positive, got {ec50_mg_L}")
     if len(conc_time_series) != len(times_h):
-        raise ValueError(
-            "conc_time_series and times_h must have the same length."
-        )
+        raise ValueError("conc_time_series and times_h must have the same length.")
     if len(times_h) < 2:
         return 0.0
 

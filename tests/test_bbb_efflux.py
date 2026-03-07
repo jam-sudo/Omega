@@ -1,7 +1,5 @@
 """Tests for Phase 171 — Drug Efflux at Blood-Brain Barrier."""
 
-import math
-
 import pytest
 
 from omega_pbpk.core.bbb_efflux import (
@@ -9,7 +7,6 @@ from omega_pbpk.core.bbb_efflux import (
     compare_efflux_inhibition,
     simulate_bbb_efflux,
 )
-
 
 # ── Default parameters ──────────────────────────────────────────────
 
@@ -27,6 +24,7 @@ def _run(**overrides):
 
 
 # ── Basic functionality ─────────────────────────────────────────────
+
 
 class TestBasicSimulation:
     def test_returns_result(self):
@@ -59,7 +57,9 @@ class TestBasicSimulation:
 
     def test_cmax_plasma_equals_initial(self):
         r = _run()
-        assert r.cmax_plasma == pytest.approx(DEFAULTS["dose_mg"] / DEFAULTS["vd_plasma_L"], rel=0.01)
+        assert r.cmax_plasma == pytest.approx(
+            DEFAULTS["dose_mg"] / DEFAULTS["vd_plasma_L"], rel=0.01
+        )
 
     def test_auc_plasma_positive(self):
         r = _run()
@@ -71,6 +71,7 @@ class TestBasicSimulation:
 
 
 # ── P-gp effects ────────────────────────────────────────────────────
+
 
 class TestPgpEffects:
     def test_kp_brain_less_than_1_with_pgp(self):
@@ -103,6 +104,7 @@ class TestPgpEffects:
 
 # ── Linear PK ────────────────────────────────────────────────────────
 
+
 class TestLinearPK:
     def test_double_dose_doubles_auc_plasma(self):
         r1 = _run(dose_mg=50.0)
@@ -121,6 +123,7 @@ class TestLinearPK:
 
 
 # ── Validation ───────────────────────────────────────────────────────
+
 
 class TestValidation:
     def test_negative_dose_raises(self):
@@ -142,20 +145,27 @@ class TestValidation:
 
 # ── compare_efflux_inhibition ────────────────────────────────────────
 
+
 class TestCompare:
     def test_returns_correct_count(self):
         fracs = [0.0, 0.25, 0.5, 0.75, 1.0]
         results = compare_efflux_inhibition(
-            drug_name="TestDrug", dose_mg=100, inhibition_fractions=fracs,
-            cl_L_per_h=5.0, vd_plasma_L=50.0,
+            drug_name="TestDrug",
+            dose_mg=100,
+            inhibition_fractions=fracs,
+            cl_L_per_h=5.0,
+            vd_plasma_L=50.0,
         )
         assert len(results) == 5
 
     def test_monotonically_increasing_brain_auc(self):
         fracs = [0.0, 0.5, 1.0]
         results = compare_efflux_inhibition(
-            drug_name="TestDrug", dose_mg=100, inhibition_fractions=fracs,
-            cl_L_per_h=5.0, vd_plasma_L=50.0,
+            drug_name="TestDrug",
+            dose_mg=100,
+            inhibition_fractions=fracs,
+            cl_L_per_h=5.0,
+            vd_plasma_L=50.0,
         )
         aucs = [r.auc_brain for r in results]
         assert aucs[0] < aucs[1] < aucs[2]
@@ -163,12 +173,16 @@ class TestCompare:
     def test_empty_fractions_raises(self):
         with pytest.raises(ValueError, match="inhibition_fractions"):
             compare_efflux_inhibition(
-                drug_name="TestDrug", dose_mg=100, inhibition_fractions=[],
-                cl_L_per_h=5.0, vd_plasma_L=50.0,
+                drug_name="TestDrug",
+                dose_mg=100,
+                inhibition_fractions=[],
+                cl_L_per_h=5.0,
+                vd_plasma_L=50.0,
             )
 
 
 # ── Notes ─────────────────────────────────────────────────────────────
+
 
 class TestNotes:
     def test_inhibition_note_present(self):

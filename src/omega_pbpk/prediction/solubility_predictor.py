@@ -83,11 +83,7 @@ def predict_solubility(
     # --- ESOL-like model (Delaney 2004 approximation) ---
     # log S (mol/L) = 0.16 - 0.63*logP - 0.0062*MW + 0.066*RB - 0.74*AR
     log_s_esol = (
-        0.16
-        - 0.63 * logP
-        - 0.0062 * mw
-        + 0.066 * n_rotatable_bonds
-        - 0.74 * n_aromatic_rings
+        0.16 - 0.63 * logP - 0.0062 * mw + 0.066 * n_rotatable_bonds - 0.74 * n_aromatic_rings
     )
 
     # Use GSE s_mg_mL for classification

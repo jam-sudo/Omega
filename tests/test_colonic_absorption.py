@@ -63,15 +63,11 @@ class TestInputValidation:
 
     def test_t_transit_zero(self):
         with pytest.raises(ValueError, match="t_transit_h"):
-            simulate_colonic_absorption(
-                _DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD, t_transit_h=0.0
-            )
+            simulate_colonic_absorption(_DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD, t_transit_h=0.0)
 
     def test_t_end_zero(self):
         with pytest.raises(ValueError, match="t_end_h"):
-            simulate_colonic_absorption(
-                _DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD, t_end_h=0.0
-            )
+            simulate_colonic_absorption(_DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD, t_end_h=0.0)
 
     def test_dt_too_large(self):
         with pytest.raises(ValueError, match="dt_h"):
@@ -88,8 +84,15 @@ class TestInputValidation:
 class TestResultStructure:
     def setup_method(self):
         self.result = simulate_colonic_absorption(
-            _DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD,
-            t_transit_h=_T_TRANSIT, t_end_h=48.0, dt_h=0.1,
+            _DRUG,
+            _DOSE_LO,
+            _SOL,
+            _PEFF,
+            _CL,
+            _VD,
+            t_transit_h=_T_TRANSIT,
+            t_end_h=48.0,
+            dt_h=0.1,
         )
 
     def test_returns_correct_type(self):
@@ -131,8 +134,15 @@ class TestResultStructure:
 class TestPhysiology:
     def setup_method(self):
         self.result = simulate_colonic_absorption(
-            _DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD,
-            t_transit_h=_T_TRANSIT, t_end_h=48.0, dt_h=0.05,
+            _DRUG,
+            _DOSE_LO,
+            _SOL,
+            _PEFF,
+            _CL,
+            _VD,
+            t_transit_h=_T_TRANSIT,
+            t_end_h=48.0,
+            dt_h=0.05,
         )
 
     def test_a_colon_starts_at_dose(self):
@@ -163,9 +173,7 @@ class TestPhysiology:
 
     def test_a_colon_decreases_during_transit(self):
         """Amount in colon should decrease before transit time ends."""
-        idx_transit = min(
-            int(_T_TRANSIT / 0.05), len(self.result.a_colon_mg) - 1
-        )
+        idx_transit = min(int(_T_TRANSIT / 0.05), len(self.result.a_colon_mg) - 1)
         assert self.result.a_colon_mg[idx_transit] <= self.result.a_colon_mg[0]
 
 
@@ -174,16 +182,21 @@ class TestAbsorptionCeases:
 
     def test_absorption_stops_after_transit(self):
         result = simulate_colonic_absorption(
-            _DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD,
-            t_transit_h=5.0, t_end_h=24.0, dt_h=0.1,
+            _DRUG,
+            _DOSE_LO,
+            _SOL,
+            _PEFF,
+            _CL,
+            _VD,
+            t_transit_h=5.0,
+            t_end_h=24.0,
+            dt_h=0.1,
         )
         # After transit, a_colon should be constant (no further absorption)
         idx_post = int(6.0 / 0.1)  # 1h past transit
         idx_end = len(result.a_colon_mg) - 1
         # The colon depot should remain unchanged after transit
-        assert result.a_colon_mg[idx_post] == pytest.approx(
-            result.a_colon_mg[idx_end], rel=1e-6
-        )
+        assert result.a_colon_mg[idx_post] == pytest.approx(result.a_colon_mg[idx_end], rel=1e-6)
 
 
 class TestSolubilityLimited:
@@ -194,8 +207,15 @@ class TestSolubilityLimited:
         # Note is added when dissolved_frac < 1.0, i.e., dose < sol * V_colon
         # dose=10 mg, sol=1.0 mg/mL, V=40 mL → 10/40 = 0.25 < 1 → note added
         result = simulate_colonic_absorption(
-            _DRUG, 10.0, 1.0, _PEFF, _CL, _VD,
-            t_transit_h=_T_TRANSIT, t_end_h=48.0, dt_h=0.1,
+            _DRUG,
+            10.0,
+            1.0,
+            _PEFF,
+            _CL,
+            _VD,
+            t_transit_h=_T_TRANSIT,
+            t_end_h=48.0,
+            dt_h=0.1,
         )
         assert any("dissolved" in n.lower() for n in result.notes)
 
@@ -204,8 +224,15 @@ class TestSolubilityLimited:
         # For no solubility note: need dose >= sol*V
         # dose=400, sol=10, V=40 → 400/(10*40)=1.0 → dissolved_frac=1.0 → no note
         result = simulate_colonic_absorption(
-            _DRUG, 400.0, 10.0, _PEFF, _CL, _VD,
-            t_transit_h=_T_TRANSIT, t_end_h=48.0, dt_h=0.1,
+            _DRUG,
+            400.0,
+            10.0,
+            _PEFF,
+            _CL,
+            _VD,
+            t_transit_h=_T_TRANSIT,
+            t_end_h=48.0,
+            dt_h=0.1,
         )
         assert not any("dissolved" in n.lower() for n in result.notes)
 
@@ -218,15 +245,29 @@ class TestSolubilityLimited:
 class TestTransitTimeWarnings:
     def test_short_transit_warning(self):
         result = simulate_colonic_absorption(
-            _DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD,
-            t_transit_h=4.0, t_end_h=24.0, dt_h=0.1,
+            _DRUG,
+            _DOSE_LO,
+            _SOL,
+            _PEFF,
+            _CL,
+            _VD,
+            t_transit_h=4.0,
+            t_end_h=24.0,
+            dt_h=0.1,
         )
         assert any("shorter" in n for n in result.notes)
 
     def test_long_transit_warning(self):
         result = simulate_colonic_absorption(
-            _DRUG, _DOSE_LO, _SOL, _PEFF, _CL, _VD,
-            t_transit_h=40.0, t_end_h=72.0, dt_h=0.1,
+            _DRUG,
+            _DOSE_LO,
+            _SOL,
+            _PEFF,
+            _CL,
+            _VD,
+            t_transit_h=40.0,
+            t_end_h=72.0,
+            dt_h=0.1,
         )
         assert any("longer" in n for n in result.notes)
 
@@ -238,57 +279,52 @@ class TestTransitTimeWarnings:
 
 class TestModifiedReleaseColonicPK:
     def test_returns_dict(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL)
         assert isinstance(result, dict)
 
     def test_required_keys_present(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL)
         expected_keys = {
-            "drug_name", "dose_mg", "si_release_pct", "colon_dose_mg",
-            "si_cmax", "si_auc", "colon_result", "combined_cmax",
-            "combined_auc", "combined_times_h", "combined_c_plasma",
-            "f_si", "f_colon", "f_total", "notes",
+            "drug_name",
+            "dose_mg",
+            "si_release_pct",
+            "colon_dose_mg",
+            "si_cmax",
+            "si_auc",
+            "colon_result",
+            "combined_cmax",
+            "combined_auc",
+            "combined_times_h",
+            "combined_c_plasma",
+            "f_si",
+            "f_colon",
+            "f_total",
+            "notes",
         }
         assert expected_keys.issubset(result.keys())
 
     def test_colon_dose_complementary(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.6, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.6, _CL, _VD, solubility_mg_mL=_SOL)
         assert result["colon_dose_mg"] == pytest.approx(0.4 * _DOSE, rel=1e-6)
 
     def test_f_total_between_0_and_1(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL)
         assert 0.0 <= result["f_total"] <= 1.0 + 1e-9
 
     def test_combined_cmax_positive(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL)
         assert result["combined_cmax"] > 0.0
 
     def test_combined_auc_positive(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL)
         assert result["combined_auc"] > 0.0
 
     def test_all_si_release_no_colon_dose(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 1.0, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 1.0, _CL, _VD, solubility_mg_mL=_SOL)
         assert result["colon_dose_mg"] == pytest.approx(0.0, abs=1e-9)
 
     def test_no_si_release_all_colon(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.0, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.0, _CL, _VD, solubility_mg_mL=_SOL)
         assert result["si_cmax"] == pytest.approx(0.0, abs=1e-9)
 
     def test_invalid_si_release_pct(self):
@@ -300,19 +336,13 @@ class TestModifiedReleaseColonicPK:
             modified_release_colonic_pk(_DRUG, _DOSE, 0.5, 0.0, _VD)
 
     def test_high_si_note(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.95, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.95, _CL, _VD, solubility_mg_mL=_SOL)
         assert any("SI" in n or "minor" in n for n in result["notes"])
 
     def test_colon_result_type(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL)
         assert isinstance(result["colon_result"], ColonicAbsorptionResult)
 
     def test_combined_c_plasma_length_matches_times(self):
-        result = modified_release_colonic_pk(
-            _DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL
-        )
+        result = modified_release_colonic_pk(_DRUG, _DOSE, 0.5, _CL, _VD, solubility_mg_mL=_SOL)
         assert len(result["combined_c_plasma"]) == len(result["combined_times_h"])

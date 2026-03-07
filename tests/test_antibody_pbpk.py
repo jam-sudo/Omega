@@ -16,6 +16,7 @@ from omega_pbpk.core.antibody_pbpk import (
 # Input validation
 # ---------------------------------------------------------------------------
 
+
 class TestInputValidation:
     def test_dose_zero_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
@@ -50,6 +51,7 @@ class TestInputValidation:
 # IV route
 # ---------------------------------------------------------------------------
 
+
 class TestIVRoute:
     def test_iv_initial_concentration(self):
         """C_c(0+) should be close to dose/Vc for IV bolus."""
@@ -59,8 +61,9 @@ class TestIVRoute:
 
     def test_iv_half_life_with_fcrn(self):
         """FcRn recycling should give t½ > 5 days for typical mAb."""
-        r = simulate_antibody_pk("mAb", 300, route="iv", fcrn_recycling=0.7,
-                                 t_end_day=56, dt_day=0.1)
+        r = simulate_antibody_pk(
+            "mAb", 300, route="iv", fcrn_recycling=0.7, t_end_day=56, dt_day=0.1
+        )
         assert r.t_half_day > 5.0
 
     def test_iv_bioavailability_is_one(self):
@@ -83,6 +86,7 @@ class TestIVRoute:
 # SC route
 # ---------------------------------------------------------------------------
 
+
 class TestSCRoute:
     def test_sc_cmax_lower_than_iv(self):
         """SC Cmax should be lower than IV Cmax (same dose)."""
@@ -101,10 +105,8 @@ class TestSCRoute:
 
     def test_iv_auc_greater_than_sc(self):
         """IV AUC > SC AUC (same dose, SC has f_sc < 1)."""
-        sc = simulate_antibody_pk("mAb", 300, route="sc", f_sc=0.7,
-                                  t_end_day=56, dt_day=0.1)
-        iv = simulate_antibody_pk("mAb", 300, route="iv",
-                                  t_end_day=56, dt_day=0.1)
+        sc = simulate_antibody_pk("mAb", 300, route="sc", f_sc=0.7, t_end_day=56, dt_day=0.1)
+        iv = simulate_antibody_pk("mAb", 300, route="iv", t_end_day=56, dt_day=0.1)
         assert iv.auc_0_t > sc.auc_0_t
 
 
@@ -112,27 +114,33 @@ class TestSCRoute:
 # FcRn recycling
 # ---------------------------------------------------------------------------
 
+
 class TestFcRnRecycling:
     def test_higher_fcrn_longer_half_life(self):
         """Higher FcRn recycling should extend half-life."""
-        r_low = simulate_antibody_pk("mAb", 300, route="iv", fcrn_recycling=0.0,
-                                     t_end_day=56, dt_day=0.1)
-        r_high = simulate_antibody_pk("mAb", 300, route="iv", fcrn_recycling=0.7,
-                                      t_end_day=56, dt_day=0.1)
+        r_low = simulate_antibody_pk(
+            "mAb", 300, route="iv", fcrn_recycling=0.0, t_end_day=56, dt_day=0.1
+        )
+        r_high = simulate_antibody_pk(
+            "mAb", 300, route="iv", fcrn_recycling=0.7, t_end_day=56, dt_day=0.1
+        )
         assert r_high.t_half_day > r_low.t_half_day
 
     def test_fcrn_zero_shorter_half_life(self):
         """fcrn_recycling=0 should give shorter t½ than 0.7."""
-        r0 = simulate_antibody_pk("mAb", 300, route="iv", fcrn_recycling=0.0,
-                                  t_end_day=56, dt_day=0.1)
-        r7 = simulate_antibody_pk("mAb", 300, route="iv", fcrn_recycling=0.7,
-                                  t_end_day=56, dt_day=0.1)
+        r0 = simulate_antibody_pk(
+            "mAb", 300, route="iv", fcrn_recycling=0.0, t_end_day=56, dt_day=0.1
+        )
+        r7 = simulate_antibody_pk(
+            "mAb", 300, route="iv", fcrn_recycling=0.7, t_end_day=56, dt_day=0.1
+        )
         assert r0.t_half_day < r7.t_half_day
 
 
 # ---------------------------------------------------------------------------
 # Linear PK (dose proportionality without TMDD)
 # ---------------------------------------------------------------------------
+
 
 class TestLinearPK:
     def test_dose_proportional_cmax(self):
@@ -154,13 +162,12 @@ class TestLinearPK:
 # TMDD
 # ---------------------------------------------------------------------------
 
+
 class TestTMDD:
     def test_tmdd_reduces_auc(self):
         """TMDD should reduce AUC compared to no-TMDD (same dose)."""
-        r_no = simulate_antibody_pk("mAb", 300, route="iv", tmdd=False,
-                                    t_end_day=56, dt_day=0.1)
-        r_yes = simulate_antibody_pk("mAb", 300, route="iv", tmdd=True,
-                                     t_end_day=56, dt_day=0.1)
+        r_no = simulate_antibody_pk("mAb", 300, route="iv", tmdd=False, t_end_day=56, dt_day=0.1)
+        r_yes = simulate_antibody_pk("mAb", 300, route="iv", tmdd=True, t_end_day=56, dt_day=0.1)
         assert r_yes.auc_0_t < r_no.auc_0_t
 
     def test_tmdd_enabled_flag(self):
@@ -175,6 +182,7 @@ class TestTMDD:
 # ---------------------------------------------------------------------------
 # compare_sc_iv
 # ---------------------------------------------------------------------------
+
 
 class TestCompareSCIV:
     def test_returns_tuple_of_two(self):
@@ -191,6 +199,7 @@ class TestCompareSCIV:
 # ---------------------------------------------------------------------------
 # Result fields
 # ---------------------------------------------------------------------------
+
 
 class TestResultFields:
     def test_times_length(self):
@@ -209,8 +218,7 @@ class TestResultFields:
         assert all(math.isfinite(c) for c in r.ct_mg_L)
 
     def test_no_nan_in_key_metrics(self):
-        r = simulate_antibody_pk("mAb", 300, route="iv",
-                                 t_end_day=56, dt_day=0.1)
+        r = simulate_antibody_pk("mAb", 300, route="iv", t_end_day=56, dt_day=0.1)
         assert math.isfinite(r.cmax_mg_L)
         assert math.isfinite(r.auc_0_t)
         assert math.isfinite(r.t_half_day)

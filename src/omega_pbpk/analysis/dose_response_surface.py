@@ -59,9 +59,7 @@ def _validate_dose_response(doses: list[float], responses: list[float]) -> None:
             f"doses and responses must have equal length, got {len(doses)} vs {len(responses)}"
         )
     if len(doses) < _MIN_DATA_POINTS:
-        raise ValueError(
-            f"At least {_MIN_DATA_POINTS} data points required, got {len(doses)}"
-        )
+        raise ValueError(f"At least {_MIN_DATA_POINTS} data points required, got {len(doses)}")
     if any(d <= 0 for d in doses):
         raise ValueError("All doses must be > 0")
     if any(r < 0 or r > 100 for r in responses):
@@ -194,14 +192,10 @@ def dose_response_surface(
     n1 = len(drug1_doses)
     n2 = len(drug2_doses)
     if len(responses_matrix) != n1:
-        raise ValueError(
-            f"responses_matrix must have {n1} rows, got {len(responses_matrix)}"
-        )
+        raise ValueError(f"responses_matrix must have {n1} rows, got {len(responses_matrix)}")
     for i, row in enumerate(responses_matrix):
         if len(row) != n2:
-            raise ValueError(
-                f"responses_matrix row {i} must have {n2} columns, got {len(row)}"
-            )
+            raise ValueError(f"responses_matrix row {i} must have {n2} columns, got {len(row)}")
         if any(r < 0 or r > 100 for r in row):
             raise ValueError(f"responses_matrix row {i} values must be in [0, 100]")
 
@@ -221,12 +215,18 @@ def dose_response_surface(
     for i, d1 in enumerate(drug1_doses):
         row: list[float] = []
         for j, d2 in enumerate(drug2_doses):
-            e1 = float(
-                _hill_model(np.array([d1]), drug1_fit.emax, drug1_fit.ed50, drug1_fit.hill_n)[0]
-            ) / 100.0
-            e2 = float(
-                _hill_model(np.array([d2]), drug2_fit.emax, drug2_fit.ed50, drug2_fit.hill_n)[0]
-            ) / 100.0
+            e1 = (
+                float(
+                    _hill_model(np.array([d1]), drug1_fit.emax, drug1_fit.ed50, drug1_fit.hill_n)[0]
+                )
+                / 100.0
+            )
+            e2 = (
+                float(
+                    _hill_model(np.array([d2]), drug2_fit.emax, drug2_fit.ed50, drug2_fit.hill_n)[0]
+                )
+                / 100.0
+            )
 
             # Bliss independence (fractional scale 0-1, then back to %)
             bliss = (e1 + e2 - e1 * e2) * 100.0

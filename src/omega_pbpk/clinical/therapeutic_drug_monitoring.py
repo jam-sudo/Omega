@@ -210,9 +210,7 @@ def bayesian_dose_adjustment(
     # Step 1: Estimate individual CL
     ind_cl: float | None = None
     if len(observed_concs) >= 2:
-        ind_cl = _estimate_cl_from_observations(
-            observed_concs, observed_times, current_dose_mg
-        )
+        ind_cl = _estimate_cl_from_observations(observed_concs, observed_times, current_dose_mg)
         if ind_cl is None or ind_cl <= 0:
             notes.append("CL estimation from observations failed; using prior CL")
             ind_cl = prior_cl_L_per_h

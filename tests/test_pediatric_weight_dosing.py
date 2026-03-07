@@ -6,11 +6,9 @@ import pytest
 
 from omega_pbpk.clinical.pediatric_weight_dosing import (
     DosingTable,
-    WeightBandDose,
     generate_dosing_table,
     round_to_practical_dose,
 )
-
 
 # ---------------------------------------------------------------------------
 # round_to_practical_dose
@@ -140,7 +138,7 @@ def test_higher_mg_per_kg_gives_higher_doses():
     low_doses = [b.rounded_dose_mg for b in low.weight_bands]
     high_doses = [b.rounded_dose_mg for b in high.weight_bands]
     # At least most bands should have higher doses at 20 mg/kg
-    higher_count = sum(h > l for h, l in zip(high_doses, low_doses))
+    higher_count = sum(h > lo for h, lo in zip(high_doses, low_doses))
     assert higher_count >= len(low_doses) - 1
 
 

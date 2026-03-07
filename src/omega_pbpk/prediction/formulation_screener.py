@@ -126,18 +126,18 @@ _RISK_BY_CLASS: dict[int, str] = {
 
 # Bioavailability improvement factors by strategy and BCS class (multiplicative)
 _F_IMPROVEMENT_FACTOR: dict[str, dict[int, float]] = {
-    "simple_tablet_capsule":    {1: 1.00, 2: 1.00, 3: 1.00, 4: 1.00},
-    "wet_granulation":          {1: 1.05, 2: 1.10, 3: 1.05, 4: 1.05},
+    "simple_tablet_capsule": {1: 1.00, 2: 1.00, 3: 1.00, 4: 1.00},
+    "wet_granulation": {1: 1.05, 2: 1.10, 3: 1.05, 4: 1.05},
     "amorphous_solid_dispersion": {1: 1.05, 2: 1.80, 3: 1.10, 4: 1.40},
-    "nanosuspension":           {1: 1.05, 2: 1.60, 3: 1.05, 4: 1.30},
-    "SEDDS_SMEDDS":             {1: 1.05, 2: 1.70, 3: 1.05, 4: 1.35},
-    "cyclodextrin_complex":     {1: 1.05, 2: 1.50, 3: 1.10, 4: 1.25},
-    "permeation_enhancers":     {1: 1.05, 2: 1.05, 3: 1.70, 4: 1.50},
-    "bioadhesive_system":       {1: 1.05, 2: 1.05, 3: 1.60, 4: 1.45},
-    "lipid_based_formulation":  {1: 1.05, 2: 1.65, 3: 1.05, 4: 1.30},
-    "prodrug_strategy":         {1: 1.05, 2: 1.30, 3: 1.50, 4: 1.55},
-    "pH_adjusted_formulation":  {1: 1.10, 2: 1.30, 3: 1.15, 4: 1.20},
-    "combination_approach":     {1: 1.05, 2: 1.40, 3: 1.45, 4: 1.60},
+    "nanosuspension": {1: 1.05, 2: 1.60, 3: 1.05, 4: 1.30},
+    "SEDDS_SMEDDS": {1: 1.05, 2: 1.70, 3: 1.05, 4: 1.35},
+    "cyclodextrin_complex": {1: 1.05, 2: 1.50, 3: 1.10, 4: 1.25},
+    "permeation_enhancers": {1: 1.05, 2: 1.05, 3: 1.70, 4: 1.50},
+    "bioadhesive_system": {1: 1.05, 2: 1.05, 3: 1.60, 4: 1.45},
+    "lipid_based_formulation": {1: 1.05, 2: 1.65, 3: 1.05, 4: 1.30},
+    "prodrug_strategy": {1: 1.05, 2: 1.30, 3: 1.50, 4: 1.55},
+    "pH_adjusted_formulation": {1: 1.10, 2: 1.30, 3: 1.15, 4: 1.20},
+    "combination_approach": {1: 1.05, 2: 1.40, 3: 1.45, 4: 1.60},
 }
 
 
@@ -366,9 +366,7 @@ def estimate_bioavailability_improvement(
 
 def _validate_bcs_class(bcs_class: int) -> None:
     if bcs_class not in _VALID_BCS_CLASSES:
-        raise ValueError(
-            f"bcs_class must be one of {sorted(_VALID_BCS_CLASSES)}, got {bcs_class}"
-        )
+        raise ValueError(f"bcs_class must be one of {sorted(_VALID_BCS_CLASSES)}, got {bcs_class}")
 
 
 def _adjust_score(
@@ -448,13 +446,13 @@ def _build_rationale(
     """Build a rationale string for get_formulation_recommendation."""
     rationale_map: dict[int, str] = {
         1: "BCS Class I has both high solubility and permeability; "
-           "simple conventional formulations are preferred to minimise complexity.",
+        "simple conventional formulations are preferred to minimise complexity.",
         2: "BCS Class II is dissolution-limited; solubility enhancement "
-           "strategies (ASD, SEDDS, nanosuspension) are the primary focus.",
+        "strategies (ASD, SEDDS, nanosuspension) are the primary focus.",
         3: "BCS Class III is permeability-limited; permeation enhancers and "
-           "bioadhesive systems can extend GI residence and increase absorption.",
+        "bioadhesive systems can extend GI residence and increase absorption.",
         4: "BCS Class IV requires combination approaches to address both "
-           "low solubility and low permeability; development risk is high.",
+        "low solubility and low permeability; development risk is high.",
     }
     base = rationale_map[bcs_class]
     if logP >= _VERY_HIGH_LOGP and bcs_class in {2, 4}:

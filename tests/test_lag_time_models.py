@@ -76,9 +76,7 @@ class TestCalculateLagTimes:
         for ft in ["immediate_release", "enteric_coated", "tablet", "capsule"]:
             lag = calculate_lag_times(ft)
             expected = (
-                lag["gastric_emptying_h"]
-                + lag["disintegration_h"]
-                + lag["coating_dissolution_h"]
+                lag["gastric_emptying_h"] + lag["disintegration_h"] + lag["coating_dissolution_h"]
             )
             assert lag["total_h"] == pytest.approx(expected, rel=1e-6)
 
@@ -126,9 +124,7 @@ class TestSimulateAbsorptionWithLag:
 
     def test_tmax_lag_approx_tmax_plus_tlag(self):
         r = _sim(formulation_type="immediate_release")
-        assert r.tmax_with_lag_h == pytest.approx(
-            r.tmax_without_lag_h + r.tlag_total_h, rel=1e-3
-        )
+        assert r.tmax_with_lag_h == pytest.approx(r.tmax_without_lag_h + r.tlag_total_h, rel=1e-3)
 
     def test_c_plasma_all_nonneg(self):
         r = _sim()

@@ -12,10 +12,10 @@ from omega_pbpk.core.saturable_absorption import (
     simulate_saturable_absorption_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _sim(**kw) -> SaturableAbsorptionResult:
     defaults = dict(
@@ -48,6 +48,7 @@ def _dpa(**kw) -> DoseProportionalityResult:
 # ---------------------------------------------------------------------------
 # saturable_absorption_rate
 # ---------------------------------------------------------------------------
+
 
 class TestSaturableAbsorptionRate:
     def test_zero_concentration_returns_zero(self):
@@ -94,6 +95,7 @@ class TestSaturableAbsorptionRate:
 # ---------------------------------------------------------------------------
 # simulate_saturable_absorption_pk
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateSaturableAbsorptionPk:
     def test_returns_result_type(self):
@@ -175,6 +177,7 @@ class TestSimulateSaturableAbsorptionPk:
 # dose_proportionality_analysis
 # ---------------------------------------------------------------------------
 
+
 class TestDoseProportionalityAnalysis:
     def test_returns_result_type(self):
         assert isinstance(_dpa(), DoseProportionalityResult)
@@ -213,7 +216,7 @@ class TestDoseProportionalityAnalysis:
         """With very high Jmax saturation, power law exponent should be < 1."""
         r = _dpa(
             doses_mg=[10.0, 100.0, 500.0, 1000.0],
-            jmax=0.001,   # low Jmax → strong saturation
+            jmax=0.001,  # low Jmax → strong saturation
             km=5.0,
             passive_fraction=0.0001,
         )

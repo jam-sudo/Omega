@@ -170,7 +170,7 @@ def analyze_allometric_scaling(
 
     a, b, r_sq = _log_log_regression(species_weights_kg, species_params)
 
-    predicted_human = a * (human_bw_kg ** b)
+    predicted_human = a * (human_bw_kg**b)
     expected_exp = _infer_expected_exponent(param_name)
     assessment = _assess_exponent(b, expected_exp)
 
@@ -238,9 +238,7 @@ def predict_human_from_animals(
     if not species_data:
         raise ValueError("species_data must not be empty")
     if target_param not in _valid_params:
-        raise ValueError(
-            f"target_param must be one of {_valid_params}, got '{target_param}'"
-        )
+        raise ValueError(f"target_param must be one of {_valid_params}, got '{target_param}'")
     if human_bw_kg <= 0:
         raise ValueError("human_bw_kg must be > 0")
 
@@ -252,9 +250,7 @@ def predict_human_from_animals(
         if "bw_kg" not in entry:
             raise ValueError(f"species_data[{idx}] missing 'bw_kg'")
         if target_param not in entry:
-            raise ValueError(
-                f"species_data[{idx}] missing '{target_param}'"
-            )
+            raise ValueError(f"species_data[{idx}] missing '{target_param}'")
         bw = float(entry["bw_kg"])
         val = float(entry[target_param])
         if bw <= 0:
@@ -278,7 +274,7 @@ def predict_human_from_animals(
             p_jack = [param_list[i] for i in range(n) if i != leave_out]
             try:
                 a_j, b_j, _ = _log_log_regression(bw_jack, p_jack)
-                jack_preds.append(a_j * (human_bw_kg ** b_j))
+                jack_preds.append(a_j * (human_bw_kg**b_j))
             except ValueError:
                 pass
 

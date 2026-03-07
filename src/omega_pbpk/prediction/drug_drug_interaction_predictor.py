@@ -84,8 +84,7 @@ def predict_ddi_severity(
         raise ValueError("fm_cyp must be between 0 and 1")
     if inhibition_type not in _VALID_INHIBITION_TYPES:
         raise ValueError(
-            f"inhibition_type must be one of {_VALID_INHIBITION_TYPES}, "
-            f"got '{inhibition_type}'"
+            f"inhibition_type must be one of {_VALID_INHIBITION_TYPES}, got '{inhibition_type}'"
         )
     if induction_emax < 0:
         raise ValueError("induction_emax must be >= 0")
@@ -127,9 +126,7 @@ def predict_ddi_severity(
     risk = _risk_category(aucr)
     fold_change_cl = 1.0 / aucr if aucr > 0 else float("inf")
 
-    notes_parts.append(
-        f"AUCR={aucr:.3f}, DDI risk={risk}, fm_cyp={fm_cyp:.2f}"
-    )
+    notes_parts.append(f"AUCR={aucr:.3f}, DDI risk={risk}, fm_cyp={fm_cyp:.2f}")
 
     return DDIPredictionResult(
         perpetrator_name=perpetrator_name,

@@ -191,16 +191,30 @@ def test_cytotoxic_one_cycle():
 def test_targeted_dose_fixed():
     """For targeted drugs, dose_mg = dose_mg_m2 (ignores BSA)."""
     result = simulate_cancer_drug_pk(
-        "imatinib", "targeted", dose_mg_m2=400.0, bsa_m2=1.8,
-        cl_L_per_h=15.0, vd_L=300.0, interval_h=24.0, n_cycles=3, dt_h=0.5
+        "imatinib",
+        "targeted",
+        dose_mg_m2=400.0,
+        bsa_m2=1.8,
+        cl_L_per_h=15.0,
+        vd_L=300.0,
+        interval_h=24.0,
+        n_cycles=3,
+        dt_h=0.5,
     )
     assert abs(result.dose_mg - 400.0) < 1e-6
 
 
 def test_targeted_oral_route():
     result = simulate_cancer_drug_pk(
-        "erlotinib", "targeted", dose_mg_m2=150.0, bsa_m2=1.7,
-        cl_L_per_h=3.0, vd_L=100.0, interval_h=24.0, n_cycles=2, dt_h=0.5,
+        "erlotinib",
+        "targeted",
+        dose_mg_m2=150.0,
+        bsa_m2=1.7,
+        cl_L_per_h=3.0,
+        vd_L=100.0,
+        interval_h=24.0,
+        n_cycles=2,
+        dt_h=0.5,
         ka_per_h=0.5,
     )
     assert result.drug_class == "targeted"
@@ -209,16 +223,30 @@ def test_targeted_oral_route():
 
 def test_targeted_cmax_per_cycle_length():
     result = simulate_cancer_drug_pk(
-        "imatinib", "targeted", dose_mg_m2=400.0, bsa_m2=1.8,
-        cl_L_per_h=15.0, vd_L=300.0, interval_h=24.0, n_cycles=5, dt_h=0.5
+        "imatinib",
+        "targeted",
+        dose_mg_m2=400.0,
+        bsa_m2=1.8,
+        cl_L_per_h=15.0,
+        vd_L=300.0,
+        interval_h=24.0,
+        n_cycles=5,
+        dt_h=0.5,
     )
     assert len(result.cmax_per_cycle) == 5
 
 
 def test_targeted_auc_positive():
     result = simulate_cancer_drug_pk(
-        "imatinib", "targeted", dose_mg_m2=400.0, bsa_m2=1.8,
-        cl_L_per_h=15.0, vd_L=300.0, interval_h=24.0, n_cycles=2, dt_h=0.5
+        "imatinib",
+        "targeted",
+        dose_mg_m2=400.0,
+        bsa_m2=1.8,
+        cl_L_per_h=15.0,
+        vd_L=300.0,
+        interval_h=24.0,
+        n_cycles=2,
+        dt_h=0.5,
     )
     assert all(a > 0 for a in result.auc_per_cycle)
 

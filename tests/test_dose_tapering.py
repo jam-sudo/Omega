@@ -1,8 +1,10 @@
 """Tests for dose tapering schedule generator — Phase 277."""
+
 import pytest
+
 from omega_pbpk.clinical.dose_tapering import (
-    TaperingStep,
     TaperingSchedule,
+    TaperingStep,
     generate_tapering_schedule,
 )
 

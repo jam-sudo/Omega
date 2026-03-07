@@ -151,8 +151,14 @@ def test_induction_ind_factor_formula():
     emax, ec50, c = 4.0, 2.0, 2.0
     expected_ind = emax * c / (ec50 + c)  # = 2.0
     result = predict_ddi_severity(
-        "P", "V", ki_uM=1.0, c_plasma_uM=c, fm_cyp=1.0,
-        inhibition_type="induction", induction_emax=emax, induction_ec50_uM=ec50,
+        "P",
+        "V",
+        ki_uM=1.0,
+        c_plasma_uM=c,
+        fm_cyp=1.0,
+        inhibition_type="induction",
+        induction_emax=emax,
+        induction_ec50_uM=ec50,
     )
     # r_value = 1 + ind_factor
     assert math.isclose(result.r_value, 1.0 + expected_ind, rel_tol=1e-6)

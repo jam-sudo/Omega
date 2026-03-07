@@ -67,6 +67,7 @@ class DDIRiskProfile:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _severity_from_aucr(aucr: float) -> str:
     """Determine severity category from AUCR using FDA 2020 thresholds."""
     if aucr < 1.25:
@@ -85,15 +86,13 @@ def _build_notes(aucr: float, clinical_significance: str, severity: str) -> str:
         "sensitive": "sensitive substrate",
         "narrow_ti": "narrow therapeutic index substrate",
     }[clinical_significance]
-    return (
-        f"AUCR={aucr:.2f} for {sig_label}; "
-        f"FDA 2020 classification: {severity}."
-    )
+    return f"AUCR={aucr:.2f} for {sig_label}; FDA 2020 classification: {severity}."
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def classify_ddi_severity(
     aucr: float,

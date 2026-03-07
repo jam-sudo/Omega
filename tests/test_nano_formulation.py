@@ -37,6 +37,7 @@ def _run(**overrides) -> NanoFormulationResult:
 # NanoFormulationResult dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestNanoFormulationResult:
     def test_construction(self):
         r = NanoFormulationResult(
@@ -65,6 +66,7 @@ class TestNanoFormulationResult:
 # ---------------------------------------------------------------------------
 # _compute_k_release helper
 # ---------------------------------------------------------------------------
+
 
 class TestComputeKRelease:
     def test_nanosuspension_larger_than_nanocapsule(self):
@@ -96,6 +98,7 @@ class TestComputeKRelease:
 # ---------------------------------------------------------------------------
 # simulate_nano_formulation — validation
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateNanoValidation:
     def test_empty_drug_name(self):
@@ -146,6 +149,7 @@ class TestSimulateNanoValidation:
 # ---------------------------------------------------------------------------
 # simulate_nano_formulation — functionality
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateNanoFunctionality:
     def test_returns_result_object(self):
@@ -226,6 +230,7 @@ class TestSimulateNanoFunctionality:
 # ---------------------------------------------------------------------------
 # size_release_relationship
 # ---------------------------------------------------------------------------
+
 
 class TestSizeReleaseRelationship:
     def test_returns_list_of_dicts(self):

@@ -41,14 +41,23 @@ BASE_ORAL = dict(
 # Dataclass structure
 # ---------------------------------------------------------------------------
 
+
 class TestBonePKResultFields:
     def test_all_fields_present(self):
         result = simulate_bone_pk(**BASE_IV)
         expected_fields = {
-            "drug_name", "dose_mg", "kp_bone", "bone_blood_flow_L_per_h",
-            "times_h", "c_plasma_mg_L", "c_bone_mg_L",
-            "cmax_plasma", "auc_plasma", "auc_bone",
-            "bone_plasma_auc_ratio", "notes",
+            "drug_name",
+            "dose_mg",
+            "kp_bone",
+            "bone_blood_flow_L_per_h",
+            "times_h",
+            "c_plasma_mg_L",
+            "c_bone_mg_L",
+            "cmax_plasma",
+            "auc_plasma",
+            "auc_bone",
+            "bone_plasma_auc_ratio",
+            "notes",
         }
         for f in expected_fields:
             assert hasattr(result, f), f"Missing field: {f}"
@@ -69,6 +78,7 @@ class TestBonePKResultFields:
 # ---------------------------------------------------------------------------
 # IV route basic behaviour
 # ---------------------------------------------------------------------------
+
 
 class TestIVRoute:
     def test_times_start_at_zero(self):
@@ -135,6 +145,7 @@ class TestIVRoute:
 # Oral route
 # ---------------------------------------------------------------------------
 
+
 class TestOralRoute:
     def test_plasma_starts_at_zero_oral(self):
         result = simulate_bone_pk(**BASE_ORAL)
@@ -156,6 +167,7 @@ class TestOralRoute:
 # Kp_bone effect
 # ---------------------------------------------------------------------------
 
+
 class TestKpBoneEffect:
     def test_kp_bone_stored_correctly(self):
         result = simulate_bone_pk(**{**BASE_IV, "kp_bone": 2.5})
@@ -174,18 +186,21 @@ class TestKpBoneEffect:
 
     def test_high_kp_high_ratio(self):
         # At very high kp_bone and sufficient blood flow, equilibrium ratio > 0
-        result = simulate_bone_pk(**{
-            **BASE_IV,
-            "kp_bone": 4.0,
-            "bone_blood_flow_L_per_h": 5.0,  # high flow drives fast equilibration
-            "t_end_h": 48.0,
-        })
+        result = simulate_bone_pk(
+            **{
+                **BASE_IV,
+                "kp_bone": 4.0,
+                "bone_blood_flow_L_per_h": 5.0,  # high flow drives fast equilibration
+                "t_end_h": 48.0,
+            }
+        )
         assert result.bone_plasma_auc_ratio > 0
 
 
 # ---------------------------------------------------------------------------
 # Notes and clinical target
 # ---------------------------------------------------------------------------
+
 
 class TestNotes:
     def test_notes_is_list(self):
@@ -204,6 +219,7 @@ class TestNotes:
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestValidationErrors:
     def test_empty_drug_name(self):
@@ -251,6 +267,7 @@ class TestValidationErrors:
 # antibiotic_bone_penetration
 # ---------------------------------------------------------------------------
 
+
 class TestAntibioticBonePenetration:
     KP_VALUES = [0.1, 0.3, 0.5, 1.0, 2.0]
 
@@ -264,8 +281,13 @@ class TestAntibioticBonePenetration:
 
     def test_each_entry_has_required_keys(self):
         res = antibiotic_bone_penetration("cipro", 400, 20, 150, self.KP_VALUES)
-        required = {"kp_bone", "bone_plasma_auc_ratio", "auc_bone", "auc_plasma",
-                    "meets_clinical_target"}
+        required = {
+            "kp_bone",
+            "bone_plasma_auc_ratio",
+            "auc_bone",
+            "auc_plasma",
+            "meets_clinical_target",
+        }
         for entry in res:
             assert required.issubset(entry.keys())
 

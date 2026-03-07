@@ -43,7 +43,7 @@ class TestPredictBBBPermeability:
 
     def test_ps_consistent_with_log_ps(self):
         r = predict_bbb_permeability("Drug", "C", mw=200.0, logP=2.0, psa=50.0)
-        assert abs(r.ps_cm_per_s - 10.0 ** r.log_ps) < 1e-10
+        assert abs(r.ps_cm_per_s - 10.0**r.log_ps) < 1e-10
 
     def test_cns_mpo_range(self):
         """CNS MPO score must be between 0 and 6."""
@@ -54,9 +54,7 @@ class TestPredictBBBPermeability:
         """Compound meeting all MPO criteria should score 6."""
         # logP=2 (<=3 +1, >=1 +1), psa=80 (<=90 +1), mw=350 (<=360 +1),
         # n_hbd=1 (<=1 +1), pka=7 (<=8 +1) → 6/6
-        r = predict_bbb_permeability(
-            "Ideal", "CN", mw=350.0, logP=2.0, psa=80.0, n_hbd=1, pka=7.0
-        )
+        r = predict_bbb_permeability("Ideal", "CN", mw=350.0, logP=2.0, psa=80.0, n_hbd=1, pka=7.0)
         assert r.cns_mpo_score == 6.0
 
     def test_lipinski_cns_true(self):
@@ -80,9 +78,7 @@ class TestPredictBBBPermeability:
 
     def test_pgp_risk_small_no_nitrogen(self):
         """Small MW, no N → pgp_substrate_risk False."""
-        r = predict_bbb_permeability(
-            "NoPgp", "c1ccccc1", mw=250.0, logP=2.0, psa=20.0
-        )
+        r = predict_bbb_permeability("NoPgp", "c1ccccc1", mw=250.0, logP=2.0, psa=20.0)
         assert r.pgp_substrate_risk is False
 
     def test_invalid_mw_raises(self):

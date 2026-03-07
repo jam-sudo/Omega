@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.clinical.target_engagement_predictor import (
@@ -13,7 +11,6 @@ from omega_pbpk.clinical.target_engagement_predictor import (
     predict_target_engagement,
     te_time_course,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -155,8 +152,15 @@ class TestPredictTargetEngagement:
 class TestTeTimeCourse:
     def test_returns_dict_with_required_keys(self):
         result = te_time_course([1.0, 2.0, 0.5], [0, 1, 2], 0.5, 10.0)
-        for key in ("times_h", "plasma_concs_mg_L", "free_concs_nM", "occupancy_pct",
-                    "above_ec50", "peak_occupancy_pct", "trough_occupancy_pct"):
+        for key in (
+            "times_h",
+            "plasma_concs_mg_L",
+            "free_concs_nM",
+            "occupancy_pct",
+            "above_ec50",
+            "peak_occupancy_pct",
+            "trough_occupancy_pct",
+        ):
             assert key in result
 
     def test_same_length_as_input(self):

@@ -13,10 +13,10 @@ from omega_pbpk.clinical.microbiome_metabolism import (
     simulate_microbiome_drug_fate,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper factories
 # ---------------------------------------------------------------------------
+
 
 def _sim(**kw) -> MicrobiomePKResult:
     defaults = dict(
@@ -54,6 +54,7 @@ def _prodrug(**kw) -> ProdrugActivationResult:
 # microbiome_metabolism_rate
 # ---------------------------------------------------------------------------
 
+
 class TestMicrobiomeMetabolismRate:
     def test_zero_concentration_returns_zero(self):
         assert microbiome_metabolism_rate(0.0, 10.0, 5.0) == 0.0
@@ -81,6 +82,7 @@ class TestMicrobiomeMetabolismRate:
 # ---------------------------------------------------------------------------
 # simulate_microbiome_drug_fate
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateMicrobiomeDrugFate:
     def test_returns_result_type(self):
@@ -153,6 +155,7 @@ class TestSimulateMicrobiomeDrugFate:
 # antibiotic_disruption_effect
 # ---------------------------------------------------------------------------
 
+
 class TestAntibioticDisruptionEffect:
     def _run(self, **kw):
         defaults = dict(
@@ -196,6 +199,7 @@ class TestAntibioticDisruptionEffect:
 # ---------------------------------------------------------------------------
 # prodrug_activation
 # ---------------------------------------------------------------------------
+
 
 class TestProdrugActivation:
     def test_returns_result_type(self):

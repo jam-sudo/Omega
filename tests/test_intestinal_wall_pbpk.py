@@ -14,6 +14,7 @@ from omega_pbpk.core.intestinal_wall_pbpk import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _default_sim(**kwargs) -> IntestinalWallPKResult:
     defaults = dict(
         drug_name="TestDrug",
@@ -34,6 +35,7 @@ def _default_sim(**kwargs) -> IntestinalWallPKResult:
 # ---------------------------------------------------------------------------
 # Type and structure tests
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateIntestinalWallPKStructure:
     def test_returns_correct_type(self):
@@ -89,6 +91,7 @@ class TestSimulateIntestinalWallPKStructure:
 # Initial conditions
 # ---------------------------------------------------------------------------
 
+
 class TestInitialConditions:
     def test_initial_lumen_amount_equals_dose(self):
         result = _default_sim(dose_mg=200.0)
@@ -110,6 +113,7 @@ class TestInitialConditions:
 # ---------------------------------------------------------------------------
 # Dynamics / physics
 # ---------------------------------------------------------------------------
+
 
 class TestDynamics:
     def test_lumen_amount_monotonically_decreasing(self):
@@ -152,6 +156,7 @@ class TestDynamics:
 # AUC and fg
 # ---------------------------------------------------------------------------
 
+
 class TestAUCAndFg:
     def test_auc_portal_positive(self):
         result = _default_sim()
@@ -181,6 +186,7 @@ class TestAUCAndFg:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_empty_drug_name_raises(self):
@@ -231,6 +237,7 @@ class TestInputValidation:
 # ---------------------------------------------------------------------------
 # Sensitivity sweep
 # ---------------------------------------------------------------------------
+
 
 class TestGutWallExtractionSensitivity:
     def _run_sweep(self, cl_values=None):

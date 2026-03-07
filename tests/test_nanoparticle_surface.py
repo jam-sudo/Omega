@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.biopharmaceutics.nanoparticle_surface import (
@@ -13,7 +11,6 @@ from omega_pbpk.biopharmaceutics.nanoparticle_surface import (
     nanoparticle_stability_score,
     predict_protein_corona,
 )
-
 
 # ---------------------------------------------------------------------------
 # predict_protein_corona — basic structure
@@ -26,7 +23,9 @@ class TestPredictProteinCorona:
         assert isinstance(result, ProteinCoronaResult)
 
     def test_fields_preserved(self):
-        result = predict_protein_corona(150.0, -15.0, peg_density_chains_per_nm2=0.5, material="gold")
+        result = predict_protein_corona(
+            150.0, -15.0, peg_density_chains_per_nm2=0.5, material="gold"
+        )
         assert result.diameter_nm == 150.0
         assert result.surface_charge_mV == -15.0
         assert result.peg_density == 0.5

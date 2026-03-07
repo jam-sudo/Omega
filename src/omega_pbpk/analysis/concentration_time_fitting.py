@@ -115,7 +115,7 @@ def _ols_log_linear(times: list[float], log_conc: list[float]) -> tuple[float, f
     sum_y = sum(log_conc)
     sum_tt = sum(t * t for t in times)
     sum_ty = sum(times[i] * log_conc[i] for i in range(n))
-    denom = n * sum_tt - sum_t ** 2
+    denom = n * sum_tt - sum_t**2
     if abs(denom) < 1e-15:
         # All times identical — fall back to mean
         slope = 0.0
@@ -394,7 +394,7 @@ def fit_two_compartment_iv(
     # For 2-cpt model: Vd_ss = CL * (A/alpha^2 + B/beta^2) / (A/alpha + B/beta)
     # Alternatively: Vd_ss = CL * MRT where MRT = AUMC/AUC
     # AUMC_inf = A/alpha^2 + B/beta^2
-    aumc = A / alpha ** 2 + B / beta ** 2
+    aumc = A / alpha**2 + B / beta**2
     mrt = aumc / max(auc, 1e-12)
     vd_ss_L = cl_L_per_h * mrt
 

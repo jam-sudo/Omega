@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.biopharmaceutics.solubilization_predictor import (
@@ -14,10 +13,10 @@ from omega_pbpk.biopharmaceutics.solubilization_predictor import (
     solubilization_ratio,
 )
 
-
 # ---------------------------------------------------------------------------
 # micellar_solubilization
 # ---------------------------------------------------------------------------
+
 
 class TestMicellarSolubilization:
     def test_returns_positive_float(self):
@@ -26,28 +25,39 @@ class TestMicellarSolubilization:
 
     def test_higher_logp_greater_micellar_enhancement(self):
         """More lipophilic drug → larger Kmc → more micellar enhancement."""
-        s_low = micellar_solubilization(drug_logP=1.0, drug_mw=300.0, bile_salt_mM=5.0, lecithin_mM=1.5)
-        s_high = micellar_solubilization(drug_logP=5.0, drug_mw=300.0, bile_salt_mM=5.0, lecithin_mM=1.5)
+        s_low = micellar_solubilization(
+            drug_logP=1.0, drug_mw=300.0, bile_salt_mM=5.0, lecithin_mM=1.5
+        )
+        s_high = micellar_solubilization(
+            drug_logP=5.0, drug_mw=300.0, bile_salt_mM=5.0, lecithin_mM=1.5
+        )
         assert s_high > s_low
 
     def test_higher_bile_salt_increases_solubility(self):
-        s_low_bile = micellar_solubilization(drug_logP=3.0, drug_mw=300.0, bile_salt_mM=2.0, lecithin_mM=1.0)
-        s_high_bile = micellar_solubilization(drug_logP=3.0, drug_mw=300.0, bile_salt_mM=15.0, lecithin_mM=1.0)
+        s_low_bile = micellar_solubilization(
+            drug_logP=3.0, drug_mw=300.0, bile_salt_mM=2.0, lecithin_mM=1.0
+        )
+        s_high_bile = micellar_solubilization(
+            drug_logP=3.0, drug_mw=300.0, bile_salt_mM=15.0, lecithin_mM=1.0
+        )
         assert s_high_bile >= s_low_bile
 
     def test_fed_concentrations_give_higher_than_fasted(self):
         """Fed: bile ~15 mM, lecithin ~3.75 mM >> fasted: ~3/0.8 mM."""
-        s_fasted = micellar_solubilization(drug_logP=3.0, drug_mw=300.0,
-                                           bile_salt_mM=3.0, lecithin_mM=0.8, state="fasted")
-        s_fed = micellar_solubilization(drug_logP=3.0, drug_mw=300.0,
-                                        bile_salt_mM=15.0, lecithin_mM=3.75, state="fed")
+        s_fasted = micellar_solubilization(
+            drug_logP=3.0, drug_mw=300.0, bile_salt_mM=3.0, lecithin_mM=0.8, state="fasted"
+        )
+        s_fed = micellar_solubilization(
+            drug_logP=3.0, drug_mw=300.0, bile_salt_mM=15.0, lecithin_mM=3.75, state="fed"
+        )
         assert s_fed > s_fasted
 
     def test_zero_bile_returns_intrinsic_only(self):
         """No micelles → solubility approaches intrinsic (CMC not exceeded)."""
         s = micellar_solubilization(drug_logP=2.0, drug_mw=300.0, bile_salt_mM=0.0, lecithin_mM=0.0)
-        s_baseline = micellar_solubilization(drug_logP=2.0, drug_mw=300.0,
-                                             bile_salt_mM=5.0, lecithin_mM=1.5)
+        s_baseline = micellar_solubilization(
+            drug_logP=2.0, drug_mw=300.0, bile_salt_mM=5.0, lecithin_mM=1.5
+        )
         assert s <= s_baseline
 
     def test_fasted_state_accepted(self):
@@ -76,7 +86,9 @@ class TestMicellarSolubilization:
         assert s > 0
 
     def test_very_lipophilic_drug(self):
-        s = micellar_solubilization(drug_logP=6.0, drug_mw=500.0, bile_salt_mM=15.0, lecithin_mM=3.75)
+        s = micellar_solubilization(
+            drug_logP=6.0, drug_mw=500.0, bile_salt_mM=15.0, lecithin_mM=3.75
+        )
         assert s > 0.01
 
 
@@ -84,13 +96,16 @@ class TestMicellarSolubilization:
 # solubilization_ratio
 # ---------------------------------------------------------------------------
 
+
 class TestSolubilizationRatio:
     def test_fed_greater_than_fasted_lipophilic(self):
         """For lipophilic drugs, fed > fasted → ratio > 1."""
-        s_fasted = micellar_solubilization(drug_logP=4.0, drug_mw=350.0,
-                                           bile_salt_mM=3.0, lecithin_mM=0.8, state="fasted")
-        s_fed = micellar_solubilization(drug_logP=4.0, drug_mw=350.0,
-                                        bile_salt_mM=15.0, lecithin_mM=3.75, state="fed")
+        s_fasted = micellar_solubilization(
+            drug_logP=4.0, drug_mw=350.0, bile_salt_mM=3.0, lecithin_mM=0.8, state="fasted"
+        )
+        s_fed = micellar_solubilization(
+            drug_logP=4.0, drug_mw=350.0, bile_salt_mM=15.0, lecithin_mM=3.75, state="fed"
+        )
         ratio = solubilization_ratio(s_fasted, s_fed)
         assert ratio > 1.0
 
@@ -114,6 +129,7 @@ class TestSolubilizationRatio:
 # ---------------------------------------------------------------------------
 # dose_number
 # ---------------------------------------------------------------------------
+
 
 class TestDoseNumber:
     def test_expected_value(self):
@@ -150,6 +166,7 @@ class TestDoseNumber:
 # absorption_limited_by
 # ---------------------------------------------------------------------------
 
+
 class TestAbsorptionLimitedBy:
     def test_both_high_dn_low_papp(self):
         result = absorption_limited_by(dose_number_val=5.0, papp_cm_s=1e-8)
@@ -185,6 +202,7 @@ class TestAbsorptionLimitedBy:
 # predict_gi_solubility
 # ---------------------------------------------------------------------------
 
+
 class TestPredictGISolubility:
     def test_returns_gi_solubility_result(self):
         result = predict_gi_solubility(drug_logP=2.0, drug_mw=300.0)
@@ -218,8 +236,9 @@ class TestPredictGISolubility:
 
     def test_high_dose_solubility_limited(self):
         # Very lipophilic drug, high dose → Dn > 1
-        result = predict_gi_solubility(drug_logP=5.0, drug_mw=500.0,
-                                       drug_dose_mg=500.0, gi_segment="jejunum")
+        result = predict_gi_solubility(
+            drug_logP=5.0, drug_mw=500.0, drug_dose_mg=500.0, gi_segment="jejunum"
+        )
         assert result.dose_number > 0
 
     def test_dose_number_field_consistent(self):
@@ -234,7 +253,9 @@ class TestPredictGISolubility:
     def test_pka_applied_acidic_drug(self):
         # Acidic drug at high pH → ionized → higher solubility
         r_no_pka = predict_gi_solubility(drug_logP=3.0, drug_mw=300.0, gi_segment="colon")
-        r_pka = predict_gi_solubility(drug_logP=3.0, drug_mw=300.0, drug_pka=4.5, gi_segment="colon")
+        r_pka = predict_gi_solubility(
+            drug_logP=3.0, drug_mw=300.0, drug_pka=4.5, gi_segment="colon"
+        )
         assert r_pka.total_solubility_mg_mL >= r_no_pka.total_solubility_mg_mL
 
     def test_notes_contains_segment(self):

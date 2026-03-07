@@ -124,8 +124,8 @@ def simulate_liposome_pk(
 
     # --- Initial conditions ---
     a_lipo = dose_mg_lipid  # total liposome mass in plasma (mg)
-    a_enc = drug_dose        # encapsulated drug mass (mg)
-    c_free = 0.0             # free drug plasma concentration (mg/L)
+    a_enc = drug_dose  # encapsulated drug mass (mg)
+    c_free = 0.0  # free drug plasma concentration (mg/L)
 
     n_steps = int(round(t_end_h / dt_h))
 
@@ -157,9 +157,7 @@ def simulate_liposome_pk(
     release_t_half = 0.693 / k_release_per_h if k_release_per_h > 0 else float("inf")
 
     # Liver uptake: fraction cleared via liver × fraction that decays × 100
-    liver_uptake_pct = (
-        k_liver / k_cl_lipo * (1.0 - math.exp(-k_cl_lipo * t_end_h)) * 100.0
-    )
+    liver_uptake_pct = k_liver / k_cl_lipo * (1.0 - math.exp(-k_cl_lipo * t_end_h)) * 100.0
 
     notes = (
         f"k_cl_lipo={k_cl_lipo:.4f} h^-1 (size_factor={size_factor:.2f}, "

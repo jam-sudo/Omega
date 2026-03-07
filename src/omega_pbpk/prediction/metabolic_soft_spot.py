@@ -23,9 +23,9 @@ __all__ = [
 class SoftSpotAlert:
     """A single metabolic soft-spot structural alert."""
 
-    motif: str          # e.g. "methyl_aromatic", "n_dealkylation"
-    risk: str           # "low" / "moderate" / "high"
-    cyp_enzyme: str     # e.g. "CYP3A4", "CYP2D6"
+    motif: str  # e.g. "methyl_aromatic", "n_dealkylation"
+    risk: str  # "low" / "moderate" / "high"
+    cyp_enzyme: str  # e.g. "CYP3A4", "CYP2D6"
     description: str
 
 
@@ -40,14 +40,15 @@ class MetabolicSoftSpotResult:
     alerts: list[SoftSpotAlert]
     n_high_risk: int
     predicted_clint_uL_per_min_per_mg: float  # intrinsic clearance estimate
-    metabolic_stability: str   # "high" (stable) / "moderate" / "low" (unstable)
-    primary_cyp: str           # most likely CYP enzyme
+    metabolic_stability: str  # "high" (stable) / "moderate" / "low" (unstable)
+    primary_cyp: str  # most likely CYP enzyme
     notes: str
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _detect_alerts(smiles: str, logP: float) -> list[SoftSpotAlert]:
     """Return list of SoftSpotAlert based on SMILES pattern checks."""
@@ -122,9 +123,7 @@ def _detect_alerts(smiles: str, logP: float) -> list[SoftSpotAlert]:
     return alerts
 
 
-def _estimate_clint(
-    alerts: list[SoftSpotAlert], logP: float, mw: float
-) -> float:
+def _estimate_clint(alerts: list[SoftSpotAlert], logP: float, mw: float) -> float:
     """Estimate intrinsic clearance (µL/min/mg protein) from alert counts."""
     n_high = sum(1 for a in alerts if a.risk == "high")
     n_mod = sum(1 for a in alerts if a.risk == "moderate")
@@ -152,6 +151,7 @@ def _primary_cyp(alerts: list[SoftSpotAlert]) -> str:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def predict_soft_spots(
     compound_name: str,

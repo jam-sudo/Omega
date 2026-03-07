@@ -11,6 +11,7 @@ import numpy as np
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class UrineDrugResult:
     """Results from urinary excretion simulation."""
@@ -33,6 +34,7 @@ class UrineDrugResult:
 # ---------------------------------------------------------------------------
 # Core simulation
 # ---------------------------------------------------------------------------
+
 
 def simulate_urine_drug(
     drug_name: str,
@@ -188,6 +190,7 @@ def simulate_urine_drug(
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
+
 
 def urine_concentration_window(
     times_h: list[float],

@@ -3,12 +3,9 @@
 import pytest
 
 from omega_pbpk.clinical.dose_capping import (
-    BodyWeightResult,
-    DosingResult,
     compute_body_weights,
     recommend_dose_obese,
 )
-
 
 # ---------------------------------------------------------------------------
 # compute_body_weights — validation
@@ -163,7 +160,11 @@ def test_abw_dose_between_ibw_and_tbw_dose():
     ibw_result = recommend_dose_obese(drug, tbw, h, sex, mg_kg, dosing_weight_strategy="ibw")
     abw_result = recommend_dose_obese(drug, tbw, h, sex, mg_kg, dosing_weight_strategy="abw")
     tbw_result = recommend_dose_obese(drug, tbw, h, sex, mg_kg, dosing_weight_strategy="tbw")
-    assert ibw_result.recommended_dose_mg <= abw_result.recommended_dose_mg <= tbw_result.recommended_dose_mg
+    assert (
+        ibw_result.recommended_dose_mg
+        <= abw_result.recommended_dose_mg
+        <= tbw_result.recommended_dose_mg
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -215,5 +216,7 @@ def test_recommended_dose_positive():
 
 def test_dosing_weight_kg_matches_strategy():
     bw = compute_body_weights(120.0, 170.0, "female")
-    result = recommend_dose_obese("DrugA", 120.0, 170.0, "female", 2.0, dosing_weight_strategy="lbw")
+    result = recommend_dose_obese(
+        "DrugA", 120.0, 170.0, "female", 2.0, dosing_weight_strategy="lbw"
+    )
     assert abs(result.dosing_weight_kg - bw.lbw_kg) < 1e-6

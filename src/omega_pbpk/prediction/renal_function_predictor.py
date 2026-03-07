@@ -45,15 +45,15 @@ class RenalFunctionResult:
 
     drug_name: str
     gfr_mL_per_min: float
-    gfr_category: str                    # G1 through G5
-    fu_plasma: float                     # fraction unbound in plasma
-    f_renal_excretion: float             # fraction of total CL via renal route (0–1)
+    gfr_category: str  # G1 through G5
+    fu_plasma: float  # fraction unbound in plasma
+    f_renal_excretion: float  # fraction of total CL via renal route (0–1)
 
-    cl_renal_L_per_h: float              # renally adjusted renal CL (L/h)
-    cl_nonrenal_L_per_h: float           # non-renal CL (assumed unchanged)
-    cl_total_adjusted_L_per_h: float     # sum of the two
+    cl_renal_L_per_h: float  # renally adjusted renal CL (L/h)
+    cl_nonrenal_L_per_h: float  # non-renal CL (assumed unchanged)
+    cl_total_adjusted_L_per_h: float  # sum of the two
 
-    dose_adjustment_factor: float        # adjusted_CL / normal_CL
+    dose_adjustment_factor: float  # adjusted_CL / normal_CL
     notes: str
 
 
@@ -119,7 +119,7 @@ def ckd_epi_egfr(
         142.0
         * (min(ratio, 1.0) ** alpha)
         * (max(ratio, 1.0) ** (-1.200))
-        * (0.9938 ** age)
+        * (0.9938**age)
         * sex_multiplier
     )
     return float(egfr)

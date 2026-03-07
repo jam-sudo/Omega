@@ -213,9 +213,7 @@ class TestLogDProfile:
         assert result.optimal_pH in pH_range
 
     def test_profile_returns_LogDProfileResult(self):
-        result = logD_profile(
-            logP=2.0, pka=7.0, molecule_type="base", pH_range=[5.0, 7.4, 9.0]
-        )
+        result = logD_profile(logP=2.0, pka=7.0, molecule_type="base", pH_range=[5.0, 7.4, 9.0])
         assert isinstance(result, LogDProfileResult)
 
     def test_profile_empty_range_raises(self):
@@ -227,7 +225,5 @@ class TestLogDProfile:
             logD_profile(logP=2.0, pka=7.0, molecule_type="acid", pH_range=[5.0, 20.0])
 
     def test_profile_notes_not_empty(self):
-        result = logD_profile(
-            logP=1.0, pka=6.0, molecule_type="acid", pH_range=[4.0, 7.0, 10.0]
-        )
+        result = logD_profile(logP=1.0, pka=6.0, molecule_type="acid", pH_range=[4.0, 7.0, 10.0])
         assert len(result.notes) > 0

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.nasal_pk import (
@@ -11,7 +9,6 @@ from omega_pbpk.core.nasal_pk import (
     compare_nasal_vs_oral,
     simulate_nasal_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper defaults
@@ -38,6 +35,7 @@ def default_result(**overrides) -> NasalPKResult:
 # ---------------------------------------------------------------------------
 # Return type and dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_nasal_pk_result(self):
@@ -68,6 +66,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestValidation:
     def test_dose_zero_raises(self):
@@ -119,6 +118,7 @@ class TestValidation:
 # Basic physics
 # ---------------------------------------------------------------------------
 
+
 class TestBasicPhysics:
     def test_c_plasma_initially_zero(self):
         result = default_result()
@@ -161,6 +161,7 @@ class TestBasicPhysics:
 # f_bioavailable
 # ---------------------------------------------------------------------------
 
+
 class TestFBioavailable:
     def test_f_bioavailable_range(self):
         result = default_result()
@@ -187,6 +188,7 @@ class TestFBioavailable:
 # ---------------------------------------------------------------------------
 # Effect of parameters
 # ---------------------------------------------------------------------------
+
 
 class TestParameterEffects:
     def test_larger_dose_gives_proportional_cmax(self):
@@ -229,6 +231,7 @@ class TestParameterEffects:
 # Lag time
 # ---------------------------------------------------------------------------
 
+
 class TestLagTime:
     def test_lag_time_plasma_flat_during_lag(self):
         result = simulate_nasal_pk("X", dose_mg=1.0, lag_time_h=1.0, dt_h=0.05)
@@ -248,6 +251,7 @@ class TestLagTime:
 # ---------------------------------------------------------------------------
 # compare_nasal_vs_oral
 # ---------------------------------------------------------------------------
+
 
 class TestCompareNasalVsOral:
     def test_returns_dict(self):
@@ -331,6 +335,7 @@ class TestCompareNasalVsOral:
 # ---------------------------------------------------------------------------
 # Notes field
 # ---------------------------------------------------------------------------
+
 
 class TestNotes:
     def test_notes_is_string(self):

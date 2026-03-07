@@ -21,8 +21,8 @@ __all__ = [
 # AUCR thresholds (FDA 2020 DDI guidance)
 # ---------------------------------------------------------------------------
 
-_AUCR_HIGH_THRESHOLD = 5.0       # strong inhibition
-_AUCR_MODERATE_THRESHOLD = 2.0   # moderate inhibition
+_AUCR_HIGH_THRESHOLD = 5.0  # strong inhibition
+_AUCR_MODERATE_THRESHOLD = 2.0  # moderate inhibition
 _AUCR_INDUCTION_THRESHOLD = 0.8  # induction (< 0.8 = meaningful reduction)
 
 # Induction magnitude: 50% reduction in AUC (typical strong inducer)
@@ -59,37 +59,22 @@ class DDIMatrixResult:
 
 def _validate_drug(drug: dict, index: int) -> None:
     """Raise ValueError for missing mandatory keys."""
-    required = {"name", "cyp_inhibited", "cyp_induced", "fm_cyp", "ki_uM",
-                "dose_mg", "c_max_uM"}
+    required = {"name", "cyp_inhibited", "cyp_induced", "fm_cyp", "ki_uM", "dose_mg", "c_max_uM"}
     missing = required - set(drug.keys())
     if missing:
-        raise ValueError(
-            f"Drug at index {index} is missing keys: {sorted(missing)}"
-        )
+        raise ValueError(f"Drug at index {index} is missing keys: {sorted(missing)}")
     if not isinstance(drug["cyp_inhibited"], list):
-        raise ValueError(
-            f"Drug '{drug['name']}' cyp_inhibited must be a list."
-        )
+        raise ValueError(f"Drug '{drug['name']}' cyp_inhibited must be a list.")
     if not isinstance(drug["cyp_induced"], list):
-        raise ValueError(
-            f"Drug '{drug['name']}' cyp_induced must be a list."
-        )
+        raise ValueError(f"Drug '{drug['name']}' cyp_induced must be a list.")
     if not isinstance(drug["fm_cyp"], dict):
-        raise ValueError(
-            f"Drug '{drug['name']}' fm_cyp must be a dict."
-        )
+        raise ValueError(f"Drug '{drug['name']}' fm_cyp must be a dict.")
     if not isinstance(drug["ki_uM"], dict):
-        raise ValueError(
-            f"Drug '{drug['name']}' ki_uM must be a dict."
-        )
+        raise ValueError(f"Drug '{drug['name']}' ki_uM must be a dict.")
     if drug["dose_mg"] < 0:
-        raise ValueError(
-            f"Drug '{drug['name']}' dose_mg must be non-negative."
-        )
+        raise ValueError(f"Drug '{drug['name']}' dose_mg must be non-negative.")
     if drug["c_max_uM"] < 0:
-        raise ValueError(
-            f"Drug '{drug['name']}' c_max_uM must be non-negative."
-        )
+        raise ValueError(f"Drug '{drug['name']}' c_max_uM must be non-negative.")
 
 
 def _calculate_pair_aucr(perpetrator: dict, victim: dict) -> float:
@@ -105,10 +90,10 @@ def _calculate_pair_aucr(perpetrator: dict, victim: dict) -> float:
     Returns 1.0 when no shared CYP pathways exist.
     """
     c_max = perpetrator["c_max_uM"]
-    ki_map = perpetrator["ki_uM"]          # CYP -> Ki in uM
+    ki_map = perpetrator["ki_uM"]  # CYP -> Ki in uM
     cyp_inhibited = set(perpetrator["cyp_inhibited"])
     cyp_induced = set(perpetrator["cyp_induced"])
-    fm_victim = victim["fm_cyp"]           # CYP -> fraction metabolized
+    fm_victim = victim["fm_cyp"]  # CYP -> fraction metabolized
 
     if not fm_victim:
         return 1.0
@@ -196,19 +181,11 @@ def build_ddi_matrix(drugs: list[dict]) -> DDIMatrixResult:
         matrix.append(row)
 
     # Collect off-diagonal AUCR values for summary statistics
-    off_diag = [
-        matrix[i][j]
-        for i in range(n)
-        for j in range(n)
-        if i != j
-    ]
+    off_diag = [matrix[i][j] for i in range(n) for j in range(n) if i != j]
 
     max_aucr = max(off_diag) if off_diag else 1.0
     n_high = sum(1 for v in off_diag if v > _AUCR_HIGH_THRESHOLD)
-    n_mod = sum(
-        1 for v in off_diag
-        if _AUCR_MODERATE_THRESHOLD <= v <= _AUCR_HIGH_THRESHOLD
-    )
+    n_mod = sum(1 for v in off_diag if _AUCR_MODERATE_THRESHOLD <= v <= _AUCR_HIGH_THRESHOLD)
 
     notes_parts: list[str] = [f"{n} drugs, {n * (n - 1)} directed pairs."]
     if n_high:
@@ -269,14 +246,16 @@ def identify_perpetrators(drugs: list[dict]) -> list[dict]:
             elif aucr < _AUCR_INDUCTION_THRESHOLD:
                 n_induced += 1
 
-        result.append({
-            "name": perp["name"],
-            "max_aucr_caused": round(max_aucr_caused, 4),
-            "n_victims_inhibited": n_inhibited,
-            "n_victims_induced": n_induced,
-            "cyp_inhibited": perp["cyp_inhibited"],
-            "cyp_induced": perp["cyp_induced"],
-        })
+        result.append(
+            {
+                "name": perp["name"],
+                "max_aucr_caused": round(max_aucr_caused, 4),
+                "n_victims_inhibited": n_inhibited,
+                "n_victims_induced": n_induced,
+                "cyp_inhibited": perp["cyp_inhibited"],
+                "cyp_induced": perp["cyp_induced"],
+            }
+        )
 
     result.sort(key=lambda x: x["max_aucr_caused"], reverse=True)
     return result
@@ -329,18 +308,18 @@ def identify_victims(drugs: list[dict]) -> list[dict]:
 
         # Find dominant CYP (highest fm)
         fm = victim["fm_cyp"]
-        dominant_cyp = (
-            max(fm, key=lambda k: fm[k]) if fm else "unknown"
-        )
+        dominant_cyp = max(fm, key=lambda k: fm[k]) if fm else "unknown"
 
-        result.append({
-            "name": victim["name"],
-            "max_aucr_experienced": round(max_aucr, 4),
-            "min_aucr_experienced": round(min_aucr, 4),
-            "n_inhibitors": n_inhibitors,
-            "n_inducers": n_inducers,
-            "dominant_cyp": dominant_cyp,
-        })
+        result.append(
+            {
+                "name": victim["name"],
+                "max_aucr_experienced": round(max_aucr, 4),
+                "min_aucr_experienced": round(min_aucr, 4),
+                "n_inhibitors": n_inhibitors,
+                "n_inducers": n_inducers,
+                "dominant_cyp": dominant_cyp,
+            }
+        )
 
     result.sort(key=lambda x: x["max_aucr_experienced"], reverse=True)
     return result

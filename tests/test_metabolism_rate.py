@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.metabolism_rate import (
@@ -11,10 +12,10 @@ from omega_pbpk.prediction.metabolism_rate import (
     predict_metabolism_rate,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def neutral_drug():
@@ -89,6 +90,7 @@ def high_mw_drug():
 # Basic structural and type tests
 # ---------------------------------------------------------------------------
 
+
 class TestReturnType:
     def test_returns_dataclass(self, neutral_drug):
         assert isinstance(neutral_drug, MetabolismRateResult)
@@ -106,6 +108,7 @@ class TestReturnType:
 # CLint range tests
 # ---------------------------------------------------------------------------
 
+
 class TestClintRange:
     def test_clint_hep_in_valid_range(self, neutral_drug):
         assert 0.1 <= neutral_drug.clint_hep_uL_per_min_per_mg <= 500.0
@@ -120,7 +123,13 @@ class TestClintRange:
         assert neutral_drug.clint_s9_uL_per_min_per_mg < neutral_drug.clint_hep_uL_per_min_per_mg
 
     def test_s9_is_30_percent_of_hep(self, neutral_drug):
-        assert abs(neutral_drug.clint_s9_uL_per_min_per_mg - neutral_drug.clint_hep_uL_per_min_per_mg * 0.3) < 1e-6
+        assert (
+            abs(
+                neutral_drug.clint_s9_uL_per_min_per_mg
+                - neutral_drug.clint_hep_uL_per_min_per_mg * 0.3
+            )
+            < 1e-6
+        )
 
     def test_hepatocyte_clint_positive(self, neutral_drug):
         assert neutral_drug.clint_hepatocyte_uL_per_min_per_cell > 0
@@ -130,10 +139,13 @@ class TestClintRange:
 # LogP effect tests
 # ---------------------------------------------------------------------------
 
+
 class TestLogPEffect:
     def test_high_logp_higher_clint_than_low_logp(self, high_logp_drug, low_logp_drug):
         """High logP should generally produce higher CLint than low logP."""
-        assert high_logp_drug.clint_hep_uL_per_min_per_mg > low_logp_drug.clint_hep_uL_per_min_per_mg
+        assert (
+            high_logp_drug.clint_hep_uL_per_min_per_mg > low_logp_drug.clint_hep_uL_per_min_per_mg
+        )
 
     def test_high_logp_stability_low_or_moderate(self, high_logp_drug):
         assert high_logp_drug.microsomal_stability in ("moderate", "low")
@@ -142,6 +154,7 @@ class TestLogPEffect:
 # ---------------------------------------------------------------------------
 # MW effect tests
 # ---------------------------------------------------------------------------
+
 
 class TestMWEffect:
     def test_high_mw_reduces_clint(self, neutral_drug, high_mw_drug):
@@ -155,6 +168,7 @@ class TestMWEffect:
 # ---------------------------------------------------------------------------
 # CYP attribution tests
 # ---------------------------------------------------------------------------
+
 
 class TestCYPAttribution:
     def test_fm_sum_leq_1(self, neutral_drug):
@@ -194,14 +208,14 @@ class TestCYPAttribution:
 # In vivo scaling tests
 # ---------------------------------------------------------------------------
 
+
 class TestInVivoScaling:
     def test_cl_hep_leq_hepatic_blood_flow(self, neutral_drug):
         assert neutral_drug.cl_hep_predicted_L_per_h <= 90.0
 
     def test_cl_hep_leq_custom_blood_flow(self):
         result = predict_metabolism_rate(
-            "TestDrug", logP=4.0, mw=300.0, n_hbd=1, n_hba=3,
-            hepatic_blood_flow_L_per_h=60.0
+            "TestDrug", logP=4.0, mw=300.0, n_hbd=1, n_hba=3, hepatic_blood_flow_L_per_h=60.0
         )
         assert result.cl_hep_predicted_L_per_h <= 60.0
 
@@ -212,18 +226,20 @@ class TestInVivoScaling:
         assert not math.isinf(neutral_drug.t_half_predicted_h)
 
     def test_cl_sys_equals_cl_hep(self, neutral_drug):
-        assert abs(neutral_drug.cl_sys_predicted_L_per_h - neutral_drug.cl_hep_predicted_L_per_h) < 1e-9
+        assert (
+            abs(neutral_drug.cl_sys_predicted_L_per_h - neutral_drug.cl_hep_predicted_L_per_h)
+            < 1e-9
+        )
 
 
 # ---------------------------------------------------------------------------
 # Flag tests
 # ---------------------------------------------------------------------------
 
+
 class TestFlags:
     def test_cyp3a4_dominant_flag(self):
-        result = predict_metabolism_rate(
-            "Dominant3A4", logP=2.5, mw=350.0, n_hbd=1, n_hba=3
-        )
+        result = predict_metabolism_rate("Dominant3A4", logP=2.5, mw=350.0, n_hbd=1, n_hba=3)
         # Default neutral drug: fm_3a4 starts high (0.6) with no adjustments
         if result.predicted_fm_cyp3a4 > 0.7:
             assert result.cyp3a4_dominant is True
@@ -244,9 +260,7 @@ class TestFlags:
             assert result.non_cyp_metabolism is True
 
     def test_microsomal_stability_high(self):
-        result = predict_metabolism_rate(
-            "StableDrug", logP=0.0, mw=800.0, n_hbd=0, n_hba=0
-        )
+        result = predict_metabolism_rate("StableDrug", logP=0.0, mw=800.0, n_hbd=0, n_hba=0)
         if result.clint_hep_uL_per_min_per_mg < 10:
             assert result.microsomal_stability == "high"
 
@@ -261,6 +275,7 @@ class TestFlags:
 # ---------------------------------------------------------------------------
 # Input validation tests
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_mw_zero(self):
@@ -283,6 +298,7 @@ class TestInputValidation:
 # ---------------------------------------------------------------------------
 # compare_structural_modifications tests
 # ---------------------------------------------------------------------------
+
 
 class TestCompareStructuralModifications:
     def test_returns_sorted_by_cl_sys_ascending(self):

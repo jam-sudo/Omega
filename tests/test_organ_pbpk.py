@@ -11,10 +11,10 @@ from omega_pbpk.core.organ_pbpk import (
     simulate_organ_pbpk,
 )
 
-
 # ---------------------------------------------------------------------------
 # calculate_organ_kp
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateOrganKp:
     def test_liver_kp_higher_logP(self):
@@ -61,6 +61,7 @@ class TestCalculateOrganKp:
 # organ_steady_state_conc
 # ---------------------------------------------------------------------------
 
+
 class TestOrganSteadyStateConc:
     def test_proportional_to_kp(self):
         c1 = organ_steady_state_conc(c_plasma_ss=1.0, kp_organ=2.0)
@@ -89,6 +90,7 @@ class TestOrganSteadyStateConc:
 # simulate_organ_pbpk — basic
 # ---------------------------------------------------------------------------
 
+
 class TestSimulateOrganPBPK:
     def test_returns_correct_type(self):
         result = simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv")
@@ -99,9 +101,7 @@ class TestSimulateOrganPBPK:
         assert result.times_h[0] == 0.0
 
     def test_times_end_at_t_end_h(self):
-        result = simulate_organ_pbpk(
-            "TestDrug", dose_mg=100.0, route="iv", t_end_h=12.0
-        )
+        result = simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", t_end_h=12.0)
         assert abs(result.times_h[-1] - 12.0) < 0.1
 
     def test_iv_immediate_cmax(self):
@@ -117,12 +117,8 @@ class TestSimulateOrganPBPK:
         assert cmax_idx > 0
 
     def test_higher_clint_lower_auc(self):
-        r_low = simulate_organ_pbpk(
-            "TestDrug", dose_mg=100.0, route="iv", cl_int_L_per_h=0.1
-        )
-        r_high = simulate_organ_pbpk(
-            "TestDrug", dose_mg=100.0, route="iv", cl_int_L_per_h=5.0
-        )
+        r_low = simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", cl_int_L_per_h=0.1)
+        r_high = simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", cl_int_L_per_h=5.0)
         assert r_high.auc_plasma < r_low.auc_plasma
 
     def test_double_dose_double_cmax(self):
@@ -141,6 +137,7 @@ class TestSimulateOrganPBPK:
 # simulate_organ_pbpk — tissue concentrations
 # ---------------------------------------------------------------------------
 
+
 class TestSimulateOrganConcentrations:
     def test_liver_higher_than_muscle_lipophilic(self):
         result = simulate_organ_pbpk(
@@ -152,9 +149,7 @@ class TestSimulateOrganConcentrations:
         assert max_liver > max_muscle
 
     def test_kp_values_stored_correctly(self):
-        result = simulate_organ_pbpk(
-            "TestDrug", dose_mg=100.0, route="iv", logP=2.0
-        )
+        result = simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", logP=2.0)
         assert result.kp_liver > result.kp_kidney
         assert result.kp_kidney > result.kp_lung
         assert result.kp_lung > result.kp_muscle
@@ -180,6 +175,7 @@ class TestSimulateOrganConcentrations:
 # simulate_organ_pbpk — input validation
 # ---------------------------------------------------------------------------
 
+
 class TestSimulateOrganValidation:
     def test_invalid_route_raises(self):
         with pytest.raises(ValueError):
@@ -191,30 +187,20 @@ class TestSimulateOrganValidation:
 
     def test_negative_clint_raises(self):
         with pytest.raises(ValueError):
-            simulate_organ_pbpk(
-                "TestDrug", dose_mg=100.0, route="iv", cl_int_L_per_h=-1.0
-            )
+            simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", cl_int_L_per_h=-1.0)
 
     def test_fu_plasma_out_of_range_raises(self):
         with pytest.raises(ValueError):
-            simulate_organ_pbpk(
-                "TestDrug", dose_mg=100.0, route="iv", fu_plasma=1.5
-            )
+            simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", fu_plasma=1.5)
 
     def test_zero_fu_plasma_raises(self):
         with pytest.raises(ValueError):
-            simulate_organ_pbpk(
-                "TestDrug", dose_mg=100.0, route="iv", fu_plasma=0.0
-            )
+            simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", fu_plasma=0.0)
 
     def test_nonpositive_t_end_raises(self):
         with pytest.raises(ValueError):
-            simulate_organ_pbpk(
-                "TestDrug", dose_mg=100.0, route="iv", t_end_h=0.0
-            )
+            simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", t_end_h=0.0)
 
     def test_nonpositive_dt_raises(self):
         with pytest.raises(ValueError):
-            simulate_organ_pbpk(
-                "TestDrug", dose_mg=100.0, route="iv", dt_h=0.0
-            )
+            simulate_organ_pbpk("TestDrug", dose_mg=100.0, route="iv", dt_h=0.0)

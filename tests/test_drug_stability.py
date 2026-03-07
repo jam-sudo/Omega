@@ -1,7 +1,5 @@
 """Tests for drug stability and degradation — Phase 166."""
 
-import math
-
 import pytest
 
 from omega_pbpk.prediction.drug_stability import (
@@ -12,8 +10,8 @@ from omega_pbpk.prediction.drug_stability import (
     predict_stability,
 )
 
-
 # ── Validation ──────────────────────────────────────────────────────────
+
 
 def test_negative_purity_raises():
     with pytest.raises(ValueError, match="initial_purity_pct"):
@@ -52,6 +50,7 @@ def test_zero_t_months_raises():
 
 # ── Basic result structure ──────────────────────────────────────────────
 
+
 def _default_result() -> StabilityResult:
     return predict_stability("TestDrug", t_months=24.0)
 
@@ -88,6 +87,7 @@ def test_purity_arrays_same_length():
 
 # ── Temperature effects ────────────────────────────────────────────────
 
+
 def test_higher_temp_faster_degradation():
     r25 = predict_stability("D", temperature_C=25.0, t_months=24.0)
     r40 = predict_stability("D", temperature_C=40.0, t_months=24.0)
@@ -117,6 +117,7 @@ def test_shelf_life_decreases_with_temperature():
 
 # ── Stability categories ───────────────────────────────────────────────
 
+
 def test_excellent_category():
     r = predict_stability("D", k_deg_per_month=0.0001, t_months=24.0)
     assert r.stability_category == "excellent"
@@ -143,6 +144,7 @@ def test_marginal_category():
 
 # ── Shelf life ──────────────────────────────────────────────────────────
 
+
 def test_stable_drug_no_shelf_life():
     """Very slow degradation — purity never drops below limit."""
     r = predict_stability("D", k_deg_per_month=0.0001, t_months=24.0)
@@ -156,6 +158,7 @@ def test_shelf_life_positive_when_present():
 
 
 # ── compare_storage_conditions ──────────────────────────────────────────
+
 
 def test_compare_returns_three_results():
     results = compare_storage_conditions("DrugA")
@@ -176,6 +179,7 @@ def test_compare_ordering():
 
 
 # ── accelerated_stability_test ──────────────────────────────────────────
+
 
 def test_accelerated_result_type():
     r = accelerated_stability_test("DrugA")
@@ -208,6 +212,7 @@ def test_accelerated_validation_ea():
 
 
 # ── Notes ───────────────────────────────────────────────────────────────
+
 
 def test_notes_is_list():
     r = _default_result()

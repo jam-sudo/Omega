@@ -315,8 +315,7 @@ def covariate_sensitivity(
         raise ValueError("covariate_range must contain at least 2 values")
 
     cl_values = [
-        power_law_covariate(cl_typical, v, covariate_typical, theta_power)
-        for v in covariate_range
+        power_law_covariate(cl_typical, v, covariate_typical, theta_power) for v in covariate_range
     ]
     cl_ratio = [cl / cl_typical for cl in cl_values]
 

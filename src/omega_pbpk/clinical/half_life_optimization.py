@@ -336,8 +336,10 @@ def _steady_state_cmin_cmax(
     # Single dose Cmax (analytical approximation for 1-cpt oral)
     if abs(ka_per_h - ke) > 1e-9:
         tmax_single = math.log(ka_per_h / ke) / (ka_per_h - ke)
-        cmax_single = (dose_mg / vd_L) * (ka_per_h / (ka_per_h - ke)) * (
-            math.exp(-ke * tmax_single) - math.exp(-ka_per_h * tmax_single)
+        cmax_single = (
+            (dose_mg / vd_L)
+            * (ka_per_h / (ka_per_h - ke))
+            * (math.exp(-ke * tmax_single) - math.exp(-ka_per_h * tmax_single))
         )
         accum = cmax / cmax_single if cmax_single > 0 else 1.0
     else:

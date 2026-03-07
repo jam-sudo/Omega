@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.clinical.drug_interaction_matrix import (
@@ -13,10 +12,10 @@ from omega_pbpk.clinical.drug_interaction_matrix import (
     identify_high_risk_combinations,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_drug(
     name: str,
@@ -82,6 +81,7 @@ WARFARIN = _make_drug(
 # classify_interaction tests
 # ---------------------------------------------------------------------------
 
+
 class TestClassifyInteraction:
     def test_none_below_1_25(self):
         assert classify_interaction(1.0) == "none"
@@ -120,6 +120,7 @@ class TestClassifyInteraction:
 # ---------------------------------------------------------------------------
 # build_interaction_matrix tests
 # ---------------------------------------------------------------------------
+
 
 class TestBuildInteractionMatrix:
     def test_single_drug_1x1_matrix(self):
@@ -190,22 +191,12 @@ class TestBuildInteractionMatrix:
 
     def test_max_aucr_matches_matrix(self):
         result = build_interaction_matrix([ITRACONAZOLE, MIDAZOLAM])
-        all_off_diag = [
-            result.aucr_matrix[i][j]
-            for i in range(2)
-            for j in range(2)
-            if i != j
-        ]
+        all_off_diag = [result.aucr_matrix[i][j] for i in range(2) for j in range(2) if i != j]
         assert result.max_aucr == max(all_off_diag)
 
     def test_min_aucr_matches_matrix(self):
         result = build_interaction_matrix([ITRACONAZOLE, MIDAZOLAM])
-        all_off_diag = [
-            result.aucr_matrix[i][j]
-            for i in range(2)
-            for j in range(2)
-            if i != j
-        ]
+        all_off_diag = [result.aucr_matrix[i][j] for i in range(2) for j in range(2) if i != j]
         assert result.min_aucr == min(all_off_diag)
 
     def test_notes_non_empty(self):
@@ -241,6 +232,7 @@ class TestBuildInteractionMatrix:
 # identify_high_risk_combinations tests
 # ---------------------------------------------------------------------------
 
+
 class TestIdentifyHighRiskCombinations:
     def test_returns_list(self):
         result = identify_high_risk_combinations([ITRACONAZOLE, MIDAZOLAM])
@@ -270,6 +262,7 @@ class TestIdentifyHighRiskCombinations:
 # ---------------------------------------------------------------------------
 # calculate_net_exposure_change tests
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateNetExposureChange:
     def test_single_drug_aucr_1(self):

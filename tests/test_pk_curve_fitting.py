@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
 from omega_pbpk.analysis.pk_curve_fitting import (
@@ -14,7 +13,6 @@ from omega_pbpk.analysis.pk_curve_fitting import (
     fit_one_compartment_oral,
     fit_two_compartment_iv,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -13,7 +13,6 @@ from omega_pbpk.risk.phospholipidosis import (
     screen_phospholipidosis,
 )
 
-
 # ---------------------------------------------------------------------------
 # compute_cad_score tests
 # ---------------------------------------------------------------------------

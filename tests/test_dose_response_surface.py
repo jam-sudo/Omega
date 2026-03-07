@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.analysis.dose_response_surface import (
@@ -13,7 +11,6 @@ from omega_pbpk.analysis.dose_response_surface import (
     fit_hill_curve,
     optimal_combination,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper fixtures
@@ -229,7 +226,14 @@ class TestOptimalCombination:
     def test_keys_present(self, grid_data):
         d1, d2, matrix = grid_data
         result = optimal_combination(d1, d2, matrix)
-        expected_keys = {"drug1_dose", "drug2_dose", "response", "total_dose", "distance_to_target", "notes"}
+        expected_keys = {
+            "drug1_dose",
+            "drug2_dose",
+            "response",
+            "total_dose",
+            "distance_to_target",
+            "notes",
+        }
         assert expected_keys.issubset(result.keys())
 
     def test_dose_in_input_list(self, grid_data):

@@ -45,8 +45,7 @@ def _get_optimal_range(target_site: str, route: str) -> tuple[float, float]:
     """Return optimal (min_logP, max_logP) for the given site/route."""
     if target_site not in _VALID_TARGET_SITES:
         raise ValueError(
-            f"Invalid target_site '{target_site}'. "
-            f"Choose from: {sorted(_VALID_TARGET_SITES)}"
+            f"Invalid target_site '{target_site}'. Choose from: {sorted(_VALID_TARGET_SITES)}"
         )
     site_map = _OPTIMAL_RANGES[target_site]
     # Try specific route, then 'default'
@@ -98,11 +97,11 @@ class LogPModificationResult:
     current_logP: float
     proposed_logP: float
     delta_logP: float
-    absorption_change: str   # 'improve', 'neutral', 'worsen'
+    absorption_change: str  # 'improve', 'neutral', 'worsen'
     distribution_change: str
     clearance_change: str
     overall_recommendation: str  # 'favorable', 'neutral', 'unfavorable'
-    score_delta: float           # [-1, +1]
+    score_delta: float  # [-1, +1]
     notes: str
 
 
@@ -192,8 +191,7 @@ def score_logp_modification(
     """
     if target_site not in _VALID_TARGET_SITES:
         raise ValueError(
-            f"Invalid target_site '{target_site}'. "
-            f"Choose from: {sorted(_VALID_TARGET_SITES)}"
+            f"Invalid target_site '{target_site}'. Choose from: {sorted(_VALID_TARGET_SITES)}"
         )
 
     # Compute component scores for current and proposed
@@ -282,12 +280,7 @@ def predict_pk_impact_of_logp(
         elif mw < 150:
             mw_penalty = 0.1
 
-        overall = (
-            0.40 * abs_score
-            + 0.35 * dis_score
-            + 0.25 * cl_score
-            - mw_penalty
-        )
+        overall = 0.40 * abs_score + 0.35 * dis_score + 0.25 * cl_score - mw_penalty
         overall = max(0.0, min(1.0, overall))
 
         results[logP] = {

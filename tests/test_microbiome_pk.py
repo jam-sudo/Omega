@@ -15,6 +15,7 @@ from omega_pbpk.clinical.microbiome_pk import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _assess(**kwargs):
     defaults = dict(
         drug_name="TestDrug",
@@ -29,6 +30,7 @@ def _assess(**kwargs):
 # ---------------------------------------------------------------------------
 # Basic return-type checks
 # ---------------------------------------------------------------------------
+
 
 def test_returns_result_type():
     result = _assess()
@@ -55,6 +57,7 @@ def test_microbiome_effect_frozen():
 # ---------------------------------------------------------------------------
 # Germ-free: no microbiome activity
 # ---------------------------------------------------------------------------
+
 
 def test_germ_free_no_azo_effect():
     """With germ_free state and azo bond, activity=0 → magnitude=1.0 → no change."""
@@ -97,6 +100,7 @@ def test_germ_free_ba_change_near_zero():
 # Normal microbiome: azo activation
 # ---------------------------------------------------------------------------
 
+
 def test_normal_azo_increases_ba():
     result = assess_microbiome_impact(
         drug_name="AzoDrug",
@@ -138,6 +142,7 @@ def test_normal_glucuronide_increases_ba():
 # Antibiotic-treated: azo effect minimal
 # ---------------------------------------------------------------------------
 
+
 def test_antibiotic_treated_azo_minimal():
     result = assess_microbiome_impact(
         drug_name="AzoDrug",
@@ -153,12 +158,18 @@ def test_antibiotic_treated_azo_minimal():
 
 def test_antibiotic_less_effect_than_normal():
     normal = assess_microbiome_impact(
-        drug_name="Drug", smiles="CC", f_oral_baseline=0.4,
-        microbiome_state="normal", has_azo_bond=True,
+        drug_name="Drug",
+        smiles="CC",
+        f_oral_baseline=0.4,
+        microbiome_state="normal",
+        has_azo_bond=True,
     )
     abx = assess_microbiome_impact(
-        drug_name="Drug", smiles="CC", f_oral_baseline=0.4,
-        microbiome_state="antibiotic_treated", has_azo_bond=True,
+        drug_name="Drug",
+        smiles="CC",
+        f_oral_baseline=0.4,
+        microbiome_state="antibiotic_treated",
+        has_azo_bond=True,
     )
     assert abx.f_oral_adjusted < normal.f_oral_adjusted
 
@@ -166,6 +177,7 @@ def test_antibiotic_less_effect_than_normal():
 # ---------------------------------------------------------------------------
 # SMILES-based hydrazine detection
 # ---------------------------------------------------------------------------
+
 
 def test_hydrazine_smiles_detection():
     result = assess_microbiome_impact(
@@ -192,6 +204,7 @@ def test_hydrazine_reduces_ba():
 # ---------------------------------------------------------------------------
 # Lipophilic trapping (dysbiotic + logP > 4)
 # ---------------------------------------------------------------------------
+
 
 def test_lipophilic_trapping_dysbiotic():
     result = assess_microbiome_impact(
@@ -221,6 +234,7 @@ def test_lipophilic_trapping_not_normal():
 # ---------------------------------------------------------------------------
 # compare_microbiome_states
 # ---------------------------------------------------------------------------
+
 
 def test_compare_returns_four_results():
     results = compare_microbiome_states(
@@ -259,6 +273,7 @@ def test_compare_monotone_azo():
 # Risk categories
 # ---------------------------------------------------------------------------
 
+
 def test_risk_low_no_effects():
     result = _assess()
     assert result.risk_category == "low"
@@ -267,8 +282,12 @@ def test_risk_low_no_effects():
 def test_risk_moderate_azo_dysbiotic():
     # dysbiotic baseline 0.5, mag=1.3 → 0.65, change=30% → high
     result = assess_microbiome_impact(
-        drug_name="D", smiles="CC", f_oral_baseline=0.5,
-        microbiome_state="normal", has_azo_bond=True, has_glucuronide=True,
+        drug_name="D",
+        smiles="CC",
+        f_oral_baseline=0.5,
+        microbiome_state="normal",
+        has_azo_bond=True,
+        has_glucuronide=True,
     )
     # 0.5 * 1.5 * 1.3 = 0.975 → clipped to 1.0 → change=100% → high
     assert result.risk_category in ("moderate", "high")
@@ -278,10 +297,13 @@ def test_risk_moderate_azo_dysbiotic():
 # Validation errors
 # ---------------------------------------------------------------------------
 
+
 def test_invalid_microbiome_state():
     with pytest.raises(ValueError, match="microbiome_state"):
         assess_microbiome_impact(
-            drug_name="D", smiles="CC", f_oral_baseline=0.5,
+            drug_name="D",
+            smiles="CC",
+            f_oral_baseline=0.5,
             microbiome_state="space_gut",
         )
 
@@ -289,19 +311,25 @@ def test_invalid_microbiome_state():
 def test_invalid_f_oral_too_high():
     with pytest.raises(ValueError):
         assess_microbiome_impact(
-            drug_name="D", smiles="CC", f_oral_baseline=1.5,
+            drug_name="D",
+            smiles="CC",
+            f_oral_baseline=1.5,
         )
 
 
 def test_invalid_f_oral_zero():
     with pytest.raises(ValueError):
         assess_microbiome_impact(
-            drug_name="D", smiles="CC", f_oral_baseline=0.0,
+            drug_name="D",
+            smiles="CC",
+            f_oral_baseline=0.0,
         )
 
 
 def test_invalid_f_oral_negative():
     with pytest.raises(ValueError):
         assess_microbiome_impact(
-            drug_name="D", smiles="CC", f_oral_baseline=-0.1,
+            drug_name="D",
+            smiles="CC",
+            f_oral_baseline=-0.1,
         )

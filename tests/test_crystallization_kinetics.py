@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.biopharmaceutics.crystallization_kinetics import (
@@ -13,7 +14,6 @@ from omega_pbpk.biopharmaceutics.crystallization_kinetics import (
     nucleation_rate,
     simulate_crystallization,
 )
-
 
 # ---------------------------------------------------------------------------
 # nucleation_rate tests
@@ -365,6 +365,6 @@ class TestEstimatePrecipitationRisk:
     def test_longer_window_reduces_risk(self):
         """Same AUC spread over longer time → lower mean S → lower risk."""
         risk_short = estimate_precipitation_risk(5.0, 1.0, 1.0)  # mean S=5 → high
-        risk_long = estimate_precipitation_risk(5.0, 1.0, 5.0)   # mean S=1 → low
+        risk_long = estimate_precipitation_risk(5.0, 1.0, 5.0)  # mean S=1 → low
         assert risk_short in ("high", "moderate")
         assert risk_long == "low"

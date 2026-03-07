@@ -100,9 +100,7 @@ def _validate_inputs(
     if epr_factor < 1.0:
         raise ValueError(f"epr_factor must be >= 1.0, got {epr_factor}")
     if np_type not in _VALID_NP_TYPES:
-        raise ValueError(
-            f"np_type must be one of {sorted(_VALID_NP_TYPES)}, got '{np_type}'"
-        )
+        raise ValueError(f"np_type must be one of {sorted(_VALID_NP_TYPES)}, got '{np_type}'")
 
 
 def _trapz_auc(times: NDArray[np.float64], conc: NDArray[np.float64]) -> float:
@@ -156,8 +154,14 @@ def simulate_nanoparticle_pk(
         NanoparticlePKResult with full time-course and summary PK metrics.
     """
     _validate_inputs(
-        dose_mg, k_release_per_h, cl_np_L_per_h, vd_np_L,
-        cl_free_L_per_h, vd_free_L, epr_factor, np_type,
+        dose_mg,
+        k_release_per_h,
+        cl_np_L_per_h,
+        vd_np_L,
+        cl_free_L_per_h,
+        vd_free_L,
+        epr_factor,
+        np_type,
     )
 
     # Initial conditions: all drug in NP compartment

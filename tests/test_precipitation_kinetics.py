@@ -14,10 +14,10 @@ from omega_pbpk.biopharmaceutics.precipitation_kinetics import (
     simulate_precipitation,
 )
 
-
 # ---------------------------------------------------------------------------
 # nucleation_rate
 # ---------------------------------------------------------------------------
+
 
 class TestNucleationRate:
     def test_no_supersaturation_returns_zero(self):
@@ -60,6 +60,7 @@ class TestNucleationRate:
 # crystal_growth_rate
 # ---------------------------------------------------------------------------
 
+
 class TestCrystalGrowthRate:
     def test_no_supersaturation_returns_zero(self):
         assert crystal_growth_rate(1.0) == 0.0
@@ -91,6 +92,7 @@ class TestCrystalGrowthRate:
 # ---------------------------------------------------------------------------
 # simulate_precipitation — basic validation
 # ---------------------------------------------------------------------------
+
 
 class TestSimulatePrecipitationValidation:
     def test_invalid_c_initial_zero(self):
@@ -125,6 +127,7 @@ class TestSimulatePrecipitationValidation:
 # ---------------------------------------------------------------------------
 # simulate_precipitation — results
 # ---------------------------------------------------------------------------
+
 
 class TestSimulatePrecipitationResults:
     def test_returns_precipitation_result(self):
@@ -214,6 +217,7 @@ class TestSimulatePrecipitationResults:
 # ---------------------------------------------------------------------------
 # compare_polymer_inhibition
 # ---------------------------------------------------------------------------
+
 
 class TestComparePolymerInhibition:
     def test_returns_list_of_results(self):

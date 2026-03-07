@@ -14,10 +14,10 @@ from omega_pbpk.clinical.biomarker_pk_model import (
     simulate_indirect_response,
 )
 
-
 # ---------------------------------------------------------------------------
 # calculate_baseline_biomarker
 # ---------------------------------------------------------------------------
+
 
 def test_baseline_equals_kin_over_kout():
     assert calculate_baseline_biomarker(2.0, 0.5) == pytest.approx(4.0)
@@ -41,6 +41,7 @@ def test_baseline_negative_kin_raises():
 # ---------------------------------------------------------------------------
 # predict_effect_onset
 # ---------------------------------------------------------------------------
+
 
 def test_predict_onset_cmax_above_ec50():
     # When Cmax >> EC50, onset = ln(cmax/ec50) / kout
@@ -78,6 +79,7 @@ def test_predict_onset_kout_zero_raises():
 # calculate_hysteresis_area
 # ---------------------------------------------------------------------------
 
+
 def test_hysteresis_area_non_negative():
     times = [0.0, 1.0, 2.0, 3.0]
     conc = [10.0, 5.0, 2.0, 0.5]
@@ -109,6 +111,7 @@ def test_hysteresis_single_point_pk_raises():
 # ---------------------------------------------------------------------------
 # simulate_indirect_response — result type and fields
 # ---------------------------------------------------------------------------
+
 
 def _default_sim(**kwargs):
     defaults = dict(
@@ -160,6 +163,7 @@ def test_time_grid_length_matches_conc_and_biomarker():
 # simulate_indirect_response — model-type behaviour
 # ---------------------------------------------------------------------------
 
+
 def test_inhibit_kin_biomarker_decreases():
     r = _default_sim(model_type="inhibit_kin", emax=1.0)
     # Minimum biomarker should be below baseline
@@ -185,7 +189,9 @@ def test_emax_zero_biomarker_stays_at_baseline():
     r = _default_sim(emax=0.0, model_type="inhibit_kin", t_end_h=48.0)
     tol = r.baseline_biomarker * 0.005  # allow 0.5% numerical drift
     for b in r.biomarker:
-        assert abs(b - r.baseline_biomarker) <= tol, f"biomarker {b} deviated from baseline {r.baseline_biomarker}"
+        assert abs(b - r.baseline_biomarker) <= tol, (
+            f"biomarker {b} deviated from baseline {r.baseline_biomarker}"
+        )
 
 
 def test_max_effect_occurs_after_cmax():
@@ -226,6 +232,7 @@ def test_model_type_in_result():
 # ---------------------------------------------------------------------------
 # simulate_indirect_response — input validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_model_type_raises():
     with pytest.raises(ValueError, match="model_type"):

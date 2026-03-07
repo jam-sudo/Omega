@@ -15,10 +15,10 @@ from omega_pbpk.analysis.hysteresis_analysis import (
     plot_hysteresis_loop_data,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _clockwise_data():
     """Simulate a clockwise C-E loop (effect lags concentration)."""
@@ -51,6 +51,7 @@ def _counter_clockwise_data():
 # ---------------------------------------------------------------------------
 # compute_hysteresis_area
 # ---------------------------------------------------------------------------
+
 
 class TestComputeHysteresisArea:
     def test_returns_float(self):
@@ -112,6 +113,7 @@ class TestComputeHysteresisArea:
 # ---------------------------------------------------------------------------
 # classify_hysteresis
 # ---------------------------------------------------------------------------
+
 
 class TestClassifyHysteresis:
     def test_returns_dataclass(self):
@@ -177,6 +179,7 @@ class TestClassifyHysteresis:
 # fit_effect_compartment_ke0
 # ---------------------------------------------------------------------------
 
+
 class TestFitEffectCompartmentKe0:
     def test_returns_float(self):
         c, e, t = _clockwise_data()
@@ -229,6 +232,7 @@ class TestFitEffectCompartmentKe0:
 # ---------------------------------------------------------------------------
 # plot_hysteresis_loop_data
 # ---------------------------------------------------------------------------
+
 
 class TestPlotHysteresisLoopData:
     def test_returns_dict_with_expected_keys(self):

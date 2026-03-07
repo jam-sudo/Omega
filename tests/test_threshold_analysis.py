@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.analysis.threshold_analysis import (
@@ -16,10 +14,10 @@ from omega_pbpk.analysis.threshold_analysis import (
     time_below_threshold,
 )
 
-
 # ---------------------------------------------------------------------------
 # Simple PK profiles
 # ---------------------------------------------------------------------------
+
 
 def _triangle_profile() -> tuple[list[float], list[float]]:
     """Concentration rises to peak at t=4 then falls."""

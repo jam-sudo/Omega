@@ -38,6 +38,7 @@ def run(**overrides):
 # _norm_score tests
 # ---------------------------------------------------------------------------
 
+
 class TestNormScore:
     def test_at_optimal_is_1(self):
         score = _norm_score(330.0, 330.0, 120.0)
@@ -57,6 +58,7 @@ class TestNormScore:
 # _calc_qed tests
 # ---------------------------------------------------------------------------
 
+
 class TestCalcQED:
     def test_returns_value_in_0_1(self):
         q = _calc_qed(300, 2.5, 80, 1, 4, 4)
@@ -74,6 +76,7 @@ class TestCalcQED:
 # ---------------------------------------------------------------------------
 # predict_drug_likeness — basic correctness
 # ---------------------------------------------------------------------------
+
 
 class TestPredictDrugLikeness:
     def test_returns_drug_likeness_result(self):
@@ -164,9 +167,15 @@ class TestPredictDrugLikeness:
 
     def test_poor_drug_likeness_for_ugly_molecule(self):
         result = run(
-            mw=700, logP=7.0, psa=200, n_hbd=8, n_hba=12,
-            n_rot_bonds=15, n_rings=8, n_stereocenters=10,
-            n_violations_allowed=0
+            mw=700,
+            logP=7.0,
+            psa=200,
+            n_hbd=8,
+            n_hba=12,
+            n_rot_bonds=15,
+            n_rings=8,
+            n_stereocenters=10,
+            n_violations_allowed=0,
         )
         assert result.overall_drug_likeness in {"poor", "acceptable"}
 
@@ -198,6 +207,7 @@ class TestPredictDrugLikeness:
 # ---------------------------------------------------------------------------
 # predict_drug_likeness — validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestPredictDrugLikenessValidation:
     def test_empty_drug_name(self):
@@ -244,6 +254,7 @@ class TestPredictDrugLikenessValidation:
 # ---------------------------------------------------------------------------
 # fragment_analysis tests
 # ---------------------------------------------------------------------------
+
 
 class TestFragmentAnalysis:
     def test_returns_dict(self):

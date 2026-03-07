@@ -10,15 +10,15 @@ class BindingKineticsResult:
     drug_name: str
     kon_per_M_per_s: float
     koff_per_s: float
-    kd_nM: float               # koff/kon in nM
-    residence_time_s: float    # 1/koff
+    kd_nM: float  # koff/kon in nM
+    residence_time_s: float  # 1/koff
     drug_conc_nM: float
     target_conc_nM: float
     times_s: list[float]
     occupancy_pct: list[float]  # drug-receptor occupancy over time
     equilibrium_occupancy_pct: float
-    t_half_on_s: float          # time to half equilibrium occupancy
-    t_half_off_s: float         # 0.693/koff
+    t_half_on_s: float  # time to half equilibrium occupancy
+    t_half_off_s: float  # 0.693/koff
     notes: str
 
 
@@ -94,11 +94,7 @@ def simulate_binding_kinetics(
         occ = dr / target_M * 100.0
         occupancy.append(occ)
 
-    notes = (
-        f"Kd = {kd_nM:.2f} nM; "
-        f"RT = {residence_time_s:.1f} s; "
-        f"eq_occ = {eq_occ:.1f}%"
-    )
+    notes = f"Kd = {kd_nM:.2f} nM; RT = {residence_time_s:.1f} s; eq_occ = {eq_occ:.1f}%"
 
     return BindingKineticsResult(
         drug_name=drug_name,

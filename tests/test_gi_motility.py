@@ -12,10 +12,10 @@ from omega_pbpk.core.gi_motility import (
     simulate_gi_transit,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(
     drug_name="TestDrug",
@@ -38,6 +38,7 @@ def _run(
 # ---------------------------------------------------------------------------
 # Return type and structure
 # ---------------------------------------------------------------------------
+
 
 class TestGIMotilityResultStructure:
     def test_returns_dataclass(self):
@@ -77,6 +78,7 @@ class TestGIMotilityResultStructure:
 # ---------------------------------------------------------------------------
 # Mass conservation
 # ---------------------------------------------------------------------------
+
 
 class TestMassConservation:
     def test_initial_mass_equals_dose(self):
@@ -120,6 +122,7 @@ class TestMassConservation:
 # Fed vs fasted
 # ---------------------------------------------------------------------------
 
+
 class TestFedVsFasted:
     def test_fed_slower_gastric_emptying(self):
         r_fasted = _run(state="fasted")
@@ -145,6 +148,7 @@ class TestFedVsFasted:
 # Formulation effects
 # ---------------------------------------------------------------------------
 
+
 class TestFormulationEffects:
     def test_modified_release_slower_absorption(self):
         r_ir = _run(formulation="immediate_release", t_end=8.0)
@@ -161,6 +165,7 @@ class TestFormulationEffects:
 # ---------------------------------------------------------------------------
 # gastric_emptying_half_time
 # ---------------------------------------------------------------------------
+
 
 class TestGastricEmptyingHalfTime:
     def test_fed_greater_than_fasted(self):
@@ -195,6 +200,7 @@ class TestGastricEmptyingHalfTime:
 # colon_transit_time
 # ---------------------------------------------------------------------------
 
+
 class TestColonTransitTime:
     def test_returns_positive(self):
         t = colon_transit_time()
@@ -217,6 +223,7 @@ class TestColonTransitTime:
 # ---------------------------------------------------------------------------
 # calculate_transit_time
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateTransitTime:
     def test_stomach_fasted(self):
@@ -254,6 +261,7 @@ class TestCalculateTransitTime:
 # fa_estimated
 # ---------------------------------------------------------------------------
 
+
 class TestFaEstimated:
     def test_fa_in_0_1(self):
         r = _run(t_end=24.0)
@@ -268,6 +276,7 @@ class TestFaEstimated:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_state_raises(self):

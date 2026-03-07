@@ -19,10 +19,10 @@ from scipy.stats import norm
 _VALID_DEVICES = {"MDI", "DPI", "nebulizer", "soft_mist"}
 
 _DEVICE_PARAMS: dict[str, dict[str, float]] = {
-    "MDI":        {"device_efficiency": 0.80, "oropharyngeal_fraction": 0.50},
-    "DPI":        {"device_efficiency": 0.70, "oropharyngeal_fraction": 0.35},
-    "nebulizer":  {"device_efficiency": 0.60, "oropharyngeal_fraction": 0.15},
-    "soft_mist":  {"device_efficiency": 0.85, "oropharyngeal_fraction": 0.20},
+    "MDI": {"device_efficiency": 0.80, "oropharyngeal_fraction": 0.50},
+    "DPI": {"device_efficiency": 0.70, "oropharyngeal_fraction": 0.35},
+    "nebulizer": {"device_efficiency": 0.60, "oropharyngeal_fraction": 0.15},
+    "soft_mist": {"device_efficiency": 0.85, "oropharyngeal_fraction": 0.20},
 }
 
 
@@ -107,13 +107,9 @@ def simulate_pulmonary_dosimetry(
     if gsd <= 1:
         raise ValueError(f"gsd must be > 1, got {gsd}")
     if inhalation_flow_L_per_min <= 0:
-        raise ValueError(
-            f"inhalation_flow_L_per_min must be > 0, got {inhalation_flow_L_per_min}"
-        )
+        raise ValueError(f"inhalation_flow_L_per_min must be > 0, got {inhalation_flow_L_per_min}")
     if device_type not in _VALID_DEVICES:
-        raise ValueError(
-            f"device_type must be one of {_VALID_DEVICES}, got '{device_type}'"
-        )
+        raise ValueError(f"device_type must be one of {_VALID_DEVICES}, got '{device_type}'")
 
     params = _DEVICE_PARAMS[device_type]
     device_efficiency: float = params["device_efficiency"]

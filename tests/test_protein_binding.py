@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.protein_binding import (
@@ -11,7 +9,6 @@ from omega_pbpk.core.protein_binding import (
     binding_curve,
     simulate_protein_binding,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper defaults
@@ -94,9 +91,13 @@ class TestSimulateProteinBinding:
         # free ~ (4909.45 + 4911.49) / 0.3 ~ 32736.5
         # fup ~ 32736.5 / 33333.33 ~ 0.9821
         res = simulate_protein_binding(
-            drug_name="Check", total_conc_mg_L=10.0,
-            ka_L_per_mg=0.5, protein_conc_g_L=40.0,
-            mw_drug=300.0, mw_protein=67000.0, n_sites=1,
+            drug_name="Check",
+            total_conc_mg_L=10.0,
+            ka_L_per_mg=0.5,
+            protein_conc_g_L=40.0,
+            mw_drug=300.0,
+            mw_protein=67000.0,
+            n_sites=1,
         )
         assert abs(res.fup - 0.9821) < 0.01
 

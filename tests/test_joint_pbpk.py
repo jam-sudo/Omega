@@ -6,8 +6,8 @@ import pytest
 
 from omega_pbpk.core.joint_pbpk import JointPKResult, simulate_joint_pk
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _default_oral(**kwargs) -> JointPKResult:
     params = dict(
@@ -47,6 +47,7 @@ def _default_iv(**kwargs) -> JointPKResult:
 
 # ── Result shape ──────────────────────────────────────────────────────────────
 
+
 class TestResultShape:
     def test_returns_joint_pk_result(self):
         r = _default_oral()
@@ -74,6 +75,7 @@ class TestResultShape:
 
 # ── IV route ──────────────────────────────────────────────────────────────────
 
+
 class TestIVRoute:
     def test_iv_initial_plasma_concentration(self):
         """C(0) = dose / Vd for IV bolus."""
@@ -92,6 +94,7 @@ class TestIVRoute:
 
 
 # ── Oral route ────────────────────────────────────────────────────────────────
+
 
 class TestOralRoute:
     def test_oral_initial_plasma_zero(self):
@@ -112,7 +115,7 @@ class TestOralRoute:
     def test_synovial_lags_plasma(self):
         """Synovial peak occurs after plasma peak."""
         r = _default_oral()
-        import numpy as np
+
         cp = r.c_plasma_mg_L
         csf = r.c_synovial_mg_L
         tmax_p = int(cp.index(max(cp)))
@@ -121,6 +124,7 @@ class TestOralRoute:
 
 
 # ── Synovial dynamics ─────────────────────────────────────────────────────────
+
 
 class TestSynovialDynamics:
     def test_zero_transfer_synovial_stays_zero(self):
@@ -136,6 +140,7 @@ class TestSynovialDynamics:
     def test_t_half_synovial_formula(self):
         """t½ = ln(2) / k_sf_out."""
         import math
+
         k_out = 0.2
         r = _default_oral(k_sf_out_per_h=k_out)
         assert r.t_half_synovial_h == pytest.approx(math.log(2) / k_out, rel=1e-6)
@@ -156,6 +161,7 @@ class TestSynovialDynamics:
 
 # ── Linearity ─────────────────────────────────────────────────────────────────
 
+
 class TestLinearPK:
     def test_double_dose_doubles_cmax_plasma(self):
         r1 = _default_iv(dose_mg=100.0)
@@ -174,6 +180,7 @@ class TestLinearPK:
 
 
 # ── Validation errors ─────────────────────────────────────────────────────────
+
 
 class TestValidation:
     def test_negative_dose_raises(self):

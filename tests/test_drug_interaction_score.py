@@ -1,4 +1,5 @@
 """Tests for drug_interaction_score module."""
+
 import pytest
 
 from omega_pbpk.risk.drug_interaction_score import (
@@ -9,6 +10,7 @@ from omega_pbpk.risk.drug_interaction_score import (
 )
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_report(
     primary_drug="PrimaryDrug",
@@ -27,6 +29,7 @@ def make_report(
 
 
 # ── basic construction ────────────────────────────────────────────────────────
+
 
 def test_returns_ddi_risk_report():
     report = make_report()
@@ -51,6 +54,7 @@ def test_empty_interactions_list():
 
 
 # ── CYP3A4 inhibition ────────────────────────────────────────────────────────
+
 
 def test_strong_cyp3a4_inhibitor_with_substrate_gives_major():
     # Ki = 0.1 uM → AUCR = 1 + 1/0.1 = 11, score = min(50, 10*10) = 50
@@ -101,6 +105,7 @@ def test_mechanism_is_cyp_inhibition_for_cyp3a4():
 
 # ── CYP2D6 inhibition ────────────────────────────────────────────────────────
 
+
 def test_cyp2d6_inhibition_increases_risk_score():
     report = score_ddi_risk(
         primary_drug="Codeine",
@@ -113,6 +118,7 @@ def test_cyp2d6_inhibition_increases_risk_score():
 
 
 # ── P-gp transporter ─────────────────────────────────────────────────────────
+
 
 def test_pgp_inhibitor_increases_risk_for_pgp_substrate():
     report = score_ddi_risk(
@@ -137,6 +143,7 @@ def test_pgp_inhibitor_without_pgp_substrate_no_risk():
 
 # ── severity thresholds ───────────────────────────────────────────────────────
 
+
 def test_severity_none_for_zero_score():
     report = make_report(interacting_drugs=[{"name": "Inert"}])
     assert report.interactions[0].severity == "none"
@@ -155,6 +162,7 @@ def test_severity_minor_10_to_30():
 
 
 # ── overall risk ──────────────────────────────────────────────────────────────
+
 
 def test_multiple_major_interactions_critical():
     # Two major interactions → critical
@@ -188,7 +196,7 @@ def test_n_major_interactions_counts_correctly():
     # InhB: Ki=0.5 → AUCR=3 → score=20 → moderate (not major)
     drugs = [
         {"name": "InhA", "cyp3a4_inhibitor_ki": 0.1},  # score 50 → major
-        {"name": "Inert"},                              # score 0 → none
+        {"name": "Inert"},  # score 0 → none
         {"name": "InhB", "cyp3a4_inhibitor_ki": 0.5},  # score 20 → moderate
     ]
     report = score_ddi_risk(
@@ -201,6 +209,7 @@ def test_n_major_interactions_counts_correctly():
 
 
 # ── priority alert ────────────────────────────────────────────────────────────
+
 
 def test_priority_alert_no_interactions():
     report = make_report()
@@ -221,6 +230,7 @@ def test_priority_alert_identifies_worst():
 
 
 # ── screen_combinations ───────────────────────────────────────────────────────
+
 
 def test_screen_combinations_returns_list():
     candidates = [

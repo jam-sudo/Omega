@@ -310,12 +310,8 @@ class TestCompareNasalFormulations:
     def test_high_f_nasal_gives_higher_auc(self):
         high_f = [{"name": "A", "f_nasal": 0.95, "k_nasal": 2.0, "mcc": 0.5}]
         low_f = [{"name": "B", "f_nasal": 0.30, "k_nasal": 2.0, "mcc": 0.5}]
-        r_high = compare_nasal_formulations(
-            "D", 10.0, 10.0, 50.0, formulations=high_f
-        )
-        r_low = compare_nasal_formulations(
-            "D", 10.0, 10.0, 50.0, formulations=low_f
-        )
+        r_high = compare_nasal_formulations("D", 10.0, 10.0, 50.0, formulations=high_f)
+        r_low = compare_nasal_formulations("D", 10.0, 10.0, 50.0, formulations=low_f)
         assert r_high[0]["auc"] > r_low[0]["auc"]
 
     def test_single_formulation(self):

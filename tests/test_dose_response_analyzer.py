@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.analysis.dose_response_analyzer import (
@@ -15,10 +16,10 @@ from omega_pbpk.analysis.dose_response_analyzer import (
     inhibition_constant,
 )
 
-
 # ---------------------------------------------------------------------------
 # four_param_logistic
 # ---------------------------------------------------------------------------
+
 
 class TestFourParamLogistic:
     def test_at_ec50_returns_midpoint(self):
@@ -71,6 +72,7 @@ class TestFourParamLogistic:
 # hill_equation
 # ---------------------------------------------------------------------------
 
+
 class TestHillEquation:
     def test_at_ec50_returns_half_emax(self):
         """Hill equation at C=EC50 → Emax/2."""
@@ -108,6 +110,7 @@ class TestHillEquation:
 # calculate_selectivity_ratio
 # ---------------------------------------------------------------------------
 
+
 class TestSelectivityRatio:
     def test_selective_compound_ratio_less_than_one(self):
         """EC50_target << EC50_off_target → ratio < 1 (selective)."""
@@ -138,6 +141,7 @@ class TestSelectivityRatio:
 # ---------------------------------------------------------------------------
 # inhibition_constant (Cheng-Prusoff)
 # ---------------------------------------------------------------------------
+
 
 class TestInhibitionConstant:
     def test_substrate_at_km_gives_ic50_over_2(self):
@@ -180,6 +184,7 @@ class TestInhibitionConstant:
 # ---------------------------------------------------------------------------
 # fit_dose_response / calculate_ec50
 # ---------------------------------------------------------------------------
+
 
 def _make_ideal_4pl(doses, bottom, top, ec50, hill):
     """Generate ideal (noiseless) 4PL responses."""

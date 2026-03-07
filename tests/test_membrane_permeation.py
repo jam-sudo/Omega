@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.membrane_permeation import (
@@ -13,7 +11,6 @@ from omega_pbpk.core.membrane_permeation import (
     simulate_franz_diffusion,
     steady_state_flux,
 )
-
 
 # ---------------------------------------------------------------------------
 # lag_time_analytical
@@ -26,7 +23,7 @@ class TestLagTimeAnalytical:
         L_um = 400.0
         D = 1e-5  # cm²/h
         L_cm = L_um * 1e-4
-        expected = L_cm ** 2 / (6.0 * D)
+        expected = L_cm**2 / (6.0 * D)
         result = lag_time_analytical(L_um, D)
         assert abs(result - expected) < 1e-12
 
@@ -164,22 +161,16 @@ class TestSimulateFranzDiffusion:
         assert result.drug_name == "Ibuprofen"
 
     def test_donor_decreases_over_time(self):
-        result = simulate_franz_diffusion(
-            "Drug", 10.0, t_end_h=24.0, dt_h=0.5
-        )
+        result = simulate_franz_diffusion("Drug", 10.0, t_end_h=24.0, dt_h=0.5)
         # Donor should generally decrease
         assert result.c_donor_mg_mL[-1] < result.c_donor_mg_mL[0]
 
     def test_acceptor_increases_over_time(self):
-        result = simulate_franz_diffusion(
-            "Drug", 10.0, t_end_h=24.0, dt_h=0.5
-        )
+        result = simulate_franz_diffusion("Drug", 10.0, t_end_h=24.0, dt_h=0.5)
         assert result.c_acceptor_mg_mL[-1] > result.c_acceptor_mg_mL[0]
 
     def test_cumulative_monotonically_increasing(self):
-        result = simulate_franz_diffusion(
-            "Drug", 10.0, t_end_h=24.0, dt_h=0.5
-        )
+        result = simulate_franz_diffusion("Drug", 10.0, t_end_h=24.0, dt_h=0.5)
         for i in range(1, len(result.cumulative_permeated_mg)):
             assert result.cumulative_permeated_mg[i] >= result.cumulative_permeated_mg[i - 1]
 
@@ -200,7 +191,9 @@ class TestSimulateFranzDiffusion:
         assert result.papp_cm_h >= 0.0
 
     def test_lag_time_stored(self):
-        result = simulate_franz_diffusion("Drug", 10.0, membrane_thickness_um=400.0, diffusion_coeff_cm2_h=1e-5)
+        result = simulate_franz_diffusion(
+            "Drug", 10.0, membrane_thickness_um=400.0, diffusion_coeff_cm2_h=1e-5
+        )
         expected_lag = lag_time_analytical(400.0, 1e-5)
         assert abs(result.lag_time_h - expected_lag) < 1e-10
 
@@ -226,7 +219,8 @@ class TestSimulateFranzDiffusion:
         dose = 10.0
         vol = 5.0
         result = simulate_franz_diffusion(
-            "Drug", dose,
+            "Drug",
+            dose,
             membrane_thickness_um=L,
             diffusion_coeff_cm2_h=D,
             partition_coeff=Kp,

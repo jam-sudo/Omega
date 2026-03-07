@@ -110,9 +110,7 @@ def _ols_log_log(
     a = math.exp(log_a)
 
     # R²
-    ss_res = sum(
-        (y - (log_a + b * x)) ** 2 for x, y in zip(log_doses, log_aucs, strict=True)
-    )
+    ss_res = sum((y - (log_a + b * x)) ** 2 for x, y in zip(log_doses, log_aucs, strict=True))
     r_squared = 1.0 - ss_res / syy if syy > 1e-15 else 1.0
 
     # SE of b

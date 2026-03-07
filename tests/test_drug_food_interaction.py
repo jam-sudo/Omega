@@ -8,10 +8,10 @@ from omega_pbpk.clinical.drug_food_interaction import (
     high_fat_meal_impact,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic return type
 # ---------------------------------------------------------------------------
+
 
 def test_returns_dataclass():
     r = assess_food_effect("TestDrug", bcs_class="I", logP=1.0)
@@ -28,6 +28,7 @@ def test_fields_populated():
 # BCS I: neutral food effect
 # ---------------------------------------------------------------------------
 
+
 def test_bcs_I_neutral_food_effect():
     r = assess_food_effect("Drug", bcs_class="I", logP=0.0, food_condition="fed_high_fat")
     # logP=0 → auc_ratio = 1.0, food_effect_category should be neutral
@@ -42,6 +43,7 @@ def test_bcs_I_auc_ratio_close_to_one():
 # ---------------------------------------------------------------------------
 # BCS II + high logP + high_fat: positive food effect
 # ---------------------------------------------------------------------------
+
 
 def test_bcs_II_high_logP_positive_food_effect():
     r = assess_food_effect("Drug", bcs_class="II", logP=5.0, food_condition="fed_high_fat")
@@ -58,6 +60,7 @@ def test_bcs_II_high_fat_greater_auc_than_low_fat():
 # BCS III: negative food effect
 # ---------------------------------------------------------------------------
 
+
 def test_bcs_III_negative_food_effect():
     r = assess_food_effect("Drug", bcs_class="III", logP=1.0, food_condition="fed_high_fat")
     assert r.food_effect_category == "negative"
@@ -71,6 +74,7 @@ def test_bcs_III_auc_ratio_less_than_one():
 # ---------------------------------------------------------------------------
 # Tmax delay
 # ---------------------------------------------------------------------------
+
 
 def test_high_fat_tmax_delay_greater_than_low_fat():
     r_hf = assess_food_effect("Drug", bcs_class="I", logP=2.0, food_condition="fed_high_fat")
@@ -87,6 +91,7 @@ def test_fasted_no_tmax_delay():
 # Fasted condition: ratios = 1.0
 # ---------------------------------------------------------------------------
 
+
 def test_fasted_auc_ratio_is_one():
     r = assess_food_effect("Drug", bcs_class="II", logP=3.0, food_condition="fasted")
     assert r.auc_ratio_fed_fasted == 1.0
@@ -100,6 +105,7 @@ def test_fasted_cmax_ratio_is_one():
 # ---------------------------------------------------------------------------
 # Clinical relevance and recommendation
 # ---------------------------------------------------------------------------
+
 
 def test_neutral_recommendation():
     r = assess_food_effect("Drug", bcs_class="I", logP=0.0, food_condition="fed_high_fat")
@@ -122,6 +128,7 @@ def test_clinical_relevance_field_valid():
 # high_fat_meal_impact
 # ---------------------------------------------------------------------------
 
+
 def test_high_fat_meal_impact_returns_3():
     results = high_fat_meal_impact("Drug", bcs_class="II", logP=3.0)
     assert len(results) == 3
@@ -136,6 +143,7 @@ def test_high_fat_meal_impact_conditions():
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_bcs_class_raises():
     with pytest.raises(ValueError, match="Invalid BCS class"):

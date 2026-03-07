@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import pytest
 
 from omega_pbpk.analysis.drug_synergy_matrix import (
@@ -14,10 +13,10 @@ from omega_pbpk.analysis.drug_synergy_matrix import (
     loewe_ci,
 )
 
-
 # ---------------------------------------------------------------------------
 # bliss_independence
 # ---------------------------------------------------------------------------
+
 
 class TestBlissIndependence:
     def test_zero_effects(self):
@@ -64,6 +63,7 @@ class TestBlissIndependence:
 # bliss_synergy_score
 # ---------------------------------------------------------------------------
 
+
 class TestBlissSynergyScore:
     def test_additive_gives_zero(self):
         ea, eb = 0.4, 0.5
@@ -106,11 +106,11 @@ class TestBlissSynergyScore:
 # loewe_ci
 # ---------------------------------------------------------------------------
 
+
 class TestLoweCi:
     def test_identical_drug_additive(self):
         # When drug A == drug B (same EC50, equal dose split), CI should be 1.0
         ec50 = 10.0
-        effect = 0.5
         # At EC50, Hill effect = 0.5; each drug contributes half the isobologram dose
         # D_x that gives effect 0.5 with hill_n=1: D_x = EC50 * (0.5/0.5) = EC50
         # dose_a = dose_b = EC50/2 → CI = (EC50/2)/EC50 + (EC50/2)/EC50 = 1.0
@@ -163,6 +163,7 @@ class TestLoweCi:
 # classify_synergy
 # ---------------------------------------------------------------------------
 
+
 class TestClassifySynergy:
     def test_strong_synergy(self):
         assert classify_synergy(-0.3) == "strong_synergy"
@@ -190,6 +191,7 @@ class TestClassifySynergy:
 # build_synergy_matrix
 # ---------------------------------------------------------------------------
 
+
 class TestBuildSynergyMatrix:
     def setup_method(self):
         self.doses_a = [1.0, 5.0, 10.0]
@@ -198,31 +200,23 @@ class TestBuildSynergyMatrix:
         self.ec50_b = 8.0
 
     def test_output_type(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         assert isinstance(result, SynergyMatrixResult)
 
     def test_bliss_matrix_shape(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         assert len(result.bliss_matrix) == len(self.doses_a)
         for row in result.bliss_matrix:
             assert len(row) == len(self.doses_b)
 
     def test_loewe_ci_matrix_shape(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         assert len(result.loewe_ci_matrix) == len(self.doses_a)
         for row in result.loewe_ci_matrix:
             assert len(row) == len(self.doses_b)
 
     def test_doses_stored_correctly(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         assert result.doses_a == self.doses_a
         assert result.doses_b == self.doses_b
 
@@ -239,32 +233,22 @@ class TestBuildSynergyMatrix:
         assert result.drug_b == "DrugY"
 
     def test_mean_bliss_score_type(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         assert isinstance(result.mean_bliss_score, float)
 
     def test_synergy_classification_valid(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
-        valid = {
-            "strong_synergy", "synergy", "additive", "antagonism", "strong_antagonism"
-        }
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
+        valid = {"strong_synergy", "synergy", "additive", "antagonism", "strong_antagonism"}
         assert result.synergy_classification in valid
 
     def test_max_synergy_doses_within_grid(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         da, db = result.max_synergy_doses
         assert da in self.doses_a
         assert db in self.doses_b
 
     def test_loewe_ci_positive(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         for row in result.loewe_ci_matrix:
             for ci_val in row:
                 assert ci_val > 0.0
@@ -282,9 +266,7 @@ class TestBuildSynergyMatrix:
             build_synergy_matrix(self.doses_a, self.doses_b, 0.0, self.ec50_b)
 
     def test_notes_present(self):
-        result = build_synergy_matrix(
-            self.doses_a, self.doses_b, self.ec50_a, self.ec50_b
-        )
+        result = build_synergy_matrix(self.doses_a, self.doses_b, self.ec50_a, self.ec50_b)
         assert isinstance(result.notes, str)
         assert len(result.notes) > 0
 

@@ -72,17 +72,14 @@ class TestPredictEnhancement:
         for strategy in _ALL_STRATEGIES:
             r = predict_enhancement(_BCS1_LOGP, _BCS1_MW, _BCS1_SOL, "I", strategy)
             assert r.enhancement_factor < 2.0, (
-                f"{strategy} should have low enhancement for BCS I drug, "
-                f"got {r.enhancement_factor}"
+                f"{strategy} should have low enhancement for BCS I drug, got {r.enhancement_factor}"
             )
 
     def test_bcs1_strategies_not_recommended(self):
         """BCS I drug: none of the strategies should be recommended."""
         for strategy in _ALL_STRATEGIES:
             r = predict_enhancement(_BCS1_LOGP, _BCS1_MW, _BCS1_SOL, "I", strategy)
-            assert r.recommended is False, (
-                f"{strategy} should not be recommended for BCS I drug"
-            )
+            assert r.recommended is False, f"{strategy} should not be recommended for BCS I drug"
 
     def test_self_emulsifying_good_for_very_high_logp(self):
         r = predict_enhancement(6.0, 500.0, 0.005, "II", "self_emulsifying")

@@ -216,17 +216,13 @@ def test_time_to_1_log_reduction_none():
 
 
 def test_dose_response_returns_list():
-    results = dose_response_antiviral(
-        "Remdesivir", [100.0, 200.0, 400.0], 5.0, 50.0
-    )
+    results = dose_response_antiviral("Remdesivir", [100.0, 200.0, 400.0], 5.0, 50.0)
     assert len(results) == 3
     assert all(isinstance(r, AntiviralPKPDResult) for r in results)
 
 
 def test_dose_response_sorted():
-    results = dose_response_antiviral(
-        "Remdesivir", [400.0, 100.0, 200.0], 5.0, 50.0
-    )
+    results = dose_response_antiviral("Remdesivir", [400.0, 100.0, 200.0], 5.0, 50.0)
     doses = [r.dose_mg for r in results]
     assert doses == sorted(doses)
 

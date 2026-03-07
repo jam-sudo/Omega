@@ -167,9 +167,7 @@ def compute_terminal_slope(
     # slope of ln(C) vs t is -lambda_z
     lambda_z = -slope
     if lambda_z <= 0:
-        raise ValueError(
-            f"Terminal slope is non-negative ({slope:.4f}); profile is not declining"
-        )
+        raise ValueError(f"Terminal slope is non-negative ({slope:.4f}); profile is not declining")
 
     return lambda_z, r_sq
 
@@ -301,7 +299,7 @@ def compute_nca_full(
     # --- AUMC_last then extrapolate ---
     aumc_last = compute_aumc(times_h, concs_mg_L)
     # AUMC extrapolation from last observed point: t_last*C_last/lambda_z + C_last/lambda_z^2
-    aumc_extrap = t_last * c_last_pos / lambda_z + c_last_pos / (lambda_z ** 2)
+    aumc_extrap = t_last * c_last_pos / lambda_z + c_last_pos / (lambda_z**2)
     aumc_inf = aumc_last + aumc_extrap
 
     # MRT = AUMC_inf / AUC_inf  (for IV: MRT = Vss/CL = 1/ke for mono-exp)

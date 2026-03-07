@@ -151,16 +151,13 @@ def fit_dose_response(
     hi_log = max(log_doses) + 1.0
 
     def _ec50_objective(log_ec50: float) -> float:
-        ec50_candidate = 10.0 ** log_ec50
+        ec50_candidate = 10.0**log_ec50
         # Use Hill slope = 1 for EC50 search (refine afterwards)
-        fitted = [
-            four_param_logistic(d, bottom, top, ec50_candidate, 1.0)
-            for d in doses_f
-        ]
+        fitted = [four_param_logistic(d, bottom, top, ec50_candidate, 1.0) for d in doses_f]
         return sum((responses_f[i] - fitted[i]) ** 2 for i in range(len(responses_f)))
 
     best_log_ec50 = _golden_section_search(_ec50_objective, lo_log, hi_log)
-    ec50 = 10.0 ** best_log_ec50
+    ec50 = 10.0**best_log_ec50
 
     # Estimate Hill slope from shape: use two points straddling EC50
     # slope = log(81) / log(d90/d10) where d90, d10 are doses at 90% and 10%
@@ -171,17 +168,12 @@ def fit_dose_response(
         def _hs_objective(hs: float) -> float:
             if hs <= 0:
                 return 1e12
-            fitted = [
-                four_param_logistic(d, bottom, top, ec50, hs)
-                for d in doses_f
-            ]
+            fitted = [four_param_logistic(d, bottom, top, ec50, hs) for d in doses_f]
             return sum((responses_f[i] - fitted[i]) ** 2 for i in range(len(responses_f)))
 
         hill_slope = _golden_section_search(_hs_objective, 0.1, 10.0)
 
-    fitted_responses = [
-        four_param_logistic(d, bottom, top, ec50, hill_slope) for d in doses_f
-    ]
+    fitted_responses = [four_param_logistic(d, bottom, top, ec50, hill_slope) for d in doses_f]
     r2 = _r_squared(responses_f, fitted_responses)
 
     emax = top - bottom
@@ -283,8 +275,8 @@ def hill_equation(
         raise ValueError("Hill exponent n must be positive")
     if concentration == 0.0:
         return 0.0
-    cn = concentration ** n
-    ec50n = ec50 ** n
+    cn = concentration**n
+    ec50n = ec50**n
     return emax * cn / (ec50n + cn)
 
 

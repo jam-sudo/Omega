@@ -68,15 +68,9 @@ def biphasic_effect(
     if concentration == 0:
         return 1.0
 
-    stim = (
-        e_stim
-        * concentration**hill_stim
-        / (ec50_stim**hill_stim + concentration**hill_stim)
-    )
+    stim = e_stim * concentration**hill_stim / (ec50_stim**hill_stim + concentration**hill_stim)
     inhib = (
-        e_inhib
-        * concentration**hill_inhib
-        / (ec50_inhib**hill_inhib + concentration**hill_inhib)
+        e_inhib * concentration**hill_inhib / (ec50_inhib**hill_inhib + concentration**hill_inhib)
     )
 
     return 1.0 + stim - inhib

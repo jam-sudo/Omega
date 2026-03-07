@@ -11,10 +11,10 @@ from omega_pbpk.clinical.breast_milk_pk import (
     simulate_breast_milk_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _default_sim(**kw) -> BreastMilkResult:
     defaults = dict(
@@ -38,47 +38,36 @@ def _default_sim(**kw) -> BreastMilkResult:
 # calculate_milk_to_plasma_ratio
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateMilkToPlasmaRatio:
     def test_basic_drug_mp_greater_than_one(self):
         """Basic drugs (pKa_base high) concentrate in acidic milk."""
-        mp = calculate_milk_to_plasma_ratio(
-            pka_acid=None, pka_base=9.0, logP=1.5, fu_plasma=1.0
-        )
+        mp = calculate_milk_to_plasma_ratio(pka_acid=None, pka_base=9.0, logP=1.5, fu_plasma=1.0)
         assert mp > 1.0
 
     def test_acidic_drug_mp_less_than_one(self):
         """Acidic drugs (pKa_acid low) favor plasma over milk."""
-        mp = calculate_milk_to_plasma_ratio(
-            pka_acid=4.0, pka_base=None, logP=1.5, fu_plasma=1.0
-        )
+        mp = calculate_milk_to_plasma_ratio(pka_acid=4.0, pka_base=None, logP=1.5, fu_plasma=1.0)
         assert mp < 1.0
 
     def test_neutral_drug_in_range(self):
         """Neutral drugs return M/P between 0.1 and 5.0."""
-        mp = calculate_milk_to_plasma_ratio(
-            pka_acid=None, pka_base=None, logP=1.5, fu_plasma=0.5
-        )
+        mp = calculate_milk_to_plasma_ratio(pka_acid=None, pka_base=None, logP=1.5, fu_plasma=0.5)
         assert 0.05 <= mp <= 10.0
 
     def test_neutral_drug_logP_zero(self):
         """logP=0 neutral drug gives M/P near 0.5."""
-        mp = calculate_milk_to_plasma_ratio(
-            pka_acid=None, pka_base=None, logP=0.0, fu_plasma=1.0
-        )
+        mp = calculate_milk_to_plasma_ratio(pka_acid=None, pka_base=None, logP=0.0, fu_plasma=1.0)
         assert 0.05 <= mp <= 10.0
 
     def test_clamp_upper_bound(self):
         """Very basic drug with fu=1 should be clamped to 10.0."""
-        mp = calculate_milk_to_plasma_ratio(
-            pka_acid=None, pka_base=14.0, logP=0.0, fu_plasma=1.0
-        )
+        mp = calculate_milk_to_plasma_ratio(pka_acid=None, pka_base=14.0, logP=0.0, fu_plasma=1.0)
         assert mp <= 10.0
 
     def test_clamp_lower_bound(self):
         """Very acidic drug with low fu should be clamped to 0.05."""
-        mp = calculate_milk_to_plasma_ratio(
-            pka_acid=1.0, pka_base=None, logP=0.0, fu_plasma=0.001
-        )
+        mp = calculate_milk_to_plasma_ratio(pka_acid=1.0, pka_base=None, logP=0.0, fu_plasma=0.001)
         assert mp >= 0.05
 
     def test_fu_plasma_scales_mp(self):
@@ -95,6 +84,7 @@ class TestCalculateMilkToPlasmaRatio:
 # ---------------------------------------------------------------------------
 # simulate_breast_milk_pk
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateBreastMilkPk:
     def test_returns_dataclass(self):
@@ -157,9 +147,7 @@ class TestSimulateBreastMilkPk:
         )
         # Just check valid category
         assert r.risk_category in ("low", "moderate", "high")
-        assert r.breastfeeding_recommendation in (
-            "compatible", "use_with_caution", "avoid"
-        )
+        assert r.breastfeeding_recommendation in ("compatible", "use_with_caution", "avoid")
 
     def test_risk_high_category(self):
         """Extreme M/P with tiny maternal dose → high RID."""
@@ -214,12 +202,31 @@ class TestSimulateBreastMilkPk:
 # screen_drugs_for_breastfeeding
 # ---------------------------------------------------------------------------
 
+
 class TestScreenDrugsForBreastfeeding:
     def _make_list(self):
         return [
-            {"name": "DrugA", "maternal_dose_mg": 100.0, "cl_L_per_h": 5.0, "vd_L": 50.0, "m_p_ratio": 0.1},
-            {"name": "DrugB", "maternal_dose_mg": 100.0, "cl_L_per_h": 5.0, "vd_L": 50.0, "m_p_ratio": 2.0},
-            {"name": "DrugC", "maternal_dose_mg": 100.0, "cl_L_per_h": 5.0, "vd_L": 50.0, "m_p_ratio": 0.5},
+            {
+                "name": "DrugA",
+                "maternal_dose_mg": 100.0,
+                "cl_L_per_h": 5.0,
+                "vd_L": 50.0,
+                "m_p_ratio": 0.1,
+            },
+            {
+                "name": "DrugB",
+                "maternal_dose_mg": 100.0,
+                "cl_L_per_h": 5.0,
+                "vd_L": 50.0,
+                "m_p_ratio": 2.0,
+            },
+            {
+                "name": "DrugC",
+                "maternal_dose_mg": 100.0,
+                "cl_L_per_h": 5.0,
+                "vd_L": 50.0,
+                "m_p_ratio": 0.5,
+            },
         ]
 
     def test_returns_list(self):

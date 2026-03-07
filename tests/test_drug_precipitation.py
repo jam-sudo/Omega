@@ -122,8 +122,13 @@ def test_simulate_precipitation_initial_c_absorbed_zero():
 
 def test_simulate_precipitation_c_super_decreases_with_high_kprecip():
     result = simulate_precipitation(
-        "Drug", 5.0, 1.0, k_precip_per_h=5.0, k_dissolve_per_h=0.0,
-        absorption_rate_per_h=0.5, t_end_h=2.0
+        "Drug",
+        5.0,
+        1.0,
+        k_precip_per_h=5.0,
+        k_dissolve_per_h=0.0,
+        absorption_rate_per_h=0.5,
+        t_end_h=2.0,
     )
     assert result.c_super_mg_mL[-1] < result.c_super_mg_mL[0]
 
@@ -145,34 +150,52 @@ def test_simulate_precipitation_f_precipitated_in_zero_one():
 
 
 def test_simulate_precipitation_high_kprecip_more_precipitated():
-    r_low = simulate_precipitation("Drug", 5.0, 1.0, k_precip_per_h=0.1,
-                                   k_dissolve_per_h=0.0, absorption_rate_per_h=0.5)
-    r_high = simulate_precipitation("Drug", 5.0, 1.0, k_precip_per_h=5.0,
-                                    k_dissolve_per_h=0.0, absorption_rate_per_h=0.5)
+    r_low = simulate_precipitation(
+        "Drug", 5.0, 1.0, k_precip_per_h=0.1, k_dissolve_per_h=0.0, absorption_rate_per_h=0.5
+    )
+    r_high = simulate_precipitation(
+        "Drug", 5.0, 1.0, k_precip_per_h=5.0, k_dissolve_per_h=0.0, absorption_rate_per_h=0.5
+    )
     assert r_high.f_precipitated >= r_low.f_precipitated
 
 
 def test_simulate_precipitation_no_supersaturation_no_precipitation():
     """If initial_conc <= equilibrium_sol, no precipitation should occur."""
     result = simulate_precipitation(
-        "Drug", 0.5, 1.0, k_precip_per_h=2.0, k_dissolve_per_h=0.0,
-        absorption_rate_per_h=1.0, t_end_h=4.0
+        "Drug",
+        0.5,
+        1.0,
+        k_precip_per_h=2.0,
+        k_dissolve_per_h=0.0,
+        absorption_rate_per_h=1.0,
+        t_end_h=4.0,
     )
     assert result.f_precipitated == pytest.approx(0.0, abs=1e-6)
 
 
 def test_simulate_precipitation_t50_finite_for_strong_precipitation():
     result = simulate_precipitation(
-        "Drug", 5.0, 1.0, k_precip_per_h=10.0, k_dissolve_per_h=0.0,
-        absorption_rate_per_h=0.01, t_end_h=24.0, dt_h=0.02
+        "Drug",
+        5.0,
+        1.0,
+        k_precip_per_h=10.0,
+        k_dissolve_per_h=0.0,
+        absorption_rate_per_h=0.01,
+        t_end_h=24.0,
+        dt_h=0.02,
     )
     assert not math.isinf(result.t50_h)
 
 
 def test_simulate_precipitation_t50_inf_for_no_precipitation():
     result = simulate_precipitation(
-        "Drug", 0.5, 1.0, k_precip_per_h=2.0, k_dissolve_per_h=0.0,
-        absorption_rate_per_h=1.0, t_end_h=4.0
+        "Drug",
+        0.5,
+        1.0,
+        k_precip_per_h=2.0,
+        k_dissolve_per_h=0.0,
+        absorption_rate_per_h=1.0,
+        t_end_h=4.0,
     )
     # No supersaturation → no precipitation → t50 stays inf
     assert math.isinf(result.t50_h)
@@ -260,7 +283,7 @@ def test_supersaturation_stability_k_precip_scales_sr_squared():
     k_base = 0.2
     sr = 3.0
     result = supersaturation_stability("Drug", 1.0, [sr], k_base)
-    expected_k_eff = k_base * sr ** 2
+    expected_k_eff = k_base * sr**2
     assert result[0]["k_precip_effective"] == pytest.approx(expected_k_eff)
 
 

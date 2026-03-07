@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
@@ -12,7 +10,6 @@ from omega_pbpk.core.nanoparticle_pk import (
     compare_np_formulations,
     simulate_nanoparticle_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

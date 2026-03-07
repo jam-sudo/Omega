@@ -21,13 +21,13 @@ class BBBPredictionResult:
     logP: float
     psa: float
     n_hbd: int
-    log_ps: float           # log10(PS), PS = permeability-surface area product (cm/s)
-    ps_cm_per_s: float      # permeability-surface area product (cm/s)
-    bbb_score: float        # 0–100, higher = better CNS penetration
+    log_ps: float  # log10(PS), PS = permeability-surface area product (cm/s)
+    ps_cm_per_s: float  # permeability-surface area product (cm/s)
+    bbb_score: float  # 0–100, higher = better CNS penetration
     penetration_class: str  # "excellent", "good", "moderate", "poor", "none"
-    cns_mpo_score: float    # CNS MPO score (0–6, Pfizer criteria)
+    cns_mpo_score: float  # CNS MPO score (0–6, Pfizer criteria)
     pgp_substrate_risk: bool  # P-gp efflux risk flag
-    lipinski_cns: bool      # MW<400, logP 1–5, PSA<60, HBD<3
+    lipinski_cns: bool  # MW<400, logP 1–5, PSA<60, HBD<3
     notes: str
 
 
@@ -40,11 +40,11 @@ def _compute_log_ps(logP: float, psa: float, n_hbd: int) -> float:
 def _compute_bbb_score(logP: float, psa: float, mw: float, n_hbd: int) -> float:
     """Heuristic BBB score 0–100."""
     score = 100.0
-    score -= max(0.0, psa - 60.0) * 0.5      # PSA penalty
-    score -= max(0.0, mw - 400.0) * 0.1      # MW penalty
-    score -= max(0.0, n_hbd - 2) * 10.0      # HBD penalty
-    score -= max(0.0, logP - 5.0) * 5.0      # excess logP penalty
-    score += min(logP, 3.0) * 3.0            # moderate logP bonus
+    score -= max(0.0, psa - 60.0) * 0.5  # PSA penalty
+    score -= max(0.0, mw - 400.0) * 0.1  # MW penalty
+    score -= max(0.0, n_hbd - 2) * 10.0  # HBD penalty
+    score -= max(0.0, logP - 5.0) * 5.0  # excess logP penalty
+    score += min(logP, 3.0) * 3.0  # moderate logP bonus
     return float(max(0.0, min(100.0, score)))
 
 

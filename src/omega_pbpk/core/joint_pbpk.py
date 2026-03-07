@@ -47,7 +47,7 @@ class JointPKResult:
     auc_plasma: float
     auc_synovial: float
     synovial_plasma_ratio: float  # AUC-based ratio (proxy for Css ratio)
-    t_half_synovial_h: float       # effective half-life in synovial space
+    t_half_synovial_h: float  # effective half-life in synovial space
     notes: str
 
 
@@ -59,9 +59,9 @@ def simulate_joint_pk(
     route: str = "oral",
     ka_per_h: float = 1.0,
     f_oral: float = 1.0,
-    k_sf_in_per_h: float = 0.05,   # transfer rate into synovial fluid (1/h)
-    k_sf_out_per_h: float = 0.1,   # drainage rate from synovial fluid (1/h)
-    v_synovial_mL: float = 2.0,    # synovial fluid volume (mL)
+    k_sf_in_per_h: float = 0.05,  # transfer rate into synovial fluid (1/h)
+    k_sf_out_per_h: float = 0.1,  # drainage rate from synovial fluid (1/h)
+    v_synovial_mL: float = 2.0,  # synovial fluid volume (mL)
     t_end_h: float = 24.0,
     dt_h: float = 0.05,
 ) -> JointPKResult:
@@ -116,23 +116,23 @@ def simulate_joint_pk(
 
     # ── Setup ────────────────────────────────────────────────────────────────
     v_synovial_L = v_synovial_mL / 1000.0  # convert mL → L
-    ke = cl_L_per_h / vd_L                  # elimination rate constant (1/h)
+    ke = cl_L_per_h / vd_L  # elimination rate constant (1/h)
 
     n_steps = max(int(t_end_h / dt_h), 1)
     times = np.linspace(0.0, t_end_h, n_steps + 1)
 
-    cp = np.zeros(n_steps + 1)   # plasma concentration (mg/L)
+    cp = np.zeros(n_steps + 1)  # plasma concentration (mg/L)
     csf = np.zeros(n_steps + 1)  # synovial concentration (mg/L)
 
     # Initial amounts (mg)
     if route == "iv":
-        a_plasma = dose_mg           # IV bolus → all into plasma instantly
+        a_plasma = dose_mg  # IV bolus → all into plasma instantly
         a_gut = 0.0
     else:
         a_plasma = 0.0
-        a_gut = dose_mg * f_oral     # oral: effective dose into gut depot
+        a_gut = dose_mg * f_oral  # oral: effective dose into gut depot
 
-    a_synovial = 0.0                 # synovial amount (mg)
+    a_synovial = 0.0  # synovial amount (mg)
 
     # Set t=0 concentrations
     cp[0] = a_plasma / vd_L

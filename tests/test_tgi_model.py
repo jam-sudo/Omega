@@ -10,7 +10,6 @@ from omega_pbpk.clinical.tgi_model import (
     tgi_dose_response,
 )
 
-
 # ── Common parameters ───────────────────────────────────────────────
 
 DRUG_NAME = "TestAnticancer"

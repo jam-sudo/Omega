@@ -10,6 +10,7 @@ from omega_pbpk.prediction.admet_profile import (
 
 # --- Basic ---
 
+
 def test_returns_admet_profile():
     r = predict_admet("Aspirin", "CC(=O)Oc1ccccc1C(=O)O", mw=180.16, logP=1.2)
     assert isinstance(r, ADMETProfile)
@@ -21,6 +22,7 @@ def test_mw_le_zero_raises():
 
 
 # --- Physicochemical ---
+
 
 def test_fup_in_range():
     r = predict_admet("Drug", "CCCCCC", mw=300, logP=2.5)
@@ -34,6 +36,7 @@ def test_bcs_class_valid():
 
 # --- Lipinski ---
 
+
 def test_lipinski_pass_typical_drug():
     r = predict_admet("Good", "CCO", mw=350, logP=2.0, tpsa=60)
     assert r.lipinski_pass is True
@@ -45,6 +48,7 @@ def test_lipinski_fail_large_mw():
 
 
 # --- BBB ---
+
 
 def test_bbb_penetrant_cns_drug():
     r = predict_admet("CNS", "c1ccccc1", mw=200, logP=2.5, tpsa=30)
@@ -58,12 +62,14 @@ def test_bbb_not_penetrant_polar():
 
 # --- hERG ---
 
+
 def test_herg_risk_valid():
     r = predict_admet("Drug", "CCO", mw=300, logP=2.0)
     assert r.herg_risk in {"low", "moderate", "high"}
 
 
 # --- Scores ---
+
 
 def test_overall_risk_in_range():
     r = predict_admet("Drug", "CCO", mw=300, logP=2.0)
@@ -82,6 +88,7 @@ def test_development_recommendation_valid():
 
 # --- PK estimates ---
 
+
 def test_t_half_positive():
     r = predict_admet("Drug", "CCO", mw=300, logP=2.0)
     assert r.t_half_h > 0
@@ -98,6 +105,7 @@ def test_f_oral_in_range():
 
 
 # --- Screening ---
+
 
 def test_screen_returns_same_length():
     compounds = [
@@ -119,6 +127,7 @@ def test_screen_sorted_by_risk():
 
 # --- Notes ---
 
+
 def test_notes_contain_compound_name():
     r = predict_admet("Ibuprofen", "CC(C)Cc1ccc(cc1)C(C)C(=O)O", mw=206.28, logP=3.5)
     assert "Ibuprofen" in r.notes
@@ -126,12 +135,14 @@ def test_notes_contain_compound_name():
 
 # --- logS estimated ---
 
+
 def test_logs_estimated_when_none():
     r = predict_admet("Drug", "CCO", mw=300, logP=2.0, logS=None)
     assert r.logS is not None
 
 
 # --- HBD/HBA ---
+
 
 def test_hbd_hba_non_negative_int():
     r = predict_admet("Drug", "OC(=O)NCCNC(=O)O", mw=200, logP=0.5)

@@ -33,6 +33,7 @@ BASE = dict(
 # Dataclass structure
 # ---------------------------------------------------------------------------
 
+
 class TestBileAcidTransportResultStructure:
     def test_result_is_dataclass_instance(self):
         res = simulate_bile_acid_transport(**BASE)
@@ -41,9 +42,18 @@ class TestBileAcidTransportResultStructure:
     def test_required_fields_present(self):
         res = simulate_bile_acid_transport(**BASE)
         for field in (
-            "drug_name", "dose_mg", "km_OATP_mg_L", "vmax_OATP_mg_h",
-            "times_h", "c_portal_mg_L", "c_hep_mg_L", "a_bile_mg",
-            "a_intestine_mg", "auc_portal", "n_cycles_estimated", "notes",
+            "drug_name",
+            "dose_mg",
+            "km_OATP_mg_L",
+            "vmax_OATP_mg_h",
+            "times_h",
+            "c_portal_mg_L",
+            "c_hep_mg_L",
+            "a_bile_mg",
+            "a_intestine_mg",
+            "auc_portal",
+            "n_cycles_estimated",
+            "notes",
         ):
             assert hasattr(res, field), f"Missing field: {field}"
 
@@ -76,6 +86,7 @@ class TestBileAcidTransportResultStructure:
 # Initial conditions
 # ---------------------------------------------------------------------------
 
+
 class TestInitialConditions:
     def test_portal_initial_concentration(self):
         # C_portal[0] = dose_mg / 5 (portal volume = 5 L)
@@ -103,6 +114,7 @@ class TestInitialConditions:
 # ---------------------------------------------------------------------------
 # Physical constraints
 # ---------------------------------------------------------------------------
+
 
 class TestPhysicalConstraints:
     def test_portal_concentration_nonnegative(self):
@@ -134,6 +146,7 @@ class TestPhysicalConstraints:
 # Dose-response behaviour
 # ---------------------------------------------------------------------------
 
+
 class TestDoseResponse:
     def test_higher_dose_higher_portal_auc(self):
         res_low = simulate_bile_acid_transport(**{**BASE, "dose_mg": 50.0})
@@ -162,6 +175,7 @@ class TestDoseResponse:
 # Simulation length and resolution
 # ---------------------------------------------------------------------------
 
+
 class TestSimulationParameters:
     def test_longer_simulation_more_time_points(self):
         res_short = simulate_bile_acid_transport(**{**BASE, "t_end_h": 12.0})
@@ -182,6 +196,7 @@ class TestSimulationParameters:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_empty_drug_name_raises(self):
@@ -225,6 +240,7 @@ class TestInputValidation:
 # Transporter inhibition effect
 # ---------------------------------------------------------------------------
 
+
 class TestTransporterInhibitionEffect:
     def test_returns_dict(self):
         result = transporter_inhibition_effect("TestDrug", 100.0, 50.0, 0.0)
@@ -233,8 +249,12 @@ class TestTransporterInhibitionEffect:
     def test_expected_keys_present(self):
         result = transporter_inhibition_effect("TestDrug", 100.0, 50.0, 0.0)
         for key in (
-            "auc_portal_normal", "auc_portal_inhibited", "auc_ratio",
-            "oatp_inhibition_pct", "ntcp_inhibition_pct", "interpretation",
+            "auc_portal_normal",
+            "auc_portal_inhibited",
+            "auc_ratio",
+            "oatp_inhibition_pct",
+            "ntcp_inhibition_pct",
+            "interpretation",
         ):
             assert key in result, f"Missing key: {key}"
 

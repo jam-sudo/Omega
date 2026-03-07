@@ -25,11 +25,11 @@ from dataclasses import dataclass
 # Segment definitions: (name, transit_h, pH, volume_mL, radius_cm)
 # ---------------------------------------------------------------------------
 _SEGMENTS = [
-    ("stomach",  0.50,  1.5, 250.0, 3.5),
-    ("duodenum", 0.25,  6.0,  50.0, 1.5),
-    ("jejunum",  1.50,  6.5, 150.0, 1.5),
-    ("ileum",    2.00,  7.2, 200.0, 1.5),
-    ("colon",    4.00,  7.4, 300.0, 2.0),
+    ("stomach", 0.50, 1.5, 250.0, 3.5),
+    ("duodenum", 0.25, 6.0, 50.0, 1.5),
+    ("jejunum", 1.50, 6.5, 150.0, 1.5),
+    ("ileum", 2.00, 7.2, 200.0, 1.5),
+    ("colon", 4.00, 7.4, 300.0, 2.0),
 ]
 
 # Fraction of dose absorbed from colon relative to SI (penalised)
@@ -90,7 +90,7 @@ def _peff_from_logp(logP: float, mw: float) -> float:
     """
     log_factor = (logP - 2.0) / 3.0
     mw_factor = (mw / 300.0) ** 0.5
-    peff = _PEFF_REF_CM_S * (10.0 ** log_factor) / mw_factor
+    peff = _PEFF_REF_CM_S * (10.0**log_factor) / mw_factor
     return max(1e-7, min(peff, 5e-3))
 
 
@@ -299,9 +299,7 @@ def simulate_absorption_window(
             k_transit = 1.0 / transit_h  # h^-1
 
             # pH-adjusted solubility (mg/mL)
-            sol_ph = _ph_adjusted_solubility(
-                solubility_pH7_mg_mL, ph, pka, drug_type
-            )
+            sol_ph = _ph_adjusted_solubility(solubility_pH7_mg_mL, ph, pka, drug_type)
             # Maximum dissolved drug capacity in this segment (mg)
             max_dissolved_mg = sol_ph * volume_mL
 

@@ -254,12 +254,12 @@ def absorption_window_ka(ka_per_h: float, transit_time_h: float = 4.0) -> dict:
     fa = 1.0 - math.exp(-ka_per_h * transit_time_h)
 
     if fa >= 0.9:
-        notes = f"High absorption: {fa*100:.1f}% absorbed in {transit_time_h:.1f} h window."
+        notes = f"High absorption: {fa * 100:.1f}% absorbed in {transit_time_h:.1f} h window."
     elif fa >= 0.5:
-        notes = f"Moderate absorption: {fa*100:.1f}% absorbed in {transit_time_h:.1f} h window."
+        notes = f"Moderate absorption: {fa * 100:.1f}% absorbed in {transit_time_h:.1f} h window."
     else:
         notes = (
-            f"Low absorption: {fa*100:.1f}% absorbed in {transit_time_h:.1f} h window. "
+            f"Low absorption: {fa * 100:.1f}% absorbed in {transit_time_h:.1f} h window. "
             "Consider formulation strategies to increase ka."
         )
 

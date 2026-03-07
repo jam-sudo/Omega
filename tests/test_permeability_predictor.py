@@ -1,24 +1,26 @@
 """Tests for membrane permeability prediction — Phases 175 & 315."""
+
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.permeability_predictor import (
     PermeabilityResult,
-    predict_papp_caco2,
-    predict_peff_intestinal,
     mdck_to_caco2,
     permeability_classification,
     predict_cnss_permeability,
+    predict_papp_caco2,
+    predict_peff_intestinal,
     predict_permeability,
     screen_permeability,
 )
 
-
 # ---------------------------------------------------------------------------
 # predict_papp_caco2 — basic returns
 # ---------------------------------------------------------------------------
+
 
 def test_predict_papp_caco2_returns_result():
     r = predict_papp_caco2(logP=2.0, mw=300.0, hbd=2, hba=4, psa=80.0)
@@ -70,6 +72,7 @@ def test_predict_papp_caco2_higher_mw_decreases_papp():
 # predict_papp_caco2 — validation
 # ---------------------------------------------------------------------------
 
+
 def test_predict_papp_caco2_zero_mw_raises():
     with pytest.raises(ValueError, match="mw"):
         predict_papp_caco2(logP=2.0, mw=0.0, hbd=2, hba=4, psa=80.0)
@@ -99,6 +102,7 @@ def test_predict_papp_caco2_negative_psa_raises():
 # predict_papp_caco2 — category and BCS class fields
 # ---------------------------------------------------------------------------
 
+
 def test_permeability_category_low():
     # Very low logP, high PSA/HBD => low papp
     r = predict_papp_caco2(logP=-3.0, mw=500.0, hbd=8, hba=4, psa=200.0)
@@ -125,6 +129,7 @@ def test_bcs_high_for_very_lipophilic():
 # ---------------------------------------------------------------------------
 # predict_peff_intestinal
 # ---------------------------------------------------------------------------
+
 
 def test_peff_positive():
     peff = predict_peff_intestinal(1e-6)
@@ -153,6 +158,7 @@ def test_peff_zero_raises():
 # mdck_to_caco2
 # ---------------------------------------------------------------------------
 
+
 def test_mdck_to_caco2_positive():
     result = mdck_to_caco2(1e-6)
     assert result > 0
@@ -178,6 +184,7 @@ def test_mdck_to_caco2_monotone():
 # permeability_classification
 # ---------------------------------------------------------------------------
 
+
 def test_classification_bcs_high():
     assert permeability_classification(2e-5) == "BCS_high"
 
@@ -195,6 +202,7 @@ def test_classification_boundary():
 # ---------------------------------------------------------------------------
 # predict_cnss_permeability
 # ---------------------------------------------------------------------------
+
 
 def test_cnss_positive():
     result = predict_cnss_permeability(logP=2.0, mw=300.0, hbd=1, psa=50.0)
@@ -238,6 +246,7 @@ def test_cnss_log_formula():
 # ---------------------------------------------------------------------------
 # Legacy API — predict_permeability / screen_permeability (Phase 175)
 # ---------------------------------------------------------------------------
+
 
 def test_legacy_returns_result():
     r = predict_permeability("Drug", "CC", mw=200.0, logP=2.0)

@@ -12,7 +12,6 @@ from omega_pbpk.clinical.first_pass import (
     sensitivity_first_pass,
 )
 
-
 # ── Default behaviour ──────────────────────────────────────────────────
 
 
@@ -66,7 +65,10 @@ def test_high_extraction_flag_at_boundary():
     qh = 90.0
     clh = 0.7 * qh / 0.3
     result = calculate_first_pass(
-        "DrugD", clh_intrinsic_L_per_h=clh, fup=0.5, fub=0.5,
+        "DrugD",
+        clh_intrinsic_L_per_h=clh,
+        fup=0.5,
+        fub=0.5,
     )
     assert result.high_extraction is False
 
@@ -97,7 +99,9 @@ def test_fu_correction_changes_result():
 
 def test_fu_correction_off_uses_raw_clh():
     result = calculate_first_pass(
-        "DrugH", clh_intrinsic_L_per_h=20.0, qh_L_per_h=90.0,
+        "DrugH",
+        clh_intrinsic_L_per_h=20.0,
+        qh_L_per_h=90.0,
         use_fu_correction=False,
     )
     expected_eh = 20.0 / (90.0 + 20.0)
@@ -162,7 +166,9 @@ def test_very_high_clearance():
 
 def test_very_low_clearance():
     result = calculate_first_pass(
-        "DrugK", clg_L_per_h=0.01, clh_intrinsic_L_per_h=0.01,
+        "DrugK",
+        clg_L_per_h=0.01,
+        clh_intrinsic_L_per_h=0.01,
     )
     assert result.bioavailability_f > 0.99
 

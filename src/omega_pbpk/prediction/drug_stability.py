@@ -41,7 +41,9 @@ class AcceleratedStabilityResult:
 
 
 def _arrhenius_rate(
-    k_ref: float, ea_kj_per_mol: float, temp_C: float,
+    k_ref: float,
+    ea_kj_per_mol: float,
+    temp_C: float,
 ) -> float:
     """Compute temperature-adjusted degradation rate via Arrhenius equation."""
     temp_K = temp_C + 273.15
@@ -111,9 +113,7 @@ def predict_stability(
     k_T = _arrhenius_rate(k_deg_per_month, activation_energy_kJ_per_mol, temperature_C)
 
     time_points = [i * t_months / n_points for i in range(n_points + 1)]
-    purity_values = [
-        initial_purity_pct * math.exp(-k_T * t) for t in time_points
-    ]
+    purity_values = [initial_purity_pct * math.exp(-k_T * t) for t in time_points]
 
     # Shelf life: time when purity drops below acceptance limit
     shelf_life: float | None = None

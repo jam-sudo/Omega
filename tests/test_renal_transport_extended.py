@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.renal_transport_extended import (
@@ -14,7 +12,6 @@ from omega_pbpk.core.renal_transport_extended import (
     reabsorption_rate,
     simulate_renal_transport,
 )
-
 
 # ---------------------------------------------------------------------------
 # oat_secretion_rate tests
@@ -283,15 +280,11 @@ class TestDrugDrugRenalInteraction:
         }
 
     def test_returns_dict(self):
-        result = drug_drug_renal_interaction(
-            self._default_substrate(), self._default_inhibitor()
-        )
+        result = drug_drug_renal_interaction(self._default_substrate(), self._default_inhibitor())
         assert isinstance(result, dict)
 
     def test_aucr_keys_present(self):
-        result = drug_drug_renal_interaction(
-            self._default_substrate(), self._default_inhibitor()
-        )
+        result = drug_drug_renal_interaction(self._default_substrate(), self._default_inhibitor())
         assert "aucr_OAT" in result
         assert "aucr_OCT" in result
         assert "aucr_combined" in result
@@ -299,9 +292,7 @@ class TestDrugDrugRenalInteraction:
 
     def test_aucr_combined_ge_1(self):
         """Combined AUCR should always be >= 1."""
-        result = drug_drug_renal_interaction(
-            self._default_substrate(), self._default_inhibitor()
-        )
+        result = drug_drug_renal_interaction(self._default_substrate(), self._default_inhibitor())
         assert result["aucr_combined"] >= 1.0
 
     def test_no_inhibition_no_effect(self):
@@ -331,14 +322,10 @@ class TestDrugDrugRenalInteraction:
         assert "inhibition" in result["classification"]
 
     def test_drug_names_in_result(self):
-        result = drug_drug_renal_interaction(
-            self._default_substrate(), self._default_inhibitor()
-        )
+        result = drug_drug_renal_interaction(self._default_substrate(), self._default_inhibitor())
         assert result["substrate"] == "MetforminAnalog"
         assert result["inhibitor"] == "Cimetidine"
 
     def test_i_kidney_positive(self):
-        result = drug_drug_renal_interaction(
-            self._default_substrate(), self._default_inhibitor()
-        )
+        result = drug_drug_renal_interaction(self._default_substrate(), self._default_inhibitor())
         assert result["i_kidney_mg_L"] > 0.0

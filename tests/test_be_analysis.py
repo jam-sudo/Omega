@@ -5,17 +5,15 @@ from __future__ import annotations
 import pytest
 
 from omega_pbpk.clinical.be_analysis import (
-    BEResult,
-    PowerCurveResult,
     analyze_be,
     calculate_power_curve,
     sample_size_for_power,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def identical_data():
@@ -44,6 +42,7 @@ def double_data():
 # 1. Identical arrays → gm_ratio ≈ 1.0, is_bioequivalent=True
 # ---------------------------------------------------------------------------
 
+
 def test_identical_arrays_gm_ratio(identical_data):
     ref, test = identical_data
     result = analyze_be(ref, test)
@@ -60,6 +59,7 @@ def test_identical_arrays_bioequivalent(identical_data):
 # 2. BE fails for large ratio (test = 0.5 × reference)
 # ---------------------------------------------------------------------------
 
+
 def test_half_ratio_fails_be(half_data):
     ref, test = half_data
     result = analyze_be(ref, test)
@@ -69,6 +69,7 @@ def test_half_ratio_fails_be(half_data):
 # ---------------------------------------------------------------------------
 # 3. BE fails for high CV with small n
 # ---------------------------------------------------------------------------
+
 
 def test_high_cv_small_n_fails_be():
     # High variability, small sample — CI should be wide
@@ -84,6 +85,7 @@ def test_high_cv_small_n_fails_be():
 # 4. ValueError for <2 subjects
 # ---------------------------------------------------------------------------
 
+
 def test_error_fewer_than_2_subjects_ref():
     with pytest.raises(ValueError, match="At least 2 subjects"):
         analyze_be([100.0], [100.0, 110.0])
@@ -97,6 +99,7 @@ def test_error_fewer_than_2_subjects_test():
 # ---------------------------------------------------------------------------
 # 5. ValueError for negative values
 # ---------------------------------------------------------------------------
+
 
 def test_error_negative_reference():
     with pytest.raises(ValueError, match="positive"):
@@ -112,6 +115,7 @@ def test_error_negative_test():
 # 6. ValueError for zero values
 # ---------------------------------------------------------------------------
 
+
 def test_error_zero_reference():
     with pytest.raises(ValueError, match="positive"):
         analyze_be([0.0, 100.0], [100.0, 110.0])
@@ -126,6 +130,7 @@ def test_error_zero_test():
 # 7. metric stored correctly
 # ---------------------------------------------------------------------------
 
+
 def test_metric_stored(identical_data):
     ref, test = identical_data
     result = analyze_be(ref, test, metric="Cmax")
@@ -135,6 +140,7 @@ def test_metric_stored(identical_data):
 # ---------------------------------------------------------------------------
 # 8. n_reference and n_test stored correctly
 # ---------------------------------------------------------------------------
+
 
 def test_n_reference_n_test_stored():
     ref = [100.0, 110.0, 95.0]
@@ -148,6 +154,7 @@ def test_n_reference_n_test_stored():
 # 9. ci_lower < ci_upper
 # ---------------------------------------------------------------------------
 
+
 def test_ci_lower_less_than_upper(identical_data):
     ref, test = identical_data
     result = analyze_be(ref, test)
@@ -157,6 +164,7 @@ def test_ci_lower_less_than_upper(identical_data):
 # ---------------------------------------------------------------------------
 # 10. gm_ratio > 0
 # ---------------------------------------------------------------------------
+
 
 def test_gm_ratio_positive(identical_data):
     ref, test = identical_data
@@ -168,6 +176,7 @@ def test_gm_ratio_positive(identical_data):
 # 11. cv_pct >= 0
 # ---------------------------------------------------------------------------
 
+
 def test_cv_pct_nonnegative(identical_data):
     ref, test = identical_data
     result = analyze_be(ref, test)
@@ -178,6 +187,7 @@ def test_cv_pct_nonnegative(identical_data):
 # 12. power_at_observed_n between 0 and 1
 # ---------------------------------------------------------------------------
 
+
 def test_power_in_range(identical_data):
     ref, test = identical_data
     result = analyze_be(ref, test)
@@ -187,6 +197,7 @@ def test_power_in_range(identical_data):
 # ---------------------------------------------------------------------------
 # 13. notes string non-empty
 # ---------------------------------------------------------------------------
+
 
 def test_notes_nonempty(identical_data):
     ref, test = identical_data
@@ -199,6 +210,7 @@ def test_notes_nonempty(identical_data):
 # 14. calculate_power_curve returns correct count
 # ---------------------------------------------------------------------------
 
+
 def test_power_curve_correct_count():
     ns = [10, 20, 30, 40, 50]
     result = calculate_power_curve(ns, cv_pct=30.0)
@@ -209,6 +221,7 @@ def test_power_curve_correct_count():
 # ---------------------------------------------------------------------------
 # 15. calculate_power_curve powers are between 0 and 1
 # ---------------------------------------------------------------------------
+
 
 def test_power_curve_values_in_range():
     ns = [6, 12, 24, 48]
@@ -221,6 +234,7 @@ def test_power_curve_values_in_range():
 # 16. Powers increase with increasing n (for ratio=1.0)
 # ---------------------------------------------------------------------------
 
+
 def test_power_increases_with_n():
     ns = [4, 10, 20, 50, 100, 200]
     result = calculate_power_curve(ns, cv_pct=30.0, ratio=1.0)
@@ -232,6 +246,7 @@ def test_power_increases_with_n():
 # 17. ValueError for empty n_range
 # ---------------------------------------------------------------------------
 
+
 def test_power_curve_empty_n_range():
     with pytest.raises(ValueError, match="n_range must not be empty"):
         calculate_power_curve([], cv_pct=25.0)
@@ -240,6 +255,7 @@ def test_power_curve_empty_n_range():
 # ---------------------------------------------------------------------------
 # 18. ValueError for cv_pct <= 0 in power curve
 # ---------------------------------------------------------------------------
+
 
 def test_power_curve_nonpositive_cv():
     with pytest.raises(ValueError, match="cv_pct must be > 0"):
@@ -253,6 +269,7 @@ def test_power_curve_nonpositive_cv():
 # 19. sample_size_for_power returns positive int
 # ---------------------------------------------------------------------------
 
+
 def test_sample_size_positive_int():
     n = sample_size_for_power(cv_pct=25.0, power_target=0.80)
     assert isinstance(n, int)
@@ -263,6 +280,7 @@ def test_sample_size_positive_int():
 # 20. sample_size increases with higher CV
 # ---------------------------------------------------------------------------
 
+
 def test_sample_size_increases_with_cv():
     n_low = sample_size_for_power(cv_pct=20.0, power_target=0.80)
     n_high = sample_size_for_power(cv_pct=40.0, power_target=0.80)
@@ -272,6 +290,7 @@ def test_sample_size_increases_with_cv():
 # ---------------------------------------------------------------------------
 # 21. ValueError for cv_pct <= 0 in sample_size
 # ---------------------------------------------------------------------------
+
 
 def test_sample_size_nonpositive_cv():
     with pytest.raises(ValueError, match="cv_pct must be > 0"):
@@ -284,6 +303,7 @@ def test_sample_size_nonpositive_cv():
 # ---------------------------------------------------------------------------
 # 22. ValueError for power_target out of range
 # ---------------------------------------------------------------------------
+
 
 def test_sample_size_invalid_power_target():
     with pytest.raises(ValueError, match="power_target must be between 0 and 1"):
@@ -300,6 +320,7 @@ def test_sample_size_invalid_power_target():
 # 23. ratio field stored in PowerCurveResult
 # ---------------------------------------------------------------------------
 
+
 def test_power_curve_ratio_stored():
     result = calculate_power_curve([10, 20], cv_pct=25.0, ratio=0.95)
     assert result.ratio == 0.95
@@ -310,6 +331,7 @@ def test_power_curve_ratio_stored():
 # 24. Large n with low CV → high power
 # ---------------------------------------------------------------------------
 
+
 def test_large_n_low_cv_high_power():
     result = calculate_power_curve([200], cv_pct=15.0, ratio=1.0)
     assert result.powers[0] > 0.99
@@ -318,6 +340,7 @@ def test_large_n_low_cv_high_power():
 # ---------------------------------------------------------------------------
 # 25. Scaled test values (2×) should give gm_ratio ≈ 2.0
 # ---------------------------------------------------------------------------
+
 
 def test_double_ratio(double_data):
     ref, test = double_data

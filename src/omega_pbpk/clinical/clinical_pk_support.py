@@ -46,15 +46,11 @@ def assess_therapeutic_window(
     if cmax_mg_L < 0.0:
         raise ValueError(f"cmax_mg_L must be >= 0, got {cmax_mg_L}")
     if cmax_mg_L < cmin_mg_L:
-        raise ValueError(
-            f"cmax_mg_L ({cmax_mg_L}) must be >= cmin_mg_L ({cmin_mg_L})"
-        )
+        raise ValueError(f"cmax_mg_L ({cmax_mg_L}) must be >= cmin_mg_L ({cmin_mg_L})")
     if mec_mg_L < 0.0:
         raise ValueError(f"mec_mg_L must be >= 0, got {mec_mg_L}")
     if mtc_mg_L <= mec_mg_L:
-        raise ValueError(
-            f"mtc_mg_L ({mtc_mg_L}) must be > mec_mg_L ({mec_mg_L})"
-        )
+        raise ValueError(f"mtc_mg_L ({mtc_mg_L}) must be > mec_mg_L ({mec_mg_L})")
 
     subtherapeutic = cmax_mg_L < mec_mg_L
     supratherapeutic = cmin_mg_L > mtc_mg_L
@@ -99,17 +95,12 @@ def assess_therapeutic_window(
     else:
         # Partially overlapping — Cmin < MEC or Cmax > MTC but not both extremes
         if cmin_mg_L < mec_mg_L and cmax_mg_L <= mtc_mg_L:
-            recommendation = (
-                "Trough below MEC. Consider shortening dosing interval."
-            )
+            recommendation = "Trough below MEC. Consider shortening dosing interval."
         elif cmin_mg_L >= mec_mg_L and cmax_mg_L > mtc_mg_L:
-            recommendation = (
-                "Peak exceeds MTC. Consider reducing dose or extending interval."
-            )
+            recommendation = "Peak exceeds MTC. Consider reducing dose or extending interval."
         else:
             recommendation = (
-                "Concentrations partially overlap therapeutic window. "
-                "Review dosing regimen."
+                "Concentrations partially overlap therapeutic window. Review dosing regimen."
             )
 
     note_parts = []
@@ -284,7 +275,7 @@ def bayesian_dose_update(
 
         # Damped Bayesian update: CL_new = CL * (C_pred / C_obs)^0.5
         ratio = c_pred / observed_conc_mg_L
-        cl = cl * (ratio ** 0.5)
+        cl = cl * (ratio**0.5)
 
     # Final predicted concentration with posterior CL
     c_pred_final = (dose_mg / vd) * math.exp(-cl / vd * observed_time_h)

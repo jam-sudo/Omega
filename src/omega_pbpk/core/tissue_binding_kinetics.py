@@ -295,10 +295,7 @@ def simulate_tissue_binding(
             absorption_flux = 0.0
 
         dc_plasma = (
-            absorption_flux
-            - ke * c_plasma_free
-            - k12 * c_plasma_free
-            + k21 * c_tissue_free
+            absorption_flux - ke * c_plasma_free - k12 * c_plasma_free + k21 * c_tissue_free
         ) * dt_h
 
         # --- Forward Euler: tissue free drug ---

@@ -14,6 +14,7 @@ from omega_pbpk.clinical.copd_inhalation_pk import (
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _default(**kw):
     defaults = dict(
         drug_name="Salbutamol",
@@ -32,6 +33,7 @@ def _default(**kw):
 # ---------------------------------------------------------------------------
 # Return type
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_copd_inhalation_result(self):
@@ -53,6 +55,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # Concentrations are physically valid
 # ---------------------------------------------------------------------------
+
 
 class TestConcentrations:
     def test_c_plasma_normal_non_negative(self):
@@ -87,6 +90,7 @@ class TestConcentrations:
 # ---------------------------------------------------------------------------
 # COPD reduces exposure vs normal
 # ---------------------------------------------------------------------------
+
 
 class TestCOPDvsNormal:
     def test_auc_copd_less_than_normal(self):
@@ -124,6 +128,7 @@ class TestCOPDvsNormal:
 # Device type effects
 # ---------------------------------------------------------------------------
 
+
 class TestDeviceTypes:
     def test_mdi_simulates(self):
         r = _default(device_type="MDI")
@@ -147,6 +152,7 @@ class TestDeviceTypes:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_empty_drug_name_raises(self):
@@ -205,6 +211,7 @@ class TestInputValidation:
 # ---------------------------------------------------------------------------
 # compare_copd_severity
 # ---------------------------------------------------------------------------
+
 
 class TestCompareCOPDSeverity:
     def _run(self, **kw):

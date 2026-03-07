@@ -1,12 +1,12 @@
 """Tests for Phase 340 — Drug Metabolite Accumulation."""
 
 import pytest
+
 from omega_pbpk.clinical.metabolite_accumulation import (
     MetaboliteAccumulationResult,
     compare_metabolite_half_lives,
     simulate_metabolite_accumulation,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helper: sensible defaults
@@ -32,6 +32,7 @@ def _sim(**overrides):
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_cl_parent_zero_raises(self):
@@ -87,6 +88,7 @@ class TestInputValidation:
 # Concentration non-negativity
 # ---------------------------------------------------------------------------
 
+
 class TestNonNegativity:
     def test_parent_concentrations_non_negative(self):
         r = _sim()
@@ -106,6 +108,7 @@ class TestNonNegativity:
 # fm = 1 (maximum metabolite formation)
 # ---------------------------------------------------------------------------
 
+
 class TestMaxFM:
     def test_fm_one_gives_metabolite(self):
         r = _sim(fm=1.0)
@@ -119,6 +122,7 @@ class TestMaxFM:
 # ---------------------------------------------------------------------------
 # Accumulation ratios
 # ---------------------------------------------------------------------------
+
 
 class TestAccumulationRatios:
     def test_parent_accumulation_ratio_gte_one(self):
@@ -146,6 +150,7 @@ class TestAccumulationRatios:
 # AUC ratio
 # ---------------------------------------------------------------------------
 
+
 class TestAUCRatio:
     def test_auc_ratio_positive_when_fm_positive(self):
         r = _sim(fm=0.5)
@@ -161,6 +166,7 @@ class TestAUCRatio:
 # Metabolite concern classification
 # ---------------------------------------------------------------------------
 
+
 class TestConcernClassification:
     def test_concern_string_valid_values(self):
         r = _sim()
@@ -175,6 +181,7 @@ class TestConcernClassification:
 # ---------------------------------------------------------------------------
 # Steady-state summary
 # ---------------------------------------------------------------------------
+
 
 class TestSteadyStateSummary:
     def test_peak_gte_trough_parent(self):
@@ -193,6 +200,7 @@ class TestSteadyStateSummary:
 # ---------------------------------------------------------------------------
 # Notes
 # ---------------------------------------------------------------------------
+
 
 class TestNotes:
     def test_notes_contain_drug_name(self):
@@ -226,6 +234,7 @@ class TestNotes:
 # Dataclass immutability
 # ---------------------------------------------------------------------------
 
+
 class TestDataclass:
     def test_frozen_dataclass(self):
         r = _sim()
@@ -245,6 +254,7 @@ class TestDataclass:
 # ---------------------------------------------------------------------------
 # compare_metabolite_half_lives
 # ---------------------------------------------------------------------------
+
 
 class TestCompareHalfLives:
     def test_returns_correct_length(self):

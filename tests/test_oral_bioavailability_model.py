@@ -15,7 +15,7 @@ from omega_pbpk.prediction.oral_bioavailability_model import (
 # ---------------------------------------------------------------------------
 
 _DRUG = "test_drug"
-_CLINT_LOW = 0.5    # L/h/kg — low CL → high fh
+_CLINT_LOW = 0.5  # L/h/kg — low CL → high fh
 _CLINT_HIGH = 20.0  # L/h/kg — high CL → low fh
 _FU = 0.1
 _QH = 1.3  # L/h/kg
@@ -31,8 +31,12 @@ _PSA = 60.0
 
 def test_explicit_f_components_used_directly():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.8, fg=0.9, fh=0.7,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.8,
+        fg=0.9,
+        fh=0.7,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     assert result.fa == pytest.approx(0.8)
     assert result.fg == pytest.approx(0.9)
@@ -41,8 +45,12 @@ def test_explicit_f_components_used_directly():
 
 def test_f_absolute_equals_product_of_components():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.8, fg=0.9, fh=0.7,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.8,
+        fg=0.9,
+        fh=0.7,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     expected = 0.8 * 0.9 * 0.7
     assert result.f_absolute == pytest.approx(expected, rel=1e-4)
@@ -50,8 +58,12 @@ def test_f_absolute_equals_product_of_components():
 
 def test_returns_result_dataclass():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=None, fg=None, fh=None,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=None,
+        fg=None,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
         bcs_class=1,
     )
     assert isinstance(result, OralBioavailabilityResult)
@@ -59,8 +71,12 @@ def test_returns_result_dataclass():
 
 def test_result_is_frozen():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.5, fg=0.8, fh=0.9,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.5,
+        fg=0.8,
+        fh=0.9,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     with pytest.raises((AttributeError, TypeError)):
         result.fa = 0.99  # type: ignore[misc]
@@ -74,9 +90,15 @@ def test_result_is_frozen():
 def test_bcs1_high_f_estimated():
     """BCS I drug with low CLint should have high estimated F."""
     result = estimate_oral_bioavailability(
-        _DRUG, fa=None, fg=None, fh=None,
-        cl_intrinsic_L_per_h_per_kg=0.1, fu_plasma=0.5,
-        logP=2.0, psa=50.0, bcs_class=1,
+        _DRUG,
+        fa=None,
+        fg=None,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=0.1,
+        fu_plasma=0.5,
+        logP=2.0,
+        psa=50.0,
+        bcs_class=1,
     )
     assert result.f_absolute > 0.4
 
@@ -84,14 +106,26 @@ def test_bcs1_high_f_estimated():
 def test_bcs4_low_f_estimated():
     """BCS IV drug should have lower estimated F than BCS I."""
     bcs1 = estimate_oral_bioavailability(
-        _DRUG, fa=None, fg=None, fh=None,
-        cl_intrinsic_L_per_h_per_kg=0.1, fu_plasma=0.5,
-        logP=1.0, psa=120.0, bcs_class=1,
+        _DRUG,
+        fa=None,
+        fg=None,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=0.1,
+        fu_plasma=0.5,
+        logP=1.0,
+        psa=120.0,
+        bcs_class=1,
     )
     bcs4 = estimate_oral_bioavailability(
-        _DRUG, fa=None, fg=None, fh=None,
-        cl_intrinsic_L_per_h_per_kg=0.1, fu_plasma=0.5,
-        logP=1.0, psa=120.0, bcs_class=4,
+        _DRUG,
+        fa=None,
+        fg=None,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=0.1,
+        fu_plasma=0.5,
+        logP=1.0,
+        psa=120.0,
+        bcs_class=4,
     )
     assert bcs4.f_absolute < bcs1.f_absolute
 
@@ -99,28 +133,44 @@ def test_bcs4_low_f_estimated():
 def test_high_clint_reduces_fh():
     """Higher CLint should yield lower fh (more first-pass)."""
     low_cl = estimate_oral_bioavailability(
-        _DRUG, fa=0.9, fg=0.9, fh=None,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.9,
+        fg=0.9,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     high_cl = estimate_oral_bioavailability(
-        _DRUG, fa=0.9, fg=0.9, fh=None,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_HIGH, fu_plasma=_FU,
+        _DRUG,
+        fa=0.9,
+        fg=0.9,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_HIGH,
+        fu_plasma=_FU,
     )
     assert high_cl.fh < low_cl.fh
 
 
 def test_eh_in_0_1_range():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.8, fg=0.8, fh=None,
-        cl_intrinsic_L_per_h_per_kg=5.0, fu_plasma=0.2,
+        _DRUG,
+        fa=0.8,
+        fg=0.8,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=5.0,
+        fu_plasma=0.2,
     )
     assert 0.0 <= result.eh_hepatic <= 1.0
 
 
 def test_fh_plus_eh_equals_1():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.8, fg=0.8, fh=None,
-        cl_intrinsic_L_per_h_per_kg=3.0, fu_plasma=0.3,
+        _DRUG,
+        fa=0.8,
+        fg=0.8,
+        fh=None,
+        cl_intrinsic_L_per_h_per_kg=3.0,
+        fu_plasma=0.3,
     )
     assert result.fh + result.eh_hepatic == pytest.approx(1.0, abs=1e-6)
 
@@ -132,16 +182,24 @@ def test_fh_plus_eh_equals_1():
 
 def test_high_f_classification():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.95, fg=0.95, fh=0.9,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.95,
+        fg=0.95,
+        fh=0.9,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     assert result.f_classification == "high"
 
 
 def test_moderate_f_classification():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.8, fg=0.8, fh=0.7,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.8,
+        fg=0.8,
+        fh=0.7,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     # 0.8*0.8*0.7 = 0.448 → moderate
     assert result.f_classification == "moderate"
@@ -149,8 +207,12 @@ def test_moderate_f_classification():
 
 def test_low_f_classification():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.1, fg=0.5, fh=0.4,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.1,
+        fg=0.5,
+        fh=0.4,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     # 0.1*0.5*0.4 = 0.02 → low
     assert result.f_classification == "low"
@@ -163,24 +225,36 @@ def test_low_f_classification():
 
 def test_limiting_factor_absorption():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.1, fg=0.95, fh=0.95,
-        cl_intrinsic_L_per_h_per_kg=0.01, fu_plasma=0.5,
+        _DRUG,
+        fa=0.1,
+        fg=0.95,
+        fh=0.95,
+        cl_intrinsic_L_per_h_per_kg=0.01,
+        fu_plasma=0.5,
     )
     assert result.limiting_factor == "absorption"
 
 
 def test_limiting_factor_hepatic():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.95, fg=0.95, fh=0.1,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.95,
+        fg=0.95,
+        fh=0.1,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     assert result.limiting_factor == "hepatic"
 
 
 def test_limiting_factor_gut_wall():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.9, fg=0.2, fh=0.9,
-        cl_intrinsic_L_per_h_per_kg=0.01, fu_plasma=0.5,
+        _DRUG,
+        fa=0.9,
+        fg=0.2,
+        fh=0.9,
+        cl_intrinsic_L_per_h_per_kg=0.01,
+        fu_plasma=0.5,
     )
     assert result.limiting_factor == "gut_wall"
 
@@ -193,16 +267,24 @@ def test_limiting_factor_gut_wall():
 def test_f_absolute_clamped_min_001():
     """Even with very high CLint and low fa, F should not go below 0.01."""
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.001, fg=0.001, fh=0.001,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_HIGH, fu_plasma=_FU,
+        _DRUG,
+        fa=0.001,
+        fg=0.001,
+        fh=0.001,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_HIGH,
+        fu_plasma=_FU,
     )
     assert result.f_absolute >= 0.01
 
 
 def test_f_absolute_clamped_max_1():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=1.0, fg=1.0, fh=1.0,
-        cl_intrinsic_L_per_h_per_kg=0.0, fu_plasma=_FU,
+        _DRUG,
+        fa=1.0,
+        fg=1.0,
+        fh=1.0,
+        cl_intrinsic_L_per_h_per_kg=0.0,
+        fu_plasma=_FU,
     )
     assert result.f_absolute <= 1.0
 
@@ -215,40 +297,61 @@ def test_f_absolute_clamped_max_1():
 def test_empty_drug_name_raises():
     with pytest.raises(ValueError, match="drug_name"):
         estimate_oral_bioavailability(
-            "", fa=0.5, fg=0.5, fh=0.5,
-            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+            "",
+            fa=0.5,
+            fg=0.5,
+            fh=0.5,
+            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+            fu_plasma=_FU,
         )
 
 
 def test_fa_out_of_range_raises():
     with pytest.raises(ValueError, match="fa"):
         estimate_oral_bioavailability(
-            _DRUG, fa=1.5, fg=None, fh=None,
-            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+            _DRUG,
+            fa=1.5,
+            fg=None,
+            fh=None,
+            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+            fu_plasma=_FU,
         )
 
 
 def test_invalid_bcs_class_raises():
     with pytest.raises(ValueError, match="bcs_class"):
         estimate_oral_bioavailability(
-            _DRUG, fa=None, fg=None, fh=None,
-            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU, bcs_class=5,
+            _DRUG,
+            fa=None,
+            fg=None,
+            fh=None,
+            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+            fu_plasma=_FU,
+            bcs_class=5,
         )
 
 
 def test_invalid_fu_zero_raises():
     with pytest.raises(ValueError, match="fu_plasma"):
         estimate_oral_bioavailability(
-            _DRUG, fa=0.5, fg=0.5, fh=0.5,
-            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=0.0,
+            _DRUG,
+            fa=0.5,
+            fg=0.5,
+            fh=0.5,
+            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+            fu_plasma=0.0,
         )
 
 
 def test_invalid_qh_zero_raises():
     with pytest.raises(ValueError, match="qh_L_per_h_per_kg"):
         estimate_oral_bioavailability(
-            _DRUG, fa=0.5, fg=0.5, fh=0.5,
-            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+            _DRUG,
+            fa=0.5,
+            fg=0.5,
+            fh=0.5,
+            cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+            fu_plasma=_FU,
             qh_L_per_h_per_kg=0.0,
         )
 
@@ -260,8 +363,12 @@ def test_invalid_qh_zero_raises():
 
 def test_notes_non_empty_string():
     result = estimate_oral_bioavailability(
-        _DRUG, fa=0.7, fg=0.8, fh=0.9,
-        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW, fu_plasma=_FU,
+        _DRUG,
+        fa=0.7,
+        fg=0.8,
+        fh=0.9,
+        cl_intrinsic_L_per_h_per_kg=_CLINT_LOW,
+        fu_plasma=_FU,
     )
     assert isinstance(result.notes, str)
     assert len(result.notes) > 0

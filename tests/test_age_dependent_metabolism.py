@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.clinical.age_dependent_metabolism import (
@@ -12,7 +13,6 @@ from omega_pbpk.clinical.age_dependent_metabolism import (
     lifespan_dose_table,
     lifespan_pk_scaling,
 )
-
 
 # ---------------------------------------------------------------------------
 # cyp_activity_by_age tests
@@ -264,7 +264,14 @@ class TestLifespanDoseTable:
 
     def test_fm_parameters_accepted(self):
         rows = lifespan_dose_table(
-            "drug", 100.0, 10.0, 100.0,
-            fm_cyp3a4=0.8, fm_cyp2d6=0.05, fm_cyp2c9=0.05, fm_cyp2c19=0.05, f_renal=0.05
+            "drug",
+            100.0,
+            10.0,
+            100.0,
+            fm_cyp3a4=0.8,
+            fm_cyp2d6=0.05,
+            fm_cyp2c9=0.05,
+            fm_cyp2c19=0.05,
+            f_renal=0.05,
         )
         assert len(rows) == 12

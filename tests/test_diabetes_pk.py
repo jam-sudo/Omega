@@ -15,6 +15,7 @@ from omega_pbpk.clinical.diabetes_pk import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _insulin(**kw):
     defaults = dict(
         dose_units=10.0,
@@ -44,6 +45,7 @@ def _metformin(**kw):
 # ---------------------------------------------------------------------------
 # InsulinPKResult type checks
 # ---------------------------------------------------------------------------
+
 
 class TestInsulinResultType:
     def test_returns_result_object(self):
@@ -91,6 +93,7 @@ class TestInsulinResultType:
 # Insulin type differences
 # ---------------------------------------------------------------------------
 
+
 class TestInsulinTypes:
     def test_rapid_peaks_earlier_than_regular(self):
         r_rapid = _insulin(insulin_type="rapid", dt_h=0.05)
@@ -121,6 +124,7 @@ class TestInsulinTypes:
 # ---------------------------------------------------------------------------
 # Insulin validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestInsulinValidation:
     def test_zero_dose_raises(self):
@@ -155,6 +159,7 @@ class TestInsulinValidation:
 # ---------------------------------------------------------------------------
 # MetforminPKResult type checks
 # ---------------------------------------------------------------------------
+
 
 class TestMetforminResultType:
     def test_returns_result_object(self):
@@ -198,6 +203,7 @@ class TestMetforminResultType:
 # Metformin dose and steady-state behaviour
 # ---------------------------------------------------------------------------
 
+
 class TestMetforminBehaviour:
     def test_higher_dose_higher_cmax(self):
         r_low = _metformin(dose_mg=500.0)
@@ -221,6 +227,7 @@ class TestMetforminBehaviour:
 # ---------------------------------------------------------------------------
 # Metformin validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestMetforminValidation:
     def test_zero_dose_raises(self):

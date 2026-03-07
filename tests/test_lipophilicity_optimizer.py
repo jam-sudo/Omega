@@ -11,10 +11,10 @@ from omega_pbpk.prediction.lipophilicity_optimizer import (
     score_logp_modification,
 )
 
-
 # ---------------------------------------------------------------------------
 # optimal_logp_range
 # ---------------------------------------------------------------------------
+
 
 class TestOptimalLogpRange:
     def test_returns_tuple(self):
@@ -65,6 +65,7 @@ class TestOptimalLogpRange:
 # ---------------------------------------------------------------------------
 # score_logp_modification
 # ---------------------------------------------------------------------------
+
 
 class TestScoreLogpModification:
     def test_returns_result_dataclass(self):
@@ -139,6 +140,7 @@ class TestScoreLogpModification:
 # ---------------------------------------------------------------------------
 # predict_pk_impact_of_logp
 # ---------------------------------------------------------------------------
+
 
 class TestPredictPkImpactOfLogP:
     def test_returns_dict_with_keys_for_each_logp(self):

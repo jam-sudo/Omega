@@ -146,9 +146,7 @@ def membrane_partition_coefficient(
     valid_charges = {"neutral", "cationic", "anionic", "zwitterion"}
     charge_lower = charge.lower()
     if charge_lower not in valid_charges:
-        raise ValueError(
-            f"charge must be one of {valid_charges}, got '{charge}'."
-        )
+        raise ValueError(f"charge must be one of {valid_charges}, got '{charge}'.")
 
     if charge_lower == "neutral":
         log_kp = 0.9 * logD74 + 0.2
@@ -196,17 +194,13 @@ def predict_logd_profile(
     """
     ph_min, ph_max = ph_range
     if ph_min >= ph_max:
-        raise ValueError(
-            f"ph_range must have min < max, got ({ph_min}, {ph_max})."
-        )
+        raise ValueError(f"ph_range must have min < max, got ({ph_min}, {ph_max}).")
     if n_points < 2:
         raise ValueError("n_points must be >= 2.")
 
     step = (ph_max - ph_min) / (n_points - 1)
     ph_values = [ph_min + i * step for i in range(n_points)]
-    logd_values = [
-        logd_from_logp(logP, pka_acid, pka_base, ph) for ph in ph_values
-    ]
+    logd_values = [logd_from_logp(logP, pka_acid, pka_base, ph) for ph in ph_values]
 
     # Find pH of minimum logD
     min_idx = logd_values.index(min(logd_values))

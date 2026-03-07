@@ -125,9 +125,7 @@ def _validate_enhancer(enhancer: str) -> None:
     """Raise ValueError if enhancer is not in catalogue."""
     if enhancer not in _ENHANCER_DATA:
         valid = ", ".join(sorted(_ENHANCER_DATA))
-        raise ValueError(
-            f"Unknown enhancer '{enhancer}'. Valid options: {valid}"
-        )
+        raise ValueError(f"Unknown enhancer '{enhancer}'. Valid options: {valid}")
 
 
 def _drug_mw_modifier(drug_mw: float) -> float:

@@ -14,6 +14,7 @@ from omega_pbpk.prediction.half_life_predictor import (
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _default(**kw):
     defaults = dict(
         mw=300.0,
@@ -30,6 +31,7 @@ def _default(**kw):
 # ---------------------------------------------------------------------------
 # classify_half_life boundary tests
 # ---------------------------------------------------------------------------
+
 
 class TestClassifyHalfLife:
     def test_ultra_short(self):
@@ -70,6 +72,7 @@ class TestClassifyHalfLife:
 # ---------------------------------------------------------------------------
 # Return type and basic properties
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_half_life_result(self):
@@ -112,6 +115,7 @@ class TestReturnType:
 # ---------------------------------------------------------------------------
 # Physicochemical property effects
 # ---------------------------------------------------------------------------
+
 
 class TestPhysicochemicalEffects:
     def test_higher_logP_higher_vd(self):
@@ -160,6 +164,7 @@ class TestPhysicochemicalEffects:
 # Route of elimination
 # ---------------------------------------------------------------------------
 
+
 class TestRouteOfElimination:
     def test_hepatic_route(self):
         r = _default(route_of_elimination="hepatic")
@@ -186,6 +191,7 @@ class TestRouteOfElimination:
 # Confidence
 # ---------------------------------------------------------------------------
 
+
 class TestConfidence:
     def test_logP_in_range_high_confidence(self):
         r = _default(logP=2.0)
@@ -211,6 +217,7 @@ class TestConfidence:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_zero_mw_raises(self):

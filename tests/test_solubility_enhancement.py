@@ -14,7 +14,6 @@ from omega_pbpk.biopharmaceutics.solubility_enhancement import (
     surfactant_solubilization,
 )
 
-
 # ---------------------------------------------------------------------------
 # cyclodextrin_solubility
 # ---------------------------------------------------------------------------

@@ -143,8 +143,15 @@ def simulate_colonic_absorption(
     ColonicAbsorptionResult
     """
     _validate_colonic_inputs(
-        drug_name, dose_mg, solubility_mg_mL, peff_colon_cm_s,
-        cl_L_per_h, vd_L, t_transit_h, t_end_h, dt_h,
+        drug_name,
+        dose_mg,
+        solubility_mg_mL,
+        peff_colon_cm_s,
+        cl_L_per_h,
+        vd_L,
+        t_transit_h,
+        t_end_h,
+        dt_h,
     )
 
     # Derived PK parameters

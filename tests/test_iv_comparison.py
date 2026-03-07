@@ -1,18 +1,18 @@
 """Tests for Phase 372: IV bolus vs infusion comparison."""
 
 import math
+
 import pytest
 
 from omega_pbpk.core.iv_comparison import (
-    IVComparisonResult,
     compare_iv_bolus_infusion,
     optimize_infusion_duration,
 )
 
-
 # ---------------------------------------------------------------------------
 # Basic construction / frozen dataclass
 # ---------------------------------------------------------------------------
+
 
 def test_result_is_frozen_dataclass():
     res = compare_iv_bolus_infusion("TestDrug", total_dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0)
@@ -30,6 +30,7 @@ def test_result_attributes_accessible():
 # Bolus Cmax = dose/vd
 # ---------------------------------------------------------------------------
 
+
 def test_cmax_bolus_equals_dose_over_vd():
     dose, vd = 100.0, 50.0
     res = compare_iv_bolus_infusion("Drug", total_dose_mg=dose, cl_L_per_h=5.0, vd_L=vd)
@@ -45,6 +46,7 @@ def test_cmax_bolus_scales_with_dose():
 # ---------------------------------------------------------------------------
 # AUC = dose/CL for both routes (same total dose)
 # ---------------------------------------------------------------------------
+
 
 def test_auc_bolus_equals_dose_over_cl():
     dose, cl = 100.0, 5.0
@@ -67,6 +69,7 @@ def test_auc_ratio_approximately_one():
 # Css = R/CL
 # ---------------------------------------------------------------------------
 
+
 def test_css_infusion_equals_rate_over_cl():
     dose, cl, t_inf = 100.0, 5.0, 1.0  # R = 100 mg/h
     res = compare_iv_bolus_infusion(
@@ -80,6 +83,7 @@ def test_css_infusion_equals_rate_over_cl():
 # Longer infusion → lower Cmax_infusion
 # ---------------------------------------------------------------------------
 
+
 def test_longer_infusion_lower_cmax():
     base = dict(drug_name="Drug", total_dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0)
     short = compare_iv_bolus_infusion(**base, infusion_duration_h=0.25)
@@ -90,6 +94,7 @@ def test_longer_infusion_lower_cmax():
 # ---------------------------------------------------------------------------
 # Cmax ratio
 # ---------------------------------------------------------------------------
+
 
 def test_cmax_ratio_greater_than_one():
     res = compare_iv_bolus_infusion("Drug", total_dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0)
@@ -112,6 +117,7 @@ def test_cmax_ratio_large_for_long_infusion():
 # t_half
 # ---------------------------------------------------------------------------
 
+
 def test_t_half_correct():
     cl, vd = 5.0, 50.0
     ke = cl / vd
@@ -123,6 +129,7 @@ def test_t_half_correct():
 # ---------------------------------------------------------------------------
 # Concentrations non-negative
 # ---------------------------------------------------------------------------
+
 
 def test_c_bolus_non_negative():
     res = compare_iv_bolus_infusion("Drug", total_dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0)
@@ -142,6 +149,7 @@ def test_times_start_at_zero():
 # ---------------------------------------------------------------------------
 # Toxicity risk / infusion_preferred
 # ---------------------------------------------------------------------------
+
 
 def test_infusion_preferred_when_bolus_high_risk():
     """High bolus Cmax relative to threshold → infusion preferred."""
@@ -177,6 +185,7 @@ def test_bolus_toxicity_risk_values():
 # ---------------------------------------------------------------------------
 # below_toxic flags
 # ---------------------------------------------------------------------------
+
 
 def test_below_toxic_bolus_true_when_dose_small():
     """Small dose → Cmax bolus < threshold."""
@@ -215,6 +224,7 @@ def test_below_toxic_infusion_can_be_true_when_bolus_false():
 # Input validation
 # ---------------------------------------------------------------------------
 
+
 def test_zero_dose_raises():
     with pytest.raises(ValueError, match="total_dose_mg"):
         compare_iv_bolus_infusion("D", total_dose_mg=0.0, cl_L_per_h=5.0, vd_L=50.0)
@@ -241,6 +251,7 @@ def test_zero_infusion_duration_raises():
 # optimize_infusion_duration
 # ---------------------------------------------------------------------------
 
+
 def test_optimize_returns_dict_with_required_keys():
     result = optimize_infusion_duration(
         "Drug", total_dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, toxic_threshold_mg_L=1.5
@@ -253,8 +264,7 @@ def test_optimize_returns_dict_with_required_keys():
 def test_optimize_achievable_cmax_below_threshold():
     threshold = 1.5
     result = optimize_infusion_duration(
-        "Drug", total_dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0,
-        toxic_threshold_mg_L=threshold
+        "Drug", total_dose_mg=100.0, cl_L_per_h=5.0, vd_L=50.0, toxic_threshold_mg_L=threshold
     )
     # Cmax bolus = 100/50 = 2.0 > 1.5, so optimization needed
     assert result["achievable_cmax_mg_L"] <= threshold + 1e-4

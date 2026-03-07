@@ -455,9 +455,7 @@ def simulate_mucus_penetration(
     pore_radius_nm = _PORE_RADIUS_NM[mucus_type]
 
     # Effective diffusion coefficient (cm²/s)
-    d_eff = _effective_diffusion_cm2_s(
-        diffusion_coeff_cm2_s, mw, logP, charge, pore_radius_nm
-    )
+    d_eff = _effective_diffusion_cm2_s(diffusion_coeff_cm2_s, mw, logP, charge, pore_radius_nm)
 
     # Convert thickness from µm to cm for Fick's law (all in cm units)
     thickness_cm = mucus_thickness_um * 1e-4  # µm → cm

@@ -39,9 +39,7 @@ def _validate_drugs(drugs: Any) -> None:
 
 def _count_connections(drug_name: str, edges: list[dict[str, str]]) -> int:
     """Count edges where *drug_name* appears as source or target."""
-    return sum(
-        1 for e in edges if e["source"] == drug_name or e["target"] == drug_name
-    )
+    return sum(1 for e in edges if e["source"] == drug_name or e["target"] == drug_name)
 
 
 def build_ddi_network(
@@ -98,9 +96,7 @@ def build_ddi_network(
                     key = (a["name"], b["name"], "inhibition")
                     if key not in seen:
                         seen.add(key)
-                        severity = (
-                            "high" if a.get("is_strong", False) else "moderate"
-                        )
+                        severity = "high" if a.get("is_strong", False) else "moderate"
                         edges.append(
                             {
                                 "source": a["name"],
@@ -144,9 +140,7 @@ def build_ddi_network(
 
     notes_parts: list[str] = []
     if high_severity_pairs:
-        notes_parts.append(
-            f"{len(high_severity_pairs)} high-severity interaction(s) detected"
-        )
+        notes_parts.append(f"{len(high_severity_pairs)} high-severity interaction(s) detected")
     notes = "; ".join(notes_parts) if notes_parts else "No high-severity interactions"
 
     return DDINetworkResult(

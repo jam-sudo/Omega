@@ -234,10 +234,7 @@ def _steady_state_trough_peak(
         c_trough = (
             (dose_mg / vd_L)
             * (ka / (ka - ke))
-            * (
-                math.exp(-ke * tau) * accum_e
-                - math.exp(-ka * tau) * accum_a
-            )
+            * (math.exp(-ke * tau) * accum_e - math.exp(-ka * tau) * accum_a)
         )
         trough_ss = max(0.0, c_trough)
 
@@ -246,10 +243,7 @@ def _steady_state_trough_peak(
         c_peak = (
             (dose_mg / vd_L)
             * (ka / (ka - ke))
-            * (
-                math.exp(-ke * t_peak) * accum_e
-                - math.exp(-ka * t_peak) * accum_a
-            )
+            * (math.exp(-ke * t_peak) * accum_e - math.exp(-ka * t_peak) * accum_a)
         )
         peak_ss = max(0.0, c_peak)
 
@@ -343,9 +337,7 @@ def target_auc_dose(
     elif age_months < 6:
         notes_parts.append("Young infant: verify dose with neonatal specialist.")
     if fm_cyp3a4 > 0.3 and age_months < 12:
-        notes_parts.append(
-            f"CYP3A4 fm={fm_cyp3a4:.1f}: immature CYP3A4 may further reduce CL."
-        )
+        notes_parts.append(f"CYP3A4 fm={fm_cyp3a4:.1f}: immature CYP3A4 may further reduce CL.")
 
     return PediatricDoseOptResult(
         drug_name=drug_name,
@@ -401,9 +393,7 @@ def mg_per_kg_dosing(
     if age_months < 0:
         raise ValueError(f"age_months must be >= 0, got {age_months}")
     if reference_dose_mg_per_kg <= 0:
-        raise ValueError(
-            f"reference_dose_mg_per_kg must be > 0, got {reference_dose_mg_per_kg}"
-        )
+        raise ValueError(f"reference_dose_mg_per_kg must be > 0, got {reference_dose_mg_per_kg}")
 
     raw_dose = reference_dose_mg_per_kg * weight_kg
     was_capped = False
@@ -542,9 +532,7 @@ def optimize_pediatric_regimen(
             score = abs(trough_pred - target_trough_mg_L)
         else:
             # Peak too high: penalize
-            score = abs(trough_pred - target_trough_mg_L) + 100.0 * (
-                peak_pred - target_peak_mg_L
-            )
+            score = abs(trough_pred - target_trough_mg_L) + 100.0 * (peak_pred - target_peak_mg_L)
 
         if score < best_score:
             best_score = score

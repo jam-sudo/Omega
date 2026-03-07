@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.clinical.pediatric_dosing import (
@@ -16,7 +14,6 @@ from omega_pbpk.clinical.pediatric_dosing import (
     pediatric_dose,
     pediatric_dose_range,
 )
-
 
 # ---------------------------------------------------------------------------
 # bsa_dubois tests

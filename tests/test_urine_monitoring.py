@@ -14,10 +14,10 @@ from omega_pbpk.clinical.urine_monitoring import (
     urine_concentration_window,
 )
 
-
 # ---------------------------------------------------------------------------
 # simulate_urine_drug
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateUrineDrug:
     def _iv_result(self) -> UrineDrugResult:
@@ -142,6 +142,7 @@ class TestSimulateUrineDrug:
 # urine_concentration_window
 # ---------------------------------------------------------------------------
 
+
 class TestUrineConcentrationWindow:
     def _setup(self):
         result = simulate_urine_drug(
@@ -197,6 +198,7 @@ class TestUrineConcentrationWindow:
 # therapeutic_drug_monitoring_urine
 # ---------------------------------------------------------------------------
 
+
 class TestTherapeuticDrugMonitoringUrine:
     def test_within_range(self):
         out = therapeutic_drug_monitoring_urine("Drug", 5.0, (2.0, 10.0))
@@ -227,14 +229,22 @@ class TestTherapeuticDrugMonitoringUrine:
 
     def test_returns_dict_with_expected_keys(self):
         out = therapeutic_drug_monitoring_urine("Drug", 5.0, (2.0, 10.0))
-        for key in ("drug_name", "c_urine_mg_L", "reference_low", "reference_high",
-                    "in_range", "interpretation", "notes"):
+        for key in (
+            "drug_name",
+            "c_urine_mg_L",
+            "reference_low",
+            "reference_high",
+            "in_range",
+            "interpretation",
+            "notes",
+        ):
             assert key in out
 
 
 # ---------------------------------------------------------------------------
 # detection_window
 # ---------------------------------------------------------------------------
+
 
 class TestDetectionWindow:
     def test_returns_float(self):

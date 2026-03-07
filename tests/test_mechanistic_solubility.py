@@ -1,6 +1,5 @@
 """Tests for mechanistic solubility prediction — Phase 503."""
 
-import math
 import pytest
 
 from omega_pbpk.prediction.mechanistic_solubility import (
@@ -11,7 +10,6 @@ from omega_pbpk.prediction.mechanistic_solubility import (
     solubility_class,
     yalkowsky_solubility,
 )
-
 
 # ---------------------------------------------------------------------------
 # yalkowsky_solubility
@@ -59,7 +57,7 @@ class TestYalkowskySolubility:
         tm_C = 180.0
         correction = 0.5
         expected_log_s = -logP - 0.01 * (tm_C - 25.0) + correction
-        expected = 10.0 ** expected_log_s
+        expected = 10.0**expected_log_s
         result = yalkowsky_solubility(logP=logP, tm_C=tm_C)
         assert abs(result - expected) < 1e-12
 
@@ -205,7 +203,6 @@ class TestPredictSolubilityProfile:
 
     def test_dose_solubility_ratio(self):
         """100 mg in 250 mL = 0.4 mg/mL threshold."""
-        sol = 0.8  # mg/mL
         # We'll check via a compound that should produce ~0.8 mg/mL solubility
         result = predict_solubility_profile(logP=2.0, tm_C=150.0, n_hbd=0, n_hba=0, mw=300.0)
         expected_ratio = result.intrinsic_solubility_mg_mL / 0.4

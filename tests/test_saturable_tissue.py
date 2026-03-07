@@ -26,6 +26,7 @@ _BASE_KWARGS = dict(
 # Basic smoke tests
 # ---------------------------------------------------------------------------
 
+
 class TestSmoke:
     def test_iv_returns_result(self):
         result = simulate_saturable_tissue("DrugA", 10.0, route="iv", **_BASE_KWARGS)
@@ -48,6 +49,7 @@ class TestSmoke:
 # ---------------------------------------------------------------------------
 # Low-dose (linear) regime
 # ---------------------------------------------------------------------------
+
 
 class TestLowDose:
     def test_low_dose_saturation_near_zero(self):
@@ -75,17 +77,14 @@ class TestLowDose:
 # High-dose (nonlinear / saturated) regime
 # ---------------------------------------------------------------------------
 
+
 class TestHighDose:
     def test_high_dose_saturation_elevated(self):
-        result = simulate_saturable_tissue(
-            "DrugA", 5000.0, **_BASE_KWARGS
-        )
+        result = simulate_saturable_tissue("DrugA", 5000.0, **_BASE_KWARGS)
         assert result.saturation_pct_peak > 10.0
 
     def test_very_high_dose_nonlinearity(self):
-        result = simulate_saturable_tissue(
-            "DrugA", 50000.0, **_BASE_KWARGS
-        )
+        result = simulate_saturable_tissue("DrugA", 50000.0, **_BASE_KWARGS)
         assert result.vd_nonlinearity_pct > 0
 
     def test_saturation_increases_with_dose(self):
@@ -95,15 +94,14 @@ class TestHighDose:
 
     def test_high_dose_dose_proportional_false(self):
         # At very high dose, saturation is complete → Vd_apparent << vd_linear
-        result = simulate_saturable_tissue(
-            "DrugA", 50000.0, **_BASE_KWARGS
-        )
+        result = simulate_saturable_tissue("DrugA", 50000.0, **_BASE_KWARGS)
         assert result.dose_proportional is False
 
 
 # ---------------------------------------------------------------------------
 # Trajectory checks
 # ---------------------------------------------------------------------------
+
 
 class TestTrajectory:
     def test_c_plasma_all_non_negative(self):
@@ -141,15 +139,19 @@ class TestTrajectory:
 # Metrics
 # ---------------------------------------------------------------------------
 
+
 class TestMetrics:
     def test_kp_apparent_positive(self):
         result = simulate_saturable_tissue("DrugA", 10.0, **_BASE_KWARGS)
         assert result.kp_apparent > 0
 
     def test_kp_linear_stored_correctly(self):
-        result = simulate_saturable_tissue("DrugA", 10.0, kp_linear=8.0,
-                                           **{k: v for k, v in _BASE_KWARGS.items()
-                                              if k != "kp_linear"})
+        result = simulate_saturable_tissue(
+            "DrugA",
+            10.0,
+            kp_linear=8.0,
+            **{k: v for k, v in _BASE_KWARGS.items() if k != "kp_linear"},
+        )
         assert result.kp_linear == pytest.approx(8.0)
 
     def test_saturation_pct_in_0_100(self):
@@ -159,11 +161,18 @@ class TestMetrics:
 
     def test_vd_linear_formula(self):
         result = simulate_saturable_tissue(
-            "DrugA", 10.0, kp_linear=5.0, tissue_mass_kg=5.0,
-            bmax_tissue_umol_per_kg=100.0, kd_tissue_uM=1.0,
-            **{k: v for k, v in _BASE_KWARGS.items()
-               if k not in ("kp_linear", "tissue_mass_kg",
-                            "bmax_tissue_umol_per_kg", "kd_tissue_uM")},
+            "DrugA",
+            10.0,
+            kp_linear=5.0,
+            tissue_mass_kg=5.0,
+            bmax_tissue_umol_per_kg=100.0,
+            kd_tissue_uM=1.0,
+            **{
+                k: v
+                for k, v in _BASE_KWARGS.items()
+                if k
+                not in ("kp_linear", "tissue_mass_kg", "bmax_tissue_umol_per_kg", "kd_tissue_uM")
+            },
         )
         # vd_linear = 3.0 + 5.0 * 5.0 * (1 + 100/1) = 3 + 2525 = 2528 L
         assert result.vd_linear_L == pytest.approx(2528.0)
@@ -176,6 +185,7 @@ class TestMetrics:
 # ---------------------------------------------------------------------------
 # dose_linearity_analysis
 # ---------------------------------------------------------------------------
+
 
 class TestDoseLinearityAnalysis:
     def test_returns_correct_length(self):
@@ -206,6 +216,7 @@ class TestDoseLinearityAnalysis:
 # Input validation
 # ---------------------------------------------------------------------------
 
+
 class TestValidation:
     def test_zero_dose(self):
         with pytest.raises(ValueError, match="dose_mg"):
@@ -213,18 +224,15 @@ class TestValidation:
 
     def test_zero_cl(self):
         with pytest.raises(ValueError, match="cl_L_per_h"):
-            simulate_saturable_tissue("Drug", 10.0,
-                                      **{**_BASE_KWARGS, "cl_L_per_h": 0.0})
+            simulate_saturable_tissue("Drug", 10.0, **{**_BASE_KWARGS, "cl_L_per_h": 0.0})
 
     def test_zero_kp_linear(self):
         with pytest.raises(ValueError, match="kp_linear"):
-            simulate_saturable_tissue("Drug", 10.0,
-                                      **{**_BASE_KWARGS, "kp_linear": 0.0})
+            simulate_saturable_tissue("Drug", 10.0, **{**_BASE_KWARGS, "kp_linear": 0.0})
 
     def test_zero_mw(self):
         with pytest.raises(ValueError, match="mw"):
-            simulate_saturable_tissue("Drug", 10.0,
-                                      **{**_BASE_KWARGS, "mw": 0.0})
+            simulate_saturable_tissue("Drug", 10.0, **{**_BASE_KWARGS, "mw": 0.0})
 
     def test_invalid_route(self):
         with pytest.raises(ValueError, match="route"):

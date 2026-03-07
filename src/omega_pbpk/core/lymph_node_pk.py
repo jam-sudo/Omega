@@ -102,9 +102,7 @@ def simulate_lymph_node_pk(
 
     for i in range(n):
         da_plasma = (
-            -ke * a_plasma
-            - k_lymph_in_per_h * a_plasma
-            + k_lymph_out_per_h * a_lymph
+            -ke * a_plasma - k_lymph_in_per_h * a_plasma + k_lymph_out_per_h * a_lymph
         ) * dt_h
         da_lymph = (k_lymph_in_per_h * a_plasma - k_lymph_out_per_h * a_lymph) * dt_h
 

@@ -85,7 +85,7 @@ def simulate_protein_binding(
     b_coeff = 1.0 + n_sites * p_total_umol * ka_umol - total_umol * ka_umol
     c_coeff = -total_umol
 
-    discriminant = b_coeff ** 2 - 4.0 * a_coeff * c_coeff
+    discriminant = b_coeff**2 - 4.0 * a_coeff * c_coeff
     free_umol = (-b_coeff + math.sqrt(discriminant)) / (2.0 * a_coeff)
 
     # --- Derived quantities ---

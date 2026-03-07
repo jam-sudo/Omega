@@ -16,17 +16,17 @@ __all__ = [
 ]
 
 POLYMER_PARAMS: dict[str, dict[str, float]] = {
-    "PLGA_50_50": {"t_half_deg_days": 7.0,  "burst_pct": 15.0, "lag_h": 0.0},
+    "PLGA_50_50": {"t_half_deg_days": 7.0, "burst_pct": 15.0, "lag_h": 0.0},
     "PLGA_75_25": {"t_half_deg_days": 28.0, "burst_pct": 10.0, "lag_h": 24.0},
-    "PLGA_85_15": {"t_half_deg_days": 60.0, "burst_pct": 5.0,  "lag_h": 48.0},
-    "PLA":        {"t_half_deg_days": 180.0, "burst_pct": 2.0,  "lag_h": 72.0},
+    "PLGA_85_15": {"t_half_deg_days": 60.0, "burst_pct": 5.0, "lag_h": 48.0},
+    "PLA": {"t_half_deg_days": 180.0, "burst_pct": 2.0, "lag_h": 72.0},
 }
 
 
 @dataclass(frozen=True)
 class PolymerDepotResult:
     drug_name: str
-    polymer_type: str       # "PLGA_50_50", "PLGA_75_25", "PLGA_85_15", "PLA"
+    polymer_type: str  # "PLGA_50_50", "PLGA_75_25", "PLGA_85_15", "PLA"
     dose_mg: float
     times_h: list[float]
     c_plasma_mg_L: list[float]
@@ -35,7 +35,7 @@ class PolymerDepotResult:
     cmax_mg_L: float
     tmax_h: float
     auc_mg_L_h: float
-    duration_days: float    # effective duration (to 80% release)
+    duration_days: float  # effective duration (to 80% release)
     burst_release_pct: float  # initial burst in first 24h
     notes: str
 

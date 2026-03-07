@@ -10,7 +10,6 @@ from omega_pbpk.clinical.immunosuppressant_pkpd import (
     simulate_immunosuppressant_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # Input validation tests
 # ---------------------------------------------------------------------------
@@ -21,9 +20,7 @@ class TestInputValidation:
 
     def test_dose_zero_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
-            simulate_immunosuppressant_pk(
-                "cyclosporine", dose_mg=0.0, cl_L_per_h=25.0, vd_L=600.0
-            )
+            simulate_immunosuppressant_pk("cyclosporine", dose_mg=0.0, cl_L_per_h=25.0, vd_L=600.0)
 
     def test_dose_negative_raises(self):
         with pytest.raises(ValueError, match="dose_mg"):
@@ -33,9 +30,7 @@ class TestInputValidation:
 
     def test_cl_zero_raises(self):
         with pytest.raises(ValueError, match="cl_L_per_h"):
-            simulate_immunosuppressant_pk(
-                "cyclosporine", dose_mg=200.0, cl_L_per_h=0.0, vd_L=600.0
-            )
+            simulate_immunosuppressant_pk("cyclosporine", dose_mg=200.0, cl_L_per_h=0.0, vd_L=600.0)
 
     def test_cl_negative_raises(self):
         with pytest.raises(ValueError, match="cl_L_per_h"):
@@ -45,9 +40,7 @@ class TestInputValidation:
 
     def test_vd_zero_raises(self):
         with pytest.raises(ValueError, match="vd_L"):
-            simulate_immunosuppressant_pk(
-                "cyclosporine", dose_mg=200.0, cl_L_per_h=25.0, vd_L=0.0
-            )
+            simulate_immunosuppressant_pk("cyclosporine", dose_mg=200.0, cl_L_per_h=25.0, vd_L=0.0)
 
     def test_ka_zero_raises(self):
         with pytest.raises(ValueError, match="ka_per_h"):

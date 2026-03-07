@@ -71,8 +71,8 @@ def simulate_pulmonary_pk(
         eff_deposition = lung_deposition_fraction
 
     # --- Compartment volumes (nominal, for concentration calculation) ---
-    v_airway = 0.1   # L  (airway lining fluid ~100 mL)
-    v_lung = 1.0     # L  (lung tissue volume)
+    v_airway = 0.1  # L  (airway lining fluid ~100 mL)
+    v_lung = 1.0  # L  (lung tissue volume)
     v_plasma = vd_sys_L
 
     ke_sys = cl_sys_L_per_h / v_plasma

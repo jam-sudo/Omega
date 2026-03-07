@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.analysis.pk_report_generator import (
@@ -13,7 +14,6 @@ from omega_pbpk.analysis.pk_report_generator import (
     generate_pk_report,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers — generate mono-exponential IV profiles
 # ---------------------------------------------------------------------------
@@ -22,7 +22,7 @@ from omega_pbpk.analysis.pk_report_generator import (
 def _mono_exp_profile(
     dose_mg: float,
     vd_L: float,
-    ke: float,   # 1/h
+    ke: float,  # 1/h
     times: list[float],
 ) -> list[float]:
     """C(t) = (Dose/Vd) * exp(-ke * t)."""
@@ -107,15 +107,11 @@ class TestGeneratePkReport:
         assert report.n_timepoints == len(TIMES_DENSE)
 
     def test_drug_name_preserved(self):
-        report = generate_pk_report(
-            "Midazolam", TIMES_DENSE, CONCS_DENSE, DOSE_MG, route="iv"
-        )
+        report = generate_pk_report("Midazolam", TIMES_DENSE, CONCS_DENSE, DOSE_MG, route="iv")
         assert report.drug_name == "Midazolam"
 
     def test_route_preserved(self):
-        report = generate_pk_report(
-            "DrugX", TIMES_DENSE, CONCS_DENSE, DOSE_MG, route="oral"
-        )
+        report = generate_pk_report("DrugX", TIMES_DENSE, CONCS_DENSE, DOSE_MG, route="oral")
         assert report.route == "oral"
 
     def test_notes_is_string(self):

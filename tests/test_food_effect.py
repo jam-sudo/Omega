@@ -1,6 +1,5 @@
 """Tests for Phase 257: food_effect.py"""
 
-import math
 import pytest
 
 from omega_pbpk.clinical.food_effect import (
@@ -10,6 +9,7 @@ from omega_pbpk.clinical.food_effect import (
 )
 
 # --- Helpers ----------------------------------------------------------------
+
 
 def _default(**kwargs):
     defaults = dict(
@@ -27,6 +27,7 @@ def _default(**kwargs):
 
 
 # --- Input validation -------------------------------------------------------
+
 
 def test_dose_zero_raises():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -90,6 +91,7 @@ def test_invalid_bcs_class_raises():
 
 # --- Basic output checks ----------------------------------------------------
 
+
 def test_cmax_positive():
     result = _default()
     assert result.cmax > 0
@@ -112,6 +114,7 @@ def test_c_plasma_same_length_as_times():
 
 # --- Fasted reference -------------------------------------------------------
 
+
 def test_fasted_f_relative_is_one():
     result = _default(fed_state="fasted")
     assert result.f_relative == pytest.approx(1.0, abs=1e-9)
@@ -123,6 +126,7 @@ def test_fasted_cmax_ratio_is_one():
 
 
 # --- Food effect on BCS II drug ---------------------------------------------
+
 
 def test_high_fat_f_relative_greater_than_one_bcs2():
     """High-fat meal should increase AUC for BCS II drug."""
@@ -139,6 +143,7 @@ def test_high_fat_longer_tmax_than_fasted():
 
 # --- compare_fed_states -----------------------------------------------------
 
+
 def test_compare_fed_states_returns_three():
     results = compare_fed_states("Drug", 100.0, 5.0, 50.0)
     assert len(results) == 3
@@ -151,6 +156,7 @@ def test_compare_fed_states_order():
 
 # --- BCS class sensitivity --------------------------------------------------
 
+
 def test_bcs1_smaller_food_effect_than_bcs2():
     """BCS I drugs are less affected by food than BCS II."""
     bcs1 = _default(fed_state="high_fat", bcs_class="I")
@@ -160,6 +166,7 @@ def test_bcs1_smaller_food_effect_than_bcs2():
 
 
 # --- Category and recommendation --------------------------------------------
+
 
 def test_food_effect_category_valid():
     for state in ("fasted", "low_fat", "high_fat"):
@@ -175,6 +182,7 @@ def test_recommendation_nonempty():
 
 # --- Dose linearity ---------------------------------------------------------
 
+
 def test_dose_doubling_doubles_auc():
     r1 = _default(dose_mg=100.0)
     r2 = _default(dose_mg=200.0)
@@ -182,6 +190,7 @@ def test_dose_doubling_doubles_auc():
 
 
 # --- Result is FoodEffectResult ---------------------------------------------
+
 
 def test_result_type():
     result = _default()

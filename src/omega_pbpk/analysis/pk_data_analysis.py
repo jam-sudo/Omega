@@ -37,9 +37,7 @@ def _extract_values(subjects: list[dict], pk_param: str) -> list[float]:
     values: list[float] = []
     for i, s in enumerate(subjects):
         if pk_param not in s:
-            raise ValueError(
-                f"pk_param '{pk_param}' not found in subject at index {i}"
-            )
+            raise ValueError(f"pk_param '{pk_param}' not found in subject at index {i}")
         v = float(s[pk_param])
         values.append(v)
     return values
@@ -87,9 +85,7 @@ def summarize_pk_data(subjects: list[dict], pk_param: str) -> PKDataSummary:
     n = len(values)
 
     if any(v <= 0 for v in values):
-        raise ValueError(
-            f"All values for '{pk_param}' must be > 0 to compute geometric statistics"
-        )
+        raise ValueError(f"All values for '{pk_param}' must be > 0 to compute geometric statistics")
 
     mn = _mean(values)
     med = _median(values)
@@ -157,7 +153,7 @@ def detect_outliers(values: list[float], method: str = "iqr") -> list[int]:
         # Lower quartile: median of lower half (exclusive of median for odd n)
         mid = n // 2
         lower_half = sorted_vals[:mid]
-        upper_half = sorted_vals[mid + (n % 2):]
+        upper_half = sorted_vals[mid + (n % 2) :]
 
         q1 = _median(lower_half) if lower_half else sorted_vals[0]
         q3 = _median(upper_half) if upper_half else sorted_vals[-1]
@@ -184,9 +180,7 @@ def detect_outliers(values: list[float], method: str = "iqr") -> list[int]:
     return outlier_indices
 
 
-def correlation_analysis(
-    subjects: list[dict], param_x: str, param_y: str
-) -> dict:
+def correlation_analysis(subjects: list[dict], param_x: str, param_y: str) -> dict:
     """Compute Pearson correlation between two PK parameters.
 
     Parameters
@@ -231,14 +225,14 @@ def correlation_analysis(
 
     # Clamp to [-1, 1] for floating-point safety
     r = max(-1.0, min(1.0, r))
-    r_squared = r ** 2
+    r_squared = r**2
 
     # Least-squares slope and intercept
-    if denom_x ** 2 < 1e-30:
+    if denom_x**2 < 1e-30:
         slope = 0.0
         intercept = my
     else:
-        slope = num / (denom_x ** 2)
+        slope = num / (denom_x**2)
         intercept = my - slope * mx
 
     return {

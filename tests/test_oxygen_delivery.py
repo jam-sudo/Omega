@@ -11,7 +11,6 @@ from omega_pbpk.clinical.oxygen_delivery import (
     simulate_hypoxia_pk,
 )
 
-
 # ---------------------------------------------------------------------------
 # assess_oxygen_delivery — input validation
 # ---------------------------------------------------------------------------
@@ -166,8 +165,12 @@ class TestSimulateHypoxiaPKValidation:
 class TestSimulateNormalIV:
     def setup_method(self):
         self.result = simulate_hypoxia_pk(
-            "testdrug", 100.0, 5.0, 50.0,
-            hemoglobin_g_dL=15.0, spo2_pct=98.0,
+            "testdrug",
+            100.0,
+            5.0,
+            50.0,
+            hemoglobin_g_dL=15.0,
+            spo2_pct=98.0,
             route="iv",
         )
 
@@ -198,12 +201,8 @@ class TestSimulateNormalIV:
 
 class TestSimulateLowHbCL:
     def test_low_hb_reduces_cl(self):
-        normal = simulate_hypoxia_pk(
-            "drug", 100.0, 5.0, 50.0, hemoglobin_g_dL=15.0, spo2_pct=98.0
-        )
-        anemic = simulate_hypoxia_pk(
-            "drug", 100.0, 5.0, 50.0, hemoglobin_g_dL=6.0, spo2_pct=98.0
-        )
+        normal = simulate_hypoxia_pk("drug", 100.0, 5.0, 50.0, hemoglobin_g_dL=15.0, spo2_pct=98.0)
+        anemic = simulate_hypoxia_pk("drug", 100.0, 5.0, 50.0, hemoglobin_g_dL=6.0, spo2_pct=98.0)
         assert anemic.cl_adjusted_L_per_h < normal.cl_adjusted_L_per_h
 
 
@@ -214,13 +213,9 @@ class TestSimulateLowHbCL:
 
 class TestSimulateOral:
     def test_oral_cmax_positive(self):
-        result = simulate_hypoxia_pk(
-            "drug", 100.0, 5.0, 50.0, route="oral", ka_per_h=1.5
-        )
+        result = simulate_hypoxia_pk("drug", 100.0, 5.0, 50.0, route="oral", ka_per_h=1.5)
         assert result.cmax > 0
 
     def test_oral_auc_positive(self):
-        result = simulate_hypoxia_pk(
-            "drug", 100.0, 5.0, 50.0, route="oral", ka_per_h=1.5
-        )
+        result = simulate_hypoxia_pk("drug", 100.0, 5.0, 50.0, route="oral", ka_per_h=1.5)
         assert result.auc > 0

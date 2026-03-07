@@ -37,10 +37,10 @@ _HIGH_PERM_THRESHOLD = 1e-6  # cm/s (> this → high permeability, BCS I or II)
 # Lipid-soluble (BCS II/IV) drugs get ~5–15x enhancement at 8 mM bile
 # Hydrophilic (BCS I/III) drugs get minimal enhancement
 _BILE_ENHANCEMENT_PER_mM = {
-    1: 0.05,   # BCS I: minimal
-    2: 1.5,    # BCS II: large enhancement
-    3: 0.05,   # BCS III: minimal
-    4: 1.0,    # BCS IV: moderate
+    1: 0.05,  # BCS I: minimal
+    2: 1.5,  # BCS II: large enhancement
+    3: 0.05,  # BCS III: minimal
+    4: 1.0,  # BCS IV: moderate
 }
 
 # ---------------------------------------------------------------------------
@@ -69,11 +69,11 @@ class FoodInteractionResult:
     dose_mg: float
     bcs_class: int
     meal_type: str
-    auc_ratio: float          # AUC_fed / AUC_fasted
-    cmax_ratio: float         # Cmax_fed / Cmax_fasted
+    auc_ratio: float  # AUC_fed / AUC_fasted
+    cmax_ratio: float  # Cmax_fed / Cmax_fasted
     tmax_fed_h: float
     tmax_fasted_h: float
-    food_effect_class: str    # none / weak / moderate / strong
+    food_effect_class: str  # none / weak / moderate / strong
     times_h: tuple[float, ...]
     c_plasma_fed: tuple[float, ...]
     c_plasma_fasted: tuple[float, ...]
@@ -157,10 +157,7 @@ def meal_composition(meal_type: str) -> MealComposition:
         },
     }
     if meal_type not in params:
-        raise ValueError(
-            f"Unknown meal_type {meal_type!r}. "
-            f"Supported: {sorted(params)}"
-        )
+        raise ValueError(f"Unknown meal_type {meal_type!r}. Supported: {sorted(params)}")
     p = params[meal_type]
     return MealComposition(
         meal_type=meal_type,
@@ -394,9 +391,7 @@ def food_effect_on_pk(
     times_h = np.arange(0.0, t_end + dt, dt)
 
     # ----- Fasted state -----
-    sol_fasted = _effective_solubility(
-        solubility_water_mg_mL, fasted_meal.bile_conc_mM, bcs_class
-    )
+    sol_fasted = _effective_solubility(solubility_water_mg_mL, fasted_meal.bile_conc_mM, bcs_class)
     ka_fasted = _ka_from_solubility_papp(sol_fasted, papp_cm_s, dose_mg, bcs_class)
     f_fasted = _bioavailability_from_bcs(bcs_class, sol_fasted, dose_mg, papp_cm_s)
     # Gastric lag: fasted ~ 0.25 h (rapid emptying)
@@ -413,9 +408,7 @@ def food_effect_on_pk(
     )
 
     # ----- Fed state -----
-    sol_fed = _effective_solubility(
-        solubility_water_mg_mL, meal.bile_conc_mM, bcs_class
-    )
+    sol_fed = _effective_solubility(solubility_water_mg_mL, meal.bile_conc_mM, bcs_class)
     # Delayed gastric emptying slows effective ka
     ge_delay_factor = fasted_meal.gastric_emptying_t50_h / meal.gastric_emptying_t50_h
     ka_fed_base = _ka_from_solubility_papp(sol_fed, papp_cm_s, dose_mg, bcs_class)
@@ -454,9 +447,7 @@ def food_effect_on_pk(
     elif bcs_class == 4:
         notes_parts.append("BCS IV: both low solubility and permeability")
     if meal.gastric_emptying_t50_h > 1.0:
-        notes_parts.append(
-            f"gastric emptying delayed to t50={meal.gastric_emptying_t50_h:.1f} h"
-        )
+        notes_parts.append(f"gastric emptying delayed to t50={meal.gastric_emptying_t50_h:.1f} h")
     notes = "; ".join(notes_parts) if notes_parts else "standard food interaction"
 
     return FoodInteractionResult(

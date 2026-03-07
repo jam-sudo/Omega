@@ -70,9 +70,7 @@ class TestSpleenPKValidation:
 
     def test_zero_dt_raises(self):
         with pytest.raises(ValueError, match="dt_h"):
-            simulate_spleen_pk(
-                drug_name="Drug", dose_mg=10.0, cl_L_per_h=5.0, vd_L=50.0, dt_h=0.0
-            )
+            simulate_spleen_pk(drug_name="Drug", dose_mg=10.0, cl_L_per_h=5.0, vd_L=50.0, dt_h=0.0)
 
 
 class TestSpleenPKResult:
@@ -230,8 +228,10 @@ class TestMPSUptakeAnalysis:
     def test_classification_strings(self):
         results = self._run()
         valid = {
-            "Low MPS uptake", "Moderate MPS uptake",
-            "High MPS uptake", "Extensive MPS sequestration",
+            "Low MPS uptake",
+            "Moderate MPS uptake",
+            "High MPS uptake",
+            "Extensive MPS sequestration",
         }
         for r in results:
             assert r["classification"] in valid

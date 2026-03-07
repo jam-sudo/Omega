@@ -11,7 +11,6 @@ from omega_pbpk.prediction.formulation_screener import (
     screen_formulations,
 )
 
-
 # ---------------------------------------------------------------------------
 # screen_formulations
 # ---------------------------------------------------------------------------

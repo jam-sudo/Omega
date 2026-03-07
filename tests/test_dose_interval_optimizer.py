@@ -16,6 +16,7 @@ from omega_pbpk.clinical.dose_interval_optimizer import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _default(**kw) -> DoseIntervalResult:
     defaults = dict(
         drug_name="TestDrug",
@@ -37,6 +38,7 @@ def _default(**kw) -> DoseIntervalResult:
 # ---------------------------------------------------------------------------
 # Return type and structure
 # ---------------------------------------------------------------------------
+
 
 class TestReturnType:
     def test_returns_dose_interval_result(self):
@@ -75,6 +77,7 @@ class TestReturnType:
 # PK metric validity
 # ---------------------------------------------------------------------------
 
+
 class TestPKMetrics:
     def test_troughs_non_negative(self):
         r = _default()
@@ -112,6 +115,7 @@ class TestPKMetrics:
 # ---------------------------------------------------------------------------
 # Optimal selection logic
 # ---------------------------------------------------------------------------
+
 
 class TestOptimalSelection:
     def test_meets_criteria_when_one_interval_fits(self):
@@ -164,6 +168,7 @@ class TestOptimalSelection:
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 class TestInputValidation:
     def test_invalid_drug_name(self):
@@ -230,6 +235,7 @@ class TestInputValidation:
 # ---------------------------------------------------------------------------
 # Accumulation ratio
 # ---------------------------------------------------------------------------
+
 
 class TestAccumulationRatio:
     def test_accumulation_ratio_greater_than_one(self):

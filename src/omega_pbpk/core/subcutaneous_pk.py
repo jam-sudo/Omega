@@ -174,9 +174,9 @@ def simulate_sc_pk(
     f_cap = 1.0 - f_lymph_val
 
     # Initial conditions
-    A_cap = dose_mg * f_cap    # mg in capillary depot
+    A_cap = dose_mg * f_cap  # mg in capillary depot
     A_lymph = dose_mg * f_lymph_val  # mg in lymphatic depot
-    C = 0.0                    # plasma concentration (mg/L)
+    C = 0.0  # plasma concentration (mg/L)
 
     ke = cl_L_per_h / vd_L  # elimination rate constant (1/h)
 
@@ -193,11 +193,7 @@ def simulate_sc_pk(
     for i in range(n_steps):
         dA_cap = -ka_capillary_per_h * A_cap
         dA_lymph = -ka_lymph_per_h * A_lymph
-        dC = (
-            ka_capillary_per_h * A_cap / vd_L
-            + ka_lymph_per_h * A_lymph / vd_L
-            - ke * C
-        )
+        dC = ka_capillary_per_h * A_cap / vd_L + ka_lymph_per_h * A_lymph / vd_L - ke * C
 
         # Absorbed in this step
         absorbed_cap += -dA_cap * dt_h
@@ -624,9 +620,7 @@ def compare_sc_formulations(
     for idx, form in enumerate(formulations):
         missing = required_keys - set(form.keys())
         if missing:
-            raise ValueError(
-                f"Formulation {idx} is missing required keys: {missing}"
-            )
+            raise ValueError(f"Formulation {idx} is missing required keys: {missing}")
 
     results: list[dict] = []
     for form in formulations:
@@ -644,18 +638,20 @@ def compare_sc_formulations(
             f_sc=f_sc_val,
             lag_time_h=lag_h,
         )
-        results.append({
-            "name": name,
-            "ka_sc": ka_sc,
-            "f_sc": f_sc_val,
-            "lag_h": lag_h,
-            "auc_sc": sim.auc_sc,
-            "auc_iv": sim.auc_iv,
-            "cmax_sc": sim.cmax_sc,
-            "tmax_sc_h": sim.tmax_sc_h,
-            "bioavailability_ratio": sim.bioavailability_ratio,
-            "t_half_h": sim.t_half_h,
-        })
+        results.append(
+            {
+                "name": name,
+                "ka_sc": ka_sc,
+                "f_sc": f_sc_val,
+                "lag_h": lag_h,
+                "auc_sc": sim.auc_sc,
+                "auc_iv": sim.auc_iv,
+                "cmax_sc": sim.cmax_sc,
+                "tmax_sc_h": sim.tmax_sc_h,
+                "bioavailability_ratio": sim.bioavailability_ratio,
+                "t_half_h": sim.t_half_h,
+            }
+        )
 
     # Sort by AUC descending
     results.sort(key=lambda d: d["auc_sc"], reverse=True)

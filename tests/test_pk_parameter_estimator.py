@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import pytest
 
 from omega_pbpk.prediction.pk_parameter_estimator import (
@@ -13,10 +14,10 @@ from omega_pbpk.prediction.pk_parameter_estimator import (
     estimate_vd_human,
 )
 
-
 # ---------------------------------------------------------------------------
 # estimate_cl_human
 # ---------------------------------------------------------------------------
+
 
 class TestEstimateClHuman:
     def test_returns_float(self):
@@ -72,6 +73,7 @@ class TestEstimateClHuman:
 # estimate_vd_human
 # ---------------------------------------------------------------------------
 
+
 class TestEstimateVdHuman:
     def test_returns_float(self):
         vd = estimate_vd_human(2.0, 300.0, 0.1, 60.0, 2)
@@ -108,6 +110,7 @@ class TestEstimateVdHuman:
 # estimate_oral_bioavailability
 # ---------------------------------------------------------------------------
 
+
 class TestEstimateOralBioavailability:
     def test_returns_float(self):
         f = estimate_oral_bioavailability(2.0, 300.0, 60.0, 2)
@@ -140,6 +143,7 @@ class TestEstimateOralBioavailability:
 # ---------------------------------------------------------------------------
 # estimate_full_pk
 # ---------------------------------------------------------------------------
+
 
 class TestEstimateFullPk:
     def setup_method(self):
@@ -251,8 +255,8 @@ class TestEstimateFullPk:
     def test_confidence_low_two_violations(self):
         result = estimate_full_pk(
             compound_name="LowConf",
-            logP=5.0,    # violation: logP > 4
-            mw=600.0,    # violation: MW >= 500
+            logP=5.0,  # violation: logP > 4
+            mw=600.0,  # violation: MW >= 500
             psa_A2=60.0,
             n_hbd=2,
         )

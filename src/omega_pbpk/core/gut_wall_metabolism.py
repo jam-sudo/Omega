@@ -28,12 +28,12 @@ class GutWallResult:
     """Result of gut wall first-pass extraction calculation."""
 
     drug_name: str
-    fa: float                    # fraction absorbed (0–1)
-    fg: float                    # gut wall availability (1 − Eg)
-    fh: float                    # hepatic availability (1 − Eh)
-    f_oral: float                # fa × fg × fh
-    eg: float                    # gut extraction ratio
-    eh: float                    # hepatic extraction ratio
+    fa: float  # fraction absorbed (0–1)
+    fg: float  # gut wall availability (1 − Eg)
+    fh: float  # hepatic availability (1 − Eh)
+    f_oral: float  # fa × fg × fh
+    eg: float  # gut extraction ratio
+    eh: float  # hepatic extraction ratio
     clg_int_mL_per_min: float
     qg_mL_per_min: float
     notes: str
@@ -42,6 +42,7 @@ class GutWallResult:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def calculate_gut_wall_extraction(
     drug_name: str,
@@ -76,18 +77,12 @@ def calculate_gut_wall_extraction(
     """
     if clg_int_mL_per_min < 0:
         raise ValueError(
-            f"clg_int_mL_per_min must be >= 0 for '{drug_name}', "
-            f"got {clg_int_mL_per_min}"
+            f"clg_int_mL_per_min must be >= 0 for '{drug_name}', got {clg_int_mL_per_min}"
         )
     if not 0.0 <= fu_gut <= 1.0:
-        raise ValueError(
-            f"fu_gut must be in [0, 1] for '{drug_name}', got {fu_gut}"
-        )
+        raise ValueError(f"fu_gut must be in [0, 1] for '{drug_name}', got {fu_gut}")
     if qg_mL_per_min <= 0:
-        raise ValueError(
-            f"qg_mL_per_min must be positive for '{drug_name}', "
-            f"got {qg_mL_per_min}"
-        )
+        raise ValueError(f"qg_mL_per_min must be positive for '{drug_name}', got {qg_mL_per_min}")
 
     effective_cl = clg_int_mL_per_min * fu_gut
     eg = effective_cl / (qg_mL_per_min + effective_cl)
@@ -141,24 +136,18 @@ def bioavailability_with_gut_wall(
         cl_hepatic_L_per_h < 0.
     """
     if not 0.0 <= fa <= 1.0:
-        raise ValueError(
-            f"fa must be in [0, 1] for '{drug_name}', got {fa}"
-        )
+        raise ValueError(f"fa must be in [0, 1] for '{drug_name}', got {fa}")
     if clg_int_mL_per_min < 0:
         raise ValueError(
-            f"clg_int_mL_per_min must be >= 0 for '{drug_name}', "
-            f"got {clg_int_mL_per_min}"
+            f"clg_int_mL_per_min must be >= 0 for '{drug_name}', got {clg_int_mL_per_min}"
         )
     if cl_hepatic_L_per_h < 0:
         raise ValueError(
-            f"cl_hepatic_L_per_h must be >= 0 for '{drug_name}', "
-            f"got {cl_hepatic_L_per_h}"
+            f"cl_hepatic_L_per_h must be >= 0 for '{drug_name}', got {cl_hepatic_L_per_h}"
         )
 
     # Gut wall extraction
-    eg, fg = calculate_gut_wall_extraction(
-        drug_name, clg_int_mL_per_min, fu_gut, qg_mL_per_min
-    )
+    eg, fg = calculate_gut_wall_extraction(drug_name, clg_int_mL_per_min, fu_gut, qg_mL_per_min)
 
     # Hepatic extraction — well-stirred model (convert units to mL/min)
     qh_mL_per_min = qh_L_per_h * 1000.0 / 60.0

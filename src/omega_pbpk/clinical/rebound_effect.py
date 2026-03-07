@@ -24,13 +24,13 @@ class ReboundResult:
     n_doses_chronic: int
     times_h: list[float]
     c_plasma_mg_L: list[float]
-    effect: list[float]             # Normalized PD effect (0-1, 1=baseline)
-    receptor_density: list[float]   # Receptor upregulation factor (1.0 = normal)
-    drug_phase: list[str]           # "dosing", "withdrawal"
-    peak_rebound: float             # Max effect above baseline (overshoot)
+    effect: list[float]  # Normalized PD effect (0-1, 1=baseline)
+    receptor_density: list[float]  # Receptor upregulation factor (1.0 = normal)
+    drug_phase: list[str]  # "dosing", "withdrawal"
+    peak_rebound: float  # Max effect above baseline (overshoot)
     time_peak_rebound_h: float
-    rebound_duration_h: float       # Duration effect > 1.1 * baseline
-    withdrawal_onset_h: float       # Time of drug discontinuation
+    rebound_duration_h: float  # Duration effect > 1.1 * baseline
+    withdrawal_onset_h: float  # Time of drug discontinuation
     notes: str
 
 
@@ -43,9 +43,9 @@ def simulate_rebound(
     dosing_interval_h: float = 12.0,
     ec50_mg_L: float = 0.1,
     emax: float = 0.8,
-    k_receptor_up: float = 0.1,    # Receptor upregulation rate (h^-1)
-    k_receptor_down: float = 0.05, # Receptor downregulation rate (h^-1)
-    receptor_max: float = 3.0,     # Maximum receptor upregulation fold
+    k_receptor_up: float = 0.1,  # Receptor upregulation rate (h^-1)
+    k_receptor_down: float = 0.05,  # Receptor downregulation rate (h^-1)
+    receptor_max: float = 3.0,  # Maximum receptor upregulation fold
     ka_per_h: float = 1.0,
     f_oral: float = 0.9,
     t_washout_h: float = 72.0,

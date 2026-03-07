@@ -135,8 +135,10 @@ def bridge_iv_to_oral(
     tmax = max(0.1, tmax)
 
     # Cmax: analytical oral 1-cpt
-    cmax = (oral_dose_mg * f_oral * ka) / (vd_iv_L * (ka - ke)) * (
-        math.exp(-ke * tmax) - math.exp(-ka * tmax)
+    cmax = (
+        (oral_dose_mg * f_oral * ka)
+        / (vd_iv_L * (ka - ke))
+        * (math.exp(-ke * tmax) - math.exp(-ka * tmax))
     )
     cmax = abs(cmax)
 
@@ -149,8 +151,7 @@ def bridge_iv_to_oral(
         pred_err = float("nan")
 
     notes = (
-        f"EH={eh:.3f}, FH={fh:.3f}, fa={fa:.3f}, fg={fg:.3f}; "
-        f"ka={ka:.3f} h^-1, ke={ke:.3f} h^-1"
+        f"EH={eh:.3f}, FH={fh:.3f}, fa={fa:.3f}, fg={fg:.3f}; ka={ka:.3f} h^-1, ke={ke:.3f} h^-1"
     )
 
     return IVOralBridgeResult(

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.core.membrane_transport import (
@@ -14,7 +12,6 @@ from omega_pbpk.core.membrane_transport import (
     passive_permeability,
     simulate_caco2,
 )
-
 
 # ---------------------------------------------------------------------------
 # passive_permeability
@@ -36,14 +33,22 @@ class TestPassivePermeability:
 
     def test_neutral_vs_anionic_charge(self):
         """Anionic compounds should have lower Papp than neutral."""
-        p_neutral = passive_permeability(logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="neutral")
-        p_anionic = passive_permeability(logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="anionic")
+        p_neutral = passive_permeability(
+            logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="neutral"
+        )
+        p_anionic = passive_permeability(
+            logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="anionic"
+        )
         assert p_neutral > p_anionic
 
     def test_cationic_higher_than_neutral(self):
         """Cationic compounds typically have higher membrane affinity."""
-        p_neutral = passive_permeability(logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="neutral")
-        p_cationic = passive_permeability(logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="cationic")
+        p_neutral = passive_permeability(
+            logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="neutral"
+        )
+        p_cationic = passive_permeability(
+            logP=2.0, mw=300.0, psa_A2=60.0, n_hbd=2, charge_state="cationic"
+        )
         assert p_cationic > p_neutral
 
     def test_returns_float(self):
@@ -252,7 +257,6 @@ class TestSimulateCaco2:
         """Adding active uptake should increase AB permeability."""
         passive = simulate_caco2("Drug", logP=0.5, mw=400.0, psa_A2=100.0, n_hbd=5)
         active = simulate_caco2(
-            "Drug", logP=0.5, mw=400.0, psa_A2=100.0, n_hbd=5,
-            km_uM=50.0, vmax=200.0
+            "Drug", logP=0.5, mw=400.0, psa_A2=100.0, n_hbd=5, km_uM=50.0, vmax=200.0
         )
         assert active.papp_ab_cm_s >= passive.papp_ab_cm_s

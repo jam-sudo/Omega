@@ -7,15 +7,14 @@ import math
 import pytest
 
 from omega_pbpk.core.rbc_binding import (
-    RBCPKResult,
     RBCPartitionResult,
+    RBCPKResult,
     blood_to_plasma_ratio,
     cl_blood_to_plasma,
     fu_blood_from_bp,
     rbc_partitioning,
     simulate_rbc_pk,
 )
-
 
 # ---------------------------------------------------------------------------
 # blood_to_plasma_ratio

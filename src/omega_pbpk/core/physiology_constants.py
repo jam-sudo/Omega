@@ -405,17 +405,12 @@ def get_physiology(
         If species, sex, or age_category is invalid.
     """
     if species not in _VALID_SPECIES:
-        raise ValueError(
-            f"Unknown species '{species}'. Valid options: {sorted(_VALID_SPECIES)}"
-        )
+        raise ValueError(f"Unknown species '{species}'. Valid options: {sorted(_VALID_SPECIES)}")
     if sex not in _VALID_SEXES:
-        raise ValueError(
-            f"Unknown sex '{sex}'. Valid options: {sorted(_VALID_SEXES)}"
-        )
+        raise ValueError(f"Unknown sex '{sex}'. Valid options: {sorted(_VALID_SEXES)}")
     if age_category not in _VALID_AGE_CATEGORIES:
         raise ValueError(
-            f"Unknown age_category '{age_category}'. "
-            f"Valid options: {sorted(_VALID_AGE_CATEGORIES)}"
+            f"Unknown age_category '{age_category}'. Valid options: {sorted(_VALID_AGE_CATEGORIES)}"
         )
 
     # Look up the adult reference (we store only adult references; age scaling applied below)
@@ -447,12 +442,11 @@ def list_available_profiles() -> list[str]:
         Sorted list of strings describing available combinations.
     """
     base_combos = [
-        f"{species}/{sex}/adult"
-        for (species, sex, _) in sorted(_REFERENCE_PROFILES.keys())
+        f"{species}/{sex}/adult" for (species, sex, _) in sorted(_REFERENCE_PROFILES.keys())
     ]
     # Add age categories derived by scaling
     derived = []
-    for (species, sex, _) in sorted(_REFERENCE_PROFILES.keys()):
+    for species, sex, _ in sorted(_REFERENCE_PROFILES.keys()):
         for age in ("pediatric", "neonatal", "elderly"):
             derived.append(f"{species}/{sex}/{age}")
 

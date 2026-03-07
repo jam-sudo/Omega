@@ -12,7 +12,6 @@ from omega_pbpk.prediction.solubility_predictor import (
     predict_solubility,
 )
 
-
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------

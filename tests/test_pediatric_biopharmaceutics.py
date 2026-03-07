@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.biopharmaceutics.pediatric_biopharmaceutics import (
@@ -14,7 +12,6 @@ from omega_pbpk.biopharmaceutics.pediatric_biopharmaceutics import (
     pediatric_gi_parameters,
     simulate_pediatric_absorption,
 )
-
 
 # ---------------------------------------------------------------------------
 # pediatric_gastric_ph

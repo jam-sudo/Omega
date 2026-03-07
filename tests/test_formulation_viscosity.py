@@ -8,10 +8,10 @@ from omega_pbpk.prediction.formulation_viscosity import (
     screen_concentrations,
 )
 
-
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_zero_concentration_raises():
     with pytest.raises(ValueError, match="concentration_mg_mL"):
@@ -37,6 +37,7 @@ def test_negative_temperature_raises():
 # Return type
 # ---------------------------------------------------------------------------
 
+
 def test_returns_result():
     r = predict_viscosity("TestAb", concentration_mg_mL=50.0)
     assert isinstance(r, ViscosityResult)
@@ -56,6 +57,7 @@ def test_result_fields():
 # ---------------------------------------------------------------------------
 # Concentration effect
 # ---------------------------------------------------------------------------
+
 
 def test_viscosity_increases_with_concentration():
     low = predict_viscosity("TestAb", concentration_mg_mL=10.0)
@@ -78,6 +80,7 @@ def test_very_high_conc_higher_than_low_conc():
 # Temperature effect
 # ---------------------------------------------------------------------------
 
+
 def test_higher_temp_lower_viscosity():
     cold = predict_viscosity("TestAb", concentration_mg_mL=100.0, temperature_C=4.0)
     warm = predict_viscosity("TestAb", concentration_mg_mL=100.0, temperature_C=37.0)
@@ -87,6 +90,7 @@ def test_higher_temp_lower_viscosity():
 # ---------------------------------------------------------------------------
 # Excipient effects
 # ---------------------------------------------------------------------------
+
 
 def test_arginine_reduces_viscosity():
     no_arg = predict_viscosity("TestAb", concentration_mg_mL=120.0, arginine_mM=0.0)
@@ -101,14 +105,14 @@ def test_nacl_reduces_viscosity():
 
 
 def test_excipient_effect_bounded():
-    r = predict_viscosity("TestAb", concentration_mg_mL=100.0,
-                          arginine_mM=300.0, nacl_mM=300.0)
+    r = predict_viscosity("TestAb", concentration_mg_mL=100.0, arginine_mM=300.0, nacl_mM=300.0)
     assert 0.0 <= r.excipient_effect <= 0.40
 
 
 # ---------------------------------------------------------------------------
 # Self-association index
 # ---------------------------------------------------------------------------
+
 
 def test_self_association_nonnegative():
     r = predict_viscosity("TestAb", concentration_mg_mL=50.0)
@@ -125,6 +129,7 @@ def test_higher_hydrophobicity_increases_kd():
 # SC injectability threshold
 # ---------------------------------------------------------------------------
 
+
 def test_sc_injectable_below_20cP():
     r = predict_viscosity("TestAb", concentration_mg_mL=1.0)
     assert r.viscosity_cP < 20.0
@@ -139,6 +144,7 @@ def test_concentration_for_20cP_positive():
 # ---------------------------------------------------------------------------
 # Category values
 # ---------------------------------------------------------------------------
+
 
 def test_viscosity_category_values():
     r = predict_viscosity("TestAb", concentration_mg_mL=50.0)
@@ -155,6 +161,7 @@ def test_low_category_sc_injectable():
 # Notes
 # ---------------------------------------------------------------------------
 
+
 def test_notes_not_empty():
     r = predict_viscosity("TestAb", concentration_mg_mL=100.0)
     assert len(r.notes) > 0
@@ -164,6 +171,7 @@ def test_notes_not_empty():
 # ---------------------------------------------------------------------------
 # screen_concentrations
 # ---------------------------------------------------------------------------
+
 
 def test_screen_returns_correct_count():
     concs = [10.0, 50.0, 100.0, 150.0, 200.0]

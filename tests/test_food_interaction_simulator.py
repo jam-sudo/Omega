@@ -12,7 +12,6 @@ from omega_pbpk.biopharmaceutics.food_interaction_simulator import (
     meal_composition,
 )
 
-
 # ---------------------------------------------------------------------------
 # meal_composition tests
 # ---------------------------------------------------------------------------

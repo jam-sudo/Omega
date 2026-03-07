@@ -26,6 +26,7 @@ def _run(**overrides):
 
 # --- 1. Basic simulation ---
 
+
 def test_basic_simulation_returns_result():
     result = _run()
     assert isinstance(result, LymphNodePKResult)
@@ -55,6 +56,7 @@ def test_times_length_matches_concentrations():
 
 
 # --- Validation ---
+
 
 def test_negative_dose_raises():
     with pytest.raises(ValueError, match="dose_mg"):
@@ -89,6 +91,7 @@ def test_negative_lymph_volume_raises():
 
 
 # --- PK behaviour ---
+
 
 def test_higher_k_lymph_in_increases_lymph_cmax():
     low = _run(k_lymph_in_per_h=0.01)
@@ -135,6 +138,7 @@ def test_plasma_concentration_starts_positive():
 
 # --- Derived metrics ---
 
+
 def test_lymph_to_plasma_ratio_positive():
     result = _run()
     assert result.lymph_to_plasma_ratio > 0
@@ -177,6 +181,7 @@ def test_concentrations_non_negative():
 
 
 # --- compare_formulation_lymph ---
+
 
 def test_compare_formulation_returns_list():
     formulations = [

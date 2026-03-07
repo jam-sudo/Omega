@@ -28,10 +28,10 @@ class ImmunosuppressantPKResult:
 
     times_h: list[float] = field(default_factory=list)
     c_whole_blood_ng_mL: list[float] = field(default_factory=list)  # whole-blood conc
-    il2_inhibition_pct: list[float] = field(default_factory=list)   # % IL-2 inhibition
+    il2_inhibition_pct: list[float] = field(default_factory=list)  # % IL-2 inhibition
 
-    c_trough_ng_mL: float = 0.0    # Pre-dose trough at steady state
-    c_peak_ng_mL: float = 0.0     # Peak whole-blood concentration
+    c_trough_ng_mL: float = 0.0  # Pre-dose trough at steady state
+    c_peak_ng_mL: float = 0.0  # Peak whole-blood concentration
     auc_tau_ng_h_mL: float = 0.0  # AUC over last dosing interval
     in_therapeutic_range: bool = False
     therapeutic_range_ng_mL: tuple[float, float] = (0.0, 0.0)
@@ -101,7 +101,7 @@ def simulate_immunosuppressant_pk(
     times = [i * dt_h for i in range(n_steps)]
 
     c_blood = [0.0] * n_steps  # ng/mL
-    a_gut = [0.0] * n_steps    # ng in gut depot
+    a_gut = [0.0] * n_steps  # ng in gut depot
 
     # Administer first dose at t=0
     a_gut[0] = bioavail_dose_ng

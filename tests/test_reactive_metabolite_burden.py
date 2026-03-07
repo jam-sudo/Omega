@@ -10,7 +10,6 @@ from omega_pbpk.risk.reactive_metabolite_burden import (
     screen_compounds,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
@@ -160,8 +159,15 @@ def test_burden_scales_linearly_with_clint():
 
 def test_risk_low():
     # tiny dose + tiny clint => low burden
-    result = _compute(daily_dose_mg=1.0, clint_L_per_h=0.001, fm_cyp3a4=0.01,
-                      fm_cyp2d6=0.0, fm_cyp2c9=0.0, fm_cyp1a2=0.0, logP=2.0)
+    result = _compute(
+        daily_dose_mg=1.0,
+        clint_L_per_h=0.001,
+        fm_cyp3a4=0.01,
+        fm_cyp2d6=0.0,
+        fm_cyp2c9=0.0,
+        fm_cyp1a2=0.0,
+        logP=2.0,
+    )
     assert result.risk_category == "low"
 
 

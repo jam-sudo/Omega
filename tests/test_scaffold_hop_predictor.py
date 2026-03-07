@@ -13,10 +13,10 @@ from omega_pbpk.prediction.scaffold_hop_predictor import (
     predict_scaffold_hop_impact,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_drug(**kwargs):
     """Return a minimal valid drug dict with optional overrides."""
@@ -43,6 +43,7 @@ def _make_pair(**candidate_kwargs):
 # ---------------------------------------------------------------------------
 # 1. ScaffoldHopResult dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestScaffoldHopResult:
     def test_result_is_frozen(self):
@@ -84,6 +85,7 @@ class TestScaffoldHopResult:
 # ---------------------------------------------------------------------------
 # 2. _validate_drug_dict
 # ---------------------------------------------------------------------------
+
 
 class TestValidateDrugDict:
     def test_valid_dict_passes(self):
@@ -141,6 +143,7 @@ class TestValidateDrugDict:
 # 3. _predict_vd_change
 # ---------------------------------------------------------------------------
 
+
 class TestPredictVdChange:
     def test_large_logP_increase_returns_increase(self):
         assert _predict_vd_change(0, 1.5, 0) == "increase"
@@ -176,6 +179,7 @@ class TestPredictVdChange:
 # 4. _predict_absorption_change
 # ---------------------------------------------------------------------------
 
+
 class TestPredictAbsorptionChange:
     def test_large_mw_increase_decreases_absorption(self):
         assert _predict_absorption_change(120, 0, 0, 0) == "decrease"
@@ -204,6 +208,7 @@ class TestPredictAbsorptionChange:
 # ---------------------------------------------------------------------------
 # 5. _predict_cl_change
 # ---------------------------------------------------------------------------
+
 
 class TestPredictClChange:
     def test_large_logP_increase_increases_cl(self):
@@ -243,6 +248,7 @@ class TestPredictClChange:
 # ---------------------------------------------------------------------------
 # 6. _assess_risk_flags
 # ---------------------------------------------------------------------------
+
 
 class TestAssessRiskFlags:
     def test_large_mw_increase_flag(self):
@@ -310,6 +316,7 @@ class TestAssessRiskFlags:
 # 7. _overall_recommendation
 # ---------------------------------------------------------------------------
 
+
 class TestOverallRecommendation:
     def test_very_high_logP_returns_poor(self):
         candidate = _make_drug(logP=8.0, mw=400.0, psa=60.0)
@@ -348,6 +355,7 @@ class TestOverallRecommendation:
 # ---------------------------------------------------------------------------
 # 8. predict_scaffold_hop_impact (integration tests)
 # ---------------------------------------------------------------------------
+
 
 class TestPredictScaffoldHopImpact:
     def test_returns_scaffold_hop_result(self):

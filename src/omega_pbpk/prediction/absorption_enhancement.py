@@ -23,7 +23,7 @@ from dataclasses import dataclass
 # Constants
 # ---------------------------------------------------------------------------
 _PEFF_HIGH_THRESHOLD = 2.0e-4  # cm/s — BCS high permeability cutoff
-_DN_HIGH_SOL_THRESHOLD = 1.0   # dimensionless dose number cutoff
+_DN_HIGH_SOL_THRESHOLD = 1.0  # dimensionless dose number cutoff
 
 # BCS-based baseline fa values
 _BASELINE_FA = {
@@ -238,9 +238,7 @@ def predict_absorption_enhancement(
         raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
 
     # BCS classification
-    bcs_class, dose_number = _classify_bcs(
-        peff_cm_per_s, dose_mg, solubility_mg_mL, dose_volume_mL
-    )
+    bcs_class, dose_number = _classify_bcs(peff_cm_per_s, dose_mg, solubility_mg_mL, dose_volume_mL)
 
     # Baseline fa
     baseline = _baseline_fa(bcs_class, dose_number)

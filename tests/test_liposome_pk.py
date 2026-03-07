@@ -28,6 +28,7 @@ BASE_PARAMS = dict(
 
 # ── Basic smoke tests ──────────────────────────────────────────────────────────
 
+
 def test_simulate_conventional_returns_result():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
     assert isinstance(result, LiposomePKResult)
@@ -55,6 +56,7 @@ def test_result_fields_populated():
 
 # ── PEGylated liposome has longer circulation (higher AUC_liposome) ───────────
 
+
 def test_pegylated_has_higher_liposome_auc_than_conventional():
     conv = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
     peg = simulate_liposome_pk(**BASE_PARAMS, liposome_type="pegylated")
@@ -68,6 +70,7 @@ def test_pegylated_longer_liposome_half_life():
 
 
 # ── Targeted liposome has faster release ──────────────────────────────────────
+
 
 def test_targeted_has_higher_k_release():
     targeted = simulate_liposome_pk(**BASE_PARAMS, liposome_type="targeted")
@@ -83,6 +86,7 @@ def test_targeted_faster_tmax_than_conventional():
 
 # ── Free drug concentration starts at 0 ──────────────────────────────────────
 
+
 def test_free_drug_starts_at_zero():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
     assert result.c_free_mg_L[0] == pytest.approx(0.0, abs=1e-6)
@@ -96,6 +100,7 @@ def test_liposome_concentration_starts_at_dose_over_vd():
 
 # ── Liposome concentration decreases monotonically ───────────────────────────
 
+
 def test_liposome_concentration_decreases():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
     for i in range(1, len(result.c_liposome_mg_L)):
@@ -103,6 +108,7 @@ def test_liposome_concentration_decreases():
 
 
 # ── f_released approaches 1 at large t ───────────────────────────────────────
+
 
 def test_f_released_approaches_1_at_large_t():
     long_params = {**BASE_PARAMS, "t_end_h": 200.0}
@@ -117,6 +123,7 @@ def test_f_released_between_0_and_1():
 
 # ── AUC is positive ───────────────────────────────────────────────────────────
 
+
 def test_auc_free_positive():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
     assert result.auc_free > 0.0
@@ -129,6 +136,7 @@ def test_auc_liposome_positive():
 
 # ── Cmax and tmax are within simulation range ──────────────────────────────────
 
+
 def test_cmax_free_positive():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
     assert result.cmax_free > 0.0
@@ -140,6 +148,7 @@ def test_tmax_free_within_simulation_range():
 
 
 # ── compare_liposome_types returns 3 keys ────────────────────────────────────
+
 
 def test_compare_returns_three_keys():
     results = compare_liposome_types(
@@ -176,6 +185,7 @@ def test_compare_pegylated_auc_liposome_greatest():
 
 
 # ── Validation errors ─────────────────────────────────────────────────────────
+
 
 def test_invalid_liposome_type_raises():
     with pytest.raises(ValueError, match="liposome_type"):
@@ -214,6 +224,7 @@ def test_negative_vd_liposome_raises():
 
 # ── Notes field populated ─────────────────────────────────────────────────────
 
+
 def test_notes_mention_pegylation():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="pegylated")
     assert "PEG" in result.notes or "pegylated" in result.notes.lower()
@@ -225,6 +236,7 @@ def test_notes_not_empty():
 
 
 # ── Time array consistency ────────────────────────────────────────────────────
+
 
 def test_time_array_starts_at_zero():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")
@@ -238,6 +250,7 @@ def test_time_array_ends_at_or_near_t_end():
 
 # ── Dose proportionality ──────────────────────────────────────────────────────
 
+
 def test_doubled_dose_doubles_auc_free():
     params_lo = {**BASE_PARAMS, "dose_mg": 50.0}
     params_hi = {**BASE_PARAMS, "dose_mg": 100.0}
@@ -248,6 +261,7 @@ def test_doubled_dose_doubles_auc_free():
 
 
 # ── Half-life plausibility ────────────────────────────────────────────────────
+
 
 def test_liposome_half_life_positive():
     result = simulate_liposome_pk(**BASE_PARAMS, liposome_type="conventional")

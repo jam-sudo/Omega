@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from omega_pbpk.prediction.pk_from_smiles import (
@@ -197,10 +195,7 @@ class TestBatchPredictPK:
         assert isinstance(results, list)
 
     def test_length_matches_input(self):
-        compounds = [
-            {"smiles": ASPIRIN_SMILES, "name": f"Compound{i}"}
-            for i in range(4)
-        ]
+        compounds = [{"smiles": ASPIRIN_SMILES, "name": f"Compound{i}"} for i in range(4)]
         results = batch_predict_pk(compounds)
         assert len(results) == 4
 

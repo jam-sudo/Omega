@@ -53,9 +53,7 @@ class TestRankParametersValidation:
 
     def test_unknown_param_range_key_raises(self):
         with pytest.raises(ValueError, match="not found in base_params"):
-            rank_parameters(
-                self.BASE, {"unknown_param": (0.5, 1.5)}, _auc_function, "AUC"
-            )
+            rank_parameters(self.BASE, {"unknown_param": (0.5, 1.5)}, _auc_function, "AUC")
 
     def test_non_dict_param_ranges_raises(self):
         with pytest.raises(ValueError, match="param_ranges"):
@@ -156,14 +154,15 @@ class TestRankParametersSensitivity:
     def test_custom_param_ranges_used(self):
         """Providing a tighter range for one param reduces its apparent SI."""
         base = {"dose": 100.0, "F": 0.8, "CL": 5.0, "Vd": 20.0}
-        ranges_narrow = {"CL": (4.9, 5.1)}   # very narrow vs ±20%
+        ranges_narrow = {"CL": (4.9, 5.1)}  # very narrow vs ±20%
         result_narrow = rank_parameters(base, ranges_narrow, _auc_function, "AUC")
         result_wide = rank_parameters(base, {}, _auc_function, "AUC")
         cl_idx_narrow = result_narrow.param_names.index("CL")
         cl_idx_wide = result_wide.param_names.index("CL")
         # Narrow range → smaller delta_param → lower SI
-        assert result_narrow.sensitivity_indices[cl_idx_narrow] < (
-            result_wide.sensitivity_indices[cl_idx_wide]
+        assert (
+            result_narrow.sensitivity_indices[cl_idx_narrow]
+            < (result_wide.sensitivity_indices[cl_idx_wide])
         )
 
     def test_n_samples_parameter_accepted(self):

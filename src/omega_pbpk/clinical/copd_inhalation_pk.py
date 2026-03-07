@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 # Fine-particle fraction (FPF) defaults by device type (fraction reaching lower airways)
 _DEVICE_K_ABS: dict[str, float] = {
-    "MDI": 3.0,        # /h
-    "DPI": 2.0,        # /h
+    "MDI": 3.0,  # /h
+    "DPI": 2.0,  # /h
     "nebulizer": 1.5,  # /h
 }
 
@@ -163,9 +163,7 @@ def simulate_copd_inhalation_pk(
     times, c_normal = _simulate_lung_plasma(
         lung_dose_normal, k_abs, cl_L_per_h, vd_L, t_end_h, dt_h
     )
-    _, c_copd = _simulate_lung_plasma(
-        lung_dose_copd, k_abs, cl_L_per_h, vd_L, t_end_h, dt_h
-    )
+    _, c_copd = _simulate_lung_plasma(lung_dose_copd, k_abs, cl_L_per_h, vd_L, t_end_h, dt_h)
 
     cmax_normal = max(c_normal) if c_normal else 0.0
     cmax_copd = max(c_copd) if c_copd else 0.0

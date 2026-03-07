@@ -4,7 +4,6 @@ import pytest
 
 from omega_pbpk.risk.dili_score import DILIResult, score_dili, screen_dili
 
-
 # ── Validation tests ──────────────────────────────────────────────────
 
 
@@ -54,7 +53,11 @@ class TestResultStructure:
     def test_score_clamped_0_100(self):
         # Trigger everything: high dose, logP>3, mw<300, reactive met, mito, bile
         r = score_dili(
-            "Bad", "CCNS", 250, 4.0, 200,
+            "Bad",
+            "CCNS",
+            250,
+            4.0,
+            200,
             is_mitochondrial_toxin=True,
             bile_salt_export_inhibitor=True,
         )
@@ -131,7 +134,11 @@ class TestCategories:
 
     def test_high_category(self):
         r = score_dili(
-            "X", "CCNS", 250, 4.0, 200,
+            "X",
+            "CCNS",
+            250,
+            4.0,
+            200,
             is_mitochondrial_toxin=True,
             bile_salt_export_inhibitor=True,
         )
@@ -160,9 +167,21 @@ class TestCategories:
 class TestScreen:
     def test_screen_sorts_by_score_desc(self):
         compounds = [
-            {"compound_name": "Safe", "smiles": "CCCCCCCC", "mw": 500, "logP": 1.0, "daily_dose_mg": 5},
-            {"compound_name": "Risky", "smiles": "CCNS", "mw": 250, "logP": 4.0, "daily_dose_mg": 200,
-             "is_mitochondrial_toxin": True},
+            {
+                "compound_name": "Safe",
+                "smiles": "CCCCCCCC",
+                "mw": 500,
+                "logP": 1.0,
+                "daily_dose_mg": 5,
+            },
+            {
+                "compound_name": "Risky",
+                "smiles": "CCNS",
+                "mw": 250,
+                "logP": 4.0,
+                "daily_dose_mg": 200,
+                "is_mitochondrial_toxin": True,
+            },
         ]
         results = screen_dili(compounds)
         assert results[0].compound_name == "Risky"

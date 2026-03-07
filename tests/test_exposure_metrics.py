@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
 from omega_pbpk.analysis.exposure_metrics import (
@@ -15,10 +14,10 @@ from omega_pbpk.analysis.exposure_metrics import (
     compute_nca_parameters,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: simple monoexponential profiles
 # ---------------------------------------------------------------------------
+
 
 def _monoexp_profile(
     dose_mg: float = 100.0,
@@ -39,8 +38,10 @@ def _monoexp_profile(
         else:
             if abs(ka_per_h - ke) < 1e-9:
                 ka_per_h += 1e-6
-            c = (dose_mg / vd_L) * (ka_per_h / (ka_per_h - ke)) * (
-                math.exp(-ke * t) - math.exp(-ka_per_h * t)
+            c = (
+                (dose_mg / vd_L)
+                * (ka_per_h / (ka_per_h - ke))
+                * (math.exp(-ke * t) - math.exp(-ka_per_h * t))
             )
             c = max(c, 0.0)
         c_list.append(c)

@@ -16,6 +16,7 @@ from omega_pbpk.analysis.exposure_response import (
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
+
 def _linear_data(n: int = 20):
     """Perfect linear: response = 2 + 0.5 * exposure."""
     exposures = [float(i) for i in range(1, n + 1)]
@@ -40,6 +41,7 @@ def _logistic_data():
 # ---------------------------------------------------------------------------
 # ExposureResponseResult dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestExposureResponseResult:
     def test_construction(self):
@@ -72,6 +74,7 @@ class TestExposureResponseResult:
 # ---------------------------------------------------------------------------
 # fit_exposure_response — validation
 # ---------------------------------------------------------------------------
+
 
 class TestFitExposureResponseValidation:
     def test_empty_exposures(self):
@@ -106,6 +109,7 @@ class TestFitExposureResponseValidation:
 # ---------------------------------------------------------------------------
 # fit_exposure_response — linear model
 # ---------------------------------------------------------------------------
+
 
 class TestFitLinear:
     def test_perfect_linear_r2(self):
@@ -151,6 +155,7 @@ class TestFitLinear:
 # ---------------------------------------------------------------------------
 # fit_exposure_response — Emax model
 # ---------------------------------------------------------------------------
+
 
 class TestFitEmax:
     def test_emax_model_type(self):
@@ -203,6 +208,7 @@ class TestFitEmax:
 # fit_exposure_response — logistic model
 # ---------------------------------------------------------------------------
 
+
 class TestFitLogistic:
     def test_logistic_model_type(self):
         xs, ys = _logistic_data()
@@ -240,6 +246,7 @@ class TestFitLogistic:
 # ---------------------------------------------------------------------------
 # quartile_analysis
 # ---------------------------------------------------------------------------
+
 
 class TestQuartileAnalysis:
     def test_basic_keys(self):

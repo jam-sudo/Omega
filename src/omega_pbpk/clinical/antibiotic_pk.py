@@ -51,9 +51,9 @@ _INDEX_NAME: dict[str, str] = {
 
 # Target thresholds
 _TARGET: dict[str, float] = {
-    "beta_lactam": 40.0,        # fT>MIC > 40%
-    "aminoglycoside": 10.0,     # Cmax/MIC > 10
-    "fluoroquinolone": 125.0,   # AUC24/MIC > 125
+    "beta_lactam": 40.0,  # fT>MIC > 40%
+    "aminoglycoside": 10.0,  # Cmax/MIC > 10
+    "fluoroquinolone": 125.0,  # AUC24/MIC > 125
 }
 
 
