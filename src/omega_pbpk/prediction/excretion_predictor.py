@@ -239,6 +239,10 @@ __all__ = [
     "renal_excretion_mechanism",
     "biliary_excretion_likelihood",
     "urine_ph_effect_on_excretion",
+    # Phase 656 additions
+    "ExcretionPrediction",
+    "predict_excretion",
+    "screen_excretion",
 ]
 
 
@@ -500,3 +504,200 @@ def urine_ph_effect_on_excretion(
         "cl_renal_adjusted_L_per_h": round(cl_adjusted, 4),
         "effect_direction": effect_direction,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 656 — comprehensive excretion prediction
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ExcretionPrediction:
+    """Comprehensive drug excretion prediction across all routes."""
+
+    compound_name: str
+    logP: float
+    mw: float
+    fe_urine_pred: float  # fraction excreted unchanged in urine (0-1)
+    fe_feces_pred: float  # fraction excreted via feces (0-1)
+    fe_metabolism_pred: float  # fraction eliminated by metabolism (0-1)
+    total_recovery: float  # sum (should ≈ 1.0)
+    renal_cl_pred_mL_per_min: float  # predicted renal clearance
+    biliary_excretion_flag: bool  # True if MW>400 and logP>2
+    dominant_route: str  # "renal", "metabolic", "biliary", "mixed"
+    molecular_weight_class: str  # "small" (<300), "medium" (300-500), "large" (>500)
+    lipinski_compliant: bool  # MW<500, logP<5, HBD<=5, HBA<=10
+    notes: str
+
+
+def predict_excretion(
+    compound_name: str,
+    logP: float,
+    mw: float,
+    psa: float,
+    fup: float,
+    clint_uL_per_min_per_mg: float = 10.0,
+    n_hbd: int = 2,
+    n_hba: int = 4,
+    pka_acid: float | None = None,
+    gfr_mL_per_min: float = 120.0,
+) -> ExcretionPrediction:
+    """Predict drug excretion routes from physicochemical and metabolic properties.
+
+    Parameters
+    ----------
+    compound_name : str
+        Name of the compound.
+    logP : float
+        Lipophilicity (log octanol/water).
+    mw : float
+        Molecular weight (Da), must be > 0.
+    psa : float
+        Polar surface area (Å²), must be >= 0.
+    fup : float
+        Fraction unbound in plasma (0, 1].
+    clint_uL_per_min_per_mg : float
+        Intrinsic clearance (μL/min/mg protein), default 10.
+    n_hbd : int
+        Number of hydrogen bond donors, default 2.
+    n_hba : int
+        Number of hydrogen bond acceptors, default 4.
+    pka_acid : float or None
+        Acidic pKa (optional).
+    gfr_mL_per_min : float
+        Glomerular filtration rate (mL/min), default 120.
+
+    Returns
+    -------
+    ExcretionPrediction
+    """
+    # Validation
+    if fup <= 0 or fup > 1:
+        raise ValueError("fup must be in (0, 1]")
+    if mw <= 0:
+        raise ValueError("mw must be > 0")
+    if psa < 0:
+        raise ValueError("psa must be >= 0")
+    if n_hbd < 0:
+        raise ValueError("n_hbd must be >= 0")
+    if n_hba < 0:
+        raise ValueError("n_hba must be >= 0")
+    if gfr_mL_per_min <= 0:
+        raise ValueError("gfr_mL_per_min must be > 0")
+
+    # Step 1: Base metabolic fraction from CLint
+    f_met = min(0.9, clint_uL_per_min_per_mg * 0.015)
+
+    # Step 2: Renal fraction (hydrophilic drugs favored)
+    f_renal_raw = fup * (gfr_mL_per_min / 120.0) * (1.0 - logP * 0.1)
+    f_renal = max(0.0, min(0.8, f_renal_raw))
+
+    # Step 3: Biliary fraction
+    biliary_excretion_flag = mw > 400 and logP > 2
+    f_biliary = 0.1 if biliary_excretion_flag else 0.0
+
+    # Step 4: Normalize if total > 1
+    total_raw = f_met + f_renal + f_biliary
+    if total_raw > 1.0:
+        f_met = f_met / total_raw
+        f_renal = f_renal / total_raw
+        f_biliary = f_biliary / total_raw
+
+    # Step 5: fe_urine = f_renal
+    fe_urine = f_renal
+
+    # Step 6: fe_feces = biliary + portion of remainder going to feces
+    remainder = max(0.0, 1.0 - f_met - f_renal - f_biliary)
+    fe_feces = f_biliary + remainder * 0.2
+
+    # Step 7: fe_metabolism = f_met
+    fe_metabolism = f_met
+
+    # Normalize total recovery to 1.0
+    total = fe_urine + fe_feces + fe_metabolism
+    if total > 0:
+        fe_urine = fe_urine / total
+        fe_feces = fe_feces / total
+        fe_metabolism = fe_metabolism / total
+    total_recovery = fe_urine + fe_feces + fe_metabolism
+
+    # Predicted renal clearance
+    renal_cl = fup * gfr_mL_per_min
+
+    # Dominant route
+    fractions = {
+        "renal": fe_urine,
+        "metabolic": fe_metabolism,
+        "biliary": fe_feces,
+    }
+    max_frac = max(fractions.values())
+    routes_above_30 = [r for r, v in fractions.items() if v >= 0.3]
+    if max_frac < 0.5:
+        dominant_route = "mixed"
+    elif len(routes_above_30) >= 2 and max_frac < 0.6:
+        dominant_route = "mixed"
+    else:
+        dominant_route = max(fractions, key=lambda k: fractions[k])
+
+    # Molecular weight class
+    if mw < 300:
+        molecular_weight_class = "small"
+    elif mw <= 500:
+        molecular_weight_class = "medium"
+    else:
+        molecular_weight_class = "large"
+
+    # Lipinski compliance: MW<500, logP<5, HBD<=5, HBA<=10
+    lipinski_compliant = mw < 500 and logP < 5 and n_hbd <= 5 and n_hba <= 10
+
+    # Notes
+    notes_parts = [
+        f"fe_urine={fe_urine:.3f}, fe_feces={fe_feces:.3f}, fe_metabolism={fe_metabolism:.3f}.",
+        f"Dominant route: {dominant_route}.",
+        f"Biliary excretion: {'yes' if biliary_excretion_flag else 'no'}.",
+        f"MW class: {molecular_weight_class}.",
+        f"Lipinski: {'compliant' if lipinski_compliant else 'non-compliant'}.",
+    ]
+    notes = " ".join(notes_parts)
+
+    return ExcretionPrediction(
+        compound_name=compound_name,
+        logP=logP,
+        mw=mw,
+        fe_urine_pred=fe_urine,
+        fe_feces_pred=fe_feces,
+        fe_metabolism_pred=fe_metabolism,
+        total_recovery=total_recovery,
+        renal_cl_pred_mL_per_min=renal_cl,
+        biliary_excretion_flag=biliary_excretion_flag,
+        dominant_route=dominant_route,
+        molecular_weight_class=molecular_weight_class,
+        lipinski_compliant=lipinski_compliant,
+        notes=notes,
+    )
+
+
+def screen_excretion(compounds: list[dict]) -> list[ExcretionPrediction]:
+    """Screen multiple compounds for excretion routes, sorted by fe_urine_pred descending."""
+    if not compounds:
+        return []
+
+    results: list[ExcretionPrediction] = []
+    for c in compounds:
+        result = predict_excretion(
+            compound_name=c.get("compound_name", "Unknown"),
+            logP=c["logP"],
+            mw=c["mw"],
+            psa=c.get("psa", 60.0),
+            fup=c.get("fup", 0.5),
+            clint_uL_per_min_per_mg=c.get("clint_uL_per_min_per_mg", 10.0),
+            n_hbd=c.get("n_hbd", 2),
+            n_hba=c.get("n_hba", 4),
+            pka_acid=c.get("pka_acid", None),
+            gfr_mL_per_min=c.get("gfr_mL_per_min", 120.0),
+        )
+        results.append(result)
+
+    # Sort by fe_urine_pred descending
+    results.sort(key=lambda r: r.fe_urine_pred, reverse=True)
+    return results
