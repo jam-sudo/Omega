@@ -5,7 +5,6 @@ Pure Python, no numpy/scipy.
 """
 
 
-
 def classify_ddi_severity(
     aucr: float,
     cmax_ratio: float = None,
