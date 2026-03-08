@@ -1,7 +1,7 @@
 """Tests for Phase 858 — Vaginal Drug Absorption."""
 
-import math
 import pytest
+
 from omega_pbpk.core.vaginal_absorption_p858 import (
     VaginalAbsorptionResult,
     simulate_vaginal_absorption,

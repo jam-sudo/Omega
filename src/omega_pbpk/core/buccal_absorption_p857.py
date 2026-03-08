@@ -44,7 +44,6 @@ def simulate_buccal_absorption(
     if mw_Da <= 0:
         raise ValueError("mw_Da must be > 0")
 
-    plasma_ph = 7.4
     k_wash = 0.2  # /h
 
     # pH-dependent unionized fraction
@@ -55,12 +54,7 @@ def simulate_buccal_absorption(
     f_unionized_buccal = max(0.001, min(1.0, f_unionized_buccal))
 
     # Permeability
-    P_buccal = (
-        0.002
-        * f_unionized_buccal
-        * max(0.1, logP + 1.0)
-        / max(1.0, mw_Da / 300.0)
-    )
+    P_buccal = 0.002 * f_unionized_buccal * max(0.1, logP + 1.0) / max(1.0, mw_Da / 300.0)
     P_buccal = max(0.001, min(0.5, P_buccal))
 
     kp_buccal = P_buccal / (P_buccal + k_wash)
