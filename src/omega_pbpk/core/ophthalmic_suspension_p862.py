@@ -51,7 +51,6 @@ def simulate_ophthalmic_suspension(
 
     # Dissolution rate (Noyes-Whitney simplified)
     D_coeff = 0.4e-6  # cm^2/s
-    particle_radius_cm = particle_size_um / 1e4 / 2.0
     k_diss_rate = 3 * D_coeff / ((particle_size_um / 1e4) * 10) * 3600
     k_diss_rate = max(0.1, min(100.0, k_diss_rate))
 
