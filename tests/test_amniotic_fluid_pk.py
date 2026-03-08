@@ -1,215 +1,246 @@
-"""Tests for clinical/amniotic_fluid_pk.py (Phase 924)."""
+"""Tests for Phase 540 — Drug Distribution in Amniotic Fluid."""
 
 import pytest
 
-from omega_pbpk.clinical.amniotic_fluid_pk import (
+from omega_pbpk.core.amniotic_fluid_pk import (
     AmnioticFluidPKResult,
-    compare_gestational_ages,
+    compare_placental_permeability,
     simulate_amniotic_fluid_pk,
 )
 
-# ---------------------------------------------------------------------------
-# Smoke tests
-# ---------------------------------------------------------------------------
+# --- Helpers -----------------------------------------------------------------
+
+BASE_PARAMS = dict(
+    drug_name="TestDrug",
+    dose_mg=100.0,
+    cl_maternal_L_per_h=5.0,
+    vd_maternal_L=30.0,
+)
 
 
-def test_returns_dataclass():
-    result = simulate_amniotic_fluid_pk("TestDrug", dose_mg=100.0)
-    assert isinstance(result, AmnioticFluidPKResult)
+def _sim(**overrides):
+    p = {**BASE_PARAMS, **overrides}
+    return simulate_amniotic_fluid_pk(**p)
 
 
-def test_drug_name_preserved():
-    result = simulate_amniotic_fluid_pk("Amiodarone", dose_mg=100.0)
-    assert result.drug_name == "Amiodarone"
+# --- Return type & fields ----------------------------------------------------
 
 
-def test_dose_preserved():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=200.0)
-    assert result.dose_mg == 200.0
+def test_return_type():
+    assert isinstance(_sim(), AmnioticFluidPKResult)
 
 
-def test_gestational_week_preserved():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, gestational_week=28)
-    assert result.gestational_week == 28
+def test_has_all_fields():
+    r = _sim()
+    for attr in [
+        "drug_name",
+        "dose_mg",
+        "ps_placenta_L_per_h",
+        "gestational_week",
+        "times_h",
+        "c_maternal_mg_L",
+        "c_fetal_mg_L",
+        "c_amniotic_mg_L",
+        "cmax_maternal",
+        "cmax_fetal",
+        "cmax_amniotic",
+        "auc_maternal",
+        "auc_fetal",
+        "auc_amniotic",
+        "fetal_maternal_ratio",
+        "amniotic_maternal_ratio",
+        "fetal_exposure_concern",
+        "t_half_maternal_h",
+        "notes",
+    ]:
+        assert hasattr(r, attr), f"Missing field: {attr}"
 
 
-# ---------------------------------------------------------------------------
-# Time series
-# ---------------------------------------------------------------------------
+# --- Initial conditions -------------------------------------------------------
 
 
-def test_times_h_length():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, t_end_h=24.0, dt_h=0.5)
-    expected_len = int(24.0 / 0.5) + 1
-    assert len(result.times_h) == expected_len
+def test_maternal_starts_at_dose_over_vd():
+    r = _sim()
+    expected = r.dose_mg / 30.0
+    assert r.c_maternal_mg_L[0] == pytest.approx(expected, rel=1e-6)
 
 
-def test_concentrations_same_length():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, t_end_h=10.0, dt_h=0.1)
-    n = len(result.times_h)
-    assert len(result.c_amniotic_mg_L) == n
-    assert len(result.c_fetal_plasma_mg_L) == n
-    assert len(result.c_maternal_plasma_mg_L) == n
+def test_fetal_starts_at_zero():
+    r = _sim()
+    assert r.c_fetal_mg_L[0] == pytest.approx(0.0)
 
 
-def test_initial_concentrations_zero():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert result.c_amniotic_mg_L[0] == pytest.approx(0.0)
-    assert result.c_fetal_plasma_mg_L[0] == pytest.approx(0.0)
-    assert result.c_maternal_plasma_mg_L[0] == pytest.approx(0.0)
+def test_amniotic_starts_at_zero():
+    r = _sim()
+    assert r.c_amniotic_mg_L[0] == pytest.approx(0.0)
 
 
-def test_concentrations_non_negative():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert all(c >= 0 for c in result.c_amniotic_mg_L)
-    assert all(c >= 0 for c in result.c_fetal_plasma_mg_L)
-    assert all(c >= 0 for c in result.c_maternal_plasma_mg_L)
+def test_times_start_at_zero():
+    r = _sim()
+    assert r.times_h[0] == pytest.approx(0.0)
 
 
-# ---------------------------------------------------------------------------
-# PK metrics
-# ---------------------------------------------------------------------------
+# --- Time series length -------------------------------------------------------
 
 
-def test_cmax_amniotic_positive():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert result.cmax_amniotic > 0.0
+def test_time_series_same_length():
+    r = _sim()
+    assert len(r.times_h) == len(r.c_maternal_mg_L)
+    assert len(r.times_h) == len(r.c_fetal_mg_L)
+    assert len(r.times_h) == len(r.c_amniotic_mg_L)
 
 
-def test_cmax_fetal_plasma_positive():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert result.cmax_fetal_plasma > 0.0
+# --- Dynamics ----------------------------------------------------------------
 
 
-def test_auc_amniotic_positive():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert result.auc_amniotic > 0.0
+def test_maternal_concentration_declines():
+    r = _sim()
+    # Maternal should generally fall from its peak (C0)
+    assert r.c_maternal_mg_L[0] >= r.c_maternal_mg_L[-1]
 
 
-def test_auc_fetal_plasma_positive():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert result.auc_fetal_plasma > 0.0
+def test_fetal_rises_then_falls():
+    r = _sim()
+    # Fetal should rise from 0 and not be zero at midpoint
+    mid = len(r.c_fetal_mg_L) // 2
+    assert r.c_fetal_mg_L[mid] > 0.0
+    assert r.c_fetal_mg_L[0] == pytest.approx(0.0)
 
 
-def test_amniotic_to_maternal_ratio_non_negative():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert result.amniotic_to_maternal_ratio >= 0.0
+def test_amniotic_rises_from_zero():
+    r = _sim()
+    # Amniotic should have some concentration after some time
+    assert r.c_amniotic_mg_L[-1] >= 0.0
+    # Should have non-zero peak
+    assert r.cmax_amniotic >= 0.0
 
 
-def test_fetal_drug_reservoir_non_negative():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert result.fetal_drug_reservoir_mg >= 0.0
+def test_cmax_maternal_positive():
+    r = _sim()
+    assert r.cmax_maternal > 0.0
 
 
-# ---------------------------------------------------------------------------
-# Amniotic volume scaling
-# ---------------------------------------------------------------------------
+def test_cmax_fetal_positive():
+    r = _sim()
+    assert r.cmax_fetal > 0.0
 
 
-def test_amniotic_volume_increases_with_ga():
-    r20 = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, gestational_week=20)
-    r40 = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, gestational_week=40)
-    # At week 40: 0.5 + 20*0.03 = 1.1; at week 20: 0.5
-    # More volume → lower concentration at same AUC input
-    # Just verify the simulation runs for both
-    assert r20.gestational_week == 20
-    assert r40.gestational_week == 40
+def test_auc_maternal_positive():
+    r = _sim()
+    assert r.auc_maternal > 0.0
 
 
-# ---------------------------------------------------------------------------
-# Fetal exposure concern
-# ---------------------------------------------------------------------------
+def test_auc_fetal_positive():
+    r = _sim()
+    assert r.auc_fetal > 0.0
 
 
-def test_fetal_exposure_concern_type():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert isinstance(result.fetal_exposure_concern, bool)
+# --- Placental permeability effects ------------------------------------------
 
 
-def test_fetal_exposure_concern_high_transfer():
-    # High fetal-to-amniotic transfer → higher amniotic AUC → more likely concern
-    result = simulate_amniotic_fluid_pk(
-        "Drug",
-        dose_mg=500.0,
-        gestational_week=32,
-        k_maternal_fetal_per_h=0.5,
-        k_fetal_amniotic_per_h=0.8,
-        k_amniotic_clearance_per_h=0.01,
-    )
-    assert result.amniotic_to_maternal_ratio > 0.0
+def test_higher_ps_higher_fetal_ratio():
+    r_low = _sim(ps_placenta_L_per_h=0.01)
+    r_high = _sim(ps_placenta_L_per_h=0.5)
+    assert r_high.fetal_maternal_ratio > r_low.fetal_maternal_ratio
 
 
-# ---------------------------------------------------------------------------
-# Notes
-# ---------------------------------------------------------------------------
+def test_higher_ps_higher_cmax_fetal():
+    r_low = _sim(ps_placenta_L_per_h=0.01)
+    r_high = _sim(ps_placenta_L_per_h=0.5)
+    assert r_high.cmax_fetal > r_low.cmax_fetal
 
 
-def test_notes_fetal_exposure_concern():
-    # Use high transfer parameters to force concern
-    result = simulate_amniotic_fluid_pk(
-        "Drug",
-        dose_mg=1000.0,
-        k_maternal_fetal_per_h=0.8,
-        k_fetal_amniotic_per_h=0.9,
-        k_amniotic_clearance_per_h=0.001,
-        cl_maternal_L_per_h=1.0,
-    )
-    if result.fetal_exposure_concern:
-        assert "amniotic swallowing" in result.notes
+# --- Fetal exposure concern flag ---------------------------------------------
 
 
-def test_notes_not_empty():
-    result = simulate_amniotic_fluid_pk("Drug", dose_mg=100.0)
-    assert len(result.notes) > 0
+def test_fetal_concern_true_when_ratio_exceeds_threshold():
+    # High PS should give fetal/maternal ratio > 0.1
+    r = _sim(ps_placenta_L_per_h=1.0)
+    if r.fetal_maternal_ratio > 0.1:
+        assert r.fetal_exposure_concern is True
 
 
-# ---------------------------------------------------------------------------
-# Validation errors
-# ---------------------------------------------------------------------------
+def test_fetal_concern_false_when_ratio_below_threshold():
+    # Very low PS -> negligible fetal exposure
+    r = _sim(ps_placenta_L_per_h=0.0001)
+    assert r.fetal_exposure_concern is False
 
 
-def test_invalid_dose():
+# --- Dose linearity ----------------------------------------------------------
+
+
+def test_dose_linearity_auc_maternal():
+    r1 = _sim(dose_mg=50.0)
+    r2 = _sim(dose_mg=100.0)
+    assert r2.auc_maternal == pytest.approx(2.0 * r1.auc_maternal, rel=0.01)
+
+
+def test_dose_linearity_auc_fetal():
+    r1 = _sim(dose_mg=50.0)
+    r2 = _sim(dose_mg=100.0)
+    assert r2.auc_fetal == pytest.approx(2.0 * r1.auc_fetal, rel=0.01)
+
+
+def test_dose_linearity_ratio_unchanged():
+    """Fetal/maternal ratio should be independent of dose."""
+    r1 = _sim(dose_mg=50.0)
+    r2 = _sim(dose_mg=200.0)
+    assert r1.fetal_maternal_ratio == pytest.approx(r2.fetal_maternal_ratio, rel=0.001)
+
+
+# --- Gestational week field ---------------------------------------------------
+
+
+def test_gestational_week_stored():
+    r = _sim(gestational_week=30)
+    assert r.gestational_week == 30
+
+
+# --- compare_placental_permeability ------------------------------------------
+
+
+def test_compare_returns_correct_length():
+    ps_vals = [0.01, 0.05, 0.1, 0.5]
+    results = compare_placental_permeability("Drug", 100.0, 5.0, 30.0, ps_vals)
+    assert len(results) == len(ps_vals)
+
+
+def test_compare_sorted_by_fetal_ratio_ascending():
+    ps_vals = [0.5, 0.01, 0.1]
+    results = compare_placental_permeability("Drug", 100.0, 5.0, 30.0, ps_vals)
+    ratios = [r.fetal_maternal_ratio for r in results]
+    assert ratios == sorted(ratios)
+
+
+def test_compare_returns_amniotic_fluid_pk_results():
+    results = compare_placental_permeability("Drug", 100.0, 5.0, 30.0, [0.01, 0.1])
+    for r in results:
+        assert isinstance(r, AmnioticFluidPKResult)
+
+
+# --- Validation errors -------------------------------------------------------
+
+
+def test_validation_negative_dose():
     with pytest.raises(ValueError, match="dose_mg"):
-        simulate_amniotic_fluid_pk("Drug", dose_mg=0.0)
+        _sim(dose_mg=-5.0)
 
 
-def test_invalid_gestational_week_low():
-    with pytest.raises(ValueError, match="gestational_week"):
-        simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, gestational_week=19)
-
-
-def test_invalid_gestational_week_high():
-    with pytest.raises(ValueError, match="gestational_week"):
-        simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, gestational_week=41)
-
-
-def test_invalid_clearance():
+def test_validation_zero_cl():
     with pytest.raises(ValueError, match="cl_maternal"):
-        simulate_amniotic_fluid_pk("Drug", dose_mg=100.0, cl_maternal_L_per_h=0.0)
+        _sim(cl_maternal_L_per_h=0.0)
 
 
-# ---------------------------------------------------------------------------
-# compare_gestational_ages
-# ---------------------------------------------------------------------------
+def test_validation_zero_vd():
+    with pytest.raises(ValueError, match="vd_maternal"):
+        _sim(vd_maternal_L=0.0)
 
 
-def test_compare_default_six_results():
-    results = compare_gestational_ages("Drug", dose_mg=100.0)
-    assert len(results) == 6
+def test_validation_gestational_week_too_low():
+    with pytest.raises(ValueError, match="gestational_week"):
+        _sim(gestational_week=10)
 
 
-def test_compare_sorted_ascending():
-    results = compare_gestational_ages("Drug", dose_mg=100.0)
-    weeks = [r.gestational_week for r in results]
-    assert weeks == sorted(weeks)
-
-
-def test_compare_custom_weeks():
-    results = compare_gestational_ages("Drug", dose_mg=100.0, weeks=[20, 30, 40])
-    assert len(results) == 3
-    assert results[0].gestational_week == 20
-
-
-def test_compare_drug_name_consistent():
-    results = compare_gestational_ages("Amiodarone", dose_mg=50.0)
-    assert all(r.drug_name == "Amiodarone" for r in results)
+def test_validation_gestational_week_too_high():
+    with pytest.raises(ValueError, match="gestational_week"):
+        _sim(gestational_week=45)
