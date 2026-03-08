@@ -37,6 +37,15 @@ dev = [
   "types-PyYAML",
   "httpx~=0.24",
 ]
+ml-new = [
+    "admet-ai>=2.0",
+    "chemprop>=2.0",
+    "torchdiffeq>=0.2",
+    "xgboost>=2.0",
+    "optuna>=3.0",
+    "PyTDC>=1.0",
+    "torch-geometric>=2.4",
+]
 all = ["omega-pbpk[ml,api,auth,viz,dev]"]
 
 [project.scripts]
