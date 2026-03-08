@@ -611,6 +611,6 @@ class TestInteractivePKPredictor:
         result = predictor.predict(sample_smiles["ethanol"])
         intervals = result["uncertainty_intervals"]
         assert len(intervals) > 0
-        for name, (lo, hi) in intervals.items():
+        for _name, (lo, hi) in intervals.items():
             assert isinstance(lo, float)
             assert isinstance(hi, float)
