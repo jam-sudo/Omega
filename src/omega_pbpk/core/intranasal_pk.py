@@ -1,353 +1,172 @@
-"""Phase 727 — Intranasal Drug Delivery PK.
+"""
+Phase 415 — Intranasal drug delivery PK model.
 
-3-compartment model: nasal mucosa → systemic plasma + swallowed fraction (oral).
-
-Compartments:
-  A_nasal  (mg): drug in nasal cavity
-  A_gut    (mg): swallowed drug in GI tract (from mucociliary clearance)
-  C_plasma (mg/L): systemic plasma concentration
-
-ODEs (forward Euler):
-  dA_nasal/dt  = -(kabs_nasal + kclear) * A_nasal
-  dA_gut/dt    = kclear * (1 - f_nasal) * A_nasal - ka_oral * A_gut
-  dC_plasma/dt = (kabs_nasal * f_nasal * A_nasal
-                  + ka_oral * f_swallowed_oral * A_gut) / Vd
-                 - ke * C_plasma
+3-compartment model: nasal mucosa -> systemic -> (optional CNS)
+- Nasal absorption: first-order ka_nasal (bypasses first-pass)
+- Mucociliary clearance: k_clearance from nasal compartment
+- Systemic 1-cpt: CL + Vd
 """
 
-from __future__ import annotations
-
-import math
 from dataclasses import dataclass
 
 
 @dataclass
 class IntranasalPKResult:
-    """Results from intranasal PK simulation."""
+    """Result of intranasal PK simulation."""
 
     drug_name: str
     dose_mg: float
+    route: str
     times_h: list
-    c_plasma_mg_L: list
-    a_nasal_mg: list
-    cmax_mg_L: float
-    tmax_h: float
-    auc_mg_h_per_L: float
-    f_systemic_nasal: float
-    f_systemic_total: float
-    t_half_h: float
+    c_nasal_mg_mL: list
+    c_systemic_mg_L: list
+    cmax_systemic_mg_L: float
+    tmax_systemic_h: float
+    auc_systemic_mg_h_per_L: float
+    bioavailability_pct: float
+    t_half_systemic_h: float
     notes: str
 
 
-def _validate_params(
-    dose_mg: float,
-    f_nasal: float,
-    cl_L_per_h: float,
-    vd_L: float,
-    kabs_nasal_per_h: float,
-) -> None:
-    """Validate simulation parameters."""
-    if dose_mg <= 0:
-        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
-    if not (0 < f_nasal < 1):
-        raise ValueError(f"f_nasal must be in (0, 1), got {f_nasal}")
-    if cl_L_per_h <= 0:
-        raise ValueError(f"cl_L_per_h must be > 0, got {cl_L_per_h}")
-    if vd_L <= 0:
-        raise ValueError(f"vd_L must be > 0, got {vd_L}")
-    if kabs_nasal_per_h <= 0:
-        raise ValueError(f"kabs_nasal_per_h must be > 0, got {kabs_nasal_per_h}")
-
-
 def simulate_intranasal_pk(
-    drug_name: str = "drug",
-    dose_mg: float = 1.0,
-    kabs_nasal_per_h: float = 1.5,
-    kclear_per_h: float = 0.5,
-    f_nasal: float = 0.6,
-    f_swallowed_oral: float = 0.3,
-    ka_oral_per_h: float = 0.5,
-    cl_L_per_h: float = 5.0,
-    vd_L: float = 50.0,
-    t_end_h: float = 12.0,
-    dt_h: float = 0.05,
-) -> IntranasalPKResult:
-    """Simulate intranasal drug delivery PK.
+    drug_name,
+    dose_mg,
+    ka_nasal_per_h,
+    k_clearance_per_h,
+    cl_sys_L_per_h,
+    vd_sys_L,
+    t_end_h=12.0,
+    dt_h=0.05,
+    v_nasal_mL=0.4,
+):
+    """
+    Simulate intranasal PK using a 3-compartment forward Euler model.
 
     Parameters
     ----------
-    drug_name:
-        Name of the drug.
-    dose_mg:
-        Administered intranasal dose (mg).
-    kabs_nasal_per_h:
-        Nasal epithelial absorption rate constant (1/h). Typically faster than
-        oral due to rich vascularization.
-    kclear_per_h:
-        Mucociliary clearance rate from nasal cavity (1/h). Default 0.5/h
-        corresponds to ~30 min half-life in nasal cavity.
-    f_nasal:
-        Fraction of nasal drug that is absorbed systemically (vs swallowed).
-        Must be in (0, 1).
-    f_swallowed_oral:
-        Oral bioavailability of the swallowed fraction.
-    ka_oral_per_h:
-        GI absorption rate constant for swallowed drug (1/h).
-    cl_L_per_h:
-        Systemic clearance (L/h).
-    vd_L:
-        Volume of distribution (L).
-    t_end_h:
-        Simulation end time (h).
-    dt_h:
-        Forward Euler time step (h).
+    drug_name : str
+    dose_mg : float  -- dose in mg applied to nasal mucosa
+    ka_nasal_per_h : float  -- first-order nasal absorption rate constant (h^-1)
+    k_clearance_per_h : float  -- mucociliary clearance rate constant (h^-1), >= 0
+    cl_sys_L_per_h : float  -- systemic clearance (L/h)
+    vd_sys_L : float  -- volume of distribution (L)
+    t_end_h : float  -- simulation end time (h)
+    dt_h : float  -- time step for forward Euler (h)
+    v_nasal_mL : float  -- nasal mucosa volume (mL) for concentration display
 
     Returns
     -------
     IntranasalPKResult
     """
-    _validate_params(dose_mg, f_nasal, cl_L_per_h, vd_L, kabs_nasal_per_h)
+    if dose_mg <= 0:
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if ka_nasal_per_h <= 0:
+        raise ValueError(f"ka_nasal_per_h must be > 0, got {ka_nasal_per_h}")
+    if k_clearance_per_h < 0:
+        raise ValueError(f"k_clearance_per_h must be >= 0, got {k_clearance_per_h}")
+    if cl_sys_L_per_h <= 0:
+        raise ValueError(f"cl_sys_L_per_h must be > 0, got {cl_sys_L_per_h}")
+    if vd_sys_L <= 0:
+        raise ValueError(f"vd_sys_L must be > 0, got {vd_sys_L}")
 
-    ke = cl_L_per_h / vd_L  # elimination rate constant (1/h)
+    n_steps = int(round(t_end_h / dt_h)) + 1
 
-    # Initial conditions
-    a_nasal = dose_mg
-    a_gut = 0.0
-    c_plasma = 0.0
+    times_h = []
+    c_nasal_list = []
+    c_sys_list = []
 
-    times_h: list = []
-    c_plasma_list: list = []
-    a_nasal_list: list = []
+    # State: M_nasal (mg mass in nasal compartment), C_sys (mg/L systemic)
+    M_nasal = float(dose_mg)
+    C_sys = 0.0
 
-    t = 0.0
-    n_steps = int(round(t_end_h / dt_h))
+    k_total_nasal = ka_nasal_per_h + k_clearance_per_h
+    k_elim_sys = cl_sys_L_per_h / vd_sys_L
 
-    for _ in range(n_steps + 1):
+    for i in range(n_steps):
+        t = i * dt_h
         times_h.append(t)
-        c_plasma_list.append(c_plasma)
-        a_nasal_list.append(a_nasal)
+        c_nasal_list.append(M_nasal / v_nasal_mL)  # mg/mL
+        c_sys_list.append(C_sys)
 
-        # ODEs
-        da_nasal = -(kabs_nasal_per_h + kclear_per_h) * a_nasal
-        da_gut = kclear_per_h * (1.0 - f_nasal) * a_nasal - ka_oral_per_h * a_gut
-        dc_plasma = (
-            kabs_nasal_per_h * f_nasal * a_nasal + ka_oral_per_h * f_swallowed_oral * a_gut
-        ) / vd_L - ke * c_plasma
+        dM_nasal_dt = -k_total_nasal * M_nasal
+        dC_sys_dt = (ka_nasal_per_h * M_nasal) / vd_sys_L - k_elim_sys * C_sys
 
-        # Forward Euler update
-        a_nasal = max(0.0, a_nasal + da_nasal * dt_h)
-        a_gut = max(0.0, a_gut + da_gut * dt_h)
-        c_plasma = max(0.0, c_plasma + dc_plasma * dt_h)
+        M_nasal = M_nasal + dt_h * dM_nasal_dt
+        if M_nasal < 0.0:
+            M_nasal = 0.0
+        C_sys = C_sys + dt_h * dC_sys_dt
+        if C_sys < 0.0:
+            C_sys = 0.0
 
-        t = round(t + dt_h, 10)
+    cmax_systemic_mg_L = max(c_sys_list)
+    tmax_idx = c_sys_list.index(cmax_systemic_mg_L)
+    tmax_systemic_h = times_h[tmax_idx]
 
-    # PK metrics
-    cmax_mg_L = max(c_plasma_list)
-    tmax_idx = c_plasma_list.index(cmax_mg_L)
-    tmax_h = times_h[tmax_idx]
+    auc_systemic_mg_h_per_L = sum(
+        0.5 * (c_sys_list[i] + c_sys_list[i - 1]) * (times_h[i] - times_h[i - 1])
+        for i in range(1, len(times_h))
+    )
 
-    # Trapezoidal AUC
-    auc = 0.0
-    for i in range(1, len(times_h)):
-        auc += 0.5 * (c_plasma_list[i - 1] + c_plasma_list[i]) * (times_h[i] - times_h[i - 1])
-
-    t_half_h = math.log(2.0) / ke
-
-    # Bioavailability estimates
-    f_systemic_nasal = f_nasal  # fraction absorbed via nasal mucosa
-    swallowed_frac = 1.0 - f_nasal
-    f_systemic_total = f_nasal + swallowed_frac * f_swallowed_oral
+    bioavailability_pct = (ka_nasal_per_h / k_total_nasal) * 100.0
+    t_half_systemic_h = 0.693 * vd_sys_L / cl_sys_L_per_h
 
     notes = (
-        f"Intranasal PK for {drug_name}. "
-        f"Nasal absorption fraction: {f_nasal:.2f}, "
-        f"mucociliary clearance: {kclear_per_h:.2f}/h, "
-        f"total systemic bioavailability: {f_systemic_total:.2f}."
+        f"Bioavailability ~{bioavailability_pct:.1f}% "
+        f"(mucociliary clearance removed {100.0 - bioavailability_pct:.1f}%). "
+        f"Systemic t1/2 = {t_half_systemic_h:.2f} h."
     )
 
     return IntranasalPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
+        route="intranasal",
         times_h=times_h,
-        c_plasma_mg_L=c_plasma_list,
-        a_nasal_mg=a_nasal_list,
-        cmax_mg_L=cmax_mg_L,
-        tmax_h=tmax_h,
-        auc_mg_h_per_L=auc,
-        f_systemic_nasal=f_systemic_nasal,
-        f_systemic_total=f_systemic_total,
-        t_half_h=t_half_h,
+        c_nasal_mg_mL=c_nasal_list,
+        c_systemic_mg_L=c_sys_list,
+        cmax_systemic_mg_L=cmax_systemic_mg_L,
+        tmax_systemic_h=tmax_systemic_h,
+        auc_systemic_mg_h_per_L=auc_systemic_mg_h_per_L,
+        bioavailability_pct=bioavailability_pct,
+        t_half_systemic_h=t_half_systemic_h,
         notes=notes,
     )
 
 
-def _simulate_oral_reference(
-    drug_name: str,
-    dose_mg: float,
-    ka_oral_per_h: float,
-    f_oral: float,
-    cl_L_per_h: float,
-    vd_L: float,
-    t_end_h: float,
-    dt_h: float,
-) -> IntranasalPKResult:
-    """Simulate a simple oral 1-compartment reference model.
-
-    Uses IntranasalPKResult for unified comparison; a_nasal_mg holds gut amount.
+def compare_intranasal_clearance(
+    drug_name,
+    dose_mg,
+    ka_nasal_per_h,
+    clearance_rates,
+    cl_sys_L_per_h,
+    vd_sys_L,
+):
     """
-    ke = cl_L_per_h / vd_L
-
-    a_gut = dose_mg
-    c_plasma = 0.0
-
-    times_h: list = []
-    c_plasma_list: list = []
-    a_gut_list: list = []
-
-    t = 0.0
-    n_steps = int(round(t_end_h / dt_h))
-
-    for _ in range(n_steps + 1):
-        times_h.append(t)
-        c_plasma_list.append(c_plasma)
-        a_gut_list.append(a_gut)
-
-        da_gut = -ka_oral_per_h * a_gut
-        dc_plasma = ka_oral_per_h * f_oral * a_gut / vd_L - ke * c_plasma
-
-        a_gut = max(0.0, a_gut + da_gut * dt_h)
-        c_plasma = max(0.0, c_plasma + dc_plasma * dt_h)
-        t = round(t + dt_h, 10)
-
-    cmax_mg_L = max(c_plasma_list)
-    tmax_idx = c_plasma_list.index(cmax_mg_L)
-    tmax_h = times_h[tmax_idx]
-
-    auc = 0.0
-    for i in range(1, len(times_h)):
-        auc += 0.5 * (c_plasma_list[i - 1] + c_plasma_list[i]) * (times_h[i] - times_h[i - 1])
-
-    t_half_h = math.log(2.0) / ke
-
-    return IntranasalPKResult(
-        drug_name=drug_name,
-        dose_mg=dose_mg,
-        times_h=times_h,
-        c_plasma_mg_L=c_plasma_list,
-        a_nasal_mg=a_gut_list,
-        cmax_mg_L=cmax_mg_L,
-        tmax_h=tmax_h,
-        auc_mg_h_per_L=auc,
-        f_systemic_nasal=f_oral,
-        f_systemic_total=f_oral,
-        t_half_h=t_half_h,
-        notes=f"Oral reference PK for {drug_name}, F={f_oral:.2f}.",
-    )
-
-
-def compare_intranasal_vs_oral(
-    drug_name: str = "drug",
-    dose_mg: float = 1.0,
-    kabs_nasal_per_h: float = 1.5,
-    kclear_per_h: float = 0.5,
-    f_nasal: float = 0.6,
-    f_swallowed_oral: float = 0.3,
-    ka_oral_per_h: float = 0.5,
-    f_oral: float = 0.5,
-    cl_L_per_h: float = 5.0,
-    vd_L: float = 50.0,
-    t_end_h: float = 12.0,
-    dt_h: float = 0.05,
-) -> dict:
-    """Compare intranasal vs oral delivery for the same drug.
+    Compare intranasal PK across different mucociliary clearance rates.
 
     Parameters
     ----------
-    drug_name:
-        Drug name.
-    dose_mg:
-        Dose in mg (same for both routes).
-    kabs_nasal_per_h:
-        Nasal absorption rate constant (1/h).
-    kclear_per_h:
-        Mucociliary clearance rate (1/h).
-    f_nasal:
-        Nasal absorption fraction.
-    f_swallowed_oral:
-        BA of swallowed fraction.
-    ka_oral_per_h:
-        Oral absorption rate constant (1/h).
-    f_oral:
-        Oral bioavailability for the oral reference simulation.
-    cl_L_per_h:
-        Systemic clearance (L/h).
-    vd_L:
-        Volume of distribution (L).
-    t_end_h:
-        Simulation end time (h).
-    dt_h:
-        Time step (h).
+    drug_name : str
+    dose_mg : float
+    ka_nasal_per_h : float
+    clearance_rates : list of float -- mucociliary clearance rates (h^-1)
+    cl_sys_L_per_h : float
+    vd_sys_L : float
 
     Returns
     -------
-    dict with keys:
-        intranasal_result, oral_result, auc_ratio, cmax_ratio, notes
+    list of IntranasalPKResult sorted by cmax_systemic_mg_L descending
     """
-    intranasal_result = simulate_intranasal_pk(
-        drug_name=drug_name,
-        dose_mg=dose_mg,
-        kabs_nasal_per_h=kabs_nasal_per_h,
-        kclear_per_h=kclear_per_h,
-        f_nasal=f_nasal,
-        f_swallowed_oral=f_swallowed_oral,
-        ka_oral_per_h=ka_oral_per_h,
-        cl_L_per_h=cl_L_per_h,
-        vd_L=vd_L,
-        t_end_h=t_end_h,
-        dt_h=dt_h,
-    )
+    results = []
+    for kc in clearance_rates:
+        result = simulate_intranasal_pk(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            ka_nasal_per_h=ka_nasal_per_h,
+            k_clearance_per_h=kc,
+            cl_sys_L_per_h=cl_sys_L_per_h,
+            vd_sys_L=vd_sys_L,
+        )
+        results.append(result)
 
-    oral_result = _simulate_oral_reference(
-        drug_name=drug_name,
-        dose_mg=dose_mg,
-        ka_oral_per_h=ka_oral_per_h,
-        f_oral=f_oral,
-        cl_L_per_h=cl_L_per_h,
-        vd_L=vd_L,
-        t_end_h=t_end_h,
-        dt_h=dt_h,
-    )
-
-    auc_ratio = (
-        intranasal_result.auc_mg_h_per_L / oral_result.auc_mg_h_per_L
-        if oral_result.auc_mg_h_per_L > 0
-        else float("inf")
-    )
-    cmax_ratio = (
-        intranasal_result.cmax_mg_L / oral_result.cmax_mg_L
-        if oral_result.cmax_mg_L > 0
-        else float("inf")
-    )
-
-    notes = (
-        f"Intranasal vs oral comparison for {drug_name}. "
-        f"AUC ratio (IN/oral): {auc_ratio:.2f}, "
-        f"Cmax ratio: {cmax_ratio:.2f}. "
-        f"Intranasal total F: {intranasal_result.f_systemic_total:.2f}, "
-        f"Oral F: {f_oral:.2f}."
-    )
-
-    return {
-        "intranasal_result": intranasal_result,
-        "oral_result": oral_result,
-        "auc_ratio": auc_ratio,
-        "cmax_ratio": cmax_ratio,
-        "notes": notes,
-    }
-
-
-__all__ = [
-    "IntranasalPKResult",
-    "simulate_intranasal_pk",
-    "compare_intranasal_vs_oral",
-]
+    results.sort(key=lambda r: r.cmax_systemic_mg_L, reverse=True)
+    return results
