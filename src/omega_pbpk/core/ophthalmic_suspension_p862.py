@@ -1,6 +1,5 @@
 """Phase 862 — Topical Ophthalmic Suspension PK model."""
 
-import math
 from dataclasses import dataclass, field
 
 

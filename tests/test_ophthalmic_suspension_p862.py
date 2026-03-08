@@ -1,7 +1,7 @@
 """Tests for Phase 862 — Topical Ophthalmic Suspension PK."""
 
-import math
 import pytest
+
 from omega_pbpk.core.ophthalmic_suspension_p862 import (
     OphthalmicSuspensionResult,
     simulate_ophthalmic_suspension,

@@ -1,6 +1,5 @@
 """Phase 861 — Otic (Ear) Drug Delivery model."""
 
-import math
 from dataclasses import dataclass, field
 
 

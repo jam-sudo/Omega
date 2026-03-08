@@ -1,7 +1,7 @@
 """Tests for Phase 861 — Otic (Ear) Drug Delivery."""
 
-import math
 import pytest
+
 from omega_pbpk.core.otic_drug_delivery_p861 import (
     OticDrugDeliveryResult,
     simulate_otic_drug_delivery,
