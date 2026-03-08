@@ -93,14 +93,15 @@ class TestThalfBuccal:
 
 class TestPermeability:
     def test_higher_logP_higher_permeability(self):
-        r_low = _run(logP=0.5)
-        r_high = _run(logP=3.0)
-        # Higher logP should give higher kp_buccal (more absorption)
+        # Use acid with low pka so f_unionized is high at saliva pH 6.8
+        r_low = _run(logP=0.5, is_acid=True, pka=3.0)
+        r_high = _run(logP=3.0, is_acid=True, pka=3.0)
         assert r_high.kp_buccal > r_low.kp_buccal
 
     def test_higher_MW_lower_permeability(self):
-        r_low_mw = _run(mw_Da=200.0)
-        r_high_mw = _run(mw_Da=800.0)
+        # Use acid with low pka so f_unionized is high at saliva pH 6.8
+        r_low_mw = _run(mw_Da=200.0, is_acid=True, pka=3.0)
+        r_high_mw = _run(mw_Da=800.0, is_acid=True, pka=3.0)
         assert r_low_mw.kp_buccal > r_high_mw.kp_buccal
 
     def test_permeability_class_valid(self):
