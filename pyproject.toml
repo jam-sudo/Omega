@@ -45,6 +45,7 @@ ml-new = [
     "optuna>=3.0",
     "PyTDC>=1.0",
     "torch-geometric>=2.4",
+    "requests>=2.28",
 ]
 all = ["omega-pbpk[ml,api,auth,viz,dev]"]
 

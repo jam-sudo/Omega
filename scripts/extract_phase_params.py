@@ -327,20 +327,14 @@ def main() -> None:
 
     # Summary mode
     if args.summary:
-        total_constants = sum(
-            len(r.get("module_constants", {})) for r in all_results
-        )
+        total_constants = sum(len(r.get("module_constants", {})) for r in all_results)
         total_func_defaults = sum(
-            sum(len(v) for v in r.get("function_defaults", {}).values())
-            for r in all_results
+            sum(len(v) for v in r.get("function_defaults", {}).values()) for r in all_results
         )
         total_dicts = sum(
-            sum(len(v) for v in r.get("dict_literals", {}).values())
-            for r in all_results
+            sum(len(v) for v in r.get("dict_literals", {}).values()) for r in all_results
         )
-        total_lists = sum(
-            len(r.get("list_literals", {})) for r in all_results
-        )
+        total_lists = sum(len(r.get("list_literals", {})) for r in all_results)
         print(f"Files processed: {len(all_results)}")
         print(f"Module-level constants: {total_constants}")
         print(f"Function default parameters: {total_func_defaults}")

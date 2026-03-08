@@ -170,9 +170,7 @@ def _scaffold_split(
         for idx, smi in enumerate(smiles_list):
             mol = Chem.MolFromSmiles(smi)
             if mol is not None:
-                scaffold = MurckoScaffold.MurckoScaffoldSmiles(
-                    mol=mol, includeChirality=False
-                )
+                scaffold = MurckoScaffold.MurckoScaffoldSmiles(mol=mol, includeChirality=False)
             else:
                 scaffold = smi  # fallback: treat SMILES itself as scaffold
             scaffold_to_indices.setdefault(scaffold, []).append(idx)
@@ -199,9 +197,7 @@ def _scaffold_split(
         return assignments
 
     except ImportError:
-        logger.warning(
-            "RDKit not available — falling back to random train/val/test split."
-        )
+        logger.warning("RDKit not available — falling back to random train/val/test split.")
         rng = random.Random(seed)
         assignments = {}
         for smi in smiles_list:
@@ -395,9 +391,7 @@ class ClinicalPKDataset:
         Records without SMILES are assigned to 'train'.
         Returns a new dataset with 'split' column populated.
         """
-        smiles_set = [
-            r["smiles"] for r in self.records if r.get("smiles") is not None
-        ]
+        smiles_set = [r["smiles"] for r in self.records if r.get("smiles") is not None]
         unique_smiles = list(set(smiles_set))
 
         if unique_smiles:
@@ -441,9 +435,7 @@ class ClinicalPKDataset:
             if out.suffix == ".parquet":
                 out = out.with_suffix(".csv")
             df.to_csv(out, index=False)
-            logger.warning(
-                "pyarrow/fastparquet not installed; saved as CSV: %s", out
-            )
+            logger.warning("pyarrow/fastparquet not installed; saved as CSV: %s", out)
 
         logger.info("Saved %d records to %s", len(df), out)
         return out

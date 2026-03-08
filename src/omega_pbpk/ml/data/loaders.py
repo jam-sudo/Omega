@@ -149,9 +149,7 @@ class PKDBLoader:
 
     # -- public API ---------------------------------------------------------
 
-    def list_studies(
-        self, limit: int | None = None
-    ) -> list[dict[str, Any]]:
+    def list_studies(self, limit: int | None = None) -> list[dict[str, Any]]:
         """Return a list of all PK study summaries.
 
         Parameters
@@ -182,9 +180,7 @@ class PKDBLoader:
         study_id:
             PK-DB study identifier (e.g. ``"PKDB00001"``).
         """
-        return self._get_all_pages(
-            "timecourses/", params={"study": study_id}
-        )
+        return self._get_all_pages("timecourses/", params={"study": study_id})
 
 
 # ===========================================================================
@@ -342,9 +338,7 @@ class FDALabelExtractor:
         for param_name, pattern in _PK_PATTERNS.items():
             matches = pattern.findall(text)
             if matches:
-                results[param_name] = [
-                    {"value": float(m[0]), "unit": m[1]} for m in matches
-                ]
+                results[param_name] = [{"value": float(m[0]), "unit": m[1]} for m in matches]
         return results
 
 
@@ -426,8 +420,7 @@ class TDCLoader:
 
         if not self.tdc_available:
             raise ImportError(
-                "PyTDC is required but not installed. "
-                "Install it with: pip install PyTDC"
+                "PyTDC is required but not installed. Install it with: pip install PyTDC"
             )
 
         from tdc.single_pred import ADME

@@ -93,7 +93,11 @@ class TestPKDBLoader:
 
     @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
     def test_list_studies_with_limit(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
-        mock_get.return_value = {"count": 2, "next": None, "results": [{"sid": "S1"}, {"sid": "S2"}]}
+        mock_get.return_value = {
+            "count": 2,
+            "next": None,
+            "results": [{"sid": "S1"}, {"sid": "S2"}],
+        }
         studies = pkdb_loader.list_studies(limit=1)
         assert len(studies) == 1
 
@@ -154,7 +158,9 @@ class TestFDALabelExtractor:
         assert "Cmax" in text
 
     @patch("omega_pbpk.ml.data.loaders.FDALabelExtractor._get")
-    def test_get_pk_section_nested(self, mock_get: MagicMock, fda_extractor: FDALabelExtractor) -> None:
+    def test_get_pk_section_nested(
+        self, mock_get: MagicMock, fda_extractor: FDALabelExtractor
+    ) -> None:
         """PK section might be nested under children_sections."""
         mock_get.return_value = {
             "sections": [
@@ -175,10 +181,10 @@ class TestFDALabelExtractor:
         assert "half-life" in text
 
     @patch("omega_pbpk.ml.data.loaders.FDALabelExtractor._get")
-    def test_get_pk_section_missing(self, mock_get: MagicMock, fda_extractor: FDALabelExtractor) -> None:
-        mock_get.return_value = {
-            "sections": [{"loinc_code": "other", "text": "nothing here"}]
-        }
+    def test_get_pk_section_missing(
+        self, mock_get: MagicMock, fda_extractor: FDALabelExtractor
+    ) -> None:
+        mock_get.return_value = {"sections": [{"loinc_code": "other", "text": "nothing here"}]}
         assert fda_extractor.get_pk_section("xyz") is None
 
     def test_extract_pk_params_cmax(self) -> None:
@@ -372,7 +378,15 @@ class TestClinicalPKDataset:
     def test_save_and_load(self, tmp_path: Path) -> None:
         ds = ClinicalPKDataset(
             records=[
-                {"compound": "caffeine", "smiles": "Cn1cnc2c1c(=O)n(c(=O)n2C)C", "value": 5.0, "unit": "mg/L", "parameter": "cmax", "source": "test", "split": "train"},
+                {
+                    "compound": "caffeine",
+                    "smiles": "Cn1cnc2c1c(=O)n(c(=O)n2C)C",
+                    "value": 5.0,
+                    "unit": "mg/L",
+                    "parameter": "cmax",
+                    "source": "test",
+                    "split": "train",
+                },
             ]
         )
         out = ds.save(tmp_path / "test.parquet")
