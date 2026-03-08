@@ -362,9 +362,19 @@ class WholeBodyPBPK:
             if fm_target <= 0:
                 continue
 
+            # Guard: ki <= 0 is non-physical; skip inhibition (no effect)
+            if inh.ki_uM <= 0:
+                logger.warning(
+                    "DDI inhibitor '%s' has non-positive ki_uM=%.4g; "
+                    "skipping inhibition (treating as no effect).",
+                    inh.name,
+                    inh.ki_uM,
+                )
+                continue
+
             if inh.mechanism == "competitive":
                 # Competitive: CLint_eff = CLint × (1 - fm × (1 - 1/(1 + [I]/Ki)))
-                inhibition_factor = 1.0 / (1.0 + inh.concentration_uM / max(inh.ki_uM, 1e-12))
+                inhibition_factor = 1.0 / (1.0 + inh.concentration_uM / inh.ki_uM)
                 base_clint *= 1.0 - fm_target * (1.0 - inhibition_factor)
 
             elif inh.mechanism == "mbi":
