@@ -32,8 +32,7 @@ class IntrathecalPKResult:
 def _trapezoidal_auc(times, values):
     """Manual trapezoidal AUC."""
     return sum(
-        0.5 * (values[i] + values[i - 1]) * (times[i] - times[i - 1])
-        for i in range(1, len(times))
+        0.5 * (values[i] + values[i - 1]) * (times[i] - times[i - 1]) for i in range(1, len(times))
     )
 
 
@@ -137,10 +136,7 @@ def simulate_intrathecal_pk(
         # Forward Euler ODEs
         dc_lumbar = -k_lc * c_lumbar - k_elim_csf * c_lumbar + k_cl * c_cistern
         dc_cistern = k_lc * c_lumbar - k_cl * c_cistern - k_elim_csf * c_cistern
-        dc_plasma = (
-            k_bbb * (c_lumbar + c_cistern) * v_csf_total / vd_sys_L
-            - ke * c_plasma
-        )
+        dc_plasma = k_bbb * (c_lumbar + c_cistern) * v_csf_total / vd_sys_L - ke * c_plasma
 
         c_lumbar += dc_lumbar * dt_int
         c_cistern += dc_cistern * dt_int

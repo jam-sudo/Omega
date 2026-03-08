@@ -1,6 +1,5 @@
 """Tests for Phase 859 — Urinary Bladder Drug Concentration."""
 
-import math
 import pytest
 
 from omega_pbpk.core.bladder_pk_p859 import BladderPKResult, simulate_bladder_pk

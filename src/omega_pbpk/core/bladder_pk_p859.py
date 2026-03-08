@@ -4,7 +4,6 @@ Models drug concentration in urine and bladder wall, relevant for
 bladder cancer treatments and UTI drugs.
 """
 
-import math
 from dataclasses import dataclass
 
 
@@ -31,8 +30,7 @@ class BladderPKResult:
 def _trapezoidal_auc(times, values):
     """Manual trapezoidal AUC."""
     return sum(
-        0.5 * (values[i] + values[i - 1]) * (times[i] - times[i - 1])
-        for i in range(1, len(times))
+        0.5 * (values[i] + values[i - 1]) * (times[i] - times[i - 1]) for i in range(1, len(times))
     )
 
 
