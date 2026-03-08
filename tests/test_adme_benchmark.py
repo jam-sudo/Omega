@@ -8,6 +8,8 @@ import pytest
 
 from omega_pbpk.validation.adme_benchmark import _aafe, benchmark_adme_predictor
 
+pytestmark = pytest.mark.benchmark
+
 # ── _aafe helper ─────────────────────────────────────────────────────
 
 

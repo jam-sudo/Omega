@@ -4,6 +4,8 @@ import pytest
 
 from omega_pbpk.prediction.thousand_compounds_benchmark import BenchmarkResult, run_benchmark
 
+pytestmark = pytest.mark.benchmark
+
 # ---------------------------------------------------------------------------
 # Basic structural tests
 # ---------------------------------------------------------------------------
