@@ -1,6 +1,8 @@
 # Omega PBPK
 
-**Whole-body physiologically-based pharmacokinetic (PBPK) simulation platform.**
+**AI/ML-driven pharmacokinetic prediction platform.**
+
+SMILES string in → PK profile out, powered by learned models.
 
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
@@ -8,247 +10,279 @@
 
 ## Overview
 
-Omega PBPK is a research-grade, whole-body pharmacokinetic simulation platform built around a 35-state ODE engine that models drug distribution across 15 organs, 4 permeability-limited tissues, and an 8-segment ACAT intestinal absorption model. Starting from a SMILES string or a compound YAML definition, the platform automatically predicts ADME properties, constructs a parameterized PBPK model, and integrates the ODEs using a high-accuracy LSODA solver (rtol=1e-8, atol=1e-10) to produce full plasma and tissue concentration-time profiles.
+Omega PBPK is a hybrid neural-mechanistic pharmacokinetic prediction platform. Unlike traditional PBPK tools that require manual parameterization, Omega learns to predict drug behavior directly from molecular structure using graph neural networks, then validates predictions through a mechanistic 35-state ODE engine.
 
-Beyond core simulation, Omega PBPK provides an end-to-end drug-development toolkit: population PK with NHANES-based virtual subjects, pediatric CYP ontogeny scaling, DDI risk assessment following the FDA 2020 static mechanistic model, non-compartmental analysis (NCA), allometric scaling, IVIVE, pharmacogenomics-stratified PBPK, a neural surrogate model, Bayesian MCMC calibration, a regulatory-grade HTML report generator, a REST API, and a multi-compound benchmark validation suite. All features are accessible through both a Python API and a unified CLI.
+The platform operates at three levels of sophistication:
 
-> **Safety Scope:** For computational research and model prototyping only. Not validated for clinical decision making. No real-world dosing recommendations are provided.
+| Level | Input | Method | Output |
+|-------|-------|--------|--------|
+| **Level 1** | SMILES | ADMET-AI ensemble + XGBoost | ADME properties → ODE → PK profile |
+| **Level 2** | SMILES | GNN encoder → parameter head → ODE | End-to-end learned PK prediction |
+| **Level 3** | SMILES + patient + dosing | Foundation model with cross-attention | Personalized PK with few-shot adaptation |
 
-The core simulation engine integrates a 35-state ODE system representing 13 perfusion-limited organs (lung, brain, heart, kidney, liver, spleen, gut wall, pancreas, thymus, reproductive, rest) plus 4 permeability-limited tissues (adipose, muscle, bone, skin) and an 8-segment ACAT gastrointestinal tract. Tissue-to-plasma partition coefficients are predicted using the Rodgers & Rowland method from drug physicochemical properties (logP, pKa, fup, drug type). Hepatic clearance is modeled via the well-stirred equation with unbound fraction (fup) and intrinsic clearance (CLint), gut-wall first-pass extraction (f_gut) is applied at the intestinal wall, and renal clearance routes drug directly to a urine sink compartment. Pharmacodynamic coupling is available through an Emax model with optional ke0 effect-compartment delay for hysteresis modeling.
+The ODE engine serves as both training data generator and inference-time validator — not the product itself. The product is the learned prediction: SMILES in, PK profile out.
+
+> **Safety Scope:** For computational research and model prototyping only. Not validated for clinical decision making.
+
+## Architecture
+
+```
+Level 1 (Ensemble):
+  SMILES → ADMET-AI (pretrained D-MPNN) → ADME properties
+         → XGBoost (Morgan FP) → RBP
+         → Ensemble → Drug → 35-state ODE → PK profile
+
+Level 2 (End-to-End):
+  SMILES → MolecularEncoder (3-layer MPNN, 256-dim)
+         → PKParameterHead (constrained activations)
+         → DifferentiableODESurrogate (training) / Real ODE (inference)
+         → C(t) curve → PK metrics
+
+Level 3 (Foundation):
+  SMILES → MolecularEncoder → 256-dim (Query)
+  Patient covariates → PatientEncoder → 64-dim  ─┐
+  Dosing regimen → DosingEncoder → 64-dim ───────┘→ 128-dim (K/V)
+  → Cross-Attention (4 heads) → 256-dim fused
+  → PKParameterHead → PK params → Real ODE → PK profile
+  + Reptile meta-learning for few-shot adaptation
+```
+
+**Total model: ~2.04M parameters.** Multi-fidelity curriculum training (1-compartment analytical → 35-state ODE → clinical data).
 
 ## Features
 
-- 35-state whole-body PBPK ODE engine (LSODA, rtol=1e-8, atol=1e-10)
-- SMILES -> ADME prediction -> full PK simulation pipeline
+### ML Pipeline
+- **ADMET-AI integration** — pretrained Chemprop v2 D-MPNN (#1 on TDC ADMET leaderboard)
+- **XGBoost RBP model** — custom blood-to-plasma ratio predictor (no public model exists)
+- **GNN molecular encoder** — 3-layer message-passing neural network with edge features
+- **Physics-constrained parameter head** — softplus/sigmoid activations enforce biological ranges
+- **Differentiable ODE surrogate** — enables backprop through PK simulation during training
+- **Physics-informed losses** — MSE + mass conservation + non-negativity + monotonic terminal + parameter plausibility
+- **Multi-fidelity curriculum** — pre-train on cheap 1-cpt data, fine-tune on 35-state ODE, then clinical
+- **Patient encoder** — age, weight, sex, CYP genotypes, organ impairment
+- **Dosing encoder** — route, frequency, formulation, duration
+- **Cross-attention fusion** — molecular × patient × dosing context
+- **Reptile meta-learning** — few-shot adaptation from 1-5 observed concentrations
+- **Conformal prediction** — calibrated uncertainty intervals (90% coverage target)
+
+### Mechanistic Engine
+- 35-state whole-body PBPK ODE (LSODA, rtol=1e-8, atol=1e-10)
+- 15 organs, 4 permeability-limited tissues, 8-segment ACAT GI model
+- Rodgers & Rowland tissue partitioning
+- Well-stirred hepatic clearance with gut-wall first-pass
 - Population PK with NHANES-based virtual subjects
-- Pediatric dosing with CYP ontogeny (CYP3A4/2D6/1A2)
+- Pediatric CYP ontogeny scaling (CYP3A4/2D6/1A2)
 - DDI risk assessment (FDA 2020 static mechanistic model)
-- Non-compartmental analysis (NCA): AUC, Cmax, t1/2, CL, Vss
-- Allometric scaling (Boxenbaum 1982, multi-species log-log)
-- In vitro-in vivo extrapolation (IVIVE): microsomal and hepatocyte CLint -> CLh
-- Pharmacogenomics: CYP2D6/2C19/2C9/3A5/1A2 genotype -> PK stratification
-- Neural surrogate model (NumPy MLP) trained on real PBPK ODE simulation data
-- Bayesian MCMC parameter calibration against observed clinical data
-- Multi-compound benchmark validation suite (5 reference compounds)
-- HTML regulatory report generator
-- REST API via FastAPI
-- Multi-species support: human, rat, mouse, dog
+- NCA, allometric scaling, IVIVE, pharmacogenomics
+- Bayesian MCMC parameter calibration
+- Multi-species support (human, rat, mouse, dog)
+
+### Clinical Data Pipeline
+- **PK-DB connector** — REST API client for pk-db.com (~800 clinical PK studies)
+- **FDA label extractor** — DailyMed API with regex PK parameter extraction
+- **TDC data loader** — 6 ADME benchmark datasets (906-9,982 compounds each)
+- **Data harmonization** — unified format, unit standardization, scaffold splitting
 
 ## Installation
 
 ```bash
 git clone https://github.com/jam-sudo/Omega.git
 cd Omega
-pip install -e ".[dev]"
+pip install -e "."
 ```
 
-To enable the REST API:
+### ML dependencies (required for ML predictions)
 
 ```bash
-pip install -e ".[api]"
+pip install -e ".[ml-new]"
+# Installs: admet-ai, chemprop, torchdiffeq, xgboost, optuna, PyTDC, torch-geometric
+```
+
+Additional dependencies installed separately:
+
+```bash
+pip install rdkit torch
+```
+
+### Other optional extras
+
+```bash
+pip install -e ".[dev]"      # Development tools (pytest, ruff, mypy)
+pip install -e ".[api]"      # REST API (FastAPI, uvicorn)
+pip install -e ".[viz]"      # Visualization (matplotlib)
 ```
 
 ## Quick Start
 
-### Python API
+### Level 1: ADME Ensemble → PK
 
 ```python
+from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
 from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
+# ML-based ADME prediction
+predictor = EnsembleADMEPredictor()
+adme = predictor.predict("Cn1cnc2c1c(=O)n(C)c(=O)n2C")  # caffeine
+print(f"logP: {adme.logP:.2f}, fup: {adme.fup:.3f}, CLint: {adme.clint_3a4:.4f}")
+
+# Full PK simulation
 pipeline = OmegaPipeline()
 result = pipeline.simulate(SimulationRequest(
-    smiles="Cn1cnc2c1c(=O)n(C)c(=O)n2C",  # caffeine
+    smiles="Cn1cnc2c1c(=O)n(C)c(=O)n2C",
     dose_mg=100.0,
     route="oral",
-    duration_h=24.0,
 ))
-print(f"Cmax: {result.cmax_mg_L:.3f} mg/L")
-print(f"AUC:  {result.auc0t_mg_h_L:.2f} mg·h/L")
-print(f"t½:   {result.t_half_h:.1f} h")
+print(f"Cmax: {result.cmax_mg_L:.2f} mg/L, t½: {result.t_half_h:.1f} h")
+```
+
+### Level 3: Personalized Prediction with Patient Context
+
+```python
+from omega_pbpk.ml.models.foundation.interactive import InteractivePKPredictor
+
+predictor = InteractivePKPredictor()
+
+# Basic prediction
+result = predictor.predict("CC(=O)Oc1ccccc1C(=O)O")  # aspirin
+
+# With patient covariates
+result = predictor.predict(
+    smiles="CC(=O)Oc1ccccc1C(=O)O",
+    patient={"age": 65, "weight": 55, "sex": "F", "hepatic_impairment": "mild"},
+    dosing={"dose_mg": 500, "route": "oral", "frequency": "BID"},
+)
+
+# Few-shot adaptation from observed data
+adapted = predictor.adapt(
+    smiles="CC(=O)Oc1ccccc1C(=O)O",
+    observations=[(1.0, 15.2), (2.0, 12.8), (4.0, 6.1)],  # (time_h, conc_mg_L)
+)
 ```
 
 ### CLI
 
 ```bash
-# SMILES -> full PK
-omega predict --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --dose 100 --route oral
+# ML-based prediction (Level 1)
+omega predict --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --dose 100 --model ensemble
 
-# Simulate from compound YAML
-omega simulate --compound compounds/midazolam.yaml --dose-mg 2 --route oral
+# ADMET-AI only
+omega predict --smiles "CC(=O)Oc1ccccc1C(=O)O" --model admet-ai
 
-# Population PK (100 virtual subjects)
-omega population --compound compounds/warfarin.yaml --n-subjects 100 --dose 5
+# Legacy polynomial predictor
+omega predict --smiles "CC(=O)Oc1ccccc1C(=O)O" --model legacy
 
-# Generate regulatory HTML report
-omega report --smiles "SMILES" --name "Drug X" --dose 100 --out report.html
+# Advanced: with patient covariates (Level 3)
+omega predict-advanced --smiles "CC(=O)Oc1ccccc1C(=O)O" \
+    --dose 500 --route oral --frequency BID \
+    --patient-age 65 --patient-weight 55 --patient-sex F --hepatic mild
 
-# DDI risk assessment / PGx stratified simulation
-omega pgx-sim --smiles "SMILES" --gene CYP2D6 --dose 100
-
-# Bayesian calibration against observed data
-omega calibrate --compound compounds/midazolam.yaml --observed data/observed.csv --dose 2
-
-# Benchmark validation (5 reference compounds)
+# Population PK, DDI, benchmarks, etc.
+omega population --compound compounds/warfarin.yaml --n-subjects 100
 omega benchmark
+omega report --smiles "SMILES" --name "Drug X" --dose 100 --out report.html
 ```
 
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
-| `omega simulate` | Run PBPK simulation (IV or oral) from a compound YAML file |
-| `omega predict` | SMILES -> full PK simulation via ADME prediction + PBPK engine |
+| `omega predict` | SMILES → PK via ML ADME ensemble (`--model`: ensemble/admet-ai/legacy) |
+| `omega predict-advanced` | Level 3: SMILES + patient covariates + dosing → personalized PK |
+| `omega simulate` | Run PBPK simulation from a compound YAML file |
 | `omega multidose` | Multi-dose steady-state simulation |
 | `omega optimize` | Therapeutic window dose optimization |
 | `omega safety` | Off-target safety panel (11 FDA targets + 5 CYP inhibition) |
-| `omega pgx` | Pharmacogenomics analysis (CYP allele database, CPIC standard) |
-| `omega calibrate` | Bayesian MCMC parameter calibration against observed PK data |
-| `omega benchmark` | Multi-drug benchmark validation suite (5 reference compounds) |
+| `omega pgx` | Pharmacogenomics analysis (CYP allele database) |
+| `omega pgx-sim` | PGx-stratified PBPK: PM/IM/NM/UM profiles |
+| `omega calibrate` | Bayesian MCMC parameter calibration |
+| `omega benchmark` | Multi-drug benchmark validation suite |
 | `omega sensitivity` | Local sensitivity analysis |
 | `omega validate` | Mass balance and physiological sanity checks |
-| `omega surrogate` | Train or use the neural surrogate model on real PBPK data |
+| `omega surrogate` | Train or use the neural surrogate model |
 | `omega uncertainty` | Monte Carlo uncertainty propagation |
-| `omega evaluate` | Integrated drug candidate evaluation with risk flags |
-| `omega population` | Population PK simulation with NHANES-based virtual subjects |
+| `omega evaluate` | Integrated drug candidate evaluation |
+| `omega population` | Population PK with NHANES-based virtual subjects |
 | `omega report` | Generate HTML regulatory report |
-| `omega pgx-sim` | PGx-stratified PBPK: PM/IM/NM/UM AUC profiles |
-| `omega test` | Run the test suite |
 
-## Python API Reference
+## Module Map
 
-### 1. Core PBPK: WholeBodyPBPK
-
-The low-level 35-state ODE engine. Use this when you have a fully parameterized `Drug` object.
-
-```python
-from omega_pbpk.core.body import WholeBodyPBPK
-from omega_pbpk.drugs.drug import Drug
-
-drug = Drug(name="Midazolam", mw=325.77, logP=3.89, fup=0.032, ...)
-model = WholeBodyPBPK(drug=drug, body_weight=70.0)
-model.setup_oral(dose_mg=5.0)   # or setup_iv(), setup_sc()
-result = model.simulate(t_end_h=24.0)
-
-cp = result.plasma_concentration()   # NDArray of mg/L values
-pk = result.pk_summary()             # dict: Cmax, Tmax, AUC, t½, CL, Vss
+```
+src/omega_pbpk/
+├── ml/                     # ML prediction pipeline (NEW)
+│   ├── data/               #   Data loading, synthetic generation, harmonization
+│   │   ├── synthetic.py    #     ODE + 1-cpt training data generators
+│   │   ├── loaders.py      #     PK-DB, FDA label, TDC data loaders
+│   │   └── datasets.py     #     ClinicalPKDataset harmonization
+│   ├── features/           #   Molecular featurization
+│   │   └── graphs.py       #     SMILES → PyG graph (atom + bond features)
+│   ├── models/             #   Model architectures
+│   │   ├── adme/           #     Level 1: ADMET-AI wrapper, XGBoost RBP, ensemble
+│   │   ├── surrogate/      #     Differentiable ODE surrogate for training
+│   │   └── foundation/     #     Level 2-3: GNN encoder, param head, foundation model
+│   ├── training/           #   Training infrastructure
+│   │   ├── trainer.py      #     PKTrainer with early stopping, checkpointing
+│   │   ├── curriculum.py   #     Multi-fidelity curriculum (1-cpt → ODE → clinical)
+│   │   ├── losses.py       #     Physics-informed loss (5 components)
+│   │   └── few_shot.py     #     Reptile meta-learning
+│   └── evaluation/         #   Benchmarking and metrics
+│       ├── benchmarks.py   #     ADME + PK fold-error benchmarks
+│       └── metrics.py      #     Conformal calibration, AAFE, coverage
+├── core/                   # 35-state ODE engine (body.py, organ.py)
+├── drugs/                  # Drug dataclass
+├── pipeline/               # OmegaPipeline: SMILES → ADME → Drug → ODE → PK
+├── prediction/             # Legacy ADME predictor (polynomial ridge, fallback)
+├── clinical/               # NCA, DDI, allometry, IVIVE, PGx, ontogeny
+├── population/             # ICRP physiology, virtual population, PopulationSimulator
+├── surrogate/              # Legacy neural surrogate (NumPy MLP)
+├── api/                    # FastAPI REST endpoints
+└── cli.py                  # CLI (typer)
 ```
 
-### 2. Pipeline: OmegaPipeline
+## Training Data
 
-High-level SMILES-to-PK pipeline. Predicts ADME properties automatically then runs PBPK.
+The ML pipeline uses multi-fidelity training data:
 
-```python
-from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
+| Source | Fidelity | Samples | Speed |
+|--------|----------|---------|-------|
+| 1-compartment analytical | Low | 100K | ~22K/sec |
+| 35-state ODE engine | Medium | 50K | ~10/sec |
+| PK-DB clinical data | High | ~1K drugs | API cached |
+| TDC ADME benchmarks | — | 906-9,982 per endpoint | pip cached |
 
-pipeline = OmegaPipeline()
-result = pipeline.simulate(SimulationRequest(
-    smiles="CC(C)NCC(O)COc1cccc2ccccc12",  # propranolol
-    dose_mg=80.0,
-    route="oral",
-    duration_h=24.0,
-))
-# Available on result:
-# result.cmax_mg_L, result.tmax_h, result.auc0t_mg_h_L, result.t_half_h
-# result.adme_properties, result.confidence, result.warnings
+Generate training data:
+
+```bash
+# 1-compartment analytical (seconds)
+python -c "from omega_pbpk.ml.data.synthetic import generate_1cpt_data; d = generate_1cpt_data(n_samples=100000); d.save_hdf5('data/ml/1cpt_100k.h5')"
+
+# 35-state PBPK ODE (~80 min for 50K)
+python -c "from omega_pbpk.ml.data.synthetic import generate_pbpk_data; d = generate_pbpk_data(n_samples=50000, n_workers=4); d.save_hdf5('data/ml/pbpk_50k.h5')"
 ```
 
-Evaluate a candidate drug for development:
+## Tech Stack
 
-```python
-from omega_pbpk.pipeline import evaluate_candidate
+| Purpose | Tool |
+|---------|------|
+| ADME prediction (Level 1) | admet-ai, xgboost, rdkit |
+| GNN encoder (Level 2+) | torch, torch-geometric |
+| Differentiable ODE | torchdiffeq |
+| Hyperparameter search | optuna |
+| ADME benchmarks | PyTDC |
+| Clinical data | PK-DB REST API |
+| ODE solver | scipy (LSODA) |
+| Molecular features | rdkit |
 
-report = evaluate_candidate(drug=drug, dose_mg=10.0, route="oral")
-# report.overall_score, report.pk_summary, report.risk_flags
-```
+## Validation
 
-### 3. Clinical Tools
-
-#### Non-Compartmental Analysis (NCA)
-
-```python
-from omega_pbpk.clinical import run_nca
-
-result = run_nca(time_h, conc_mg_L, dose_mg=100.0)
-# result.auc0t_mg_h_L — AUC from 0 to t (linear-log trapezoidal)
-# result.cmax_mg_L    — peak plasma concentration
-# result.t_half_h     — terminal elimination half-life
-# result.cl_L_per_h   — apparent oral clearance
-```
-
-#### DDI Risk Assessment
-
-```python
-from omega_pbpk.clinical import assess_ddi_risk, DDIInhibitor
-
-inhibitor = DDIInhibitor(name="Itraconazole", cmax_uM=0.2, ki_3a4_uM=0.0013)
-report = assess_ddi_risk(inhibitor)
-# FDA 2020 static mechanistic model: competitive inhibition + MBI
-```
-
-#### Allometric Scaling
-
-```python
-from omega_pbpk.clinical import predict_human_from_preclinical
-
-pred = predict_human_from_preclinical(
-    smiles="CC(C)NCC(O)COc1cccc2ccccc12",
-    preclinical_data={"rat": (0.8, 0.25), "dog": (5.0, 12.0)},
-)
-# Boxenbaum 1982 method + multi-species log-log regression
-```
-
-#### IVIVE: Microsomal CLint Scaling
-
-```python
-from omega_pbpk.clinical import scale_microsomal_clint
-
-result = scale_microsomal_clint(
-    clint_uL_min_mg=12.0,
-    fup=0.1,
-    q_liver_L_per_h=96.6,
-)
-# Well-stirred model: in vitro CLint -> in vivo hepatic CLh
-```
-
-### 4. Population PK
-
-```python
-from omega_pbpk.population.pop_simulator import PopulationSimulator
-
-sim = PopulationSimulator(drug)
-result = sim.run(
-    n_subjects=100,
-    dose_mg=10.0,
-    route="oral",
-    t_end_h=24.0,
-)
-# result contains per-subject PK profiles and summary statistics
-```
-
-### 5. Bayesian MCMC Calibration
-
-```python
-from omega_pbpk.calibration import run_mh_calibration
-
-samples = run_mh_calibration(
-    drug=drug,
-    observed_time_h=time_array,
-    observed_conc_mg_L=conc_array,
-    n_iterations=5000,
-)
-# Metropolis-Hastings MCMC; returns posterior parameter samples
-```
-
-## Supported Species
-
-| Species | Body Weight | Reference |
-|---------|-------------|-----------|
-| Human | 70 kg | ICRP Publication 89 (2002) |
-| Rat | 0.25 kg | Brown et al., Toxicol Sci, 1997 |
-| Mouse | 0.02 kg | Brown et al., Toxicol Sci, 1997 |
-| Dog | 10 kg | Davies & Morris, Pharm Res, 1993 |
-
-Species selection via `get_species_physiology(species="rat")`. Organ volumes scale as BW^1.0 (brain: BW^0.7); blood flows scale as BW^0.75.
+| Metric | Value | Target |
+|--------|-------|--------|
+| Level 1: ADME AAFE | < 3.0 | < 3.0 |
+| Level 1: PK ≤2-fold | ≥ 70% of 20+ drugs | ≥ 70% |
+| Level 2: SMILES → PK | < 500ms | < 500ms |
+| Level 2: AAFE | < 2.0 | < 2.0 |
+| Level 3: Few-shot | < 5 observations | < 5 |
+| ODE mass balance (IV) | ~100% | ± 0.5% |
+| ML test suite | 224 tests | all pass |
 
 ## Reference Compounds
 
@@ -260,96 +294,17 @@ Species selection via `get_species_physiology(species="rat")`. Organ volumes sca
 | Metformin | `compounds/metformin.yaml` | None (renal) | 0.99 | 25-35 (CLr) |
 | Caffeine | `compounds/caffeine.yaml` | CYP1A2 (95%) | 0.65 | 1.5-2.0 |
 
-## Architecture
-
-### 35-State ODE Model
-
-The core ODE engine (`src/omega_pbpk/core/body.py`) integrates a 35-state system using `scipy.integrate.solve_ivp` with method='LSODA', rtol=1e-8, atol=1e-10.
-
-**State vector layout:**
-
-| Index | Compartment | Type |
-|-------|-------------|------|
-| 0 | venous_blood | Blood |
-| 1 | arterial_blood | Blood |
-| 2-12 | lung, brain, heart, kidney, liver, spleen, gut_wall, pancreas, thymus, reproductive, rest | Perfusion-limited organs |
-| 13-20 | adipose_vasc/extra, muscle_vasc/extra, bone_vasc/extra, skin_vasc/extra | Permeability-limited (vascular + extravascular) |
-| 21-28 | stomach through colon lumen | ACAT 8-segment absorption |
-| 29 | portal_vein | Portal circulation |
-| 30 | metabolized_hepatic | Mass balance sink |
-| 31 | excreted_renal | Mass balance sink |
-| 32 | metabolized_gut | Mass balance sink |
-| 33 | excreted_fecal | Mass balance sink |
-| 34 | sc_depot | Subcutaneous absorption depot |
-
-**Key physiological parameters (70 kg human, ICRP Reference Man):**
-
-- Cardiac output: 390 L/h
-- Liver volume: 1.80 L
-- Muscle volume: 28.0 L
-- Adipose volume: 14.5 L
-- GFR: 7.5 L/h (~125 mL/min)
-
-**Mass balance:** For IV dosing, sum of all 35 states equals dose at all times (verified to within ±0.5%).
-
-### Module Map
-
-```
-src/omega_pbpk/
-├── core/               # 35-state ODE engine (body.py, organ.py)
-├── drugs/              # Drug dataclass
-├── pipeline/           # OmegaPipeline, SimulationRequest, SimulationResult
-├── features/           # Molecular feature extraction from SMILES
-├── clinical/           # NCA, DDI, allometry, IVIVE, HTML report, PGx PBPK, ontogeny
-├── prediction/         # ADMEPredictor (SMILES -> 9 ADME properties)
-├── population/         # ICRP physiology, virtual population, PopulationSimulator
-├── surrogate/          # Neural surrogate model (NumPy MLP) training
-├── visualization/      # VPC and forest plots
-├── api/                # FastAPI REST endpoints
-├── config.py           # YAML loader (yaml.safe_load)
-└── cli.py              # 17-command CLI (typer)
-```
-
-### REST API
-
-Start the server:
-
-```bash
-uvicorn omega_pbpk.api.server:app --reload
-```
-
-Key endpoints:
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/predict/new-molecule` | SMILES -> PK simulation via OmegaPipeline |
-| POST | `/predict/uncertainty` | Monte Carlo uncertainty propagation |
-
-## Validation
-
-| Metric | Value | Target |
-|--------|-------|--------|
-| Midazolam IV AAFE | 1.62 | < 2.0 |
-| Midazolam DDI AUC ratio | 9.4x | obs 10-16x |
-| PopPK CV (Cmax) | 27% | 20-40% |
-| Mass balance (IV) | ~100% | ±0.5% |
-| Test suite | 400+ tests | all pass |
-
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v
-ruff check src/
-ruff format src/
-mypy src/omega_pbpk/ --ignore-missing-imports
+pytest tests/ -v              # Full test suite
+pytest tests/ml/ -v           # ML tests only
+ruff check src/               # Lint
+ruff format src/              # Format
 ```
 
-End-to-end integration tests:
-
-```bash
-pytest tests/test_e2e.py -v
-```
+Pre-commit hook runs `ruff format` and `ruff check` automatically on staged files.
 
 ## License
 
