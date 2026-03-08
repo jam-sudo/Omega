@@ -13,7 +13,6 @@ Conformal intervals: ADMET-AI intervals if available, else +/-50% default.
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict
 from typing import Any
 
 from omega_pbpk.ml.models.adme import MLADMEPredictor
@@ -144,45 +143,49 @@ class EnsembleADMEPredictor(MLADMEPredictor):
 
         # -- Property selection --
         # logP: ADMET-AI primary, polynomial fallback
-        logp, logp_src = self._select_property(
-            "logP", admet_result, poly_result
-        )
+        logp, logp_src = self._select_property("logP", admet_result, poly_result)
         sources["logP"] = logp_src
-        confidences.append(self._confidence_val(admet_result if logp_src == "admet-ai" else poly_result))
+        confidences.append(
+            self._confidence_val(admet_result if logp_src == "admet-ai" else poly_result)
+        )
 
         # fup
         fup, fup_src = self._select_property("fup", admet_result, poly_result)
         sources["fup"] = fup_src
-        confidences.append(self._confidence_val(admet_result if fup_src == "admet-ai" else poly_result))
+        confidences.append(
+            self._confidence_val(admet_result if fup_src == "admet-ai" else poly_result)
+        )
 
         # clint_3a4
-        clint_3a4, clint_src = self._select_property(
-            "clint_3a4", admet_result, poly_result
-        )
+        clint_3a4, clint_src = self._select_property("clint_3a4", admet_result, poly_result)
         sources["clint_3a4"] = clint_src
-        confidences.append(self._confidence_val(admet_result if clint_src == "admet-ai" else poly_result))
+        confidences.append(
+            self._confidence_val(admet_result if clint_src == "admet-ai" else poly_result)
+        )
 
         # peff
         peff, peff_src = self._select_property("peff", admet_result, poly_result)
         sources["peff"] = peff_src
-        confidences.append(self._confidence_val(admet_result if peff_src == "admet-ai" else poly_result))
+        confidences.append(
+            self._confidence_val(admet_result if peff_src == "admet-ai" else poly_result)
+        )
 
         # logS
         logs, logs_src = self._select_property("logS", admet_result, poly_result)
         sources["logS"] = logs_src
-        confidences.append(self._confidence_val(admet_result if logs_src == "admet-ai" else poly_result))
+        confidences.append(
+            self._confidence_val(admet_result if logs_src == "admet-ai" else poly_result)
+        )
 
         # herg_ic50_uM
-        herg, herg_src = self._select_property(
-            "herg_ic50_uM", admet_result, poly_result
-        )
+        herg, herg_src = self._select_property("herg_ic50_uM", admet_result, poly_result)
         sources["herg_ic50_uM"] = herg_src
-        confidences.append(self._confidence_val(admet_result if herg_src == "admet-ai" else poly_result))
+        confidences.append(
+            self._confidence_val(admet_result if herg_src == "admet-ai" else poly_result)
+        )
 
         # clint_2d6: ADMET-AI categorical, polynomial fallback
-        clint_2d6, clint2d6_src = self._select_property(
-            "clint_2d6", admet_result, poly_result
-        )
+        clint_2d6, clint2d6_src = self._select_property("clint_2d6", admet_result, poly_result)
         sources["clint_2d6"] = clint2d6_src
 
         # rbp: XGBoost primary, polynomial fallback
@@ -204,9 +207,7 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             confidences.append(0)
 
         # -- Confidence = min across all backends --
-        overall_confidence = _CONFIDENCE_NAMES.get(
-            min(confidences) if confidences else 0, "low"
-        )
+        overall_confidence = _CONFIDENCE_NAMES.get(min(confidences) if confidences else 0, "low")
 
         # -- Conformal intervals --
         fup_lo, fup_hi = self._get_intervals("fup", admet_result, poly_result, fup, fup_src)
@@ -214,9 +215,7 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             "clint_3a4", admet_result, poly_result, clint_3a4, clint_src
         )
         peff_lo, peff_hi = self._get_intervals("peff", admet_result, poly_result, peff, peff_src)
-        rbp_lo, rbp_hi = self._get_rbp_intervals(
-            admet_result, poly_result, rbp, sources["rbp"]
-        )
+        rbp_lo, rbp_hi = self._get_rbp_intervals(admet_result, poly_result, rbp, sources["rbp"])
 
         logger.info(
             "Ensemble ADME sources: %s | confidence=%s",

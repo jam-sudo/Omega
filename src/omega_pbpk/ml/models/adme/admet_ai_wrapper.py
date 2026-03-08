@@ -62,9 +62,8 @@ def _compute_mw_from_smiles(smiles: str) -> float:
         from rdkit.Chem import Descriptors
     except ImportError:
         raise ImportError(
-            "RDKit is required for MW computation. "
-            "Install with: pip install rdkit-pypi"
-        )
+            "RDKit is required for MW computation. Install with: pip install rdkit-pypi"
+        ) from None
 
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
@@ -91,9 +90,8 @@ class ADMETAIPredictor(MLADMEPredictor):
             from admet_ai import ADMETModel
         except ImportError:
             raise ImportError(
-                "admet-ai is required for ADMETAIPredictor. "
-                "Install with: pip install admet-ai"
-            )
+                "admet-ai is required for ADMETAIPredictor. Install with: pip install admet-ai"
+            ) from None
         self._model = ADMETModel()
         logger.info("ADMETAIPredictor initialized successfully.")
 
@@ -155,9 +153,7 @@ class ADMETAIPredictor(MLADMEPredictor):
         clint_lo, clint_hi = self._get_interval(
             raw, "Clearance_Hepatocyte", clint_3a4, scale_factor=1.0 / HEPATOCYTE_TO_PMOL_CYP3A4
         )
-        peff_lo, peff_hi = self._get_interval(
-            raw, "Caco2_Wang", peff, scale_factor=100.0
-        )
+        peff_lo, peff_hi = self._get_interval(raw, "Caco2_Wang", peff, scale_factor=100.0)
         rbp_lo = max(0.5, rbp * 0.5)
         rbp_hi = min(3.0, rbp * 1.5)
 
@@ -202,9 +198,7 @@ class ADMETAIPredictor(MLADMEPredictor):
                 return {k: v for k, v in preds.iloc[0].to_dict().items()}
             return dict(preds)
         except Exception as exc:
-            raise ValueError(
-                f"ADMET-AI prediction failed for SMILES '{smiles}': {exc}"
-            ) from exc
+            raise ValueError(f"ADMET-AI prediction failed for SMILES '{smiles}': {exc}") from exc
 
     # ------------------------------------------------------------------
     # Property extraction with unit conversions
@@ -268,9 +262,7 @@ class ADMETAIPredictor(MLADMEPredictor):
             # Convert from uL/min/10^6 cells -> uL/min/pmol CYP3A4
             clint_pmol = cl_hep_val / HEPATOCYTE_TO_PMOL_CYP3A4
             return max(0.01, clint_pmol)
-        logger.warning(
-            "Clearance_Hepatocyte not in ADMET-AI output; defaulting clint_3a4 to 1.0"
-        )
+        logger.warning("Clearance_Hepatocyte not in ADMET-AI output; defaulting clint_3a4 to 1.0")
         return 1.0
 
     @staticmethod
@@ -295,7 +287,7 @@ class ADMETAIPredictor(MLADMEPredictor):
             caco2_val = float(caco2)
             # Caco2_Wang gives log10(Papp) where Papp is in cm/s
             # Convert to our unit: x10^-4 cm/s
-            papp_cm_s = 10.0 ** caco2_val
+            papp_cm_s = 10.0**caco2_val
             peff_1e4 = papp_cm_s * 1e4  # convert cm/s to x10^-4 cm/s
             return max(0.01, min(100.0, peff_1e4))
         logger.warning("Caco2_Wang not in ADMET-AI output; defaulting peff to 1.0")
@@ -350,9 +342,7 @@ class ADMETAIPredictor(MLADMEPredictor):
         if cyp2d6 is not None:
             is_substrate = float(cyp2d6) > 0.5
             return CLINT_2D6_SUBSTRATE if is_substrate else CLINT_2D6_NON_SUBSTRATE
-        logger.warning(
-            "CYP2D6_Substrate not in ADMET-AI output; defaulting clint_2d6 to 0.5"
-        )
+        logger.warning("CYP2D6_Substrate not in ADMET-AI output; defaulting clint_2d6 to 0.5")
         return CLINT_2D6_NON_SUBSTRATE
 
     @staticmethod

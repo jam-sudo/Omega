@@ -10,8 +10,6 @@ PKLoss combines data-driven MSE with physics-based constraints:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -132,7 +130,7 @@ class PKLoss(nn.Module):
     def monotonic_terminal(
         self,
         curve: torch.Tensor,
-        tmax_idx: Optional[torch.Tensor] = None,
+        tmax_idx: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Penalty for non-monotonically decreasing terminal phase.
 
@@ -204,10 +202,10 @@ class PKLoss(nn.Module):
         predicted_pk: dict[str, torch.Tensor],
         true_pk: dict[str, torch.Tensor],
         predicted_params: dict[str, torch.Tensor],
-        predicted_curve: Optional[torch.Tensor] = None,
-        tissue_amounts: Optional[torch.Tensor] = None,
-        eliminated: Optional[torch.Tensor] = None,
-        dose: Optional[torch.Tensor] = None,
+        predicted_curve: torch.Tensor | None = None,
+        tissue_amounts: torch.Tensor | None = None,
+        eliminated: torch.Tensor | None = None,
+        dose: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Compute total loss and individual components.
 
@@ -234,9 +232,7 @@ class PKLoss(nn.Module):
 
         # 2. Mass conservation (only if data provided)
         if tissue_amounts is not None and eliminated is not None and dose is not None:
-            losses["mass_conservation"] = self.mass_conservation(
-                tissue_amounts, eliminated, dose
-            )
+            losses["mass_conservation"] = self.mass_conservation(tissue_amounts, eliminated, dose)
         else:
             losses["mass_conservation"] = torch.tensor(0.0, device=device)
 

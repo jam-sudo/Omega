@@ -7,11 +7,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 
 from omega_pbpk.prediction.adme_predictor import ADMEProperties
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -142,7 +140,15 @@ class TestUnitConversions:
     def test_ppbr_to_fup_zero_bound(self):
         """PPBR 0% bound -> fup = 1.0."""
         mock = _create_mock_with_predict(
-            {"PPBR_AZ": 0.0, "Lipophilicity_AstraZeneca": 1.0, "Clearance_Hepatocyte_AZ": 10.0, "Caco2_Wang": -5.0, "Solubility_AqSolDB": -2.0, "hERG": 0.1, "CYP2D6_Substrate": 0.0}
+            {
+                "PPBR_AZ": 0.0,
+                "Lipophilicity_AstraZeneca": 1.0,
+                "Clearance_Hepatocyte_AZ": 10.0,
+                "Caco2_Wang": -5.0,
+                "Solubility_AqSolDB": -2.0,
+                "hERG": 0.1,
+                "CYP2D6_Substrate": 0.0,
+            }
         )
         predictor = _create_predictor(mock)
         result = _predict_with_mock_mw(predictor, "CCO", 100.0)
@@ -151,7 +157,15 @@ class TestUnitConversions:
     def test_ppbr_to_fup_full_bound(self):
         """PPBR 100% bound -> fup ~ 0.001 (clamped)."""
         mock = _create_mock_with_predict(
-            {"PPBR_AZ": 100.0, "Lipophilicity_AstraZeneca": 4.0, "Clearance_Hepatocyte_AZ": 50.0, "Caco2_Wang": -5.0, "Solubility_AqSolDB": -4.0, "hERG": 0.5, "CYP2D6_Substrate": 1.0}
+            {
+                "PPBR_AZ": 100.0,
+                "Lipophilicity_AstraZeneca": 4.0,
+                "Clearance_Hepatocyte_AZ": 50.0,
+                "Caco2_Wang": -5.0,
+                "Solubility_AqSolDB": -4.0,
+                "hERG": 0.5,
+                "CYP2D6_Substrate": 1.0,
+            }
         )
         predictor = _create_predictor(mock)
         result = _predict_with_mock_mw(predictor, "c1ccccc1", 400.0)
@@ -225,7 +239,16 @@ class TestConfidenceAndIntervals:
     def test_ad_score_high(self):
         """AD score > 0.8 -> confidence = 'high'."""
         mock = _create_mock_with_predict(
-            {"Lipophilicity_AstraZeneca": 2.0, "PPBR_AZ": 50.0, "Clearance_Hepatocyte_AZ": 10.0, "Caco2_Wang": -5.0, "Solubility_AqSolDB": -2.0, "hERG": 0.1, "CYP2D6_Substrate": 0.0, "applicability_domain": 0.9}
+            {
+                "Lipophilicity_AstraZeneca": 2.0,
+                "PPBR_AZ": 50.0,
+                "Clearance_Hepatocyte_AZ": 10.0,
+                "Caco2_Wang": -5.0,
+                "Solubility_AqSolDB": -2.0,
+                "hERG": 0.1,
+                "CYP2D6_Substrate": 0.0,
+                "applicability_domain": 0.9,
+            }
         )
         predictor = _create_predictor(mock)
         result = _predict_with_mock_mw(predictor, "c1ccccc1", 200.0)
@@ -313,7 +336,14 @@ class TestMissingProperties:
     def test_missing_lipophilicity_defaults_to_2(self):
         """Missing Lipophilicity -> logP defaults to 2.0."""
         mock = _create_mock_with_predict(
-            {"PPBR_AZ": 50.0, "Clearance_Hepatocyte_AZ": 10.0, "Caco2_Wang": -5.0, "Solubility_AqSolDB": -2.0, "hERG": 0.1, "CYP2D6_Substrate": 0.0}
+            {
+                "PPBR_AZ": 50.0,
+                "Clearance_Hepatocyte_AZ": 10.0,
+                "Caco2_Wang": -5.0,
+                "Solubility_AqSolDB": -2.0,
+                "hERG": 0.1,
+                "CYP2D6_Substrate": 0.0,
+            }
         )
         predictor = _create_predictor(mock)
         result = _predict_with_mock_mw(predictor, "CCO", 100.0)
@@ -322,7 +352,14 @@ class TestMissingProperties:
     def test_missing_ppbr_defaults_fup(self):
         """Missing PPBR -> fup defaults to 0.1."""
         mock = _create_mock_with_predict(
-            {"Lipophilicity_AstraZeneca": 2.0, "Clearance_Hepatocyte_AZ": 10.0, "Caco2_Wang": -5.0, "Solubility_AqSolDB": -2.0, "hERG": 0.1, "CYP2D6_Substrate": 0.0}
+            {
+                "Lipophilicity_AstraZeneca": 2.0,
+                "Clearance_Hepatocyte_AZ": 10.0,
+                "Caco2_Wang": -5.0,
+                "Solubility_AqSolDB": -2.0,
+                "hERG": 0.1,
+                "CYP2D6_Substrate": 0.0,
+            }
         )
         predictor = _create_predictor(mock)
         result = _predict_with_mock_mw(predictor, "CCO", 100.0)

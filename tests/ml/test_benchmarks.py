@@ -9,7 +9,6 @@ import pytest
 
 from omega_pbpk.prediction.adme_predictor import ADMEProperties
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

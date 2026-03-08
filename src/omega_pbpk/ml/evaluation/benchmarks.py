@@ -16,7 +16,9 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent.parent  # evaluation -> ml -> omega_pbpk -> src -> Omega
+_REPO_ROOT = Path(
+    __file__
+).parent.parent.parent.parent.parent  # evaluation -> ml -> omega_pbpk -> src -> Omega
 
 
 @dataclass(frozen=True)
@@ -67,12 +69,7 @@ def compute_fold_error(predicted: float, observed: float) -> float:
     Returns:
         Fold error (>= 1.0). Returns NaN if either value is zero or NaN.
     """
-    if (
-        np.isnan(predicted)
-        or np.isnan(observed)
-        or abs(predicted) < 1e-12
-        or abs(observed) < 1e-12
-    ):
+    if np.isnan(predicted) or np.isnan(observed) or abs(predicted) < 1e-12 or abs(observed) < 1e-12:
         return float("nan")
     ratio = predicted / observed
     return max(ratio, 1.0 / ratio)
@@ -155,9 +152,7 @@ def run_benchmark(
             continue
 
         try:
-            result = _run_single_compound(
-                name, smiles, comp, predictor, dose_mg, route, duration_h
-            )
+            result = _run_single_compound(name, smiles, comp, predictor, dose_mg, route, duration_h)
             summary.results.append(result)
             if result.success:
                 summary.n_success += 1

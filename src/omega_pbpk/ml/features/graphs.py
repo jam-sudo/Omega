@@ -7,8 +7,6 @@ when available, with pure-PyTorch fallbacks for both.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 
 # --- Optional dependency flags ---
@@ -37,7 +35,9 @@ NUM_HYBRIDIZATION = 5  # sp, sp2, sp3, sp3d, sp3d2
 NUM_AROMATICITY = 1  # boolean
 MAX_NUM_H = 4  # 0-4 => 5 values
 
-ATOM_FEATURE_DIM = NUM_ATOM_TYPES + (MAX_DEGREE + 1) + 5 + NUM_HYBRIDIZATION + NUM_AROMATICITY + (MAX_NUM_H + 1)
+ATOM_FEATURE_DIM = (
+    NUM_ATOM_TYPES + (MAX_DEGREE + 1) + 5 + NUM_HYBRIDIZATION + NUM_AROMATICITY + (MAX_NUM_H + 1)
+)
 # 10 + 6 + 5 + 5 + 1 + 5 = 32
 
 # ---- Bond feature constants ----
@@ -56,7 +56,7 @@ class _FallbackData:
         self.x = x
         self.edge_index = edge_index
         self.edge_attr = edge_attr
-        self.batch: Optional[torch.Tensor] = None
+        self.batch: torch.Tensor | None = None
         self.num_nodes: int = x.size(0)
 
     def __repr__(self) -> str:
@@ -116,7 +116,7 @@ if HAS_RDKIT:
     }
 
 
-def _atom_features_rdkit(atom: "rdchem.Atom") -> list[float]:
+def _atom_features_rdkit(atom: rdchem.Atom) -> list[float]:
     """Extract atom features using RDKit."""
     atomic_num = atom.GetAtomicNum()
     if atomic_num in COMMON_ATOMS:
@@ -137,7 +137,7 @@ def _atom_features_rdkit(atom: "rdchem.Atom") -> list[float]:
     return features
 
 
-def _bond_features_rdkit(bond: "rdchem.Bond") -> list[float]:
+def _bond_features_rdkit(bond: rdchem.Bond) -> list[float]:
     """Extract bond features using RDKit."""
     features: list[float] = []
     bt_idx = _BOND_TYPE_MAP.get(bond.GetBondType(), 0)
@@ -149,7 +149,7 @@ def _bond_features_rdkit(bond: "rdchem.Bond") -> list[float]:
     return features
 
 
-def smiles_to_graph(smiles: str) -> Optional["Data | _FallbackData"]:
+def smiles_to_graph(smiles: str) -> Data | _FallbackData | None:
     """Convert a SMILES string to a molecular graph.
 
     Parameters
@@ -215,7 +215,7 @@ def smiles_to_graph(smiles: str) -> Optional["Data | _FallbackData"]:
 
 def smiles_to_graph_batch(
     smiles_list: list[str],
-) -> Optional["Batch | _FallbackBatch"]:
+) -> Batch | _FallbackBatch | None:
     """Convert a list of SMILES strings to a batched graph.
 
     Parameters
@@ -259,7 +259,11 @@ def smiles_to_graph_batch(
 
     return _FallbackBatch(
         x=torch.cat(xs, dim=0),
-        edge_index=torch.cat(edge_indices, dim=1) if edge_indices else torch.zeros((2, 0), dtype=torch.long),
-        edge_attr=torch.cat(edge_attrs, dim=0) if edge_attrs else torch.zeros((0, BOND_FEATURE_DIM), dtype=torch.float32),
+        edge_index=torch.cat(edge_indices, dim=1)
+        if edge_indices
+        else torch.zeros((2, 0), dtype=torch.long),
+        edge_attr=torch.cat(edge_attrs, dim=0)
+        if edge_attrs
+        else torch.zeros((0, BOND_FEATURE_DIM), dtype=torch.float32),
         batch=torch.cat(batch_indices, dim=0),
     )

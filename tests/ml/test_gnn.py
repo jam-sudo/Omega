@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import pytest
-import torch
 
-from omega_pbpk.ml.features.graphs import (
+torch = pytest.importorskip("torch", reason="torch not installed")
+
+from omega_pbpk.ml.features.graphs import (  # noqa: E402
     ATOM_FEATURE_DIM,
     BOND_FEATURE_DIM,
     HAS_RDKIT,
@@ -14,9 +15,9 @@ from omega_pbpk.ml.features.graphs import (
     smiles_to_graph,
     smiles_to_graph_batch,
 )
-from omega_pbpk.ml.models.foundation.gnn_encoder import MolecularEncoder
-from omega_pbpk.ml.models.foundation.param_head import PKParameterHead
-from omega_pbpk.ml.training.losses import PKLoss
+from omega_pbpk.ml.models.foundation.gnn_encoder import MolecularEncoder  # noqa: E402
+from omega_pbpk.ml.models.foundation.param_head import PKParameterHead  # noqa: E402
+from omega_pbpk.ml.training.losses import PKLoss  # noqa: E402
 
 # Skip all RDKit-dependent tests if not installed
 requires_rdkit = pytest.mark.skipif(not HAS_RDKIT, reason="RDKit not installed")
@@ -386,7 +387,9 @@ class TestPKLoss:
         elim = torch.tensor([95.0])
         dose = torch.tensor([100.0])
         result = loss_fn(
-            pred_pk, true_pk, params,
+            pred_pk,
+            true_pk,
+            params,
             predicted_curve=curve,
             tissue_amounts=tissue,
             eliminated=elim,
@@ -464,7 +467,11 @@ class TestFullPipeline:
     @requires_rdkit
     def test_full_forward_batch(self, sample_smiles):
         """Full pipeline with batch of molecules."""
-        smiles_list = [sample_smiles["ethanol"], sample_smiles["aspirin"], sample_smiles["caffeine"]]
+        smiles_list = [
+            sample_smiles["ethanol"],
+            sample_smiles["aspirin"],
+            sample_smiles["caffeine"],
+        ]
         batch = smiles_to_graph_batch(smiles_list)
         assert batch is not None
 

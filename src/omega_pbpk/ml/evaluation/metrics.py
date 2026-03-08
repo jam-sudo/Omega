@@ -77,7 +77,6 @@ def calibrate_uncertainty(
     Returns:
         CalibrationReport with per-property calibration results.
     """
-    from omega_pbpk.ml.models.adme.xgboost_adme import _name_to_smiles
 
     path = data_path or (_REPO_ROOT / "data" / "adme_reference.csv")
     if not path.exists():
@@ -185,15 +184,11 @@ def _calibrate_single_property(
 
     n = len(true_vals)
     if n < 5:
-        logger.warning(
-            "Insufficient data for calibration of %s (%d samples)", prop_name, n
-        )
+        logger.warning("Insufficient data for calibration of %s (%d samples)", prop_name, n)
         return None
 
     # Compute coverage
-    covered = sum(
-        1 for t, lo, hi in zip(true_vals, pred_lo, pred_hi) if lo <= t <= hi
-    )
+    covered = sum(1 for t, lo, hi in zip(true_vals, pred_lo, pred_hi) if lo <= t <= hi)
     actual_coverage = covered / n
 
     # Compute adjustment factor
@@ -201,13 +196,9 @@ def _calibrate_single_property(
     if actual_coverage < target_coverage - tolerance:
         # Need to widen: find the factor that would achieve target coverage
         # Binary search for the right multiplier
-        adjustment = _find_adjustment_factor(
-            true_vals, pred_lo, pred_hi, target_coverage
-        )
+        adjustment = _find_adjustment_factor(true_vals, pred_lo, pred_hi, target_coverage)
     elif actual_coverage > target_coverage + tolerance:
-        adjustment = _find_adjustment_factor(
-            true_vals, pred_lo, pred_hi, target_coverage
-        )
+        adjustment = _find_adjustment_factor(true_vals, pred_lo, pred_hi, target_coverage)
     else:
         adjustment = 1.0
 

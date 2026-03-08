@@ -22,7 +22,9 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # Default paths relative to repository root
-_REPO_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent  # ml/models/adme -> omega_pbpk -> src -> Omega
+_REPO_ROOT = Path(
+    __file__
+).parent.parent.parent.parent.parent.parent  # ml/models/adme -> omega_pbpk -> src -> Omega
 _DATA_PATH = _REPO_ROOT / "data" / "adme_reference.csv"
 _MODEL_DIR = _REPO_ROOT / "models" / "xgboost_rbp"
 _MODEL_PATH = _MODEL_DIR / "model.json"
@@ -39,16 +41,14 @@ def _check_dependencies() -> None:
         import xgboost  # noqa: F401
     except ImportError:
         raise ImportError(
-            "XGBoost is required for XGBoostRBPPredictor. "
-            "Install with: pip install xgboost"
-        )
+            "XGBoost is required for XGBoostRBPPredictor. Install with: pip install xgboost"
+        ) from None
     try:
         from rdkit import Chem  # noqa: F401
     except ImportError:
         raise ImportError(
-            "RDKit is required for fingerprint computation. "
-            "Install with: pip install rdkit-pypi"
-        )
+            "RDKit is required for fingerprint computation. Install with: pip install rdkit-pypi"
+        ) from None
 
 
 def _smiles_to_fingerprint(smiles: str) -> np.ndarray | None:

@@ -3,14 +3,9 @@
 from __future__ import annotations
 
 import csv
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -22,12 +17,60 @@ def temp_data_dir(tmp_path):
     """Create a temporary directory with a small reference CSV."""
     csv_path = tmp_path / "adme_reference.csv"
     rows = [
-        {"name": "aspirin", "mw": "180.16", "logP": "1.2", "fup": "0.5", "rbp": "0.7", "clint_3a4_uL_min_pmol": "0.5", "peff_cm_s": "1.5e-4"},
-        {"name": "caffeine", "mw": "194.2", "logP": "-0.07", "fup": "0.65", "rbp": "0.72", "clint_3a4_uL_min_pmol": "0.5", "peff_cm_s": "0.9e-4"},
-        {"name": "midazolam", "mw": "325.8", "logP": "3.89", "fup": "0.035", "rbp": "0.55", "clint_3a4_uL_min_pmol": "11.2", "peff_cm_s": "2.8e-4"},
-        {"name": "warfarin", "mw": "308.3", "logP": "2.70", "fup": "0.005", "rbp": "0.72", "clint_3a4_uL_min_pmol": "0.9", "peff_cm_s": "1.5e-4"},
-        {"name": "propranolol", "mw": "259.3", "logP": "3.48", "fup": "0.13", "rbp": "0.83", "clint_3a4_uL_min_pmol": "11.0", "peff_cm_s": "3.2e-4"},
-        {"name": "metformin", "mw": "129.2", "logP": "-1.43", "fup": "1.00", "rbp": "0.95", "clint_3a4_uL_min_pmol": "0.01", "peff_cm_s": "0.06e-4"},
+        {
+            "name": "aspirin",
+            "mw": "180.16",
+            "logP": "1.2",
+            "fup": "0.5",
+            "rbp": "0.7",
+            "clint_3a4_uL_min_pmol": "0.5",
+            "peff_cm_s": "1.5e-4",
+        },
+        {
+            "name": "caffeine",
+            "mw": "194.2",
+            "logP": "-0.07",
+            "fup": "0.65",
+            "rbp": "0.72",
+            "clint_3a4_uL_min_pmol": "0.5",
+            "peff_cm_s": "0.9e-4",
+        },
+        {
+            "name": "midazolam",
+            "mw": "325.8",
+            "logP": "3.89",
+            "fup": "0.035",
+            "rbp": "0.55",
+            "clint_3a4_uL_min_pmol": "11.2",
+            "peff_cm_s": "2.8e-4",
+        },
+        {
+            "name": "warfarin",
+            "mw": "308.3",
+            "logP": "2.70",
+            "fup": "0.005",
+            "rbp": "0.72",
+            "clint_3a4_uL_min_pmol": "0.9",
+            "peff_cm_s": "1.5e-4",
+        },
+        {
+            "name": "propranolol",
+            "mw": "259.3",
+            "logP": "3.48",
+            "fup": "0.13",
+            "rbp": "0.83",
+            "clint_3a4_uL_min_pmol": "11.0",
+            "peff_cm_s": "3.2e-4",
+        },
+        {
+            "name": "metformin",
+            "mw": "129.2",
+            "logP": "-1.43",
+            "fup": "1.00",
+            "rbp": "0.95",
+            "clint_3a4_uL_min_pmol": "0.01",
+            "peff_cm_s": "0.06e-4",
+        },
     ]
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=rows[0].keys())

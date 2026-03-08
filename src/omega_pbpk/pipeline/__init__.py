@@ -289,11 +289,16 @@ class OmegaPipeline:
                 }
                 # Include uncertainty intervals if available
                 for attr in (
-                    "clint_2d6", "peff",
-                    "fup_lo", "fup_hi",
-                    "clint_3a4_lo", "clint_3a4_hi",
-                    "peff_lo", "peff_hi",
-                    "rbp_lo", "rbp_hi",
+                    "clint_2d6",
+                    "peff",
+                    "fup_lo",
+                    "fup_hi",
+                    "clint_3a4_lo",
+                    "clint_3a4_hi",
+                    "peff_lo",
+                    "peff_hi",
+                    "rbp_lo",
+                    "rbp_hi",
                 ):
                     val = getattr(props, attr, None)
                     if val is not None:

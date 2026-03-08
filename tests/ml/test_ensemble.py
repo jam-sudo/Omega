@@ -8,7 +8,6 @@ import pytest
 
 from omega_pbpk.prediction.adme_predictor import ADMEProperties
 
-
 # ---------------------------------------------------------------------------
 # Mock Backends
 # ---------------------------------------------------------------------------
@@ -45,10 +44,15 @@ def mock_admet_ai():
     """Mock ADMET-AI predictor."""
     mock = MagicMock()
     mock.predict.return_value = _make_adme_props(
-        logP=3.0, fup=0.1, confidence="high",
-        fup_lo=0.05, fup_hi=0.15,
-        clint_3a4_lo=1.5, clint_3a4_hi=2.5,
-        peff_lo=1.0, peff_hi=2.0,
+        logP=3.0,
+        fup=0.1,
+        confidence="high",
+        fup_lo=0.05,
+        fup_hi=0.15,
+        clint_3a4_lo=1.5,
+        clint_3a4_hi=2.5,
+        peff_lo=1.0,
+        peff_hi=2.0,
     )
     return mock
 
@@ -66,8 +70,11 @@ def mock_polynomial():
     """Mock polynomial (legacy) predictor."""
     mock = MagicMock()
     mock.predict.return_value = _make_adme_props(
-        logP=2.0, fup=0.2, confidence="low",
-        fup_lo=0.1, fup_hi=0.3,
+        logP=2.0,
+        fup=0.2,
+        confidence="low",
+        fup_lo=0.1,
+        fup_hi=0.3,
     )
     return mock
 
