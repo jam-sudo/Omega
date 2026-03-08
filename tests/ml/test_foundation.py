@@ -7,9 +7,10 @@ InteractivePKPredictor, and few-shot adaptation.
 from __future__ import annotations
 
 import pytest
-import torch
 
-from omega_pbpk.ml.features.graphs import HAS_RDKIT
+torch = pytest.importorskip("torch", reason="torch not installed")
+
+from omega_pbpk.ml.features.graphs import HAS_RDKIT  # noqa: E402
 
 requires_rdkit = pytest.mark.skipif(not HAS_RDKIT, reason="RDKit not installed")
 

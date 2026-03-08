@@ -567,15 +567,33 @@ def predict(
 def predict_advanced(
     smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug"),
     dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
-    route: str = typer.Option("oral", "--route", "-r", help="Route: oral, iv_bolus, iv_infusion, subcutaneous, intramuscular"),
-    frequency: str = typer.Option("single", "--frequency", "-f", help="Frequency: single, BID, TID, QD, Q12H, Q8H, Q6H, continuous"),
+    route: str = typer.Option(
+        "oral",
+        "--route",
+        "-r",
+        help="Route: oral, iv_bolus, iv_infusion, subcutaneous, intramuscular",
+    ),
+    frequency: str = typer.Option(
+        "single",
+        "--frequency",
+        "-f",
+        help="Frequency: single, BID, TID, QD, Q12H, Q8H, Q6H, continuous",
+    ),
     patient_age: float = typer.Option(40.0, "--patient-age", help="Patient age (years)"),
     patient_weight: float = typer.Option(70.0, "--patient-weight", help="Patient weight (kg)"),
     patient_sex: str = typer.Option("M", "--patient-sex", help="Patient sex: M or F"),
-    hepatic: str = typer.Option("none", "--hepatic", help="Hepatic impairment: none/mild/moderate/severe"),
-    renal: str = typer.Option("none", "--renal", help="Renal impairment: none/mild/moderate/severe/ESRD"),
-    adapt_file: str = typer.Option("", "--adapt", help="CSV file with observed data (time_h,conc_mg_L) for few-shot adaptation"),
-    model_path: str = typer.Option("models/foundation/best.pt", "--model-path", help="Path to foundation model checkpoint"),
+    hepatic: str = typer.Option(
+        "none", "--hepatic", help="Hepatic impairment: none/mild/moderate/severe"
+    ),
+    renal: str = typer.Option(
+        "none", "--renal", help="Renal impairment: none/mild/moderate/severe/ESRD"
+    ),
+    adapt_file: str = typer.Option(
+        "", "--adapt", help="CSV file with observed data (time_h,conc_mg_L) for few-shot adaptation"
+    ),
+    model_path: str = typer.Option(
+        "models/foundation/best.pt", "--model-path", help="Path to foundation model checkpoint"
+    ),
 ) -> None:
     """Advanced PK prediction with patient covariates and few-shot adaptation (Level 3).
 

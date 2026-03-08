@@ -147,6 +147,7 @@ class TestHDF5IO:
     """Test HDF5 serialization."""
 
     def test_roundtrip(self):
+        pytest.importorskip("h5py", reason="h5py not installed")
         """Save and load should produce identical dataset."""
         ds = generate_1cpt_data(n_samples=50, seed=42)
 
