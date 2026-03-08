@@ -8,8 +8,6 @@ Covers:
 from __future__ import annotations
 
 import pytest
-
-pytestmark = pytest.mark.slow
 from fastapi.testclient import TestClient
 
 from omega_pbpk.api.app import app
@@ -19,6 +17,8 @@ from omega_pbpk.clinical.regimen_optimizer import (
     optimize_regimen,
 )
 from omega_pbpk.contracts.drug_spec import DrugSpec
+
+pytestmark = pytest.mark.slow
 
 client = TestClient(app)
 
