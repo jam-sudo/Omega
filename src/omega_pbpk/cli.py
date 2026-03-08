@@ -563,6 +563,101 @@ def predict(
             typer.echo(f"  ! {w}")
 
 
+@app.command("predict-advanced")
+def predict_advanced(
+    smiles: str = typer.Option(..., "--smiles", "-s", help="SMILES string of the drug"),
+    dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
+    route: str = typer.Option("oral", "--route", "-r", help="Route: oral, iv_bolus, iv_infusion, subcutaneous, intramuscular"),
+    frequency: str = typer.Option("single", "--frequency", "-f", help="Frequency: single, BID, TID, QD, Q12H, Q8H, Q6H, continuous"),
+    patient_age: float = typer.Option(40.0, "--patient-age", help="Patient age (years)"),
+    patient_weight: float = typer.Option(70.0, "--patient-weight", help="Patient weight (kg)"),
+    patient_sex: str = typer.Option("M", "--patient-sex", help="Patient sex: M or F"),
+    hepatic: str = typer.Option("none", "--hepatic", help="Hepatic impairment: none/mild/moderate/severe"),
+    renal: str = typer.Option("none", "--renal", help="Renal impairment: none/mild/moderate/severe/ESRD"),
+    adapt_file: str = typer.Option("", "--adapt", help="CSV file with observed data (time_h,conc_mg_L) for few-shot adaptation"),
+    model_path: str = typer.Option("models/foundation/best.pt", "--model-path", help="Path to foundation model checkpoint"),
+) -> None:
+    """Advanced PK prediction with patient covariates and few-shot adaptation (Level 3).
+
+    Uses the PKFoundationModel with patient demographics, dosing regimen,
+    and optional few-shot adaptation from observed concentration data.
+    """
+    _audit(
+        "predict-advanced",
+        smiles=smiles,
+        dose_mg=dose,
+        route=route,
+        patient_age=patient_age,
+        patient_weight=patient_weight,
+    )
+
+    from omega_pbpk.ml.models.foundation.interactive import InteractivePKPredictor
+
+    predictor = InteractivePKPredictor(model_path=model_path, device="cpu")
+
+    patient = {
+        "age": patient_age,
+        "weight": patient_weight,
+        "sex": patient_sex,
+        "hepatic_impairment": hepatic,
+        "renal_impairment": renal,
+    }
+    dosing = {
+        "dose_mg": dose,
+        "route": route,
+        "frequency": frequency,
+    }
+
+    # Few-shot adaptation if adapt file provided
+    if adapt_file:
+        import csv
+
+        observations: list[tuple[float, float]] = []
+        with open(adapt_file) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                t = float(row["time_h"])
+                c = float(row["conc_mg_L"])
+                observations.append((t, c))
+
+        typer.echo(f"Adapting model with {len(observations)} observations...")
+        predictor = predictor.adapt(
+            smiles=smiles,
+            observations=observations,
+            patient=patient,
+            dosing=dosing,
+        )
+
+    result = predictor.predict(smiles=smiles, patient=patient, dosing=dosing)
+
+    typer.echo("\nOmega PBPK — Advanced Prediction (Level 3)")
+    typer.echo(f"{'=' * 50}")
+    typer.echo(f"SMILES:      {smiles[:50]}{'...' if len(smiles) > 50 else ''}")
+    typer.echo(f"Dose:        {dose} mg ({route}, {frequency})")
+    typer.echo(f"Patient:     {patient_sex}, {patient_age}y, {patient_weight}kg")
+    typer.echo(f"Hepatic:     {hepatic}")
+    typer.echo(f"Renal:       {renal}")
+    typer.echo(f"Confidence:  {result['confidence']}")
+
+    typer.echo("\nPK Profile:")
+    profile = result["pk_profile"]
+    for key, val in profile.items():
+        if isinstance(val, float):
+            typer.echo(f"  {key:<16}: {val:.4g}")
+
+    typer.echo("\nPredicted Parameters:")
+    for key, val in result["predicted_params"].items():
+        typer.echo(f"  {key:<16}: {val:.4g}")
+
+    typer.echo("\nUncertainty Intervals:")
+    for key, (lo, hi) in result["uncertainty_intervals"].items():
+        if key in ("fup", "clint_3a4", "rbp", "peff"):
+            typer.echo(f"  {key:<16}: [{lo:.4g}, {hi:.4g}]")
+
+    if adapt_file:
+        typer.echo(f"\n(Model adapted with {len(observations)} observed data points)")
+
+
 def _create_adme_predictor(model_name: str) -> object | None:
     """Create the requested ADME predictor.
 
