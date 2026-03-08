@@ -288,10 +288,17 @@ class TestErrorHandling:
         for k in mods_to_remove:
             del sys.modules[k]
 
-        with pytest.raises(ImportError, match="admet-ai"):
-            from omega_pbpk.ml.models.adme.admet_ai_wrapper import ADMETAIPredictor
+        try:
+            import admet_ai  # noqa: F401
 
-            ADMETAIPredictor()
+            pytest.skip("admet-ai is installed; cannot test ImportError path")
+        except ImportError:
+            with pytest.raises(ImportError, match="admet-ai"):
+                from omega_pbpk.ml.models.adme.admet_ai_wrapper import (
+                    ADMETAIPredictor,
+                )
+
+                ADMETAIPredictor()
 
     def test_invalid_smiles_raises_value_error(self, mock_admet_model):
         """Invalid SMILES should raise ValueError from MW computation."""

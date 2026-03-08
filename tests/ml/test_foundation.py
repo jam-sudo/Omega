@@ -251,7 +251,7 @@ class TestPKFoundationModel:
             result = model(
                 sample_smiles["aspirin"],
                 covariates={"age": 65, "weight": 55, "sex": "F"},
-                dosing={"dose_mg": 500, "route": "oral", "frequency": "BID"},
+                regimen={"dose_mg": 500, "route": "oral", "frequency": "BID"},
             )
 
         assert result["params"] is not None
