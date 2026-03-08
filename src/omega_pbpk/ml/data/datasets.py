@@ -11,11 +11,12 @@ import logging
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
-from omega_pbpk.ml.data.loaders import FDALabelExtractor, PKDBLoader
+    from omega_pbpk.ml.data.loaders import FDALabelExtractor, PKDBLoader
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +310,9 @@ class ClinicalPKDataset:
             if not pk_text:
                 continue
 
-            params = FDALabelExtractor.extract_pk_params(pk_text)
+            from omega_pbpk.ml.data.loaders import FDALabelExtractor as _FDAExtractor
+
+            params = _FDAExtractor.extract_pk_params(pk_text)
             smiles = lookup_smiles(compound)
 
             for param_name, matches in params.items():
@@ -412,6 +415,8 @@ class ClinicalPKDataset:
 
     def to_dataframe(self) -> pd.DataFrame:
         """Convert records to a pandas DataFrame."""
+        import pandas as pd
+
         return pd.DataFrame(self.records)
 
     def save(self, path: str | Path | None = None) -> Path:
@@ -443,6 +448,8 @@ class ClinicalPKDataset:
     @classmethod
     def load(cls, path: str | Path) -> ClinicalPKDataset:
         """Load dataset from a parquet or CSV file."""
+        import pandas as pd
+
         path = Path(path)
         if path.suffix == ".csv":
             df = pd.read_csv(path)
