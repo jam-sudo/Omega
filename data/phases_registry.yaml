@@ -1,0 +1,361 @@
+# Omega PBPK — Phase Parameter Registry
+# ========================================
+# Central registry of physiological parameters extracted from phase files.
+# Source of truth: src/omega_pbpk/core/body.py (35-state ODE engine)
+# Reference: ICRP Publication 89 (Reference Man, 70 kg adult male)
+#
+# Schema version 1.0 — 2026-03-08
+# Extracted by: Domain-Scientist (automated + manual audit)
+#
+# UNITS CONVENTION:
+#   volume:       L (liters)
+#   blood_flow:   L/h (liters per hour)
+#   flow_fraction: dimensionless (fraction of cardiac output)
+#   mass:         g (grams)
+#   clearance:    L/h or mL/min (noted per field)
+#   rate_constant: 1/h (per hour)
+#   permeability:  cm/s (centimeters per second)
+#   surface_area:  cm^2 (square centimeters)
+#   partition_coeff: dimensionless
+#   time:         h (hours)
+
+schema_version: "1.0"
+reference_body_weight_kg: 70.0
+reference_population: "ICRP Reference Man (adult male)"
+
+# ============================================================================
+# CARDIOVASCULAR SYSTEM
+# ============================================================================
+cardiovascular:
+  cardiac_output_L_per_h: 390.0     # 6.5 L/min; body.py line 264
+  venous_blood:
+    volume_L: 3.7                   # body.py line 268
+  arterial_blood:
+    volume_L: 1.5                   # body.py line 271
+  portal_vein:
+    volume_L: 0.05                  # body.py line 322
+
+# ============================================================================
+# PERFUSION-LIMITED ORGANS (11 organs)
+# ============================================================================
+# Model: dA/dt = Q * (C_art - C_tissue/Kp)  for non-portal organs
+#         dA/dt = Q * (C_art - C_tissue/Kp) + portal contributions for liver
+# Kp is drug-specific (computed from logP, pKa, compound_type)
+# All volumes and flows scale linearly with body_weight/70
+
+perfusion_limited_organs:
+  lung:
+    volume_L: 0.50
+    flow_fraction_of_CO: 1.0       # receives entire cardiac output
+    blood_flow_L_per_h: 390.0      # = CO
+    source_file: body.py
+    notes: "Lung receives all CO; acts as first-pass filter"
+
+  brain:
+    volume_L: 1.45
+    flow_fraction_of_CO: 0.12
+    blood_flow_L_per_h: 46.8
+    source_file: body.py
+    notes: "BBB transport modeled separately in bbb_transport.py"
+
+  heart:
+    volume_L: 0.33
+    flow_fraction_of_CO: 0.04
+    blood_flow_L_per_h: 15.6
+    source_file: body.py
+
+  kidney:
+    volume_L: 0.31
+    flow_fraction_of_CO: 0.19
+    blood_flow_L_per_h: 74.1
+    source_file: body.py
+    notes: "Renal clearance modeled in kidney_pk.py"
+
+  liver:
+    volume_L: 1.80
+    flow_fraction_of_CO: 0.065     # hepatic artery only
+    blood_flow_L_per_h: 25.35      # hepatic arterial flow only
+    mass_g: 1500.0                 # hepatic_zonation.py
+    zone1_mass_fraction: 0.35      # periportal
+    zone2_mass_fraction: 0.20      # midzonal
+    zone3_mass_fraction: 0.45      # centrilobular
+    source_file: body.py, hepatic_zonation.py
+    notes: >
+      Receives additional portal vein flow from spleen + gut_wall + pancreas.
+      Total hepatic flow ~ 90 L/h (used in hepatic_clearance_models.py).
+
+  spleen:
+    volume_L: 0.15
+    flow_fraction_of_CO: 0.03
+    blood_flow_L_per_h: 11.7
+    portal_drainage: true           # drains to portal vein -> liver
+    source_file: body.py
+
+  gut_wall:
+    volume_L: 1.03
+    flow_fraction_of_CO: 0.15
+    blood_flow_L_per_h: 58.5
+    portal_drainage: true
+    gut_blood_flow_mL_per_min: 250.0   # gut_wall_metabolism.py default
+    source_file: body.py, gut_wall_metabolism.py
+    notes: "GI first-pass metabolism via CYP3A4 in enterocytes"
+
+  pancreas:
+    volume_L: 0.10
+    flow_fraction_of_CO: 0.01
+    blood_flow_L_per_h: 3.9
+    portal_drainage: true
+    source_file: body.py
+
+  thymus:
+    volume_L: 0.02
+    flow_fraction_of_CO: 0.002
+    blood_flow_L_per_h: 0.78
+    source_file: body.py
+
+  reproductive:
+    volume_L: 0.04
+    flow_fraction_of_CO: 0.002
+    blood_flow_L_per_h: 0.78
+    source_file: body.py
+
+  rest:
+    volume_L: 2.50
+    flow_fraction_of_CO: 0.069     # balance: 1.0 - sum(others)
+    blood_flow_L_per_h: 26.91
+    source_file: body.py
+    notes: "Aggregated remaining tissues (thyroid, adrenal, etc.)"
+
+# ============================================================================
+# PERMEABILITY-LIMITED ORGANS (4 organs)
+# ============================================================================
+# Model: 2-subcompartment (vascular + extravascular) per organ
+#   dA_vasc/dt = Q * (C_art - C_vasc) - PS * (C_vasc - C_extra/Kp)
+#   dA_extra/dt = PS * (C_vasc - C_extra/Kp)
+# Default vascular_fraction = 0.04 for all
+# Default PS = 10.0 L/h (scaled by body weight) for all
+
+permeability_limited_organs:
+  adipose:
+    volume_L: 14.5
+    flow_fraction_of_CO: 0.052
+    blood_flow_L_per_h: 20.28
+    ps_L_per_h: 10.0               # default; drug-specific override available
+    vascular_fraction: 0.04
+    source_file: body.py
+    notes: >
+      Adipose-specific models in adipose_pbpk.py use V_fat=14 L, Q_fat=3 L/h
+      (different from whole-body model where Q_adipose=20.28 L/h).
+      adipose_pbpk.py is a standalone 3-compartment model.
+
+  muscle:
+    volume_L: 28.0
+    flow_fraction_of_CO: 0.17
+    blood_flow_L_per_h: 66.3
+    ps_L_per_h: 10.0
+    vascular_fraction: 0.04
+    source_file: body.py
+    notes: >
+      muscle_compartment_pk.py uses Q_muscle=48 L/h and Vd_muscle=28 L
+      in its standalone 2-compartment model.
+
+  bone:
+    volume_L: 4.86
+    flow_fraction_of_CO: 0.05
+    blood_flow_L_per_h: 19.5
+    ps_L_per_h: 10.0
+    vascular_fraction: 0.04
+    source_file: body.py
+    notes: "bone_pk.py uses bone_blood_flow=0.25 L/h in its standalone model"
+
+  skin:
+    volume_L: 3.30
+    flow_fraction_of_CO: 0.05
+    blood_flow_L_per_h: 19.5
+    ps_L_per_h: 10.0
+    vascular_fraction: 0.04
+    source_file: body.py
+
+# ============================================================================
+# ACAT (Advanced Compartmental Absorption and Transit) MODEL
+# ============================================================================
+# 8 GI segments: stomach -> duodenum -> jejunum1 -> jejunum2
+#                -> ileum1 -> ileum2 -> ileum3 -> colon
+
+acat:
+  segments:
+    - name: stomach
+      state_index: 21
+      transit_time_h: 0.25
+      ka_fraction: 0.0              # no absorption from stomach
+    - name: duodenum
+      state_index: 22
+      transit_time_h: 0.26
+      ka_fraction: 1.0
+    - name: jejunum1
+      state_index: 23
+      transit_time_h: 0.475
+      ka_fraction: 1.0
+    - name: jejunum2
+      state_index: 24
+      transit_time_h: 0.475
+      ka_fraction: 1.0
+    - name: ileum1
+      state_index: 25
+      transit_time_h: 0.68
+      ka_fraction: 0.8
+    - name: ileum2
+      state_index: 26
+      transit_time_h: 0.68
+      ka_fraction: 0.6
+    - name: ileum3
+      state_index: 27
+      transit_time_h: 0.68
+      ka_fraction: 0.3
+    - name: colon
+      state_index: 28
+      transit_time_h: 13.5
+      ka_fraction: 0.05
+
+# ============================================================================
+# HEPATIC CLEARANCE DEFAULTS
+# ============================================================================
+hepatic_clearance:
+  total_hepatic_blood_flow_L_per_h: 90.0   # hepatic_clearance_models.py
+  dispersion_number: 0.17                   # dispersion_model default
+  default_fu_gut: 0.5                       # gut_wall_metabolism.py
+  default_fu_plasma: 0.5                    # hepatic_zonation.py
+  clint_zone1_mL_per_min_per_g: 0.5        # hepatic_zonation.py (periportal)
+  clint_zone3_mL_per_min_per_g: 2.0        # hepatic_zonation.py (centrilobular)
+  notes: >
+    Total hepatic flow = hepatic arterial (25.35 L/h) + portal vein
+    (spleen 11.7 + gut_wall 58.5 + pancreas 3.9 = 74.1 L/h) = ~99 L/h.
+    Standalone models round to 80-90 L/h.
+
+# ============================================================================
+# RENAL CLEARANCE DEFAULTS
+# ============================================================================
+renal_clearance:
+  gfr_mL_per_min: 120.0                   # kidney_pk.py
+  urine_flow_mL_per_h: 60.0               # kidney_pk.py
+  notes: "GFR 120 mL/min = 7.2 L/h. Standard adult male reference."
+
+# ============================================================================
+# BBB TRANSPORT DEFAULTS
+# ============================================================================
+bbb_transport:
+  brain_volume_L: 1.4                      # bbb_transport.py
+  bbb_surface_area_cm2: 150.0             # bbb_transport.py
+  default_pgp_efflux_ratio: 1.0           # no efflux by default
+  notes: >
+    BBB permeability classification thresholds:
+    high > 1e-6 cm/s, moderate 1e-7 to 1e-6 cm/s, low < 1e-7 cm/s
+
+# ============================================================================
+# LUNG/INHALED DEPOSITION DEFAULTS
+# ============================================================================
+lung_deposition:
+  devices:
+    mdi:
+      oropharyngeal: 0.70
+      tracheobronchial: 0.10
+      pulmonary: 0.10
+      exhaled: 0.10
+    dpi:
+      oropharyngeal: 0.25
+      tracheobronchial: 0.20
+      pulmonary: 0.45
+      exhaled: 0.10
+    nebulizer:
+      oropharyngeal: 0.10
+      tracheobronchial: 0.20
+      pulmonary: 0.60
+      exhaled: 0.10
+    soft_mist:
+      oropharyngeal: 0.15
+      tracheobronchial: 0.25
+      pulmonary: 0.55
+      exhaled: 0.05
+  rate_constants:
+    ka_pulmonary_per_h: 4.0
+    ka_tracheobronchial_per_h: 1.0
+    ka_oropharyngeal_per_h: 0.5
+    kmc_oropharyngeal_per_h: 8.0           # mucociliary clearance
+    kmc_tracheobronchial_per_h: 2.0
+
+# ============================================================================
+# ENTEROHEPATIC CIRCULATION DEFAULTS
+# ============================================================================
+enterohepatic_circulation:
+  f_biliary: 0.3                           # biliary_excretion.py
+  f_reabsorbed: 0.7
+  t_transit_h: 6.0
+
+# ============================================================================
+# STANDALONE MODEL DEFAULTS (differ from whole-body model)
+# ============================================================================
+# These are default parameter values used in individual phase files.
+# They may differ from the whole-body model values above because they
+# represent standalone compartmental models, not the 35-state PBPK.
+
+standalone_model_defaults:
+  adipose_pbpk:
+    V_fat_L: 14.0
+    V_lean_L: 40.0
+    Q_fat_L_per_h: 3.0
+    Q_lean_L_per_h: 15.0
+    Vd_plasma_L: 5.0
+    cl_total_L_per_h: 5.0
+    source_file: adipose_pbpk.py
+
+  muscle_compartment:
+    Vd_plasma_L: 5.0
+    Vd_muscle_L: 28.0
+    Q_muscle_L_per_h: 48.0
+    source_file: muscle_compartment_pk.py
+
+  bone_pk:
+    bone_blood_flow_L_per_h: 0.25
+    bone_volume_fraction: 0.12
+    source_file: bone_pk.py
+
+  bbb_transport:
+    Vd_plasma_L: 5.0               # typical default in phase files
+    Vd_brain_L: 1.4
+    source_file: bbb_transport.py
+
+# ============================================================================
+# PARTITION COEFFICIENT FORMULAS
+# ============================================================================
+# Drug-specific; computed from physicochemical properties.
+# These formulas are used in standalone phase files.
+# The whole-body model uses the Drug.default_kp() method instead.
+
+partition_coefficient_formulas:
+  kp_fat:
+    formula: "10^(0.7 * logP)"
+    clamp_min: 1.0
+    clamp_max: 500.0
+    source_file: adipose_pbpk.py
+
+  kp_lean:
+    formula: "10^(0.3 * logP)"
+    clamp_min: 0.5
+    clamp_max: 50.0
+    source_file: adipose_pbpk.py
+
+  kp_muscle:
+    formula: "0.5 + 0.3 * logP"
+    clamp_min: 0.1
+    clamp_max: 10.0
+    source_file: muscle_compartment_pk.py
+
+  bbb_passive_permeability:
+    formula: "10^(0.5*logP - 0.01*PSA - 0.003*MW - 4.0)"
+    units: "cm/s"
+    source_file: bbb_transport.py
+
+  cns_mpp_ratio:
+    formula: "10^(0.298*logP - 0.0148*PSA - 0.987)"
+    units: "dimensionless"
+    source_file: bbb_transport.py
