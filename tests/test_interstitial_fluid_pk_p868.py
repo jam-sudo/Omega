@@ -1,6 +1,7 @@
 """Tests for Phase 868 — Interstitial Fluid Drug Distribution."""
 
 import pytest
+
 from omega_pbpk.core.interstitial_fluid_pk_p868 import (
     InterstitialFluidPKResult,
     simulate_interstitial_fluid_pk,
@@ -23,6 +24,7 @@ def _run(**overrides):
 
 
 # --- Return type and structure ---
+
 
 class TestReturnType:
     def test_returns_result(self):
@@ -52,6 +54,7 @@ class TestReturnType:
 
 # --- Non-negative concentrations ---
 
+
 class TestNonNegative:
     def test_plasma_non_negative(self):
         r = _run()
@@ -63,6 +66,7 @@ class TestNonNegative:
 
 
 # --- ISF volume ---
+
 
 class TestISFVolume:
     def test_default_volume(self):
@@ -76,6 +80,7 @@ class TestISFVolume:
 
 # --- fu_plasma effect ---
 
+
 class TestFuPlasmaEffect:
     def test_higher_fu_higher_isf(self):
         r_low = _run(fu_plasma=0.1)
@@ -84,6 +89,7 @@ class TestFuPlasmaEffect:
 
 
 # --- Capillary permeability ---
+
 
 class TestCapillaryPermeability:
     def test_positive(self):
@@ -102,6 +108,7 @@ class TestCapillaryPermeability:
 
 # --- kp_isf ---
 
+
 class TestKpISF:
     def test_in_range(self):
         r = _run()
@@ -115,6 +122,7 @@ class TestKpISF:
 
 # --- Equilibrium time ---
 
+
 class TestEquilibrium:
     def test_positive(self):
         r = _run()
@@ -127,6 +135,7 @@ class TestEquilibrium:
 
 # --- ISF-to-plasma ratio ---
 
+
 class TestISFPlasmaRatio:
     def test_positive(self):
         r = _run()
@@ -134,6 +143,7 @@ class TestISFPlasmaRatio:
 
 
 # --- Dose linearity ---
+
 
 class TestDoseLinearity:
     def test_double_dose_doubles_cmax_plasma(self):
@@ -148,6 +158,7 @@ class TestDoseLinearity:
 
 
 # --- Validation errors ---
+
 
 class TestValidation:
     def test_zero_dose(self):
@@ -180,6 +191,7 @@ class TestValidation:
 
 
 # --- Notes ---
+
 
 class TestNotes:
     def test_notes_is_string(self):

@@ -117,9 +117,7 @@ def simulate_otic_drug_delivery(
         for i in range(1, len(times))
     )
 
-    systemic_absorption_pct = min(
-        100.0, auc_plasma * cl_sys_L_per_h / dose_mg * 100
-    )
+    systemic_absorption_pct = min(100.0, auc_plasma * cl_sys_L_per_h / dose_mg * 100)
 
     return OticDrugDeliveryResult(
         drug_name=drug_name,

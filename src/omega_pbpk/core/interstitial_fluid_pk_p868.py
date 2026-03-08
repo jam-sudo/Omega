@@ -1,7 +1,7 @@
 """Phase 868 — Interstitial Fluid Drug Distribution model."""
 
-from dataclasses import dataclass, field
 import math
+from dataclasses import dataclass, field
 
 
 @dataclass

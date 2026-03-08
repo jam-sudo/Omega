@@ -1,7 +1,9 @@
 """Tests for Phase 867 — Cochlear Drug Distribution."""
 
 import math
+
 import pytest
+
 from omega_pbpk.core.cochlear_pk_p867 import CochlearPKResult, simulate_cochlear_pk
 
 # Default parameters
@@ -21,6 +23,7 @@ def _run(**overrides):
 
 
 # --- Return type and structure ---
+
 
 class TestReturnType:
     def test_returns_cochlear_pk_result(self):
@@ -61,6 +64,7 @@ class TestReturnType:
 
 # --- Systemic route behavior ---
 
+
 class TestSystemicRoute:
     def test_plasma_higher_than_perilymph(self):
         r = _run(route="systemic")
@@ -76,6 +80,7 @@ class TestSystemicRoute:
 
 
 # --- Intratympanic route behavior ---
+
 
 class TestIntratympanicRoute:
     def test_perilymph_starts_high(self):
@@ -94,6 +99,7 @@ class TestIntratympanicRoute:
 
 # --- Non-negative concentrations ---
 
+
 class TestNonNegative:
     def test_plasma_non_negative(self):
         r = _run()
@@ -109,6 +115,7 @@ class TestNonNegative:
 
 
 # --- BLB factor ---
+
 
 class TestBLBFactor:
     def test_blb_in_range(self):
@@ -127,6 +134,7 @@ class TestBLBFactor:
 
 # --- Half-life ---
 
+
 class TestHalfLife:
     def test_t_half_positive(self):
         r = _run()
@@ -139,6 +147,7 @@ class TestHalfLife:
 
 
 # --- Dose linearity ---
+
 
 class TestDoseLinearity:
     def test_double_dose_doubles_cmax_plasma(self):
@@ -153,6 +162,7 @@ class TestDoseLinearity:
 
 
 # --- Validation errors ---
+
 
 class TestValidation:
     def test_zero_dose(self):
@@ -177,6 +187,7 @@ class TestValidation:
 
 
 # --- Notes ---
+
 
 class TestNotes:
     def test_notes_is_string(self):

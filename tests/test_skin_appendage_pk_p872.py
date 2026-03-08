@@ -138,7 +138,11 @@ class TestAppendageToPlasmaRatio:
 
     def test_ratio_calculated_correctly(self):
         r = simulate_skin_appendage_pk(**DEFAULTS)
-        expected = r.auc_appendage_mg_h_per_g / r.auc_plasma_mg_h_per_L if r.auc_plasma_mg_h_per_L > 0 else 0.0
+        expected = (
+            r.auc_appendage_mg_h_per_g / r.auc_plasma_mg_h_per_L
+            if r.auc_plasma_mg_h_per_L > 0
+            else 0.0
+        )
         assert abs(r.appendage_to_plasma_ratio - expected) < 1e-6
 
 

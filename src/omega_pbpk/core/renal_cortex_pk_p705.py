@@ -76,7 +76,9 @@ def simulate_renal_cortex_pk(
 
         if i < n_steps:
             da_gut = -ka * a_gut * dt_int
-            dc_plasma = (ka * a_gut / vd_sys_L - ke * c_plasma - k_in * c_plasma + k_out * c_cortex) * dt_int
+            dc_plasma = (
+                ka * a_gut / vd_sys_L - ke * c_plasma - k_in * c_plasma + k_out * c_cortex
+            ) * dt_int
             dc_cortex = (k_in * c_plasma - k_out * c_cortex) * dt_int
 
             a_gut += da_gut

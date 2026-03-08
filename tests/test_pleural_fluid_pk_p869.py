@@ -25,6 +25,7 @@ def _run(**overrides):
 
 # --- Return type and structure ---
 
+
 class TestReturnType:
     def test_returns_result(self):
         r = _run()
@@ -53,6 +54,7 @@ class TestReturnType:
 
 # --- Non-negative concentrations ---
 
+
 class TestNonNegative:
     def test_plasma_non_negative(self):
         r = _run()
@@ -64,6 +66,7 @@ class TestNonNegative:
 
 
 # --- Pleural volume ---
+
 
 class TestPleuralVolume:
     def test_default_volume(self):
@@ -77,6 +80,7 @@ class TestPleuralVolume:
 
 # --- fu_plasma effect ---
 
+
 class TestFuPlasmaEffect:
     def test_higher_fu_higher_pleural(self):
         r_low = _run(fu_plasma=0.1)
@@ -85,6 +89,7 @@ class TestFuPlasmaEffect:
 
 
 # --- Molecular weight effect ---
+
 
 class TestMWEffect:
     def test_higher_mw_lower_penetration(self):
@@ -95,6 +100,7 @@ class TestMWEffect:
 
 # --- Half-life ---
 
+
 class TestHalfLife:
     def test_positive(self):
         r = _run()
@@ -102,12 +108,14 @@ class TestHalfLife:
 
     def test_expected_value(self):
         import math
+
         r = _run()
         expected = math.log(2) / 0.15
         assert r.t_half_pleural_h == pytest.approx(expected, rel=0.01)
 
 
 # --- Pleural-to-plasma ratio ---
+
 
 class TestPleuralPlasmaRatio:
     def test_positive(self):
@@ -116,6 +124,7 @@ class TestPleuralPlasmaRatio:
 
 
 # --- Dose linearity ---
+
 
 class TestDoseLinearity:
     def test_double_dose_doubles_cmax_plasma(self):
@@ -135,6 +144,7 @@ class TestDoseLinearity:
 
 
 # --- Validation errors ---
+
 
 class TestValidation:
     def test_zero_dose(self):
@@ -171,6 +181,7 @@ class TestValidation:
 
 
 # --- Notes ---
+
 
 class TestNotes:
     def test_notes_is_string(self):

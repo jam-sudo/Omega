@@ -87,9 +87,7 @@ def simulate_ophthalmic_suspension(
 
         # Dissolution rate
         if C_dissolved < solubility_mg_mL and A_susp > 0:
-            rate_dissolve = (
-                k_diss_rate * A_susp * (1.0 - C_dissolved / solubility_mg_mL)
-            )
+            rate_dissolve = k_diss_rate * A_susp * (1.0 - C_dissolved / solubility_mg_mL)
             rate_dissolve = max(0.0, rate_dissolve)
         else:
             rate_dissolve = 0.0
@@ -125,9 +123,7 @@ def simulate_ophthalmic_suspension(
 
     f_dissolved = 1.0 - A_susp / dose_mg
 
-    bioavailability_ocular_pct = min(
-        100.0, f_dissolved * k_cornea / (k_cornea + k_drain) * 100
-    )
+    bioavailability_ocular_pct = min(100.0, f_dissolved * k_cornea / (k_cornea + k_drain) * 100)
 
     return OphthalmicSuspensionResult(
         drug_name=drug_name,
