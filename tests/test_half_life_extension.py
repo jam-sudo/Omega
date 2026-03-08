@@ -1,195 +1,251 @@
-"""Tests for Phase 1045 — half-life extension strategies."""
+"""Tests for half_life_extension.py (Phase 486)."""
 
-import math
+from __future__ import annotations
+
 import pytest
 
-from omega_pbpk.prediction.half_life_extension import (
+from omega_pbpk.clinical.half_life_extension import (
     HalfLifeExtensionResult,
+    compare_strategies,
     predict_half_life_extension,
 )
 
-_VALID_MECHANISMS = {"depot", "recycling", "reduced_clearance", "prodrug_conversion", "PEGylation"}
+_LN2 = 0.693147
 
-# Baseline parameters used across tests
-_CL = 5.0   # L/h
-_VD = 50.0  # L
-
-
-def _baseline_t_half() -> float:
-    return math.log(2) * _VD / _CL
-
-
-# --- Return type ---
-
-def test_returns_dataclass():
-    result = predict_half_life_extension("DrugA", _CL, _VD)
-    assert isinstance(result, HalfLifeExtensionResult)
+_BASE_KWARGS = dict(
+    drug_name="TestBiologic",
+    strategy="PEGylation",
+    parent_cl_l_per_h=2.0,
+    parent_vd_l=10.0,
+    parent_dose_mg=100.0,
+)
 
 
-def test_frozen():
-    result = predict_half_life_extension("DrugA", _CL, _VD)
+def _run(**kwargs):
+    kw = {**_BASE_KWARGS, **kwargs}
+    return predict_half_life_extension(**kw)
+
+
+# ---------------------------------------------------------------------------
+# Return type
+# ---------------------------------------------------------------------------
+
+
+def test_return_type():
+    r = _run()
+    assert isinstance(r, HalfLifeExtensionResult)
+
+
+def test_result_is_frozen():
+    r = _run()
     with pytest.raises((AttributeError, TypeError)):
-        result.extended_t_half_h = 99.0  # type: ignore[misc]
+        r.strategy = "albumin_fusion"
 
 
-# --- All strategies extend half-life ---
-
-@pytest.mark.parametrize("strategy,kwargs", [
-    ("PEGylation", {"peg_mw_kDa": 20.0}),
-    ("albumin_binding", {"albumin_affinity_uM": 1.0}),
-    ("FcRn_recycling", {"mw_Da": 150000.0}),
-    ("depot_formulation", {"depot_release_t50_h": 48.0}),
-    ("prodrug", {"prodrug_conversion_t_half_h": 24.0}),
-    ("nanoparticle", {}),
-])
-def test_extended_gt_baseline(strategy, kwargs):
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy=strategy, **kwargs)
-    assert result.extended_t_half_h > result.baseline_t_half_h
+# ---------------------------------------------------------------------------
+# Field correctness
+# ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("strategy,kwargs", [
-    ("PEGylation", {"peg_mw_kDa": 20.0}),
-    ("albumin_binding", {"albumin_affinity_uM": 1.0}),
-    ("FcRn_recycling", {"mw_Da": 150000.0}),
-    ("depot_formulation", {"depot_release_t50_h": 48.0}),
-    ("prodrug", {"prodrug_conversion_t_half_h": 24.0}),
-    ("nanoparticle", {}),
-])
-def test_extension_ratio_gt_1(strategy, kwargs):
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy=strategy, **kwargs)
-    assert result.extension_ratio > 1.0
+def test_modified_cl_equals_parent_times_factor():
+    r = _run(strategy="PEGylation", parent_cl_l_per_h=2.0)
+    assert r.modified_cl_l_per_h == pytest.approx(2.0 * 0.2, rel=1e-9)
 
 
-# --- AUC ratio ---
-
-@pytest.mark.parametrize("strategy,kwargs", [
-    ("PEGylation", {"peg_mw_kDa": 20.0}),
-    ("albumin_binding", {"albumin_affinity_uM": 1.0}),
-    ("FcRn_recycling", {"mw_Da": 150000.0}),
-    ("nanoparticle", {}),
-])
-def test_auc_ratio_gte_1(strategy, kwargs):
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy=strategy, **kwargs)
-    assert result.auc_ratio >= 1.0
+def test_modified_vd_equals_parent_times_factor():
+    r = _run(strategy="PEGylation", parent_vd_l=10.0)
+    assert r.modified_vd_l == pytest.approx(10.0 * 3.0, rel=1e-9)
 
 
-# --- Mechanism field ---
-
-def test_peg_mechanism():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="PEGylation", peg_mw_kDa=10)
-    assert result.mechanism == "PEGylation"
-
-
-def test_albumin_mechanism():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="albumin_binding")
-    assert result.mechanism == "reduced_clearance"
+def test_parent_t_half_formula():
+    r = _run(parent_cl_l_per_h=2.0, parent_vd_l=10.0)
+    expected = _LN2 * 10.0 / 2.0
+    assert r.parent_t_half_h == pytest.approx(expected, rel=1e-6)
 
 
-def test_fcrn_mechanism():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="FcRn_recycling", mw_Da=150000)
-    assert result.mechanism == "recycling"
+def test_modified_t_half_formula():
+    r = _run(strategy="PEGylation", parent_cl_l_per_h=2.0, parent_vd_l=10.0)
+    mod_cl = 2.0 * 0.2
+    mod_vd = 10.0 * 3.0
+    expected = _LN2 * mod_vd / mod_cl
+    assert r.modified_t_half_h == pytest.approx(expected, rel=1e-6)
 
 
-def test_depot_mechanism():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="depot_formulation", depot_release_t50_h=24)
-    assert result.mechanism == "depot"
+def test_t_half_extension_factor_exact():
+    r = _run()
+    expected = r.modified_t_half_h / r.parent_t_half_h
+    assert r.t_half_extension_factor == pytest.approx(expected, rel=1e-9)
 
 
-def test_prodrug_mechanism():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="prodrug", prodrug_conversion_t_half_h=12)
-    assert result.mechanism == "prodrug_conversion"
+def test_target_dose_greater_than_parent_for_extended_t_half():
+    r = _run()
+    assert r.target_dose_mg > _BASE_KWARGS["parent_dose_mg"]
 
 
-def test_nanoparticle_mechanism():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="nanoparticle")
-    assert result.mechanism == "depot"
+def test_target_dose_proportional_to_extension():
+    parent_dose = 100.0
+    r = _run(parent_dose_mg=parent_dose)
+    expected_target = parent_dose * r.t_half_extension_factor
+    assert r.target_dose_mg == pytest.approx(expected_target, rel=1e-9)
 
 
-def test_all_mechanisms_valid():
-    for strategy, kwargs in [
-        ("PEGylation", {"peg_mw_kDa": 10}),
-        ("albumin_binding", {}),
-        ("FcRn_recycling", {"mw_Da": 150000}),
-        ("depot_formulation", {"depot_release_t50_h": 24}),
-        ("prodrug", {"prodrug_conversion_t_half_h": 12}),
-        ("nanoparticle", {}),
-    ]:
-        result = predict_half_life_extension("Drug", _CL, _VD, strategy=strategy, **kwargs)
-        assert result.mechanism in _VALID_MECHANISMS
+# ---------------------------------------------------------------------------
+# FcRn_engineering highest t_half extension
+# ---------------------------------------------------------------------------
 
 
-# --- PEGylation high kDa ---
-
-def test_peg_high_kDa_extension_gt2():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="PEGylation", peg_mw_kDa=40.0)
-    assert result.extension_ratio > 2.0
-
-
-# --- Albumin binding tight ---
-
-def test_albumin_tight_Kd_strong():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="albumin_binding", albumin_affinity_uM=0.1)
-    assert result.extension_ratio > 2.0
+def test_fcrn_engineering_highest_extension():
+    # prodrug_depot: cl_factor=0.1, vd_factor=8.0 => extension=80x (highest)
+    # FcRn_engineering: cl_factor=0.03, vd_factor=1.2 => extension=40x (second highest)
+    # Verify FcRn_engineering beats PEGylation, albumin_fusion, nanoparticle
+    strategies = ["PEGylation", "albumin_fusion", "FcRn_engineering", "nanoparticle"]
+    results = {s: predict_half_life_extension("Drug", s, 2.0, 10.0, 100.0) for s in strategies}
+    fcrn_factor = results["FcRn_engineering"].t_half_extension_factor
+    for s, r in results.items():
+        if s != "FcRn_engineering":
+            assert fcrn_factor >= r.t_half_extension_factor
 
 
-# --- FcRn for large mAb ---
-
-def test_fcrn_large_mab():
-    result = predict_half_life_extension("mAb", _CL, _VD, strategy="FcRn_recycling", mw_Da=150000.0)
-    assert result.extension_ratio > 1.0
-    assert result.mechanism == "recycling"
+# ---------------------------------------------------------------------------
+# Dosing frequency classification
+# ---------------------------------------------------------------------------
 
 
-# --- dosing_frequency_reduction == extension_ratio ---
+def test_no_change_label():
+    from omega_pbpk.clinical.half_life_extension import _classify_frequency
 
-def test_dosing_freq_equals_extension_ratio():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="PEGylation", peg_mw_kDa=20)
-    assert abs(result.dosing_frequency_reduction - result.extension_ratio) < 1e-9
-
-
-# --- recommended flag ---
-
-def test_recommended_when_ratio_ge_2():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="PEGylation", peg_mw_kDa=40)
-    assert result.extension_ratio >= 2.0
-    assert result.recommended is True
+    assert _classify_frequency(1.5) == "no_change"
 
 
-def test_not_recommended_when_ratio_lt_2():
-    # Very small PEG → minimal extension
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="PEGylation", peg_mw_kDa=0.0)
-    # With 0 kDa PEG: cl_reduction=1.0, vd_increase=1.0 → ratio=1.0
-    assert result.extension_ratio < 2.0
-    assert result.recommended is False
+def test_2x_longer_label():
+    from omega_pbpk.clinical.half_life_extension import _classify_frequency
+
+    assert _classify_frequency(3.0) == "2x_longer"
 
 
-# --- notes nonempty ---
+def test_weekly_label():
+    from omega_pbpk.clinical.half_life_extension import _classify_frequency
 
-def test_notes_nonempty():
-    result = predict_half_life_extension("Drug", _CL, _VD)
-    assert len(result.notes) > 0
-
-
-# --- Validation ---
-
-def test_invalid_cl_raises():
-    with pytest.raises(ValueError):
-        predict_half_life_extension("Drug", 0.0, _VD)
+    assert _classify_frequency(5.0) == "weekly"
 
 
-def test_invalid_vd_raises():
-    with pytest.raises(ValueError):
-        predict_half_life_extension("Drug", _CL, 0.0)
+def test_biweekly_label():
+    from omega_pbpk.clinical.half_life_extension import _classify_frequency
+
+    assert _classify_frequency(10.0) == "biweekly"
+
+
+def test_monthly_label():
+    from omega_pbpk.clinical.half_life_extension import _classify_frequency
+
+    assert _classify_frequency(20.0) == "monthly"
+
+
+def test_quarterly_label():
+    from omega_pbpk.clinical.half_life_extension import _classify_frequency
+
+    assert _classify_frequency(50.0) == "quarterly"
+
+
+def test_pegylation_frequency_label():
+    # PEGylation: cl_factor=0.2, vd_factor=3.0 => extension = 3.0/0.2 = 15x => monthly (14-30x)
+    r = _run(strategy="PEGylation")
+    assert r.dosing_frequency_reduction == "monthly"
+
+
+def test_fcrn_engineering_quarterly():
+    # FcRn_engineering: extension = 1.2/0.03 = 40x => quarterly
+    r = predict_half_life_extension("Drug", "FcRn_engineering", 2.0, 10.0, 100.0)
+    assert r.dosing_frequency_reduction == "quarterly"
+
+
+# ---------------------------------------------------------------------------
+# compare_strategies
+# ---------------------------------------------------------------------------
+
+
+def test_compare_returns_five_items():
+    results = compare_strategies("Drug", 2.0, 10.0, 100.0)
+    assert len(results) == 5
+
+
+def test_compare_sorted_by_modified_t_half_descending():
+    results = compare_strategies("Drug", 2.0, 10.0, 100.0)
+    t_halves = [r.modified_t_half_h for r in results]
+    assert t_halves == sorted(t_halves, reverse=True)
+
+
+def test_compare_all_strategies_represented():
+    results = compare_strategies("Drug", 2.0, 10.0, 100.0)
+    strats = {r.strategy for r in results}
+    expected = {"PEGylation", "albumin_fusion", "FcRn_engineering", "nanoparticle", "prodrug_depot"}
+    assert strats == expected
+
+
+def test_compare_returns_half_life_extension_results():
+    results = compare_strategies("Drug", 2.0, 10.0, 100.0)
+    for r in results:
+        assert isinstance(r, HalfLifeExtensionResult)
+
+
+def test_compare_first_is_prodrug_depot():
+    # prodrug_depot: cl_factor=0.1, vd_factor=8.0 => extension=80x (highest of all)
+    results = compare_strategies("Drug", 2.0, 10.0, 100.0)
+    assert results[0].strategy == "prodrug_depot"
+
+
+# ---------------------------------------------------------------------------
+# Stored fields
+# ---------------------------------------------------------------------------
+
+
+def test_drug_name_stored():
+    r = _run(drug_name="Adalimumab")
+    assert r.drug_name == "Adalimumab"
+
+
+def test_strategy_stored():
+    r = _run(strategy="nanoparticle")
+    assert r.strategy == "nanoparticle"
+
+
+def test_notes_is_string():
+    r = _run()
+    assert isinstance(r.notes, str)
+    assert len(r.notes) > 0
+
+
+# ---------------------------------------------------------------------------
+# Validation errors
+# ---------------------------------------------------------------------------
 
 
 def test_invalid_strategy_raises():
-    with pytest.raises(ValueError):
-        predict_half_life_extension("Drug", _CL, _VD, strategy="magic_pill")
+    with pytest.raises(ValueError, match="strategy"):
+        _run(strategy="liposome")
 
 
-# --- Baseline half-life computed correctly ---
+def test_zero_cl_raises():
+    with pytest.raises(ValueError, match="parent_cl_l_per_h"):
+        _run(parent_cl_l_per_h=0.0)
 
-def test_baseline_t_half_correct():
-    result = predict_half_life_extension("Drug", _CL, _VD, strategy="nanoparticle")
-    expected = math.log(2) * _VD / _CL
-    assert abs(result.baseline_t_half_h - expected) < 1e-9
+
+def test_negative_cl_raises():
+    with pytest.raises(ValueError, match="parent_cl_l_per_h"):
+        _run(parent_cl_l_per_h=-1.0)
+
+
+def test_zero_vd_raises():
+    with pytest.raises(ValueError, match="parent_vd_l"):
+        _run(parent_vd_l=0.0)
+
+
+def test_zero_dose_raises():
+    with pytest.raises(ValueError, match="parent_dose_mg"):
+        _run(parent_dose_mg=0.0)
+
+
+def test_all_strategies_valid():
+    for s in ("PEGylation", "albumin_fusion", "FcRn_engineering", "nanoparticle", "prodrug_depot"):
+        r = predict_half_life_extension("Drug", s, 2.0, 10.0, 100.0)
+        assert r.modified_t_half_h > 0.0
