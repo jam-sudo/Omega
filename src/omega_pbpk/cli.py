@@ -486,23 +486,43 @@ def predict(
     dose: float = typer.Option(100.0, "--dose", "-d", help="Dose in mg"),
     route: str = typer.Option("oral", "--route", "-r", help="Route: oral or iv"),
     duration: float = typer.Option(24.0, "--duration", help="Simulation duration (h)"),
+    model: str = typer.Option(
+        "ensemble",
+        "--model",
+        "-m",
+        help="ADME model: 'ensemble' (default), 'admet-ai', or 'legacy'",
+    ),
 ) -> None:
-    """Predict PK profile for a new drug molecule from SMILES."""
-    _audit("predict", smiles=smiles, dose_mg=dose, route=route, duration_h=duration)
+    """Predict PK profile for a new drug molecule from SMILES.
+
+    Uses the ensemble ML predictor by default (ADMET-AI + XGBoost RBP + polynomial).
+    Fall back to --model legacy if ML dependencies are not installed.
+    """
+    _audit("predict", smiles=smiles, dose_mg=dose, route=route, duration_h=duration, model=model)
 
     import math
 
     from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
+    # Select ADME predictor based on --model flag
+    adme_predictor = _create_adme_predictor(model)
+
     req = SimulationRequest(smiles=smiles, dose_mg=dose, route=route, duration_h=duration)
     pipeline = OmegaPipeline()
-    typer.echo("Running simulation...")
+
+    # If we have an ML predictor, inject it into the pipeline
+    if adme_predictor is not None:
+        pipeline._adme_predictor = adme_predictor
+        pipeline._initialized = True
+
+    typer.echo(f"Running simulation (model={model})...")
     result = pipeline.simulate(req)
 
     typer.echo("\nOmega PBPK Prediction")
     typer.echo(f"{'=' * 40}")
     typer.echo(f"SMILES:     {smiles[:50]}{'...' if len(smiles) > 50 else ''}")
     typer.echo(f"Dose:       {dose} mg ({route})")
+    typer.echo(f"Model:      {model}")
     typer.echo(f"Confidence: {result.confidence}")
     typer.echo("\nPK Summary:")
     typer.echo(f"  Cmax:    {result.cmax_mg_L:.4f} mg/L")
@@ -514,10 +534,73 @@ def predict(
     for k, v in result.adme_properties.items():
         if k != "confidence" and isinstance(v, (int, float)):
             typer.echo(f"  {k:<12}: {v:.3g}")
+
+    # Show uncertainty intervals if available
+    interval_keys = [
+        ("fup", "fup_lo", "fup_hi"),
+        ("clint_3a4", "clint_3a4_lo", "clint_3a4_hi"),
+        ("peff", "peff_lo", "peff_hi"),
+        ("rbp", "rbp_lo", "rbp_hi"),
+    ]
+    has_intervals = False
+    for _, lo_k, hi_k in interval_keys:
+        lo_v = result.adme_properties.get(lo_k, 0.0)
+        hi_v = result.adme_properties.get(hi_k, 0.0)
+        if isinstance(lo_v, (int, float)) and isinstance(hi_v, (int, float)) and hi_v > lo_v > 0:
+            has_intervals = True
+            break
+    if has_intervals:
+        typer.echo("\nUncertainty Intervals (90% CI):")
+        for prop, lo_k, hi_k in interval_keys:
+            lo_v = result.adme_properties.get(lo_k, 0.0)
+            hi_v = result.adme_properties.get(hi_k, 0.0)
+            if isinstance(lo_v, (int, float)) and isinstance(hi_v, (int, float)) and hi_v > lo_v:
+                typer.echo(f"  {prop:<12}: [{lo_v:.4g}, {hi_v:.4g}]")
+
     if result.warnings:
         typer.echo("\nWarnings:")
         for w in result.warnings:
             typer.echo(f"  ! {w}")
+
+
+def _create_adme_predictor(model_name: str) -> object | None:
+    """Create the requested ADME predictor.
+
+    Args:
+        model_name: One of 'ensemble', 'admet-ai', or 'legacy'.
+
+    Returns:
+        Predictor instance, or None to use pipeline default (legacy).
+    """
+    if model_name == "legacy":
+        return None  # Pipeline uses its own ADMEPredictor
+
+    if model_name == "admet-ai":
+        try:
+            from omega_pbpk.ml.models.adme.admet_ai_wrapper import ADMETAIPredictor
+
+            return ADMETAIPredictor()
+        except ImportError:
+            logger.warning(
+                "admet-ai not installed; falling back to legacy predictor. "
+                "Install with: pip install admet-ai"
+            )
+            return None
+
+    if model_name == "ensemble":
+        try:
+            from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
+
+            return EnsembleADMEPredictor()
+        except Exception as exc:
+            logger.warning(
+                "Ensemble predictor failed to initialize (%s); falling back to legacy.",
+                exc,
+            )
+            return None
+
+    logger.warning("Unknown model '%s'; using legacy predictor.", model_name)
+    return None
 
 
 @app.command("smiles-report")

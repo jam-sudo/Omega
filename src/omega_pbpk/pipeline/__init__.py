@@ -277,7 +277,7 @@ class OmegaPipeline:
         if self._adme_predictor is not None:
             try:
                 props = self._adme_predictor.predict(smiles)
-                return {
+                result = {
                     "mw": props.mw,
                     "logP": props.logP,
                     "logS": props.logS,
@@ -287,6 +287,18 @@ class OmegaPipeline:
                     "herg_ic50_uM": props.herg_ic50_uM,
                     "confidence": props.confidence,
                 }
+                # Include uncertainty intervals if available
+                for attr in (
+                    "clint_2d6", "peff",
+                    "fup_lo", "fup_hi",
+                    "clint_3a4_lo", "clint_3a4_hi",
+                    "peff_lo", "peff_hi",
+                    "rbp_lo", "rbp_hi",
+                ):
+                    val = getattr(props, attr, None)
+                    if val is not None:
+                        result[attr] = val
+                return result
             except Exception as e:
                 warnings_list.append(f"ADME prediction failed: {e}; using defaults")
         else:
