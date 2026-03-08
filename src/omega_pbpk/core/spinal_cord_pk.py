@@ -1,16 +1,12 @@
-"""Phase 919 — Drug Spinal Cord Distribution.
+"""Phase 427: Drug distribution in spinal cord tissue.
 
-Models drug distribution in spinal cord with three compartments:
-- CSF (lumbar)
-- Spinal cord tissue
-- Systemic plasma
-
-Relevant for intrathecal analgesics and neuropathic pain drugs.
+3-compartment model: plasma -> CSF -> spinal cord tissue
+Relevant for ALS, SMA, and neuropathic pain drugs.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -19,193 +15,244 @@ class SpinalCordPKResult:
 
     drug_name: str
     dose_mg: float
-    route: str  # "intrathecal" or "systemic"
-    times_h: list[float] = field(default_factory=list)
-    c_csf_mg_L: list[float] = field(default_factory=list)
-    c_spinal_cord_mg_L: list[float] = field(default_factory=list)
-    c_plasma_mg_L: list[float] = field(default_factory=list)
-    cmax_csf: float = 0.0
-    tmax_csf_h: float = 0.0
-    auc_csf: float = 0.0
-    cmax_spinal_cord: float = 0.0
-    auc_spinal_cord: float = 0.0
-    spinal_to_plasma_ratio: float = 0.0
-    analgesic_duration_h: float = 0.0
-    notes: str = ""
+    route: str
+    times_h: list
+    c_csf_mg_mL: list
+    c_spinal_cord_mg_L: list
+    c_systemic_mg_L: list
+    cmax_csf_mg_mL: float
+    cmax_spinal_cord_mg_L: float
+    tmax_spinal_cord_h: float
+    auc_csf_mg_h_per_mL: float
+    auc_spinal_cord_mg_h_per_L: float
+    csf_to_plasma_ratio: float
+    spinal_cord_to_csf_ratio: float
+    t_half_csf_h: float
+    notes: str
 
 
-def _trapz(times: list[float], values: list[float]) -> float:
-    """Manual trapezoidal integration."""
-    auc = 0.0
-    for i in range(1, len(times)):
-        auc += 0.5 * (values[i] + values[i - 1]) * (times[i] - times[i - 1])
-    return auc
+def _trapezoidal_auc(x: list, y: list) -> float:
+    """Manual trapezoidal AUC."""
+    return sum(0.5 * (y[i] + y[i - 1]) * (x[i] - x[i - 1]) for i in range(1, len(x)))
 
 
 def simulate_spinal_cord_pk(
     drug_name: str,
     dose_mg: float,
-    route: str = "intrathecal",
-    k_csf_to_cord_per_h: float = 0.5,
-    k_cord_to_csf_per_h: float = 0.1,
-    k_csf_drain_per_h: float = 0.15,
-    cl_sys_L_per_h: float = 10.0,
-    vd_sys_L: float = 50.0,
-    v_csf_L: float = 0.14,
-    v_cord_L: float = 0.03,
-    t_end_h: float = 12.0,
+    route: str,
+    cl_sys_L_per_h: float,
+    vd_plasma_L: float = 5.0,
+    v_csf_L: float = 0.15,
+    v_sc_L: float = 0.03,
+    k_plasma_to_csf: float = 0.05,
+    k_csf_to_plasma: float = 0.3,
+    k_csf_to_sc: float = 0.1,
+    k_sc_elim: float = 0.2,
+    ka_per_h: float = 1.0,
+    f_oral: float = 0.8,
+    t_end_h: float = 24.0,
     dt_h: float = 0.05,
 ) -> SpinalCordPKResult:
-    """Simulate drug distribution in spinal cord.
+    """Simulate drug distribution in spinal cord tissue.
 
     Parameters
     ----------
-    drug_name:
+    drug_name : str
         Name of the drug.
-    dose_mg:
+    dose_mg : float
         Dose in milligrams.
-    route:
-        Administration route: "intrathecal" or "systemic".
-    k_csf_to_cord_per_h:
-        First-order transfer rate from CSF to spinal cord (1/h).
-    k_cord_to_csf_per_h:
-        First-order transfer rate from spinal cord to CSF (1/h).
-    k_csf_drain_per_h:
-        First-order drainage rate of CSF to blood (1/h).
-    cl_sys_L_per_h:
-        Systemic clearance (L/h).
-    vd_sys_L:
-        Volume of distribution for systemic compartment (L).
-    v_csf_L:
-        Volume of lumbar CSF (L).
-    v_cord_L:
-        Volume of spinal cord tissue (L).
-    t_end_h:
-        Simulation end time (h).
-    dt_h:
-        Integration step size (h).
+    route : str
+        Administration route: "intrathecal", "iv", or "oral".
+    cl_sys_L_per_h : float
+        Systemic clearance in L/h.
+    vd_plasma_L : float
+        Plasma volume of distribution in L.
+    v_csf_L : float
+        CSF volume in L (default ~150 mL).
+    v_sc_L : float
+        Spinal cord volume in L (default ~30 mL).
+    k_plasma_to_csf : float
+        Rate constant plasma -> CSF (1/h).
+    k_csf_to_plasma : float
+        Rate constant CSF -> plasma (1/h).
+    k_csf_to_sc : float
+        Rate constant CSF -> spinal cord (1/h).
+    k_sc_elim : float
+        Spinal cord local elimination rate (1/h).
+    ka_per_h : float
+        Oral absorption rate constant (1/h).
+    f_oral : float
+        Oral bioavailability fraction.
+    t_end_h : float
+        Simulation end time in hours.
+    dt_h : float
+        ODE integration step size in hours.
 
     Returns
     -------
     SpinalCordPKResult
     """
+    # Validation
     if dose_mg <= 0:
-        raise ValueError(f"dose_mg must be positive, got {dose_mg}")
-    if route not in {"intrathecal", "systemic"}:
-        raise ValueError(f"route must be 'intrathecal' or 'systemic', got '{route}'")
+        raise ValueError(f"dose_mg must be > 0, got {dose_mg}")
+    if cl_sys_L_per_h <= 0:
+        raise ValueError(f"cl_sys_L_per_h must be > 0, got {cl_sys_L_per_h}")
+    if vd_plasma_L <= 0:
+        raise ValueError(f"vd_plasma_L must be > 0, got {vd_plasma_L}")
+    valid_routes = {"intrathecal", "iv", "oral"}
+    if route not in valid_routes:
+        raise ValueError(f"route must be one of {valid_routes}, got '{route}'")
 
-    ke_sys = cl_sys_L_per_h / vd_sys_L  # systemic elimination rate (1/h)
-    k_cord_elim = 0.05  # spinal cord elimination rate (1/h)
+    # Derived elimination rate for plasma
+    k_elim_plasma = cl_sys_L_per_h / vd_plasma_L
 
-    # Initial amounts (mg)
-    if route == "intrathecal":
-        a_csf = dose_mg
-        a_cord = 0.0
-        a_plasma = 0.0
-    else:
-        a_csf = 0.0
-        a_cord = 0.0
-        a_plasma = dose_mg
+    # Initial conditions: amounts in mg
+    if route == "iv":
+        plasma_amt = dose_mg
+        csf_amt = 0.0
+        sc_amt = 0.0
+        depot_amt = 0.0
+    elif route == "intrathecal":
+        plasma_amt = 0.0
+        csf_amt = dose_mg
+        sc_amt = 0.0
+        depot_amt = 0.0
+    else:  # oral
+        plasma_amt = 0.0
+        csf_amt = 0.0
+        sc_amt = 0.0
+        depot_amt = dose_mg
 
-    times: list[float] = []
-    c_csf_list: list[float] = []
-    c_cord_list: list[float] = []
-    c_plasma_list: list[float] = []
+    # Forward Euler integration
+    n_steps = max(int(t_end_h / dt_h), 1)
 
-    t = 0.0
-    n_steps = int(round(t_end_h / dt_h)) + 1
+    times = [0.0]
+    c_plasma_list = [plasma_amt / vd_plasma_L]  # mg/L
+    c_csf_list = [csf_amt / v_csf_L / 1000.0]  # mg/mL
+    c_sc_list = [sc_amt / v_sc_L]  # mg/L
 
-    for _ in range(n_steps):
-        c_csf = a_csf / v_csf_L
-        c_cord = a_cord / v_cord_L
-        c_plasma = a_plasma / vd_sys_L
-
-        times.append(t)
-        c_csf_list.append(c_csf)
-        c_cord_list.append(c_cord)
-        c_plasma_list.append(c_plasma)
-
-        if t >= t_end_h:
-            break
-
-        # ODEs
-        if route == "intrathecal":
-            bbb_in = 0.0
-            da_csf = (
-                -k_csf_drain_per_h * a_csf
-                - k_csf_to_cord_per_h * a_csf
-                + k_cord_to_csf_per_h * a_cord
-                + bbb_in
-            )
-            da_cord = (
-                k_csf_to_cord_per_h * a_csf - k_cord_to_csf_per_h * a_cord - k_cord_elim * a_cord
-            )
-            # CSF drains into systemic blood, minus systemic elimination
-            da_plasma = k_csf_drain_per_h * a_csf - ke_sys * a_plasma
+    for step in range(n_steps):
+        # Oral depot absorption (only for oral route)
+        if route == "oral":
+            depot_to_plasma = ka_per_h * depot_amt * f_oral
+            depot_loss = ka_per_h * depot_amt
         else:
-            # systemic route: 1% of plasma amount crosses into CSF
-            bbb_in = 0.01 * a_plasma
-            da_csf = (
-                -k_csf_drain_per_h * a_csf
-                - k_csf_to_cord_per_h * a_csf
-                + k_cord_to_csf_per_h * a_cord
-                + bbb_in
-            )
-            da_cord = (
-                k_csf_to_cord_per_h * a_csf - k_cord_to_csf_per_h * a_cord - k_cord_elim * a_cord
-            )
-            # systemic: eliminate + BBB transfer out
-            da_plasma = -ke_sys * a_plasma - 0.01 * a_plasma
+            depot_to_plasma = 0.0
+            depot_loss = 0.0
 
-        # Forward Euler
-        a_csf = max(0.0, a_csf + da_csf * dt_h)
-        a_cord = max(0.0, a_cord + da_cord * dt_h)
-        a_plasma = max(0.0, a_plasma + da_plasma * dt_h)
+        # Plasma ODEs
+        plasma_to_csf = k_plasma_to_csf * plasma_amt
+        csf_to_plasma_flux = k_csf_to_plasma * csf_amt
+        plasma_elim = k_elim_plasma * plasma_amt
 
-        t = round(t + dt_h, 10)
+        d_plasma = depot_to_plasma + csf_to_plasma_flux - plasma_to_csf - plasma_elim
+
+        # CSF ODEs
+        csf_to_sc_flux = k_csf_to_sc * csf_amt
+        d_csf = plasma_to_csf - csf_to_plasma_flux - csf_to_sc_flux
+
+        # Spinal cord ODEs
+        sc_elim = k_sc_elim * sc_amt
+        d_sc = csf_to_sc_flux - sc_elim
+
+        # Update amounts (Forward Euler)
+        depot_amt = max(depot_amt - depot_loss * dt_h, 0.0)
+        plasma_amt = max(plasma_amt + d_plasma * dt_h, 0.0)
+        csf_amt = max(csf_amt + d_csf * dt_h, 0.0)
+        sc_amt = max(sc_amt + d_sc * dt_h, 0.0)
+
+        t = (step + 1) * dt_h
+        times.append(t)
+        c_plasma_list.append(plasma_amt / vd_plasma_L)
+        c_csf_list.append(csf_amt / v_csf_L / 1000.0)
+        c_sc_list.append(sc_amt / v_sc_L)
 
     # Compute PK metrics
+    auc_csf = _trapezoidal_auc(times, c_csf_list)
+    auc_sc = _trapezoidal_auc(times, c_sc_list)
+    auc_plasma_mg_L = _trapezoidal_auc(times, c_plasma_list)
+    auc_plasma_mg_mL = auc_plasma_mg_L / 1000.0
+
     cmax_csf = max(c_csf_list)
-    tmax_csf_h = times[c_csf_list.index(cmax_csf)]
-    auc_csf = _trapz(times, c_csf_list)
+    cmax_sc = max(c_sc_list)
 
-    cmax_spinal_cord = max(c_cord_list)
-    auc_spinal_cord = _trapz(times, c_cord_list)
+    tmax_sc_idx = c_sc_list.index(cmax_sc)
+    tmax_sc = times[tmax_sc_idx]
 
-    auc_plasma = _trapz(times, c_plasma_list)
-
-    spinal_to_plasma_ratio = auc_spinal_cord / auc_plasma if auc_plasma > 0.0 else 0.0
-
-    # Analgesic duration: time above 10% of Cmax in spinal cord
-    threshold = 0.1 * cmax_spinal_cord
-    analgesic_steps = sum(1 for c in c_cord_list if c >= threshold)
-    analgesic_duration_h = analgesic_steps * dt_h
-
-    # Notes
-    if route == "intrathecal" and spinal_to_plasma_ratio > 10.0:
-        notes = (
-            "Excellent spinal selectivity — suitable for spinally-targeted analgesia"
-            " with minimal systemic effects"
-        )
-    elif spinal_to_plasma_ratio > 1.0:
-        notes = "Good spinal cord penetration"
+    # Half-life in CSF
+    total_csf_rate = k_csf_to_plasma + k_csf_to_sc
+    if total_csf_rate > 0:
+        t_half_csf = 0.693 / total_csf_rate
     else:
-        notes = "Limited spinal cord distribution — consider intrathecal route"
+        t_half_csf = float("inf")
+
+    # CSF-to-plasma ratio (both in mg/mL)
+    csf_to_plasma = auc_csf / max(auc_plasma_mg_mL, 1e-12)
+
+    # Spinal cord-to-CSF ratio (sc in mg/L, csf in mg/mL -> multiply csf by 1000 for mg/L)
+    spinal_cord_to_csf = auc_sc / max(auc_csf * 1000.0, 1e-12)
+
+    notes = (
+        f"Route: {route}. CSF-to-plasma AUC ratio: {csf_to_plasma:.4f}. "
+        f"Spinal cord-to-CSF AUC ratio: {spinal_cord_to_csf:.4f}. "
+        f"t1/2 CSF: {t_half_csf:.2f} h."
+    )
 
     return SpinalCordPKResult(
         drug_name=drug_name,
         dose_mg=dose_mg,
         route=route,
         times_h=times,
-        c_csf_mg_L=c_csf_list,
-        c_spinal_cord_mg_L=c_cord_list,
-        c_plasma_mg_L=c_plasma_list,
-        cmax_csf=cmax_csf,
-        tmax_csf_h=tmax_csf_h,
-        auc_csf=auc_csf,
-        cmax_spinal_cord=cmax_spinal_cord,
-        auc_spinal_cord=auc_spinal_cord,
-        spinal_to_plasma_ratio=spinal_to_plasma_ratio,
-        analgesic_duration_h=analgesic_duration_h,
+        c_csf_mg_mL=c_csf_list,
+        c_spinal_cord_mg_L=c_sc_list,
+        c_systemic_mg_L=c_plasma_list,
+        cmax_csf_mg_mL=cmax_csf,
+        cmax_spinal_cord_mg_L=cmax_sc,
+        tmax_spinal_cord_h=tmax_sc,
+        auc_csf_mg_h_per_mL=auc_csf,
+        auc_spinal_cord_mg_h_per_L=auc_sc,
+        csf_to_plasma_ratio=csf_to_plasma,
+        spinal_cord_to_csf_ratio=spinal_cord_to_csf,
+        t_half_csf_h=t_half_csf,
         notes=notes,
     )
+
+
+def compare_spinal_routes(
+    drug_name: str,
+    dose_mg: float,
+    cl_sys_L_per_h: float,
+    vd_plasma_L: float,
+) -> list[SpinalCordPKResult]:
+    """Compare all three administration routes for spinal cord drug delivery.
+
+    Parameters
+    ----------
+    drug_name : str
+        Name of the drug.
+    dose_mg : float
+        Dose in milligrams.
+    cl_sys_L_per_h : float
+        Systemic clearance in L/h.
+    vd_plasma_L : float
+        Plasma volume of distribution in L.
+
+    Returns
+    -------
+    list of SpinalCordPKResult
+        Results for all 3 routes sorted by auc_spinal_cord_mg_h_per_L descending.
+    """
+    routes = ["intrathecal", "iv", "oral"]
+    results = []
+    for route in routes:
+        result = simulate_spinal_cord_pk(
+            drug_name=drug_name,
+            dose_mg=dose_mg,
+            route=route,
+            cl_sys_L_per_h=cl_sys_L_per_h,
+            vd_plasma_L=vd_plasma_L,
+        )
+        results.append(result)
+
+    results.sort(key=lambda r: r.auc_spinal_cord_mg_h_per_L, reverse=True)
+    return results

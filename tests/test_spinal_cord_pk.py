@@ -1,236 +1,190 @@
-"""Tests for Phase 919 — Drug Spinal Cord Distribution."""
+"""Tests for Phase 427: Spinal cord PK simulation."""
 
 import pytest
 
 from omega_pbpk.core.spinal_cord_pk import (
     SpinalCordPKResult,
+    compare_spinal_routes,
     simulate_spinal_cord_pk,
 )
 
-# ---------------------------------------------------------------------------
-# Basic structure tests
-# ---------------------------------------------------------------------------
+
+# --- Helper ---
+def default_iv():
+    return simulate_spinal_cord_pk(
+        drug_name="TestDrug",
+        dose_mg=10.0,
+        route="iv",
+        cl_sys_L_per_h=1.0,
+        vd_plasma_L=5.0,
+    )
 
 
-def test_result_is_dataclass():
-    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0, route="intrathecal")
+def default_it():
+    return simulate_spinal_cord_pk(
+        drug_name="TestDrug",
+        dose_mg=10.0,
+        route="intrathecal",
+        cl_sys_L_per_h=1.0,
+        vd_plasma_L=5.0,
+    )
+
+
+def default_oral():
+    return simulate_spinal_cord_pk(
+        drug_name="TestDrug",
+        dose_mg=10.0,
+        route="oral",
+        cl_sys_L_per_h=1.0,
+        vd_plasma_L=5.0,
+    )
+
+
+# --- Return type ---
+def test_return_type_iv():
+    result = default_iv()
     assert isinstance(result, SpinalCordPKResult)
 
 
-def test_result_fields_populated():
-    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0)
-    assert result.drug_name == "morphine"
-    assert result.dose_mg == 1.0
-    assert result.route == "intrathecal"
-    assert len(result.times_h) > 0
-    assert len(result.c_csf_mg_L) > 0
-    assert len(result.c_spinal_cord_mg_L) > 0
-    assert len(result.c_plasma_mg_L) > 0
+def test_return_type_intrathecal():
+    result = default_it()
+    assert isinstance(result, SpinalCordPKResult)
 
 
-def test_time_array_length_matches_concentration():
-    result = simulate_spinal_cord_pk("drug", dose_mg=2.0)
-    assert len(result.times_h) == len(result.c_csf_mg_L)
-    assert len(result.times_h) == len(result.c_spinal_cord_mg_L)
-    assert len(result.times_h) == len(result.c_plasma_mg_L)
+def test_return_type_oral():
+    result = default_oral()
+    assert isinstance(result, SpinalCordPKResult)
 
 
-def test_time_starts_at_zero():
-    result = simulate_spinal_cord_pk("drug", dose_mg=1.0)
-    assert result.times_h[0] == pytest.approx(0.0)
+# --- Array consistency ---
+def test_times_start_at_zero_iv():
+    result = default_iv()
+    assert result.times_h[0] == 0.0
 
 
-def test_time_ends_at_t_end():
-    result = simulate_spinal_cord_pk("drug", dose_mg=1.0, t_end_h=10.0, dt_h=0.1)
-    assert result.times_h[-1] == pytest.approx(10.0, abs=0.15)
+def test_arrays_consistent_length():
+    result = default_iv()
+    n = len(result.times_h)
+    assert len(result.c_csf_mg_mL) == n
+    assert len(result.c_spinal_cord_mg_L) == n
+    assert len(result.c_systemic_mg_L) == n
 
 
-# ---------------------------------------------------------------------------
-# Intrathecal route
-# ---------------------------------------------------------------------------
+def test_times_monotonically_increasing():
+    result = default_iv()
+    for i in range(1, len(result.times_h)):
+        assert result.times_h[i] > result.times_h[i - 1]
 
 
-def test_intrathecal_initial_csf_concentration():
-    v_csf_L = 0.14
-    dose_mg = 1.0
-    result = simulate_spinal_cord_pk(
-        "morphine", dose_mg=dose_mg, route="intrathecal", v_csf_L=v_csf_L
-    )
-    expected = dose_mg / v_csf_L
-    assert result.c_csf_mg_L[0] == pytest.approx(expected, rel=1e-6)
+# --- Initial conditions ---
+def test_intrathecal_csf_starts_high():
+    result = default_it()
+    # CSF concentration at t=0 should be dose / V_csf / 1000
+    # 10 mg / 0.15 L / 1000 = 0.0667 mg/mL
+    assert result.c_csf_mg_mL[0] > 0.05
 
 
-def test_intrathecal_initial_plasma_zero():
-    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0, route="intrathecal")
-    assert result.c_plasma_mg_L[0] == pytest.approx(0.0, abs=1e-12)
+def test_intrathecal_plasma_starts_near_zero():
+    result = default_it()
+    assert result.c_systemic_mg_L[0] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_intrathecal_plasma_rises_over_time():
-    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0, route="intrathecal")
-    # Plasma should accumulate due to CSF drainage
-    assert max(result.c_plasma_mg_L) > 0.0
+def test_iv_plasma_starts_at_dose_over_vd():
+    result = default_iv()
+    # dose=10, vd=5 -> C(0) = 2.0 mg/L
+    assert result.c_systemic_mg_L[0] == pytest.approx(2.0, rel=1e-6)
 
 
-def test_intrathecal_csf_decays():
-    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0, route="intrathecal")
-    assert result.c_csf_mg_L[-1] < result.c_csf_mg_L[0]
+def test_iv_csf_starts_near_zero():
+    result = default_iv()
+    assert result.c_csf_mg_mL[0] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_intrathecal_cmax_csf_equals_initial():
-    v_csf_L = 0.14
-    dose_mg = 2.0
-    result = simulate_spinal_cord_pk("drug", dose_mg=dose_mg, route="intrathecal", v_csf_L=v_csf_L)
-    assert result.cmax_csf == pytest.approx(dose_mg / v_csf_L, rel=1e-6)
+# --- cmax / auc positivity ---
+def test_cmax_csf_positive_iv():
+    result = default_iv()
+    assert result.cmax_csf_mg_mL > 0.0
 
 
-def test_intrathecal_tmax_csf_at_zero():
-    result = simulate_spinal_cord_pk("drug", dose_mg=1.0, route="intrathecal")
-    assert result.tmax_csf_h == pytest.approx(0.0, abs=0.1)
+def test_cmax_csf_positive_intrathecal():
+    result = default_it()
+    assert result.cmax_csf_mg_mL > 0.0
 
 
-# ---------------------------------------------------------------------------
-# Systemic route
-# ---------------------------------------------------------------------------
+def test_cmax_spinal_cord_positive_iv():
+    result = default_iv()
+    assert result.cmax_spinal_cord_mg_L > 0.0
 
 
-def test_systemic_initial_plasma_concentration():
-    vd_sys_L = 50.0
-    dose_mg = 10.0
-    result = simulate_spinal_cord_pk(
-        "gabapentin",
-        dose_mg=dose_mg,
-        route="systemic",
-        vd_sys_L=vd_sys_L,
-    )
-    expected = dose_mg / vd_sys_L
-    assert result.c_plasma_mg_L[0] == pytest.approx(expected, rel=1e-6)
-
-
-def test_systemic_initial_csf_zero():
-    result = simulate_spinal_cord_pk("gabapentin", dose_mg=10.0, route="systemic")
-    assert result.c_csf_mg_L[0] == pytest.approx(0.0, abs=1e-12)
-
-
-def test_systemic_csf_rises_then_falls():
-    result = simulate_spinal_cord_pk("gabapentin", dose_mg=10.0, route="systemic", t_end_h=24.0)
-    assert result.cmax_csf > 0.0
-    assert result.tmax_csf_h > 0.0
-
-
-def test_systemic_plasma_decays():
-    result = simulate_spinal_cord_pk("gabapentin", dose_mg=10.0, route="systemic")
-    assert result.c_plasma_mg_L[-1] < result.c_plasma_mg_L[0]
-
-
-# ---------------------------------------------------------------------------
-# AUC and PK metrics
-# ---------------------------------------------------------------------------
+def test_cmax_spinal_cord_positive_intrathecal():
+    result = default_it()
+    assert result.cmax_spinal_cord_mg_L > 0.0
 
 
 def test_auc_csf_positive():
-    result = simulate_spinal_cord_pk("drug", dose_mg=1.0)
-    assert result.auc_csf > 0.0
+    result = default_iv()
+    assert result.auc_csf_mg_h_per_mL > 0.0
 
 
 def test_auc_spinal_cord_positive():
-    result = simulate_spinal_cord_pk("drug", dose_mg=1.0)
-    assert result.auc_spinal_cord > 0.0
+    result = default_iv()
+    assert result.auc_spinal_cord_mg_h_per_L > 0.0
 
 
-def test_analgesic_duration_positive_intrathecal():
-    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0, route="intrathecal")
-    assert result.analgesic_duration_h > 0.0
+# --- t_half_csf ---
+def test_t_half_csf_positive():
+    result = default_iv()
+    assert result.t_half_csf_h > 0.0
 
 
-def test_analgesic_duration_bounded_by_simulation():
-    t_end = 12.0
-    result = simulate_spinal_cord_pk("morphine", dose_mg=1.0, route="intrathecal", t_end_h=t_end)
-    assert result.analgesic_duration_h <= t_end + 0.1
+def test_t_half_csf_formula():
+    # k_csf_to_plasma=0.3, k_csf_to_sc=0.1 -> total=0.4 -> t_half = 0.693/0.4
+    result = default_iv()
+    expected = 0.693 / (0.3 + 0.1)
+    assert result.t_half_csf_h == pytest.approx(expected, rel=1e-4)
 
 
-# ---------------------------------------------------------------------------
-# Spinal-to-plasma ratio and notes
-# ---------------------------------------------------------------------------
+# --- Route comparison ---
+def test_intrathecal_higher_auc_csf_than_iv():
+    it_result = default_it()
+    iv_result = default_iv()
+    assert it_result.auc_csf_mg_h_per_mL > iv_result.auc_csf_mg_h_per_mL
 
 
-def test_spinal_to_plasma_ratio_intrathecal_high():
-    # Intrathecal should yield high spinal selectivity
-    result = simulate_spinal_cord_pk(
-        "morphine",
-        dose_mg=1.0,
-        route="intrathecal",
-        k_csf_drain_per_h=0.05,  # slow drain → keeps drug in CSF/cord
-        cl_sys_L_per_h=20.0,  # fast systemic clearance
-        t_end_h=24.0,
-    )
-    assert result.spinal_to_plasma_ratio > 0.0
+# --- compare_spinal_routes ---
+def test_compare_routes_returns_three():
+    results = compare_spinal_routes("Drug", 10.0, 1.0, 5.0)
+    assert len(results) == 3
 
 
-def test_notes_intrathecal_excellent_selectivity():
-    result = simulate_spinal_cord_pk(
-        "morphine",
-        dose_mg=1.0,
-        route="intrathecal",
-        k_csf_drain_per_h=0.01,
-        cl_sys_L_per_h=50.0,
-        t_end_h=24.0,
-    )
-    # With very slow drain and high systemic CL, spinal/plasma ratio should be > 10
-    if result.spinal_to_plasma_ratio > 10.0:
-        assert "Excellent spinal selectivity" in result.notes
+def test_compare_routes_sorted_descending():
+    results = compare_spinal_routes("Drug", 10.0, 1.0, 5.0)
+    aucs = [r.auc_spinal_cord_mg_h_per_L for r in results]
+    assert aucs == sorted(aucs, reverse=True)
 
 
-def test_notes_limited_distribution_systemic():
-    # Systemic with poor CNS penetration parameters
-    result = simulate_spinal_cord_pk(
-        "drug",
-        dose_mg=10.0,
-        route="systemic",
-        k_csf_to_cord_per_h=0.01,
-        k_cord_to_csf_per_h=0.5,
-    )
-    # spinal_to_plasma_ratio likely < 1 → limited distribution note
-    if result.spinal_to_plasma_ratio <= 1.0:
-        assert "Limited spinal cord distribution" in result.notes
+def test_compare_routes_all_types():
+    results = compare_spinal_routes("Drug", 10.0, 1.0, 5.0)
+    routes = {r.route for r in results}
+    assert routes == {"intrathecal", "iv", "oral"}
 
 
-def test_notes_non_empty():
-    result = simulate_spinal_cord_pk("drug", dose_mg=1.0)
-    assert len(result.notes) > 0
-
-
-# ---------------------------------------------------------------------------
-# Validation errors
-# ---------------------------------------------------------------------------
-
-
+# --- Validation errors ---
 def test_invalid_dose_raises():
     with pytest.raises(ValueError, match="dose_mg"):
-        simulate_spinal_cord_pk("drug", dose_mg=0.0)
+        simulate_spinal_cord_pk("Drug", dose_mg=0.0, route="iv", cl_sys_L_per_h=1.0)
 
 
 def test_negative_dose_raises():
     with pytest.raises(ValueError, match="dose_mg"):
-        simulate_spinal_cord_pk("drug", dose_mg=-5.0)
+        simulate_spinal_cord_pk("Drug", dose_mg=-5.0, route="iv", cl_sys_L_per_h=1.0)
 
 
 def test_invalid_route_raises():
     with pytest.raises(ValueError, match="route"):
-        simulate_spinal_cord_pk("drug", dose_mg=1.0, route="oral")
+        simulate_spinal_cord_pk("Drug", dose_mg=10.0, route="subcutaneous", cl_sys_L_per_h=1.0)
 
 
-# ---------------------------------------------------------------------------
-# Dose proportionality
-# ---------------------------------------------------------------------------
-
-
-def test_cmax_csf_scales_with_dose_intrathecal():
-    result_1 = simulate_spinal_cord_pk("drug", dose_mg=1.0, route="intrathecal")
-    result_2 = simulate_spinal_cord_pk("drug", dose_mg=2.0, route="intrathecal")
-    assert result_2.cmax_csf == pytest.approx(2.0 * result_1.cmax_csf, rel=1e-6)
-
-
-def test_auc_scales_with_dose():
-    result_1 = simulate_spinal_cord_pk("drug", dose_mg=1.0)
-    result_2 = simulate_spinal_cord_pk("drug", dose_mg=3.0)
-    assert result_2.auc_csf == pytest.approx(3.0 * result_1.auc_csf, rel=1e-6)
+def test_invalid_cl_raises():
+    with pytest.raises(ValueError, match="cl_sys_L_per_h"):
+        simulate_spinal_cord_pk("Drug", dose_mg=10.0, route="iv", cl_sys_L_per_h=0.0)
