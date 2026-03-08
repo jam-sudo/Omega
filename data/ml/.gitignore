@@ -1,0 +1,11 @@
+# Large data files — regenerate with:
+#   python -m omega_pbpk.ml.data.synthetic --n-samples 50000
+*.h5
+*.hdf5
+*.parquet
+*.pkl
+*.pickle
+*.pt
+*.pth
+*.npy
+*.npz
