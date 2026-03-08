@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pandas && pip install -e ".[dev]"
+      - run: pip install pandas && pip install -e ".[dev,api,auth,viz]"
       - name: Run benchmark suite
         run: pytest tests/ -m benchmark -v --timeout=300
       - name: Upload benchmark results
