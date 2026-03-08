@@ -8,14 +8,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from omega_pbpk.ml.data.datasets import (
+requests = pytest.importorskip("requests", reason="requests not installed")
+
+from omega_pbpk.ml.data.datasets import (  # noqa: E402
     ClinicalPKDataset,
     convert_clearance,
     convert_concentration,
     convert_time,
     convert_volume,
 )
-from omega_pbpk.ml.data.loaders import (
+from omega_pbpk.ml.data.loaders import (  # noqa: E402
     _SUPPORTED_TDC_ENDPOINTS,
     FDALabelExtractor,
     PKDBLoader,
