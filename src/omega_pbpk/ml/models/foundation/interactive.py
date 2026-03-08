@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -55,15 +55,13 @@ class InteractivePKPredictor:
             self.model = PKFoundationModel()
             self.model.to(device)
             self.model.eval()
-            logger.warning(
-                "Model file not found: %s. Using untrained model.", self.model_path
-            )
+            logger.warning("Model file not found: %s. Using untrained model.", self.model_path)
 
     def predict(
         self,
         smiles: str,
-        patient: Optional[dict[str, Any]] = None,
-        dosing: Optional[dict[str, Any]] = None,
+        patient: dict[str, Any] | None = None,
+        dosing: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Predict PK profile for a molecule.
 
@@ -97,10 +95,7 @@ class InteractivePKPredictor:
             )
 
         # Extract params as plain floats
-        predicted_params = {
-            key: float(val.cpu().item())
-            for key, val in result["params"].items()
-        }
+        predicted_params = {key: float(val.cpu().item()) for key, val in result["params"].items()}
 
         # PK metrics
         pk_metrics = result["pk_metrics"]
@@ -119,10 +114,7 @@ class InteractivePKPredictor:
         # Concentration-time curve
         curve = result["curve"].cpu().squeeze(0).numpy()
         dt_h = self.model.dt_h
-        concentration_curve = [
-            (round(i * dt_h, 2), float(curve[i]))
-            for i in range(len(curve))
-        ]
+        concentration_curve = [(round(i * dt_h, 2), float(curve[i])) for i in range(len(curve))]
 
         # Confidence based on param plausibility
         confidence = self._assess_confidence(predicted_params)
@@ -142,8 +134,8 @@ class InteractivePKPredictor:
         self,
         smiles: str,
         observations: list[tuple[float, float]],
-        patient: Optional[dict[str, Any]] = None,
-        dosing: Optional[dict[str, Any]] = None,
+        patient: dict[str, Any] | None = None,
+        dosing: dict[str, Any] | None = None,
         n_steps: int = 10,
     ) -> InteractivePKPredictor:
         """Create an adapted predictor from observed data.
@@ -213,9 +205,7 @@ class InteractivePKPredictor:
             return "medium"
         return "high"
 
-    def _estimate_uncertainty(
-        self, params: dict[str, float]
-    ) -> dict[str, tuple[float, float]]:
+    def _estimate_uncertainty(self, params: dict[str, float]) -> dict[str, tuple[float, float]]:
         """Estimate uncertainty intervals for predicted parameters.
 
         Uses a simple heuristic: +/- 30% for well-constrained params,

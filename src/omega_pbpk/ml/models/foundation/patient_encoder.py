@@ -11,7 +11,6 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-
 # Population defaults (healthy adult reference)
 POPULATION_DEFAULTS: dict[str, Any] = {
     # Continuous
@@ -163,9 +162,7 @@ class PatientEncoder(nn.Module):
         device = next(self.parameters()).device
 
         # Check if input is already tensorized (batch mode)
-        if "continuous" in covariates and isinstance(
-            covariates["continuous"], torch.Tensor
-        ):
+        if "continuous" in covariates and isinstance(covariates["continuous"], torch.Tensor):
             cont = covariates["continuous"].to(device)
             cat_indices = covariates["categorical"]
         else:

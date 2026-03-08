@@ -108,9 +108,7 @@ class MLPKPredictor:
             - warnings: list of any warnings encountered
         """
         if self.model is None:
-            raise RuntimeError(
-                "No model loaded. Provide a valid model_path to the constructor."
-            )
+            raise RuntimeError("No model loaded. Provide a valid model_path to the constructor.")
 
         dose = dose_mg or self.dose_mg
         rt = route or self.route
@@ -127,9 +125,7 @@ class MLPKPredictor:
         surrogate_curve = result["curve"].cpu().numpy().squeeze()
 
         # 2. Convert tensor params to plain Python floats
-        params_dict = {
-            key: float(val.cpu().item()) for key, val in pk_params.items()
-        }
+        params_dict = {key: float(val.cpu().item()) for key, val in pk_params.items()}
         logger.info("Predicted params for %s: %s", smiles[:20], params_dict)
 
         # 3. Build Drug from predicted params
@@ -233,9 +229,7 @@ class MLPKPredictor:
             "source": "surrogate_fallback",
         }
 
-    def predict_batch(
-        self, smiles_list: list[str], **kwargs: Any
-    ) -> list[dict[str, Any]]:
+    def predict_batch(self, smiles_list: list[str], **kwargs: Any) -> list[dict[str, Any]]:
         """Predict PK profiles for multiple molecules.
 
         Parameters

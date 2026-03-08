@@ -119,9 +119,7 @@ class TestPatientEncoder:
         loss = out.sum()
         loss.backward()
         # Check gradients exist on at least one parameter
-        has_grad = any(
-            p.grad is not None and p.grad.abs().sum() > 0 for p in enc.parameters()
-        )
+        has_grad = any(p.grad is not None and p.grad.abs().sum() > 0 for p in enc.parameters())
         assert has_grad
 
 
@@ -210,9 +208,7 @@ class TestDosingEncoder:
         out = enc({"dose_mg": 100})
         loss = out.sum()
         loss.backward()
-        has_grad = any(
-            p.grad is not None and p.grad.abs().sum() > 0 for p in enc.parameters()
-        )
+        has_grad = any(p.grad is not None and p.grad.abs().sum() > 0 for p in enc.parameters())
         assert has_grad
 
 
@@ -304,7 +300,20 @@ class TestPKFoundationModel:
         with torch.no_grad():
             result = model(sample_smiles["ethanol"])
         params = result["params"]
-        expected = {"mw", "logP", "logS", "fup", "rbp", "peff", "clint_3a4", "clint_2d6", "ka", "vd", "ke", "bioavailability"}
+        expected = {
+            "mw",
+            "logP",
+            "logS",
+            "fup",
+            "rbp",
+            "peff",
+            "clint_3a4",
+            "clint_2d6",
+            "ka",
+            "vd",
+            "ke",
+            "bioavailability",
+        }
         assert expected.issubset(set(params.keys()))
 
     def test_curve_nonnegative(self, sample_smiles):
@@ -326,9 +335,7 @@ class TestPKFoundationModel:
         )
         loss = result["curve"].sum() + result["pk_metrics"]["cmax"].sum()
         loss.backward()
-        has_grad = any(
-            p.grad is not None and p.grad.abs().sum() > 0 for p in model.parameters()
-        )
+        has_grad = any(p.grad is not None and p.grad.abs().sum() > 0 for p in model.parameters())
         assert has_grad
 
     def test_from_level2(self, sample_smiles):
@@ -420,9 +427,7 @@ class TestReptileTrainer:
         from omega_pbpk.ml.training.few_shot import FewShotTask, ReptileTrainer
 
         model = PKFoundationModel()
-        trainer = ReptileTrainer(
-            model, meta_lr=0.01, inner_lr=1e-4, inner_steps=2, device="cpu"
-        )
+        trainer = ReptileTrainer(model, meta_lr=0.01, inner_lr=1e-4, inner_steps=2, device="cpu")
 
         task = FewShotTask(
             smiles=sample_smiles["ethanol"],
@@ -448,9 +453,7 @@ class TestReptileTrainer:
 
         # Compute loss before adaptation
         trainer_helper = ReptileTrainer(model, device="cpu")
-        task = FewShotTask(
-            smiles=sample_smiles["ethanol"], observations=observations
-        )
+        task = FewShotTask(smiles=sample_smiles["ethanol"], observations=observations)
         with torch.no_grad():
             loss_before = trainer_helper._task_loss(model, task).item()
 

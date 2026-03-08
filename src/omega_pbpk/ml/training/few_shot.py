@@ -18,7 +18,7 @@ from __future__ import annotations
 import copy
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -49,8 +49,8 @@ class FewShotTask:
     smiles: str = ""
     observations: list[tuple[float, float]] = field(default_factory=list)
     graph: Any = None
-    covariates: Optional[dict[str, Any]] = None
-    regimen: Optional[dict[str, Any]] = None
+    covariates: dict[str, Any] | None = None
+    regimen: dict[str, Any] | None = None
     drug_id: str = ""
 
 
@@ -146,9 +146,7 @@ class ReptileTrainer:
             target = torch.tensor(conc_obs, device=self.device, dtype=torch.float32)
 
             # MSE in log space for better scale handling
-            loss = loss + (
-                torch.log1p(pred_conc) - torch.log1p(target)
-            ) ** 2
+            loss = loss + (torch.log1p(pred_conc) - torch.log1p(target)) ** 2
 
         return loss / max(len(task.observations), 1)
 
@@ -167,9 +165,7 @@ class ReptileTrainer:
         self.model.train()
 
         # Save original weights
-        original_state = {
-            k: v.clone() for k, v in self.model.state_dict().items()
-        }
+        original_state = {k: v.clone() for k, v in self.model.state_dict().items()}
 
         total_loss = 0.0
         n_tasks = 0
@@ -177,9 +173,7 @@ class ReptileTrainer:
         for task in tasks:
             # Clone model for inner loop
             self.model.load_state_dict(original_state)
-            inner_optimizer = torch.optim.SGD(
-                self.model.parameters(), lr=self.inner_lr
-            )
+            inner_optimizer = torch.optim.SGD(self.model.parameters(), lr=self.inner_lr)
 
             # Inner loop: k gradient steps on task data
             task_loss_val = 0.0
@@ -247,9 +241,7 @@ class ReptileTrainer:
             losses.append(avg_loss)
 
             if (iteration + 1) % log_interval == 0:
-                recent_avg = sum(losses[-log_interval:]) / min(
-                    log_interval, len(losses)
-                )
+                recent_avg = sum(losses[-log_interval:]) / min(log_interval, len(losses))
                 logger.info(
                     "Meta-iter %d/%d: avg_loss=%.6f (recent=%.6f)",
                     iteration + 1,
@@ -266,8 +258,8 @@ def adapt(
     observations: list[tuple[float, float]],
     smiles: str = "",
     graph: Any = None,
-    covariates: Optional[dict[str, Any]] = None,
-    regimen: Optional[dict[str, Any]] = None,
+    covariates: dict[str, Any] | None = None,
+    regimen: dict[str, Any] | None = None,
     n_steps: int = 10,
     lr: float = 1e-3,
     device: str = "cpu",

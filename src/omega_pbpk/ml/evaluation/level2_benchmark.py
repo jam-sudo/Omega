@@ -215,9 +215,7 @@ def run_level2_benchmark(
         pred_arr = np.array([p[0] for p in pairs])
         obs_arr = np.array([p[1] for p in pairs])
         if len(pred_arr) > 0:
-            result_obj.pk_metric_aafe[pk_key] = round(
-                _compute_aafe(pred_arr, obs_arr), 3
-            )
+            result_obj.pk_metric_aafe[pk_key] = round(_compute_aafe(pred_arr, obs_arr), 3)
             result_obj.pct_within_2fold[pk_key] = round(
                 _pct_within_nfold(pred_arr, obs_arr, 2.0), 1
             )
@@ -232,9 +230,7 @@ def run_level2_benchmark(
     pk_aafe_ok = all(v < 2.0 for v in result_obj.pk_metric_aafe.values())
     fold_ok = all(v >= 70.0 for v in result_obj.pct_within_2fold.values())
     surrogate_ok = (
-        result_obj.surrogate_vs_ode_aafe < 1.5
-        if result_obj.surrogate_vs_ode_aafe > 0
-        else True
+        result_obj.surrogate_vs_ode_aafe < 1.5 if result_obj.surrogate_vs_ode_aafe > 0 else True
     )
     result_obj.passes_level2 = pk_aafe_ok and fold_ok and surrogate_ok
 

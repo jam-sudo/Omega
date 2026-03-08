@@ -239,21 +239,15 @@ class TestGradientFlow:
         loss.backward()
 
         # Check that gradients exist on encoder parameters
-        encoder_grads = [
-            p.grad for p in model.encoder.parameters() if p.grad is not None
-        ]
+        encoder_grads = [p.grad for p in model.encoder.parameters() if p.grad is not None]
         assert len(encoder_grads) > 0, "No gradients on encoder parameters"
 
         # Check param_head gradients
-        head_grads = [
-            p.grad for p in model.param_head.parameters() if p.grad is not None
-        ]
+        head_grads = [p.grad for p in model.param_head.parameters() if p.grad is not None]
         assert len(head_grads) > 0, "No gradients on param_head parameters"
 
         # Check surrogate gradients
-        surrogate_grads = [
-            p.grad for p in model.surrogate.parameters() if p.grad is not None
-        ]
+        surrogate_grads = [p.grad for p in model.surrogate.parameters() if p.grad is not None]
         assert len(surrogate_grads) > 0, "No gradients on surrogate parameters"
 
     def test_no_nan_gradients(self, model: SMILESToPKModel, fake_graph):
@@ -280,9 +274,7 @@ class TestGradientFlow:
 
         for name, param in model.named_parameters():
             if param.grad is not None:
-                assert not torch.isnan(param.grad).any(), (
-                    f"NaN gradient in {name}"
-                )
+                assert not torch.isnan(param.grad).any(), f"NaN gradient in {name}"
 
 
 # ---------------------------------------------------------------------------
@@ -313,9 +305,7 @@ class TestPKTrainer:
         assert len(history.val_losses) == 1
         assert history.train_losses[0] > 0
 
-    def test_train_3_epochs_loss_decreases_or_stable(
-        self, model: SMILESToPKModel, tiny_train_val
-    ):
+    def test_train_3_epochs_loss_decreases_or_stable(self, model: SMILESToPKModel, tiny_train_val):
         """Training loss should not diverge over 3 epochs."""
         train_data, val_data = tiny_train_val
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -334,9 +324,7 @@ class TestPKTrainer:
         # Loss should not explode (allow 10x tolerance from initial)
         assert history.train_losses[-1] < history.train_losses[0] * 10
 
-    def test_evaluate_returns_metrics(
-        self, model: SMILESToPKModel, tiny_train_val
-    ):
+    def test_evaluate_returns_metrics(self, model: SMILESToPKModel, tiny_train_val):
         """Evaluate returns expected metric keys."""
         _, val_data = tiny_train_val
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -424,9 +412,7 @@ class TestMultiFidelityCurriculum:
         from omega_pbpk.ml.training.curriculum import MultiFidelityCurriculum
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            curriculum = MultiFidelityCurriculum(
-                model, checkpoint_dir=tmpdir, device="cpu"
-            )
+            curriculum = MultiFidelityCurriculum(model, checkpoint_dir=tmpdir, device="cpu")
             result = curriculum.run_curriculum()
 
         assert len(result.stages_completed) == 0
@@ -437,9 +423,7 @@ class TestMultiFidelityCurriculum:
 
         train_data, val_data = tiny_train_val
         with tempfile.TemporaryDirectory() as tmpdir:
-            curriculum = MultiFidelityCurriculum(
-                model, checkpoint_dir=tmpdir, device="cpu"
-            )
+            curriculum = MultiFidelityCurriculum(model, checkpoint_dir=tmpdir, device="cpu")
             history = curriculum.run_stage(
                 "1cpt_pretrain",
                 train_data,
@@ -483,11 +467,12 @@ class TestMLPKPredictor:
                 "route": "oral",
             }
 
-            with patch.object(
-                predictor, "_run_real_ode", return_value=mock_sim_result
-            ), patch(
-                "omega_pbpk.ml.models.foundation.end_to_end.smiles_to_graph",
-                return_value=fake_graph,
+            with (
+                patch.object(predictor, "_run_real_ode", return_value=mock_sim_result),
+                patch(
+                    "omega_pbpk.ml.models.foundation.end_to_end.smiles_to_graph",
+                    return_value=fake_graph,
+                ),
             ):
                 result = predictor.predict("CCO")
 
@@ -507,11 +492,12 @@ class TestMLPKPredictor:
 
             predictor = MLPKPredictor(model_path=str(model_path), device="cpu")
 
-            with patch.object(
-                predictor, "_run_real_ode", side_effect=RuntimeError("ODE failed")
-            ), patch(
-                "omega_pbpk.ml.models.foundation.end_to_end.smiles_to_graph",
-                return_value=fake_graph,
+            with (
+                patch.object(predictor, "_run_real_ode", side_effect=RuntimeError("ODE failed")),
+                patch(
+                    "omega_pbpk.ml.models.foundation.end_to_end.smiles_to_graph",
+                    return_value=fake_graph,
+                ),
             ):
                 result = predictor.predict("CCO")
 
@@ -523,9 +509,7 @@ class TestMLPKPredictor:
         """Predictor raises RuntimeError when no model is loaded."""
         from omega_pbpk.ml.models.foundation.inference import MLPKPredictor
 
-        predictor = MLPKPredictor(
-            model_path="nonexistent_model.pt", device="cpu"
-        )
+        predictor = MLPKPredictor(model_path="nonexistent_model.pt", device="cpu")
         with pytest.raises(RuntimeError, match="No model loaded"):
             predictor.predict("CCO")
 
@@ -624,12 +608,7 @@ class TestPKMetricExtraction:
         metrics = model._extract_pk_metrics(curve)
 
         # Sum all metrics and backward
-        total = (
-            metrics["cmax"]
-            + metrics["auc"]
-            + metrics["tmax"]
-            + metrics["t_half"]
-        )
+        total = metrics["cmax"] + metrics["auc"] + metrics["tmax"] + metrics["t_half"]
         total.backward()
 
         assert curve.grad is not None

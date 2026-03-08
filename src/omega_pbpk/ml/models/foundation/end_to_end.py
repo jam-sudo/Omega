@@ -14,12 +14,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
 
-from omega_pbpk.ml.data.synthetic import DT_H, N_TIMEPOINTS, T_END_H
+from omega_pbpk.ml.data.synthetic import DT_H, N_TIMEPOINTS
 from omega_pbpk.ml.features.graphs import smiles_to_graph
 from omega_pbpk.ml.models.foundation.gnn_encoder import MolecularEncoder
 from omega_pbpk.ml.models.foundation.param_head import PKParameterHead
@@ -77,9 +77,7 @@ class SMILESToPKModel(nn.Module):
             hidden_dim=surrogate_hidden,
         )
 
-    def forward(
-        self, smiles_or_graph: Union[str, Any]
-    ) -> dict[str, Any]:
+    def forward(self, smiles_or_graph: str | Any) -> dict[str, Any]:
         """Forward pass: SMILES string or graph -> full PK prediction.
 
         Parameters
@@ -100,9 +98,7 @@ class SMILESToPKModel(nn.Module):
         if isinstance(smiles_or_graph, str):
             graph = smiles_to_graph(smiles_or_graph)
             if graph is None:
-                raise ValueError(
-                    f"Could not parse SMILES: {smiles_or_graph}"
-                )
+                raise ValueError(f"Could not parse SMILES: {smiles_or_graph}")
         else:
             graph = smiles_or_graph
 
@@ -138,9 +134,7 @@ class SMILESToPKModel(nn.Module):
             "embedding": embedding,
         }
 
-    def _extract_surrogate_params(
-        self, pk_params: dict[str, torch.Tensor]
-    ) -> torch.Tensor:
+    def _extract_surrogate_params(self, pk_params: dict[str, torch.Tensor]) -> torch.Tensor:
         """Map PKParameterHead output names to the 6D surrogate input vector.
 
         Surrogate expects: [logP, fup, clint_L_h, mw, rbp, peff]
@@ -157,7 +151,7 @@ class SMILESToPKModel(nn.Module):
         -------
         Tensor of shape (batch, 6)
         """
-        batch_size = pk_params["logP"].shape[0]
+        pk_params["logP"].shape[0]
 
         # IVIVE scaling factor: MPPGL(40) * mg_protein/g(45) * liver_wt(1800g) / 1e6 / 60
         ivive_factor = 40.0 * 45.0 * 1800.0 / 1e6 / 60.0  # ~0.054
@@ -177,9 +171,7 @@ class SMILESToPKModel(nn.Module):
 
         return torch.stack(params_list, dim=-1)  # (batch, 6)
 
-    def _extract_pk_metrics(
-        self, curve: torch.Tensor
-    ) -> dict[str, torch.Tensor]:
+    def _extract_pk_metrics(self, curve: torch.Tensor) -> dict[str, torch.Tensor]:
         """Extract PK metrics from predicted C(t) curve using differentiable ops.
 
         Parameters
@@ -255,9 +247,7 @@ class SMILESToPKModel(nn.Module):
         )  # (batch, n_time)
 
         # Also mask out very low concentrations (below 1% of Cmax)
-        conc_mask = torch.sigmoid(
-            (curve - cmax.unsqueeze(1) * 0.01) * 100.0
-        )  # (batch, n_time)
+        conc_mask = torch.sigmoid((curve - cmax.unsqueeze(1) * 0.01) * 100.0)  # (batch, n_time)
 
         weights = mask * conc_mask  # (batch, n_time)
         weights_sum = weights.sum(dim=-1, keepdim=True).clamp(min=1.0)
@@ -339,6 +329,7 @@ class SMILESToPKModel(nn.Module):
 
     def parameter_count(self) -> dict[str, int]:
         """Return parameter counts per sub-module."""
+
         def _count(module: nn.Module) -> int:
             return sum(p.numel() for p in module.parameters())
 
@@ -347,9 +338,7 @@ class SMILESToPKModel(nn.Module):
             "param_head": _count(self.param_head),
             "surrogate": _count(self.surrogate),
             "total": _count(self),
-            "trainable": sum(
-                p.numel() for p in self.parameters() if p.requires_grad
-            ),
+            "trainable": sum(p.numel() for p in self.parameters() if p.requires_grad),
         }
 
 

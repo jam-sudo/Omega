@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -119,10 +119,7 @@ class CrossAttentionFusion(nn.Module):
 
         attn_output = torch.matmul(attn_weights, v)  # (B, H, 1, head_dim)
         attn_output = (
-            attn_output.transpose(1, 2)
-            .contiguous()
-            .view(batch_size, 1, self.mol_dim)
-            .squeeze(1)
+            attn_output.transpose(1, 2).contiguous().view(batch_size, 1, self.mol_dim).squeeze(1)
         )  # (B, mol_dim)
 
         # Output projection + residual + layer norm
@@ -196,9 +193,9 @@ class PKFoundationModel(nn.Module):
 
     def forward(
         self,
-        smiles_or_graph: Union[str, Any],
-        covariates: Optional[dict[str, Any]] = None,
-        regimen: Optional[dict[str, Any]] = None,
+        smiles_or_graph: str | Any,
+        covariates: dict[str, Any] | None = None,
+        regimen: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Forward pass: molecule + optional patient/dosing -> PK.
 
@@ -286,9 +283,7 @@ class PKFoundationModel(nn.Module):
             "fused_embedding": fused,
         }
 
-    def _extract_surrogate_params(
-        self, pk_params: dict[str, torch.Tensor]
-    ) -> torch.Tensor:
+    def _extract_surrogate_params(self, pk_params: dict[str, torch.Tensor]) -> torch.Tensor:
         """Map named PK params to 6D surrogate input vector.
 
         Same IVIVE scaling as SMILESToPKModel.
@@ -307,9 +302,7 @@ class PKFoundationModel(nn.Module):
         ]
         return torch.stack(params_list, dim=-1)
 
-    def _extract_pk_metrics(
-        self, curve: torch.Tensor
-    ) -> dict[str, torch.Tensor]:
+    def _extract_pk_metrics(self, curve: torch.Tensor) -> dict[str, torch.Tensor]:
         """Extract PK metrics from C(t) curve (differentiable)."""
         batch_size, n_time = curve.shape
         device = curve.device
@@ -323,9 +316,7 @@ class PKFoundationModel(nn.Module):
         log_curve = torch.log(curve + 1e-12)
 
         time_idx = torch.arange(n_time, device=device).unsqueeze(0)
-        mask = torch.sigmoid(
-            (time_idx.float() - cmax_idx.unsqueeze(1).float() - 0.5) * 5.0
-        )
+        mask = torch.sigmoid((time_idx.float() - cmax_idx.unsqueeze(1).float() - 0.5) * 5.0)
         conc_mask = torch.sigmoid((curve - cmax.unsqueeze(1) * 0.01) * 100.0)
         weights = mask * conc_mask
         weights_sum = weights.sum(dim=-1, keepdim=True).clamp(min=1.0)
@@ -338,9 +329,7 @@ class PKFoundationModel(nn.Module):
         y_centered = log_curve - y_mean.unsqueeze(1)
 
         numerator = (weights_norm * t_centered * y_centered).sum(dim=-1)
-        denominator = (weights_norm * t_centered * t_centered).sum(dim=-1).clamp(
-            min=1e-8
-        )
+        denominator = (weights_norm * t_centered * t_centered).sum(dim=-1).clamp(min=1e-8)
         slope = numerator / denominator
         ke = torch.clamp(-slope, min=1e-6)
         t_half = torch.clamp(0.693147 / ke, min=0.1, max=1000.0)
@@ -435,9 +424,7 @@ class PKFoundationModel(nn.Module):
             "dosing_encoder": _count(self.dosing_encoder),
             "cross_attention": _count(self.cross_attention),
             "total": _count(self),
-            "trainable": sum(
-                p.numel() for p in self.parameters() if p.requires_grad
-            ),
+            "trainable": sum(p.numel() for p in self.parameters() if p.requires_grad),
         }
 
 

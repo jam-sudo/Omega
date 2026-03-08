@@ -12,7 +12,6 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-
 # Default dosing regimen (single oral dose, immediate release)
 DOSING_DEFAULTS: dict[str, Any] = {
     "dose_mg": 100.0,
@@ -93,9 +92,7 @@ class DosingEncoder(nn.Module):
             nn.Linear(output_dim, output_dim),
         )
 
-    def _get_continuous_tensor(
-        self, regimen: dict[str, Any], device: torch.device
-    ) -> torch.Tensor:
+    def _get_continuous_tensor(self, regimen: dict[str, Any], device: torch.device) -> torch.Tensor:
         """Extract and log-transform continuous dosing features.
 
         Returns
@@ -143,9 +140,7 @@ class DosingEncoder(nn.Module):
         device = next(self.parameters()).device
 
         # Check if already tensorized
-        if "continuous" in regimen and isinstance(
-            regimen["continuous"], torch.Tensor
-        ):
+        if "continuous" in regimen and isinstance(regimen["continuous"], torch.Tensor):
             cont = regimen["continuous"].to(device)
             cat_indices = regimen["categorical"]
         else:
