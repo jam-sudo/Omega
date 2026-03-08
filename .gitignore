@@ -21,3 +21,6 @@ secrets.yml
 # Trained model artifacts
 models/*.npy
 models/meta.json
+
+# ML data caches (large, downloaded from APIs)
+data/ml/
