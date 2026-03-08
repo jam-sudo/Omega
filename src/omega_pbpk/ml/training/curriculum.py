@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import torch
 from torch.utils.data import TensorDataset
@@ -156,7 +155,7 @@ class MultiFidelityCurriculum:
         checkpoint_dir: str = "models/level2",
         device: str = "auto",
         base_lr: float = 1e-3,
-        stages: Optional[dict[str, StageConfig]] = None,
+        stages: dict[str, StageConfig] | None = None,
     ) -> None:
         self.model = model
         self.checkpoint_dir = Path(checkpoint_dir)
@@ -185,7 +184,7 @@ class MultiFidelityCurriculum:
         stage_name: str,
         train_data: TensorDataset,
         val_data: TensorDataset,
-        stage_config: Optional[StageConfig] = None,
+        stage_config: StageConfig | None = None,
     ) -> TrainingHistory:
         """Run a single curriculum stage.
 
@@ -206,10 +205,7 @@ class MultiFidelityCurriculum:
         """
         config = stage_config or self.stages.get(stage_name)
         if config is None:
-            raise ValueError(
-                f"Unknown stage '{stage_name}'. "
-                f"Available: {list(self.stages.keys())}"
-            )
+            raise ValueError(f"Unknown stage '{stage_name}'. Available: {list(self.stages.keys())}")
 
         logger.info(
             "=== Starting stage '%s': lr=%.2e, epochs=%d, batch=%d ===",
@@ -248,12 +244,12 @@ class MultiFidelityCurriculum:
 
     def run_curriculum(
         self,
-        stage1_train: Optional[TensorDataset] = None,
-        stage1_val: Optional[TensorDataset] = None,
-        stage2_train: Optional[TensorDataset] = None,
-        stage2_val: Optional[TensorDataset] = None,
-        stage3_train: Optional[TensorDataset] = None,
-        stage3_val: Optional[TensorDataset] = None,
+        stage1_train: TensorDataset | None = None,
+        stage1_val: TensorDataset | None = None,
+        stage2_train: TensorDataset | None = None,
+        stage2_val: TensorDataset | None = None,
+        stage3_train: TensorDataset | None = None,
+        stage3_val: TensorDataset | None = None,
     ) -> CurriculumResult:
         """Run the full multi-fidelity curriculum.
 
@@ -315,9 +311,9 @@ class MultiFidelityCurriculum:
 
 
 def _make_tensor_dataset(
-    params: "torch.Tensor",
-    curves: "torch.Tensor",
-    metrics: "torch.Tensor",
+    params: torch.Tensor,
+    curves: torch.Tensor,
+    metrics: torch.Tensor,
 ) -> TensorDataset:
     """Create a TensorDataset from numpy-like arrays.
 
@@ -401,12 +397,8 @@ def run_curriculum(
         train_ds = _make_tensor_dataset(
             ds.params[train_idx], ds.curves[train_idx], ds.metrics[train_idx]
         )
-        val_ds = _make_tensor_dataset(
-            ds.params[val_idx], ds.curves[val_idx], ds.metrics[val_idx]
-        )
-        logger.info(
-            "Loaded %s: %d train, %d val samples", filename, n_train, n_val
-        )
+        val_ds = _make_tensor_dataset(ds.params[val_idx], ds.curves[val_idx], ds.metrics[val_idx])
+        logger.info("Loaded %s: %d train, %d val samples", filename, n_train, n_val)
         return train_ds, val_ds
 
     # Load datasets

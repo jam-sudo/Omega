@@ -11,7 +11,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -118,7 +118,7 @@ class PKTrainer:
         self,
         model: nn.Module,
         config: TrainingConfig,
-        loss_fn: Optional[nn.Module] = None,
+        loss_fn: nn.Module | None = None,
     ) -> None:
         self.config = config
         self.device = config.get_device()
@@ -153,7 +153,7 @@ class PKTrainer:
         self,
         train_data: TensorDataset | DataLoader,
         val_data: TensorDataset | DataLoader,
-        n_epochs: Optional[int] = None,
+        n_epochs: int | None = None,
     ) -> TrainingHistory:
         """Run training loop.
 
@@ -248,9 +248,7 @@ class PKTrainer:
 
         return history
 
-    def _train_epoch(
-        self, loader: DataLoader
-    ) -> tuple[float, dict[str, float]]:
+    def _train_epoch(self, loader: DataLoader) -> tuple[float, dict[str, float]]:
         """Run one training epoch.
 
         Returns
@@ -270,17 +268,13 @@ class PKTrainer:
             # Forward: params -> surrogate -> curve
             # The training data provides ground truth params and curves
             # We feed params through the surrogate and compare
-            loss_dict = self._compute_loss(
-                params_batch, curves_batch, metrics_batch
-            )
+            loss_dict = self._compute_loss(params_batch, curves_batch, metrics_batch)
 
             loss = loss_dict["total_loss"]
             loss.backward()
 
             # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(), self.config.grad_clip
-            )
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip)
 
             self.optimizer.step()
 
@@ -302,9 +296,7 @@ class PKTrainer:
         with torch.no_grad():
             for batch in loader:
                 params_batch, curves_batch, metrics_batch = self._unpack_batch(batch)
-                loss_dict = self._compute_loss(
-                    params_batch, curves_batch, metrics_batch
-                )
+                loss_dict = self._compute_loss(params_batch, curves_batch, metrics_batch)
                 total_loss += loss_dict["total_loss"].item()
                 n_batches += 1
 
@@ -371,9 +363,7 @@ class PKTrainer:
         metrics = batch[2].to(self.device)
         return params, curves, metrics
 
-    def _ensure_dataloader(
-        self, data: TensorDataset | DataLoader, shuffle: bool
-    ) -> DataLoader:
+    def _ensure_dataloader(self, data: TensorDataset | DataLoader, shuffle: bool) -> DataLoader:
         """Wrap TensorDataset in DataLoader if needed."""
         if isinstance(data, DataLoader):
             return data
