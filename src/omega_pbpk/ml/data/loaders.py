@@ -14,7 +14,10 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -388,7 +391,7 @@ class TDCLoader:
         """Return the list of supported TDC ADME endpoint names."""
         return list(_SUPPORTED_TDC_ENDPOINTS.keys())
 
-    def load_adme(self, endpoint_name: str) -> "pd.DataFrame":
+    def load_adme(self, endpoint_name: str) -> pd.DataFrame:
         """Load a TDC ADME dataset and return a standardized DataFrame.
 
         Parameters

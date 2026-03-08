@@ -235,7 +235,7 @@ class ClinicalPKDataset:
     # -- Construction helpers -----------------------------------------------
 
     @classmethod
-    def from_pkdb(cls, loader: PKDBLoader) -> "ClinicalPKDataset":
+    def from_pkdb(cls, loader: PKDBLoader) -> ClinicalPKDataset:
         """Build dataset from PK-DB study data.
 
         Iterates over all studies and extracts PK output records.
@@ -278,7 +278,7 @@ class ClinicalPKDataset:
         return dataset
 
     @classmethod
-    def from_fda(cls, extractor: FDALabelExtractor) -> "ClinicalPKDataset":
+    def from_fda(cls, extractor: FDALabelExtractor) -> ClinicalPKDataset:
         """Build dataset from FDA label extractions.
 
         Requires that labels have already been searched and cached.
@@ -331,7 +331,7 @@ class ClinicalPKDataset:
 
     # -- Harmonization ------------------------------------------------------
 
-    def standardize_units(self) -> "ClinicalPKDataset":
+    def standardize_units(self) -> ClinicalPKDataset:
         """Convert all values to canonical units in-place and return self.
 
         Canonical units:
@@ -380,11 +380,11 @@ class ClinicalPKDataset:
 
         return ClinicalPKDataset(records=new_records)
 
-    def merge(self, other: "ClinicalPKDataset") -> "ClinicalPKDataset":
+    def merge(self, other: ClinicalPKDataset) -> ClinicalPKDataset:
         """Merge two datasets, returning a new combined dataset."""
         return ClinicalPKDataset(records=list(self.records) + list(other.records))
 
-    def assign_splits(self, seed: int = 42) -> "ClinicalPKDataset":
+    def assign_splits(self, seed: int = 42) -> ClinicalPKDataset:
         """Assign train/valid/test splits based on scaffold (or random).
 
         Only records with non-None SMILES are split by scaffold.
@@ -441,7 +441,7 @@ class ClinicalPKDataset:
         return out
 
     @classmethod
-    def load(cls, path: str | Path) -> "ClinicalPKDataset":
+    def load(cls, path: str | Path) -> ClinicalPKDataset:
         """Load dataset from a parquet or CSV file."""
         path = Path(path)
         if path.suffix == ".csv":

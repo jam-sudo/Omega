@@ -8,12 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from omega_pbpk.ml.data.loaders import (
-    FDALabelExtractor,
-    PKDBLoader,
-    TDCLoader,
-    _SUPPORTED_TDC_ENDPOINTS,
-)
 from omega_pbpk.ml.data.datasets import (
     ClinicalPKDataset,
     convert_clearance,
@@ -21,7 +15,12 @@ from omega_pbpk.ml.data.datasets import (
     convert_time,
     convert_volume,
 )
-
+from omega_pbpk.ml.data.loaders import (
+    _SUPPORTED_TDC_ENDPOINTS,
+    FDALabelExtractor,
+    PKDBLoader,
+    TDCLoader,
+)
 
 # ===========================================================================
 # Fixtures
