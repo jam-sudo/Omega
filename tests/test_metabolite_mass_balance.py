@@ -1,4 +1,4 @@
-"""Tests for Phase 578 - Drug Metabolite Mass Balance Tracker."""
+"""Tests for Phase 664 - Metabolite Mass Balance Tracker."""
 
 import pytest
 
@@ -64,11 +64,20 @@ class TestMetabolites:
         r = _default()
         assert r.fm_values == [0.6, 0.3]
 
+    def test_mass_metabolites_length(self):
+        r = _default()
+        assert len(r.mass_metabolites_mg) == r.n_metabolites
+
+    def test_mass_metabolites_sublists_length(self):
+        r = _default()
+        n = len(r.times_h)
+        for m_list in r.mass_metabolites_mg:
+            assert len(m_list) == n
+
 
 class TestMassBalance:
     def test_mass_balance_final_reasonable(self):
         r = _default()
-        # Some drug eliminated, some still in body
         assert r.mass_balance_final_pct > 0
 
     def test_mass_recovered_starts_near_90(self):
@@ -78,8 +87,20 @@ class TestMassBalance:
 
     def test_mass_recovered_decreases(self):
         r = _default()
-        # Over time, mass is eliminated
         assert r.mass_recovered_pct[-1] < r.mass_recovered_pct[0]
+
+    def test_custom_f_oral(self):
+        r = simulate_metabolite_mass_balance(
+            "D",
+            100.0,
+            5.0,
+            50.0,
+            fm_values=[0.5],
+            cl_met_L_per_h_values=[2.0],
+            vd_met_L_values=[30.0],
+            f_oral=0.5,
+        )
+        assert abs(r.mass_recovered_pct[0] - 50.0) < 1.0
 
 
 class TestAUC:
@@ -93,7 +114,6 @@ class TestAUC:
             assert auc > 0
 
     def test_higher_fm_higher_metabolite_auc(self):
-        # Higher fm should lead to more metabolite; use equal clearance for clean test:
         r2 = simulate_metabolite_mass_balance(
             "D",
             100.0,
@@ -181,4 +201,5 @@ class TestSingleMetabolite:
         )
         assert r.n_metabolites == 1
         assert len(r.c_metabolites_mg_L) == 1
+        assert len(r.mass_metabolites_mg) == 1
         assert r.auc_parent_mg_h_per_L > 0
