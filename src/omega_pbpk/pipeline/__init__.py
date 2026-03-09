@@ -229,6 +229,7 @@ class SimulationResult:
 class OmegaPipeline:
     def __init__(self) -> None:
         self._adme_predictor = None
+        self._clint_predictor = None
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
@@ -249,6 +250,17 @@ class OmegaPipeline:
                 self._adme_predictor = ADMEPredictor()
             except Exception:
                 self._adme_predictor = None
+
+        # XGBoost CLint fallback for when ADMET-AI hepatocyte CLint is unavailable
+        try:
+            from omega_pbpk.ml.models.adme.xgboost_clint import XGBoostCLintPredictor
+
+            self._clint_predictor = XGBoostCLintPredictor()
+            logger.info("OmegaPipeline: XGBoost CLint fallback initialized.")
+        except (ImportError, Exception) as exc:
+            logger.info("OmegaPipeline: XGBoost CLint not available: %s", exc)
+            self._clint_predictor = None
+
         self._initialized = True
 
     def simulate(self, request: SimulationRequest) -> SimulationResult:
@@ -367,6 +379,15 @@ class OmegaPipeline:
         # Fall back to CYP-attributed clint_3a4 (µL/min/pmol): populate the Drug's
         # clint dict and let Drug.clint_scaled_L_per_h handle IVIVE.
         clint_hepatocyte = float(adme.get("clint_hepatocyte_uL_min", 0.0))
+
+        # If no hepatocyte CLint from ADMET-AI, try XGBoost CLint predictor
+        if clint_hepatocyte <= 0 and self._clint_predictor is not None:
+            try:
+                clint_hepatocyte = self._clint_predictor.predict_clint(smiles)
+                logger.debug("XGBoost CLint fallback: %.1f µL/min/10^6 cells", clint_hepatocyte)
+            except Exception as exc:
+                logger.debug("XGBoost CLint fallback failed: %s", exc)
+
         clint_3a4 = float(adme.get("clint_3a4", 5.0))
         clint_2d6 = float(adme.get("clint_2d6", 0.5))
 
