@@ -1,18 +1,20 @@
 """Ensemble combiner that merges predictions from multiple ADME models.
 
 Per-property selection strategy:
-  - logP, fup, clint_3a4, peff, logS, herg_ic50_uM -> ADMET-AI (primary), polynomial (fallback)
+  - fup -> geometric mean of ADMET-AI + XGBoost fup (log-space ensemble)
+  - logP, clint_3a4, peff, logS, herg_ic50_uM -> ADMET-AI (primary), polynomial (fallback)
   - rbp -> XGBoost RBP (primary), polynomial (fallback)
   - clint_2d6 -> ADMET-AI categorical + heuristic
   - mw -> RDKit (always available from SMILES)
 
 Confidence = min(backend confidences across all properties).
-Conformal intervals: ADMET-AI intervals if available, else +/-50% default.
+Conformal intervals: XGBoost fup conformal for fup, ADMET-AI if available, else +/-50%.
 """
 
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 from omega_pbpk.ml.models.adme import MLADMEPredictor
@@ -26,7 +28,7 @@ _CONFIDENCE_NAMES = {0: "low", 1: "medium", 2: "high"}
 
 
 class EnsembleADMEPredictor(MLADMEPredictor):
-    """Ensemble ADME predictor combining ADMET-AI, XGBoost RBP, and polynomial.
+    """Ensemble ADME predictor combining ADMET-AI, XGBoost fup/RBP, and polynomial.
 
     Falls back gracefully: if a primary backend fails, uses the polynomial
     predictor as fallback for that property.
@@ -36,6 +38,7 @@ class EnsembleADMEPredictor(MLADMEPredictor):
         self,
         admet_ai: Any | None = None,
         xgboost_rbp: Any | None = None,
+        xgboost_fup: Any | None = None,
         polynomial: Any | None = None,
     ) -> None:
         """Initialize the ensemble predictor.
@@ -43,10 +46,12 @@ class EnsembleADMEPredictor(MLADMEPredictor):
         Args:
             admet_ai: ADMETAIPredictor instance (or None to auto-create).
             xgboost_rbp: XGBoostRBPPredictor instance (or None to auto-create).
+            xgboost_fup: XGBoostFupPredictor instance (or None to auto-create).
             polynomial: ADMEPredictor (legacy) instance (or None to auto-create).
         """
         self._admet_ai = admet_ai
         self._xgboost_rbp = xgboost_rbp
+        self._xgboost_fup = xgboost_fup
         self._polynomial = polynomial
         self._initialized = False
 
@@ -77,6 +82,17 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             except (ImportError, Exception) as exc:
                 logger.warning("EnsembleADME: XGBoost RBP not available: %s", exc)
                 self._xgboost_rbp = None
+
+        # Try to create XGBoost fup predictor (log-space, trained on TDC+reference)
+        if self._xgboost_fup is None:
+            try:
+                from omega_pbpk.ml.models.adme.xgboost_fup import XGBoostFupPredictor
+
+                self._xgboost_fup = XGBoostFupPredictor()
+                logger.info("EnsembleADME: XGBoost fup backend initialized.")
+            except (ImportError, Exception) as exc:
+                logger.warning("EnsembleADME: XGBoost fup not available: %s", exc)
+                self._xgboost_fup = None
 
         # Always create polynomial fallback
         if self._polynomial is None:
@@ -137,6 +153,22 @@ class EnsembleADMEPredictor(MLADMEPredictor):
                 logger.warning("XGBoost RBP prediction failed: %s", exc)
                 xgb_rbp = None
 
+        # -- Try XGBoost fup (log-space predictor) --
+        xgb_fup: float | None = None
+        xgb_fup_lo: float | None = None
+        xgb_fup_hi: float | None = None
+        if self._xgboost_fup is not None:
+            try:
+                xgb_fup, xgb_fup_lo, xgb_fup_hi = self._xgboost_fup.predict_fup_with_interval(
+                    smiles
+                )
+                logger.debug(
+                    "XGBoost fup prediction: %.4f [%.4f, %.4f]", xgb_fup, xgb_fup_lo, xgb_fup_hi
+                )
+            except Exception as exc:
+                logger.warning("XGBoost fup prediction failed: %s", exc)
+                xgb_fup = None
+
         # -- Compute MW from RDKit (always available) --
         mw = self._get_mw(smiles, admet_result, poly_result)
         sources["mw"] = "rdkit"
@@ -149,12 +181,10 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             self._confidence_val(admet_result if logp_src == "admet-ai" else poly_result)
         )
 
-        # fup
-        fup, fup_src = self._select_property("fup", admet_result, poly_result)
+        # fup: geometric mean of ADMET-AI + XGBoost fup (log-space ensemble)
+        fup, fup_src = self._ensemble_fup(admet_result, poly_result, xgb_fup)
         sources["fup"] = fup_src
-        confidences.append(
-            self._confidence_val(admet_result if fup_src == "admet-ai" else poly_result)
-        )
+        confidences.append(1 if xgb_fup is not None else 0)  # medium if XGBoost available
 
         # clint_3a4
         clint_3a4, clint_src = self._select_property("clint_3a4", admet_result, poly_result)
@@ -210,7 +240,11 @@ class EnsembleADMEPredictor(MLADMEPredictor):
         overall_confidence = _CONFIDENCE_NAMES.get(min(confidences) if confidences else 0, "low")
 
         # -- Conformal intervals --
-        fup_lo, fup_hi = self._get_intervals("fup", admet_result, poly_result, fup, fup_src)
+        # fup: prefer XGBoost conformal intervals (calibrated from CV)
+        if xgb_fup_lo is not None and xgb_fup_hi is not None:
+            fup_lo, fup_hi = xgb_fup_lo, xgb_fup_hi
+        else:
+            fup_lo, fup_hi = self._get_intervals("fup", admet_result, poly_result, fup, fup_src)
         clint_lo, clint_hi = self._get_intervals(
             "clint_3a4", admet_result, poly_result, clint_3a4, clint_src
         )
@@ -353,6 +387,46 @@ class EnsembleADMEPredictor(MLADMEPredictor):
 
         # Default: +/-50%
         return point_est * 0.5, point_est * 1.5
+
+    @staticmethod
+    def _ensemble_fup(
+        admet_result: ADMEProperties | None,
+        poly_result: ADMEProperties | None,
+        xgb_fup: float | None,
+    ) -> tuple[float, str]:
+        """Ensemble fup from multiple backends using geometric mean in log-space.
+
+        Strategy:
+          - If both ADMET-AI and XGBoost available: geometric mean (sqrt(a*b))
+          - If only one available: use that one
+          - Fallback to polynomial or default
+
+        Returns:
+            (fup_value, source_name) tuple.
+        """
+        admet_fup: float | None = None
+        if admet_result is not None:
+            val = getattr(admet_result, "fup", None)
+            if val is not None:
+                admet_fup = float(val)
+
+        if admet_fup is not None and xgb_fup is not None:
+            # Geometric mean in log space — gives equal weight to both predictors
+            geo_mean = math.sqrt(max(admet_fup, 0.001) * max(xgb_fup, 0.001))
+            return geo_mean, "ensemble(admet-ai+xgboost)"
+
+        if xgb_fup is not None:
+            return xgb_fup, "xgboost-fup"
+
+        if admet_fup is not None:
+            return admet_fup, "admet-ai"
+
+        if poly_result is not None:
+            val = getattr(poly_result, "fup", None)
+            if val is not None:
+                return float(val), "polynomial"
+
+        return 0.1, "default"
 
     @staticmethod
     def _get_rbp_intervals(
