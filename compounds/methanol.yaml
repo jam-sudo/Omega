@@ -1,0 +1,57 @@
+name: Methanol
+mw: 32.04
+logP: -0.39
+pka: [15.5]
+drug_type: neutral
+compound_type: neutral
+partition_method: heuristic
+fup: 1.0
+rbp: 0.84
+smiles: "CO"
+
+clearance:
+  clint_uL_min_pmol: {}
+  fm: {}
+  # Methanol is metabolized by alcohol dehydrogenase (ADH), not CYPs
+  # Literature: CL ~ 10-15 L/h at low doses (first-order, below Km)
+  # Vd = 45L, t1/2 = 2.5h → CL = 0.693/2.5 × 45 = 12.5 L/h
+  # ADH is in liver cytosol; well-stirred model still applies:
+  # CLh = Q*fup*CLint/(Q+fup*CLint) = 12.5 → CLint = 14.5 L/h
+  clint_hepatic_L_per_h: 14.5
+  clr_L_per_h: 0.5
+
+absorption:
+  peff: 8.0
+  solubility_mg_mL: 1000.0
+  particle_radius_um: 25.0
+  particle_density: 1.0
+
+distribution:
+  # Methanol distributes into total body water (~0.6-0.7 L/kg = 42-49L)
+  # Minimal protein binding (fup=1.0), small hydrophilic molecule
+  # Low tissue partitioning — stays mostly in aqueous compartments
+  kp:
+    lung: 0.8
+    brain: 0.9
+    heart: 0.8
+    kidney: 0.9
+    liver: 0.9
+    spleen: 0.8
+    gut_wall: 0.8
+    pancreas: 0.7
+    thymus: 0.7
+    reproductive: 0.7
+    rest: 0.7
+  permeability_limited:
+    adipose:
+      kp: 0.15
+      ps: 30
+    muscle:
+      kp: 0.7
+      ps: 60
+    bone:
+      kp: 0.4
+      ps: 15
+    skin:
+      kp: 0.6
+      ps: 20
