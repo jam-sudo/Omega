@@ -54,6 +54,9 @@ class ADMEProperties:
     clint_2d6: float  # µL/min/pmol
     herg_ic50_uM: float
     confidence: str = "low"  # low, medium, high
+    # Raw hepatocyte intrinsic clearance (µL/min/10^6 cells) before CYP attribution.
+    # Used for proper IVIVE scaling in the pipeline.  Zero means not available.
+    clint_hepatocyte_uL_min: float = 0.0
     # Conformal prediction intervals (90% coverage)
     fup_lo: float = 0.0
     fup_hi: float = 1.0

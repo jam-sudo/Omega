@@ -139,6 +139,7 @@ class ADMETAIPredictor(MLADMEPredictor):
         logp = self._extract_logp(raw)
         fup = self._extract_fup(raw)
         clint_3a4 = self._extract_clint_3a4(raw)
+        clint_hepatocyte_raw = self._extract_clint_hepatocyte_raw(raw)
         peff = self._extract_peff(raw)
         logs = self._extract_logs(raw)
         herg = self._extract_herg(raw)
@@ -168,6 +169,7 @@ class ADMETAIPredictor(MLADMEPredictor):
             clint_2d6=round(clint_2d6, 3),
             herg_ic50_uM=round(max(0.01, herg), 2),
             confidence=confidence,
+            clint_hepatocyte_uL_min=round(clint_hepatocyte_raw, 3),
             fup_lo=round(max(0.0, fup_lo), 4),
             fup_hi=round(min(1.0, fup_hi), 4),
             clint_3a4_lo=round(max(0.0, clint_lo), 3),
@@ -264,6 +266,21 @@ class ADMETAIPredictor(MLADMEPredictor):
             return max(0.01, clint_pmol)
         logger.warning("Clearance_Hepatocyte not in ADMET-AI output; defaulting clint_3a4 to 1.0")
         return 1.0
+
+    @staticmethod
+    def _extract_clint_hepatocyte_raw(raw: dict[str, Any]) -> float:
+        """Extract raw hepatocyte intrinsic clearance (µL/min/10^6 cells).
+
+        This is the TOTAL clearance from ADMET-AI before any CYP attribution.
+        Used for proper IVIVE scaling in the pipeline.
+        """
+        cl_hep = raw.get(
+            "Clearance_Hepatocyte_AZ",
+            raw.get("Clearance_Hepatocyte", None),
+        )
+        if cl_hep is not None:
+            return max(0.0, float(cl_hep))
+        return 0.0
 
     @staticmethod
     def _extract_peff(raw: dict[str, Any]) -> float:

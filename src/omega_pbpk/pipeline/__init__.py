@@ -252,14 +252,34 @@ class OmegaPipeline:
         tmax = float(time_h[np.argmax(cp)])
         auc = float(np_trapz(cp, time_h))
         n = len(time_h)
-        tail_start = int(0.7 * n)
-        if np.all(cp[tail_start:] > 0):
-            log_cp = np.log(cp[tail_start:] + 1e-12)
-            t_tail = time_h[tail_start:]
-            slope, _ = np.polyfit(t_tail, log_cp, 1)
-            t_half = float(-np.log(2) / slope) if slope < 0 else float("nan")
+        # Find terminal phase: start from Cmax and look for declining region
+        # with concentrations above a threshold
+        cmax_idx = int(np.argmax(cp))
+        threshold = cmax * 0.001  # 0.1% of Cmax
+        tail_region = cp[cmax_idx:]
+        tail_time = time_h[cmax_idx:]
+        # Keep only points above threshold
+        mask = tail_region > threshold
+        if np.sum(mask) >= 5:
+            tail_cp = tail_region[mask]
+            tail_t = tail_time[mask]
+            log_cp = np.log(tail_cp)
+            slope, _ = np.polyfit(tail_t, log_cp, 1)
+            t_half = float(-np.log(2) / slope) if slope < -1e-10 else float("nan")
         else:
-            t_half = float("nan")
+            # Fallback: use last 30% of profile
+            tail_start = int(0.7 * n)
+            if np.any(cp[tail_start:] > threshold):
+                tail_mask = cp[tail_start:] > threshold
+                log_cp = np.log(cp[tail_start:][tail_mask] + 1e-12)
+                t_tail = time_h[tail_start:][tail_mask]
+                if len(t_tail) >= 3:
+                    slope, _ = np.polyfit(t_tail, log_cp, 1)
+                    t_half = float(-np.log(2) / slope) if slope < -1e-10 else float("nan")
+                else:
+                    t_half = float("nan")
+            else:
+                t_half = float("nan")
         confidence = adme_props.get("confidence", "low")
         return SimulationResult(
             time_h=time_h,
@@ -287,10 +307,11 @@ class OmegaPipeline:
                     "herg_ic50_uM": props.herg_ic50_uM,
                     "confidence": props.confidence,
                 }
-                # Include uncertainty intervals if available
+                # Include uncertainty intervals and raw hepatocyte CLint
                 for attr in (
                     "clint_2d6",
                     "peff",
+                    "clint_hepatocyte_uL_min",
                     "fup_lo",
                     "fup_hi",
                     "clint_3a4_lo",
@@ -324,20 +345,50 @@ class OmegaPipeline:
 
         fup = max(float(adme.get("fup", 0.1)), 0.001)
         logP = float(adme.get("logP", 2.0))
-        clint_in_vitro = float(adme.get("clint_3a4", 5.0))
-        clint_L_per_h = clint_in_vitro * 3.6
+        peff = float(adme.get("peff", 1.0))
         herg = float(adme.get("herg_ic50_uM", 100.0))
         if herg < 1.0:
             warnings_list.append(f"hERG IC50 = {herg:.2f} uM -- potential cardiac safety concern")
-        return Drug(
-            name=f"compound_{smiles[:8]}",
-            mw=float(adme.get("mw", 300.0)),
-            logP=logP,
-            fup=fup,
-            rbp=float(adme.get("rbp", 0.55)),
-            clint_hepatic_L_per_h=clint_L_per_h,
-            peff=1.0,
-        )
+
+        # IVIVE: scale intrinsic clearance to whole-liver L/h
+        # Prefer raw hepatocyte CLint (µL/min/10^6 cells) with standard IVIVE:
+        #   CLint_liver = CLint_hep × hepatocellularity(120) × liver_wt(1800g) / 1e6 × 60
+        #   = CLint_hep × 12.96
+        # Fall back to CYP-attributed clint_3a4 (µL/min/pmol): populate the Drug's
+        # clint dict and let Drug.clint_scaled_L_per_h handle IVIVE.
+        clint_hepatocyte = float(adme.get("clint_hepatocyte_uL_min", 0.0))
+        clint_3a4 = float(adme.get("clint_3a4", 5.0))
+        clint_2d6 = float(adme.get("clint_2d6", 0.5))
+
+        if clint_hepatocyte > 0:
+            # Standard IVIVE from hepatocyte units (ADMET-AI path)
+            hepatocellularity = 120.0  # 10^6 cells/g liver
+            liver_weight_g = 1800.0
+            clint_L_per_h = clint_hepatocyte * hepatocellularity * liver_weight_g / 1e6 * 60.0
+            return Drug(
+                name=f"compound_{smiles[:8]}",
+                mw=float(adme.get("mw", 300.0)),
+                logP=logP,
+                fup=fup,
+                rbp=float(adme.get("rbp", 0.55)),
+                clint_hepatic_L_per_h=clint_L_per_h,
+                peff=peff,
+            )
+        else:
+            # Legacy path: CYP-attributed units (µL/min/pmol CYP)
+            # Let Drug.clint_scaled_L_per_h handle the IVIVE scaling
+            clint_dict = {"CYP3A4": clint_3a4}
+            if clint_2d6 > 0:
+                clint_dict["CYP2D6"] = clint_2d6
+            return Drug(
+                name=f"compound_{smiles[:8]}",
+                mw=float(adme.get("mw", 300.0)),
+                logP=logP,
+                fup=fup,
+                rbp=float(adme.get("rbp", 0.55)),
+                clint=clint_dict,
+                peff=peff,
+            )
 
     def _run_simulation(self, drug, request, warnings_list):
         from omega_pbpk.core.body import WholeBodyPBPK
