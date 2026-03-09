@@ -1,0 +1,60 @@
+name: D-Amphetamine
+mw: 135.21
+logP: 1.76
+pka: [9.9]
+drug_type: monoprotic_base
+compound_type: base
+partition_method: heuristic
+fup: 0.70
+rbp: 0.89
+smiles: "C[C@@H](N)Cc1ccccc1"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP2D6: 0.30
+  fm:
+    CYP2D6: 0.30
+    other: 0.70
+  # Calibrated in vivo hepatic CLint (L/h)
+  # Literature: CL_total ~ 20 L/h, CLr ~ 7 L/h (30-40% renal),
+  #   CLh ~ 13 L/h (CYP2D6 + DBH + FMO3)
+  # Well-stirred: CLh = Q*fup*CLint/(Q + fup*CLint) = 13 → CLint = 22 L/h
+  clint_hepatic_L_per_h: 22.0
+  # Significant renal clearance (30-40% excreted unchanged, pH-dependent)
+  clr_L_per_h: 7.0
+
+absorption:
+  peff: 5.0
+  solubility_mg_mL: 20.0
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  # Literature Vd = 3.2-5.6 L/kg → ~280-400 L for 70 kg adult
+  # High CNS penetration (crosses BBB via active transport)
+  # Basic drug with moderate lipophilicity → ion trapping in acidic tissues
+  kp:
+    lung: 5.0
+    brain: 10.0
+    heart: 6.0
+    kidney: 7.0
+    liver: 6.0
+    spleen: 5.0
+    gut_wall: 5.5
+    pancreas: 4.5
+    thymus: 4.0
+    reproductive: 4.0
+    rest: 5.0
+  permeability_limited:
+    adipose:
+      kp: 2.0
+      ps: 30
+    muscle:
+      kp: 6.5
+      ps: 90
+    bone:
+      kp: 3.0
+      ps: 15
+    skin:
+      kp: 4.0
+      ps: 25

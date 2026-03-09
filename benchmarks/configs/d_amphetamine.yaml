@@ -1,0 +1,6 @@
+name: d_amphetamine
+dataset: benchmarks/datasets/d_amphetamine_oral_20mg.csv
+compound_file: compounds/d_amphetamine.yaml
+dose_mg: 20.0
+route: oral
+t_end_h: 24.0
