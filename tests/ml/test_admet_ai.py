@@ -182,12 +182,17 @@ class TestUnitConversions:
         assert abs(result.clint_3a4 - max(0.01, expected)) < 0.001
 
     def test_caco2_to_peff(self, mock_admet_model):
-        """Caco2_Wang log(-5.0) -> Papp = 10^-5 cm/s -> peff = 10^-5 * 10^4 = 0.1 x10^-4 cm/s."""
+        """Caco2_Wang log(-5.0) -> human Peff via Sun et al. (2002) correlation.
+
+        log(Peff) = 0.6836 * log(Papp_caco2) - 0.5579
+        = 0.6836 * (-5.0) - 0.5579 = -3.976
+        Peff = 10^-3.976 = 1.057e-4 cm/s -> peff_1e4 = 1.057
+        """
         predictor = _create_predictor(mock_admet_model)
         result = _predict_with_mock_mw(predictor, "CC(=O)Oc1ccccc1C(=O)O", 180.16)
 
-        # 10^(-5) * 10^4 = 0.1
-        assert abs(result.peff - 0.1) < 0.05
+        expected = 10.0 ** (0.6836 * (-5.0) - 0.5579) * 1e4  # ~1.057
+        assert abs(result.peff - expected) < 0.1
 
     def test_logp_direct(self, mock_admet_model):
         """Lipophilicity maps directly to logP."""
@@ -340,8 +345,11 @@ class TestBatchPrediction:
 class TestMissingProperties:
     """Test handling of missing properties in ADMET-AI output."""
 
-    def test_missing_lipophilicity_defaults_to_2(self):
-        """Missing Lipophilicity -> logP defaults to 2.0."""
+    def test_missing_lipophilicity_falls_back_to_rdkit(self):
+        """Missing Lipophilicity -> falls back to RDKit Crippen logP.
+
+        CCO (ethanol) has RDKit logP ≈ -0.0. If RDKit unavailable, defaults to 2.0.
+        """
         mock = _create_mock_with_predict(
             {
                 "PPBR_AZ": 50.0,
@@ -354,7 +362,8 @@ class TestMissingProperties:
         )
         predictor = _create_predictor(mock)
         result = _predict_with_mock_mw(predictor, "CCO", 100.0)
-        assert result.logP == 2.0
+        # RDKit logP for ethanol (CCO) is approximately -0.0
+        assert abs(result.logP) < 0.5  # reasonable range for ethanol
 
     def test_missing_ppbr_defaults_fup(self):
         """Missing PPBR -> fup defaults to 0.1."""

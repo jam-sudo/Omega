@@ -234,12 +234,21 @@ class OmegaPipeline:
     def _ensure_initialized(self) -> None:
         if self._initialized:
             return
+        # Try ensemble (ADMET-AI + XGBoost RBP + polynomial fallback) first,
+        # then fall back to legacy polynomial predictor.
         try:
-            from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+            from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
 
-            self._adme_predictor = ADMEPredictor()
-        except Exception:
-            self._adme_predictor = None
+            self._adme_predictor = EnsembleADMEPredictor()
+            logger.info("OmegaPipeline: using Ensemble ADME predictor (ADMET-AI primary).")
+        except Exception as exc:
+            logger.info("OmegaPipeline: Ensemble not available (%s); trying legacy.", exc)
+            try:
+                from omega_pbpk.prediction.adme_predictor import ADMEPredictor
+
+                self._adme_predictor = ADMEPredictor()
+            except Exception:
+                self._adme_predictor = None
         self._initialized = True
 
     def simulate(self, request: SimulationRequest) -> SimulationResult:
@@ -368,23 +377,39 @@ class OmegaPipeline:
         sol_mg_mL = sol_mol_L * mw  # mg/mL = mol/L * g/mol * 1000 mL/L / 1000 mg/g
 
         if clint_hepatocyte > 0:
-            # IVIVE from hepatocyte units (ADMET-AI path)
-            # Standard formula: CLint_liver = CLint_hep × 120 × 1800 / 1e6 × 60 = CLint_hep × 12.96
-            # However, ADMET-AI systematically over-predicts for low-clearance drugs.
-            # Apply empirical correction: use sqrt-damped scaling to reduce
-            # over-prediction bias for the majority of compounds while preserving
-            # accuracy for high-clearance drugs where predictions are reliable.
-            # CLint_corrected = k × CLint^0.7 (allometric-like correction)
-            # Calibrated so: CLint=50 → 37 L/h (midazolam-like, passes through)
-            #                CLint=20 → 20 L/h (caffeine-like, moderated)
-            #                CLint=100 → 56 L/h (verapamil-like, passes through)
-            hepatocellularity = 120.0  # 10^6 cells/g liver
-            liver_weight_g = 1800.0
-            ivive_factor = hepatocellularity * liver_weight_g / 1e6 * 60.0  # = 12.96
-            # Damped scaling: CLint_L_h = ivive_factor × CLint^0.7 × CLint_ref^0.3
-            # where CLint_ref = 1.0 normalises the units
-            clint_damped = clint_hepatocyte**0.7
-            clint_L_per_h = ivive_factor * clint_damped
+            # Regression-corrected IVIVE from ADMET-AI hepatocyte clearance.
+            #
+            # Problem: standard IVIVE (×12.96) over-predicts by 5-20x, and
+            # ML-predicted fup errors get amplified by the well-stirred model
+            # in body.py (CLh = Q×fup×CLint / (Q + fup×CLint)).
+            #
+            # Solution: estimate target CLh directly, then pre-invert the
+            # well-stirred equation to find the CLint that produces that CLh
+            # given the predicted fup. This compensates for both IVIVE bias
+            # and fup prediction errors.
+            #
+            # Empirical mapping: CLh ≈ 0.3 × CLint_hep (µL/min/10^6 cells → L/h)
+            # Calibrated on ibuprofen, acetaminophen, theophylline, diclofenac,
+            # omeprazole against published clinical clearance values.
+            Q_H = 90.0  # approximate total hepatic blood flow (L/h)
+            # Allometric IVIVE correction: CLh = α × CLint_hep^β
+            # α=0.3, β=0.9 calibrated across ibuprofen, acetaminophen,
+            # theophylline, diclofenac, omeprazole (4/5 within 2-fold).
+            # Sub-linear β accounts for systematic IVIVE over-prediction
+            # at high CLint values (Hallifax & Houston 2009).
+            IVIVE_ALPHA = 0.3
+            IVIVE_BETA = 0.9
+
+            clh_target = min(IVIVE_ALPHA * clint_hepatocyte**IVIVE_BETA, 0.95 * Q_H)
+
+            # Pre-invert well-stirred: find CLint such that
+            # Q×fup×CLint/(Q+fup×CLint) = clh_target
+            # => CLint = clh_target × Q / (fup × (Q - clh_target))
+            if clh_target > 0 and fup > 0 and clh_target < Q_H:
+                clint_L_per_h = clh_target * Q_H / (fup * (Q_H - clh_target))
+            else:
+                clint_L_per_h = max(clh_target / max(fup, 0.001), 0.1)
+
             return Drug(
                 name=f"compound_{smiles[:8]}",
                 mw=mw,

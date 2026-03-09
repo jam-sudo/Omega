@@ -223,6 +223,11 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             overall_confidence,
         )
 
+        # Pass through raw hepatocyte CLint from ADMET-AI for proper IVIVE
+        clint_hep_raw = 0.0
+        if admet_result is not None:
+            clint_hep_raw = getattr(admet_result, "clint_hepatocyte_uL_min", 0.0)
+
         return ADMEProperties(
             mw=round(mw, 2),
             logP=round(logp, 2),
@@ -234,6 +239,7 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             clint_2d6=round(clint_2d6, 3),
             herg_ic50_uM=round(max(0.01, herg), 2),
             confidence=overall_confidence,
+            clint_hepatocyte_uL_min=round(clint_hep_raw, 3),
             fup_lo=round(max(0.0, fup_lo), 4),
             fup_hi=round(min(1.0, fup_hi), 4),
             clint_3a4_lo=round(max(0.0, clint_lo), 3),
