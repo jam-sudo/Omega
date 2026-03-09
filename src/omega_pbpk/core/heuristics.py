@@ -193,6 +193,16 @@ def heuristic_kp(
             base *= 1.0 - 0.15 * fraction_ionised
 
     tissue_factor = _TISSUE_FACTORS.get(tissue_name, 1.0)
+
+    # For adipose/fat tissues, modulate the tissue factor by lipophilicity.
+    # Hydrophilic drugs (logP < 1) distribute poorly into fat; the constant
+    # factor of 2.5 over-predicts adipose Kp for these compounds.
+    # Sigmoid scaling: factor → 0.3 at logP=-2, ~1.0 at logP=1, 2.5 at logP=4+
+    if tissue_name in ("adipose", "fat"):
+        # Logistic transition centred at logP=1 (BCS lipophilicity threshold)
+        logP_scale = 1.0 / (1.0 + 10.0 ** (1.0 - logP))
+        tissue_factor = 0.3 + (tissue_factor - 0.3) * logP_scale
+
     kp = base * tissue_factor
 
     # Restricted distribution correction for highly plasma-bound drugs

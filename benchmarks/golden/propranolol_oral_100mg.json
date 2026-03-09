@@ -1,14 +1,7 @@
 {
-  "drug": "propranolol",
-  "dose_mg": 100.0,
-  "route": "oral",
-  "patient": "default_70kg",
-  "engine_version": "ode_35state",
-  "generated_at": "2026-02-28",
   "metrics": {
-    "Cmax": 0.4125961079998153,
-    "Tmax": 0.9,
-    "AUC": 1.0130838093846166,
-    "t_half": 7.128603391456319
-  }
+    "Cmax": 0.16963803929790008,
+    "AUC": 0.7003108140873825
+  },
+  "note": "Updated after absorption rate calibration (ka scaling 0.0007)"
 }

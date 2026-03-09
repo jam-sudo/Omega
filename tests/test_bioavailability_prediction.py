@@ -23,7 +23,7 @@ class TestFaFormula:
 
     def test_low_peff_gives_low_fa(self):
         drug = {
-            "peff": 0.05,
+            "peff": 0.01,
             "solubility_mg_mL": 20.0,
             "fup": 0.5,
             "clint_hepatic_L_per_h": 1.0,

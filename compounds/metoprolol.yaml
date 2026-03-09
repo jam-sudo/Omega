@@ -1,0 +1,60 @@
+name: Metoprolol
+mw: 267.36
+logP: 1.9
+pka: [9.7]
+drug_type: monoprotic_base
+compound_type: base
+partition_method: heuristic
+fup: 0.88
+rbp: 1.0
+smiles: "COCCc1ccc(OCC(O)CNC(C)C)cc1"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP2D6: 15.0
+    CYP3A4: 2.0
+  fm:
+    CYP2D6: 0.80
+    CYP3A4: 0.20
+  # Calibrated in vivo hepatic CLint (L/h)
+  # Literature CL_blood ~ 60 L/h, F ~ 0.30-0.50 (high extraction)
+  # Well-stirred: EH = fup*CLint/(Q + fup*CLint)
+  # EH=0.72 → CLint = 232 L/h → CL_blood = 64.8 L/h, F = 0.28
+  clint_hepatic_L_per_h: 232.0
+  clr_L_per_h: 1.5
+
+absorption:
+  peff: 3.0
+  solubility_mg_mL: 50.0
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  # Literature Vd ~ 250 L (3.5 L/kg). Metoprolol is a basic drug with
+  # high tissue penetration due to ion trapping and high fup (0.88).
+  # Muscle Kp ~6-8 (rat data, Rodgers & Rowland 2006)
+  kp:
+    lung: 6.0
+    brain: 4.5
+    heart: 7.0
+    kidney: 6.0
+    liver: 6.5
+    spleen: 5.0
+    gut_wall: 5.5
+    pancreas: 4.5
+    thymus: 3.5
+    reproductive: 3.5
+    rest: 5.0
+  permeability_limited:
+    adipose:
+      kp: 1.0
+      ps: 25
+    muscle:
+      kp: 7.5
+      ps: 65
+    bone:
+      kp: 3.0
+      ps: 12
+    skin:
+      kp: 4.0
+      ps: 20

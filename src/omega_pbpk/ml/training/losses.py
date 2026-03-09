@@ -64,7 +64,11 @@ class PKLoss(nn.Module):
         predicted_pk: dict[str, torch.Tensor],
         true_pk: dict[str, torch.Tensor],
     ) -> torch.Tensor:
-        """MSE on PK metrics: Cmax, AUC, Tmax, t_half.
+        """MSE on PK metrics in log-space for scale invariance.
+
+        Concentration metrics (Cmax, AUC) use log1p-space MSE to handle
+        the wide dynamic range (0.001 to 100000 mg/L). Time metrics
+        (Tmax, t_half) use log1p-space MSE for similar reasons.
 
         Parameters
         ----------
@@ -79,7 +83,10 @@ class PKLoss(nn.Module):
         count = 0
         for key in ("cmax", "auc", "tmax", "t_half"):
             if key in predicted_pk and key in true_pk:
-                loss = loss + F.mse_loss(predicted_pk[key], true_pk[key])
+                pred = predicted_pk[key].clamp(min=0.0)
+                true = true_pk[key].clamp(min=0.0)
+                # Log1p-space MSE for scale invariance
+                loss = loss + F.mse_loss(torch.log1p(pred), torch.log1p(true))
                 count += 1
         if count > 0:
             loss = loss / count

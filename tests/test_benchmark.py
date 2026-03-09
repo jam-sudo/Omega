@@ -135,11 +135,18 @@ class TestBenchmarkSuite:
             assert "cmax" in passes, f"Drug '{drug}' missing 'cmax' in passes"
             assert "tmax" in passes, f"Drug '{drug}' missing 'tmax' in passes"
 
-            # Verify the pass/fail logic is consistent with the thresholds
+            # Verify the pass/fail logic is consistent with per-drug thresholds.
+            # The benchmark runner uses per-drug overrides from acceptance.json.
+            from omega_pbpk.validation.benchmarks import _load_acceptance_for_drug
+
+            drug_thresholds = _load_acceptance_for_drug(
+                SUITE_DIR / "expected" / "acceptance.json", drug
+            )
+
             metrics = entry["metrics"]
-            auc_threshold = thresholds["auc_relative_error_max"]
-            cmax_threshold = thresholds["cmax_relative_error_max"]
-            tmax_threshold = thresholds["tmax_abs_error_h_max"]
+            auc_threshold = drug_thresholds["auc_relative_error_max"]
+            cmax_threshold = drug_thresholds["cmax_relative_error_max"]
+            tmax_threshold = drug_thresholds["tmax_abs_error_h_max"]
 
             expected_auc_pass = metrics["auc_relative_error"] <= auc_threshold
             expected_cmax_pass = metrics["cmax_relative_error"] <= cmax_threshold

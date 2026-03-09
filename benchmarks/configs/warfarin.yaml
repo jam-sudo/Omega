@@ -1,25 +1,6 @@
 name: warfarin
 dataset: benchmarks/datasets/warfarin_oral_5mg.csv
+compound_file: compounds/warfarin.yaml
 dose_mg: 5.0
 route: oral
 t_end_h: 24.0
-
-# Warfarin — inline compound definition (v0.7 format)
-mw: 308.33
-logP: 3.1
-pka: [5.1]
-drug_type: acid
-fup: 0.01
-rbp: 0.55
-
-clearance:
-  clint_uL_min_pmol:
-    CYP2C9: 0.5
-    CYP3A4: 0.1
-  fm:
-    CYP2C9: 0.85
-    CYP3A4: 0.15
-
-absorption:
-  peff: 5.0
-  solubility_mg_mL: 0.017

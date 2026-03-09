@@ -559,7 +559,7 @@ class WholeBodyPBPK:
             # ka = 2 × Peff / radius × scaling
             peff = self.drug.peff  # ×10⁻⁴ cm/s
             ka_base = 2.0 * peff * 3600.0 * 1e-4 / max(self.drug.particle_radius_um * 1e-4, 1e-12)
-            ka = ka_base * ka_frac * 0.01  # empirical scaling
+            ka = ka_base * ka_frac * 0.0007  # empirical scaling (calibrated for Tmax ~1-2h)
 
             absorption = ka * y[seg_idx]
             transit_out = kt * y[seg_idx]

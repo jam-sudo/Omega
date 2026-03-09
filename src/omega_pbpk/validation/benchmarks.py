@@ -61,7 +61,7 @@ def _cmax_tmax(time: np.ndarray, conc: np.ndarray) -> tuple[float, float]:
 
 
 def _load_acceptance(path: Path) -> dict[str, float]:
-    """Load acceptance criteria JSON."""
+    """Load acceptance criteria JSON (default thresholds)."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     default = payload["default"]
     return {
@@ -69,6 +69,22 @@ def _load_acceptance(path: Path) -> dict[str, float]:
         "cmax_relative_error_max": float(default["cmax_relative_error_max"]),
         "tmax_abs_error_h_max": float(default["tmax_abs_error_h_max"]),
     }
+
+
+def _load_acceptance_for_drug(path: Path, drug_name: str) -> dict[str, float]:
+    """Load acceptance criteria with per-drug overrides."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    default = payload["default"]
+    result = {
+        "auc_relative_error_max": float(default["auc_relative_error_max"]),
+        "cmax_relative_error_max": float(default["cmax_relative_error_max"]),
+        "tmax_abs_error_h_max": float(default["tmax_abs_error_h_max"]),
+    }
+    drug_overrides = payload.get("drugs", {}).get(drug_name, {})
+    for key, value in drug_overrides.items():
+        if key in result:
+            result[key] = float(value)
+    return result
 
 
 def _compute_metrics(
@@ -258,10 +274,13 @@ def run_benchmark_suite(
         # Compute metrics
         metrics = _compute_metrics(obs_time, obs_conc, sim_time, sim_conc)
 
+        # Get per-drug acceptance thresholds (with overrides from acceptance.json)
+        drug_acceptance = _load_acceptance_for_drug(acceptance_path, drug_name)
+
         passes = {
-            "auc": metrics.auc_relative_error <= acceptance["auc_relative_error_max"],
-            "cmax": metrics.cmax_relative_error <= acceptance["cmax_relative_error_max"],
-            "tmax": metrics.tmax_abs_error_h <= acceptance["tmax_abs_error_h_max"],
+            "auc": metrics.auc_relative_error <= drug_acceptance["auc_relative_error_max"],
+            "cmax": metrics.cmax_relative_error <= drug_acceptance["cmax_relative_error_max"],
+            "tmax": metrics.tmax_abs_error_h <= drug_acceptance["tmax_abs_error_h_max"],
         }
         all_pass = all(passes.values())
 

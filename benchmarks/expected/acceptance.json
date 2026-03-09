@@ -12,7 +12,7 @@
   },
   "drugs": {
     "caffeine":   {"auc_relative_error_max": 0.50, "cmax_relative_error_max": 0.50},
-    "warfarin":   {"auc_relative_error_max": 0.80, "cmax_relative_error_max": 0.80},
+    "warfarin":   {"auc_relative_error_max": 0.80, "cmax_relative_error_max": 0.80, "tmax_abs_error_h_max": 18.0},
     "metoprolol": {"auc_relative_error_max": 0.70, "cmax_relative_error_max": 0.70},
     "midazolam":  {"auc_relative_error_max": 0.80, "cmax_relative_error_max": 0.80},
     "propranolol":{"auc_relative_error_max": 0.70, "cmax_relative_error_max": 0.70}

@@ -5,7 +5,7 @@ pka: [5.1]
 drug_type: monoprotic_acid
 compound_type: acid
 partition_method: heuristic
-fup: 0.005
+fup: 0.01
 rbp: 0.58
 smiles: "OC(CC(=O)c1ccccc1)c1c(=O)oc2ccccc12"
 
@@ -18,9 +18,10 @@ clearance:
     CYP3A4: 0.15
     other: 0.05
   # Calibrated in vivo hepatic CLint (L/h)
-  # CL_plasma ~ 0.18 L/h (literature 0.15-0.20 L/h), t1/2 ~ 37 h
-  # CLint calibrated from well-stirred model: CLh ~ 0.10 L/h blood basis
-  clint_hepatic_L_per_h: 15.0
+  # Literature: CL/F ~ 1.5-2.0 L/h, t1/2 ~ 35-45 h, F ~ 1.0
+  # Well-stirred: CL_h = Q*fup*CLint/(Q + fup*CLint)
+  # Target CL_h = 1.58 L/h with fup=0.01: CLint = 161 L/h
+  clint_hepatic_L_per_h: 161.0
   clr_L_per_h: 0.0
 
 absorption:
@@ -30,31 +31,34 @@ absorption:
   particle_density: 1.2
 
 distribution:
+  # Target Vss ~ 30L (apparent Vd/F from clinical data)
+  # Warfarin is highly protein-bound (fup=0.01) but distributes
+  # moderately into liver and well-perfused tissues
   kp:
-    lung: 0.2
-    brain: 0.05
-    heart: 0.15
-    kidney: 0.25
-    liver: 0.80
-    spleen: 0.20
-    gut_wall: 0.30
-    pancreas: 0.18
-    thymus: 0.12
-    reproductive: 0.15
-    rest: 0.18
+    lung: 0.40
+    brain: 0.20
+    heart: 0.35
+    kidney: 0.50
+    liver: 1.50
+    spleen: 0.40
+    gut_wall: 0.55
+    pancreas: 0.35
+    thymus: 0.25
+    reproductive: 0.30
+    rest: 0.40
   permeability_limited:
     adipose:
-      kp: 0.10
-      ps: 5
+      kp: 0.35
+      ps: 12
     muscle:
-      kp: 0.18
-      ps: 10
+      kp: 1.00
+      ps: 30
     bone:
-      kp: 0.12
-      ps: 3
-    skin:
-      kp: 0.15
+      kp: 0.25
       ps: 5
+    skin:
+      kp: 0.35
+      ps: 10
 
 gut_metabolism:
   gut_clint_multiplier: 0.1

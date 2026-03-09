@@ -71,9 +71,24 @@ def predict_bioavailability(
         has_explicit_sol = "solubility_mg_mL" in drug_or_dict
 
     # 1. fa — fraction absorbed
+    # peff is in units of ×10⁻⁴ cm/s.  Convert to cm/s for calculations.
     peff_cm_s = peff * 1e-4
     dose_number = dose_mg / (solubility_mg_mL * gut_volume_mL)
-    fa_perm = min(1.0, peff_cm_s / 2e-4)
+
+    # Permeability-limited absorption using the compartmental absorption model.
+    # BCS threshold: Papp > ~1×10⁻⁶ cm/s (Caco-2) = 0.01 ×10⁻⁴ cm/s is "high"
+    # peff=0.01 → low; peff=1.0 → moderate; peff=10+ → high; peff=100 → complete
+    # Use effective intestinal surface model:
+    #   fa_perm = 1 - exp(-2 × Peff × R_SI × T_SI)
+    # where R_SI ≈ 175 cm (small intestine radius), T_SI ≈ 3.32 h mean transit
+    # Simplified: fa_perm = 1 - exp(-k × peff_cm_s) with k calibrated to
+    # give fa=0.90 at peff=1×10⁻⁵ cm/s (BCS I/II threshold)
+    # k = -ln(0.10) / 1e-5 ≈ 230,259
+    # This gives: peff=4e-5 → fa=0.9999, peff=1e-6 → fa=0.206
+    import math
+
+    k_abs = 2.3e5  # absorption rate constant (1/cm·s → dimensionless via peff)
+    fa_perm = 1.0 - math.exp(-k_abs * peff_cm_s) if peff_cm_s > 0 else 0.0
     fa_sol = 1.0 / max(dose_number, 1.0)
     fa = fa_perm * fa_sol if dose_number > 1.0 else fa_perm
     fa = max(0.0, min(1.0, fa))

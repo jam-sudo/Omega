@@ -2,10 +2,13 @@
 """Train the Level 2 end-to-end SMILES-to-PK model.
 
 Usage:
-    # Stage 1 only (1-cpt pre-training)
+    # Train standalone surrogate on 1-cpt data (Stage 0)
     python scripts/train_level2.py --stage1-data data/ml/1cpt_100k.h5
 
-    # Full curriculum (stages 1 + 2)
+    # Train end-to-end model on PBPK data (Stage 2)
+    python scripts/train_level2.py --stage2-data data/ml/pbpk_50k.h5
+
+    # Full pipeline: train surrogate first, then end-to-end on PBPK
     python scripts/train_level2.py \
         --stage1-data data/ml/1cpt_100k.h5 \
         --stage2-data data/ml/pbpk_50k.h5
@@ -71,7 +74,11 @@ def load_hdf5_as_tensordataset(path: str, val_fraction: float = 0.1) -> tuple:
 
 
 def train_surrogate_first(data_path: str) -> None:
-    """Pre-train the surrogate on the provided data if needed."""
+    """Pre-train the standalone surrogate on 1-cpt analytical data.
+
+    This trains a 5-param surrogate (ka, ke, Vd, F, dose) → C(t) curve.
+    This is separate from the end-to-end model's 6-param ADME surrogate.
+    """
     from pathlib import Path
 
     from omega_pbpk.ml.data.synthetic import CurveDataset
@@ -82,7 +89,7 @@ def train_surrogate_first(data_path: str) -> None:
         logger.info("Surrogate model already exists at %s, skipping", surrogate_path)
         return
 
-    logger.info("Training surrogate on %s...", data_path)
+    logger.info("Training standalone surrogate on %s...", data_path)
     ds = CurveDataset.load_hdf5(data_path)
     result = train_surrogate(
         params=ds.params,
@@ -94,13 +101,17 @@ def train_surrogate_first(data_path: str) -> None:
         save_dir="models/pbpk_surrogate/1cpt",
         verbose=True,
     )
-    logger.info("Surrogate AAFE: %.3f", result["aafe"])
+    logger.info("Standalone surrogate AAFE: %.3f", result["aafe"])
 
 
 def main():
     parser = argparse.ArgumentParser(description="Train Level 2 SMILES-to-PK model")
-    parser.add_argument("--stage1-data", type=str, help="Path to 1-cpt HDF5 data")
-    parser.add_argument("--stage2-data", type=str, help="Path to PBPK HDF5 data")
+    parser.add_argument(
+        "--stage1-data", type=str, help="Path to 1-cpt HDF5 data (trains standalone surrogate)"
+    )
+    parser.add_argument(
+        "--stage2-data", type=str, help="Path to PBPK HDF5 data (6 ADME params, trains end-to-end)"
+    )
     parser.add_argument("--stage3-data", type=str, help="Path to clinical HDF5 data")
     parser.add_argument("--resume", action="store_true", help="Resume from checkpoint")
     parser.add_argument("--checkpoint-dir", type=str, default="models/level2")
@@ -112,34 +123,34 @@ def main():
         logger.error("At least --stage1-data or --stage2-data must be provided")
         sys.exit(1)
 
-    # Step 1: Ensure surrogate is trained
+    # Step 1: Train standalone surrogate on 1-cpt data (if provided)
+    # This is a separate model (5 PK params) from the end-to-end surrogate (6 ADME params)
     if args.stage1_data:
         train_surrogate_first(args.stage1_data)
 
-    # Step 2: Create end-to-end model
+    # If only stage1 data provided, we're done (standalone surrogate training only)
+    if not args.stage2_data and not args.stage3_data:
+        logger.info("Only stage1 (standalone surrogate) training requested. Done.")
+        return
+
+    # Step 2: Create end-to-end model for PBPK curriculum training
+    from pathlib import Path
+
     from omega_pbpk.ml.models.foundation.end_to_end import SMILESToPKModel
     from omega_pbpk.ml.training.curriculum import MultiFidelityCurriculum
 
     model = SMILESToPKModel()
 
-    # Load pre-trained surrogate weights into the model's surrogate
-    from pathlib import Path
-
-    from omega_pbpk.ml.models.surrogate.differentiable_ode import load_surrogate
-
-    surrogate_path = Path("models/pbpk_surrogate/1cpt/surrogate_model.pt")
-    if surrogate_path.exists():
-        trained_surrogate = load_surrogate(surrogate_path)
-        model.surrogate.load_state_dict(trained_surrogate.state_dict())
-        logger.info("Loaded pre-trained surrogate into end-to-end model")
+    # Note: The standalone surrogate (5 PK params: ka, ke, Vd, F, dose)
+    # has different input dimensions than the end-to-end surrogate (6 ADME
+    # params: logP, fup, clint_L_h, mw, rbp, peff). Weights are NOT
+    # transferable. The end-to-end surrogate learns from scratch.
 
     # Step 3: Prepare data
-    stage1_train, stage1_val = None, None
+    # Stage 1 (1-cpt, 5 params) is NOT compatible with the end-to-end model.
+    # Only PBPK data (6 ADME params) can be used for end-to-end training.
     stage2_train, stage2_val = None, None
     stage3_train, stage3_val = None, None
-
-    if args.stage1_data:
-        stage1_train, stage1_val, _, _ = load_hdf5_as_tensordataset(args.stage1_data)
 
     if args.stage2_data:
         stage2_train, stage2_val, _, _ = load_hdf5_as_tensordataset(args.stage2_data)
@@ -158,7 +169,9 @@ def main():
                 model.load_state_dict(state)
             logger.info("Resumed from %s", final_path)
 
-    # Step 5: Run curriculum
+    # Step 5: Run curriculum (PBPK as stage 2, clinical as stage 3)
+    # We skip stage 1 because 1-cpt data has incompatible param dimensions.
+    # The PBPK data serves as the primary training stage.
     curriculum = MultiFidelityCurriculum(
         model=model,
         checkpoint_dir=args.checkpoint_dir,
@@ -167,8 +180,8 @@ def main():
     )
 
     result = curriculum.run_curriculum(
-        stage1_train=stage1_train,
-        stage1_val=stage1_val,
+        stage1_train=None,
+        stage1_val=None,
         stage2_train=stage2_train,
         stage2_val=stage2_val,
         stage3_train=stage3_train,
@@ -188,6 +201,15 @@ def main():
         )
     if result.final_metrics:
         logger.info("Final metrics: %s", result.final_metrics)
+
+    # Save final model
+    final_path = Path(args.checkpoint_dir) / "final.pt"
+    final_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {"model_state_dict": model.state_dict()},
+        str(final_path),
+    )
+    logger.info("Saved final model to %s", final_path)
 
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())

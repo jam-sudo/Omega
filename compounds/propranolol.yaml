@@ -20,7 +20,7 @@ clearance:
   # Calibrated in vivo hepatic CLint (L/h)
   # High extraction drug: CL_plasma ~ 60-80 L/h (literature), F ~ 25-30%
   # CLint_hepatic large enough to give EH ~ 0.80-0.90
-  clint_hepatic_L_per_h: 850.0
+  clint_hepatic_L_per_h: 1050.0
   clr_L_per_h: 0.5
 
 absorption:
@@ -44,17 +44,17 @@ distribution:
     rest: 5.0
   permeability_limited:
     adipose:
-      kp: 6.0
-      ps: 15
+      kp: 3.5
+      ps: 60
     muscle:
-      kp: 5.5
-      ps: 30
+      kp: 7.5
+      ps: 150
     bone:
       kp: 3.0
-      ps: 8
+      ps: 20
     skin:
       kp: 4.5
-      ps: 12
+      ps: 35
 
 gut_metabolism:
   gut_clint_multiplier: 0.5
