@@ -361,27 +361,159 @@ def ml_kp_from_drug(drug: object) -> dict[str, float]:
     return dict(out.tissue_kp)
 
 
-_KP_METHODS: dict[str, Callable[..., float]] = {
-    "heuristic": heuristic_kp,
-    "rodgers_rowland": rodgers_rowland_kp,
-    "ml": ml_kp,
+def berezhkovskiy_kp(
+    logP: float,
+    pka: float | None = None,
+    compound_type: str = "neutral",
+    tissue_name: str = "rest",
+    fup: float = 0.5,
+    *,
+    drug_type: str | None = None,
+) -> float:
+    """Berezhkovskiy steady-state corrected Kp (2004).
+
+    Uses Rodgers & Rowland Kp_uu as the mechanistic base, then applies
+    the Berezhkovskiy correction: Kp_ss = Kp_uu × fup (assuming fut ≈ 1).
+
+    This properly accounts for plasma protein binding: highly bound drugs
+    (low fup) have restricted tissue distribution, reducing Vd and
+    increasing Cmax — matching clinical observations.
+
+    Reference:
+        Berezhkovskiy LM. J Pharm Sci. 2004;93(6):1628-40.
+        Rodgers T, Rowland M. J Pharm Sci. 2006;95(6):1238-57.
+    """
+    ct = compound_type
+    if drug_type is not None and compound_type == "neutral":
+        ct = _DRUG_TYPE_MAP.get(drug_type, compound_type)
+
+    tissue = TISSUE_COMPOSITION.get(tissue_name)
+    if tissue is None:
+        return max(fup, 0.01)
+
+    plasma = PLASMA_COMPOSITION
+    p_ow = 10.0**logP
+
+    fw_t = tissue["fw"]
+    fn_t = tissue["fn"]
+    fp_t = tissue["fp"]
+    pH_t = tissue["pH"]
+
+    fw_p = plasma["fw"]
+    fn_p = plasma["fn"]
+    fp_p = plasma["fp"]
+    pH_p = plasma["pH"]
+
+    # Lipid partition terms
+    lipid_t = fn_t * p_ow + fp_t * (0.3 * p_ow + 0.7)
+    lipid_p = fn_p * p_ow + fp_p * (0.3 * p_ow + 0.7)
+
+    ion = _ionization_ratio(pka, pH_t, pH_p, ct)
+
+    if ct in ("neutral", "acid"):
+        kp_uu = (fw_t * ion + lipid_t) / max(fw_p + lipid_p, 1e-12)
+    else:
+        # Base/zwitterion: enhanced phospholipid binding
+        kp_uu = (fw_t * ion + lipid_t + fp_t * max(ion - 1.0, 0.0)) / max(fw_p + lipid_p, 1e-12)
+
+    # Berezhkovskiy correction: Kp = Kp_uu × fup (assumes fut ≈ 1)
+    kp = kp_uu * max(fup, 0.001)
+
+    return float(max(round(kp, 4), 0.01))
+
+
+# Standard tissue volumes as fraction of body weight (L/kg), ICRP reference
+_TISSUE_VOLS_L_PER_KG: dict[str, float] = {
+    "liver": 0.026,
+    "kidney": 0.0044,
+    "muscle": 0.40,
+    "adipose": 0.21,
+    "fat": 0.21,
+    "skin": 0.047,
+    "brain": 0.020,
+    "heart": 0.0047,
+    "lung": 0.0076,
+    "spleen": 0.0026,
+    "gut_wall": 0.017,
+    "bone": 0.079,
+    "pancreas": 0.0014,
+    "thymus": 0.0003,
+    "reproductive": 0.0003,
+    "rest": 0.043,
 }
 
 
-def get_partition_method(name: str) -> Callable[..., float]:
-    """Return the Kp estimation function for the given method name.
+def vdss_from_kp(kp_dict: dict[str, float], bw_kg: float = 70.0) -> float:
+    """Compute VDss from tissue Kp values.
 
-    Available methods: 'heuristic' (default), 'rodgers_rowland', 'ml'.
+    VDss = Vp + Σ(Kp_i × V_tissue_i)
+    where Vp = 0.043 L/kg (plasma volume).
     """
-    fn = _KP_METHODS.get(name)
-    if fn is None:
-        raise ValueError(f"Unknown partition method '{name}'. Available: {sorted(_KP_METHODS)}")
-    return fn
+    vp = 0.043 * bw_kg
+    vd = vp
+    for tissue, kp in kp_dict.items():
+        vol_frac = _TISSUE_VOLS_L_PER_KG.get(tissue, 0.0)
+        vd += kp * vol_frac * bw_kg
+    return max(vd, vp)
 
 
-# ---------------------------------------------------------------------------
-# Utility functions
-# ---------------------------------------------------------------------------
+def estimate_kp_vdss_calibrated(
+    logP: float,
+    fup: float,
+    vdss_target_L_per_kg: float,
+    pka: float | None = None,
+    drug_type: str = "neutral",
+    bw_kg: float = 70.0,
+) -> dict[str, float]:
+    """Estimate Kp for all tissues, scaled to match a target VDss.
+
+    Uses Berezhkovskiy-corrected Rodgers & Rowland as the mechanistic base,
+    then uniformly scales all Kp values so that the resulting VDss matches
+    the target (e.g. from XGBoost VDss prediction).
+
+    This preserves tissue-specific distribution ratios from the mechanistic
+    model while calibrating the total VDss to match data-driven predictions.
+
+    Args:
+        logP: Octanol-water log partition coefficient.
+        fup: Fraction unbound in plasma.
+        vdss_target_L_per_kg: Target VDss in L/kg (e.g. from XGBoost).
+        pka: Primary pKa value.
+        drug_type: Ionization class.
+        bw_kg: Body weight in kg.
+
+    Returns:
+        Dict mapping tissue name → scaled Kp value.
+    """
+    ct = _DRUG_TYPE_MAP.get(drug_type, "neutral")
+    tissues = list(TISSUE_COMPOSITION.keys())
+
+    # Step 1: Compute Berezhkovskiy-corrected Kp for all tissues
+    kp_base = {}
+    for t in tissues:
+        kp_base[t] = berezhkovskiy_kp(logP=logP, pka=pka, compound_type=ct, tissue_name=t, fup=fup)
+
+    # Step 2: Compute the Vd from these base Kp values
+    vd_base = vdss_from_kp(kp_base, bw_kg)
+    vd_base_L_per_kg = vd_base / bw_kg
+
+    # Step 3: Compute scaling factor
+    # Target Vd = Vp + scale × Σ(Kp_i × V_i)
+    # scale = (Vd_target - Vp) / (Vd_base - Vp)
+    vp_L_per_kg = 0.043
+    numerator = max(vdss_target_L_per_kg - vp_L_per_kg, 0.001)
+    denominator = max(vd_base_L_per_kg - vp_L_per_kg, 0.001)
+    scale = numerator / denominator
+
+    # Clamp scale to prevent extreme values
+    scale = max(0.1, min(scale, 10.0))
+
+    # Step 4: Apply scaling
+    kp_scaled = {}
+    for t, kp in kp_base.items():
+        kp_scaled[t] = float(max(round(kp * scale, 4), 0.01))
+
+    return kp_scaled
 
 
 def estimate_all_kp(
@@ -403,3 +535,26 @@ def log_kp_summary(kp_values: dict[str, float]) -> str:
     for tissue, kp in sorted(kp_values.items(), key=lambda x: -x[1]):
         lines.append(f"  {tissue:18s}  Kp = {kp:.3f}")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Dispatcher (after all Kp functions are defined)
+# ---------------------------------------------------------------------------
+
+_KP_METHODS: dict[str, Callable[..., float]] = {
+    "heuristic": heuristic_kp,
+    "rodgers_rowland": rodgers_rowland_kp,
+    "berezhkovskiy": berezhkovskiy_kp,
+    "ml": ml_kp,
+}
+
+
+def get_partition_method(name: str) -> Callable[..., float]:
+    """Return the Kp estimation function for the given method name.
+
+    Available methods: 'heuristic', 'rodgers_rowland', 'berezhkovskiy', 'ml'.
+    """
+    fn = _KP_METHODS.get(name)
+    if fn is None:
+        raise ValueError(f"Unknown partition method '{name}'. Available: {sorted(_KP_METHODS)}")
+    return fn

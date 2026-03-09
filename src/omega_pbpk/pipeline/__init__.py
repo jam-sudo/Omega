@@ -230,6 +230,7 @@ class OmegaPipeline:
     def __init__(self) -> None:
         self._adme_predictor = None
         self._clint_predictor = None
+        self._vdss_predictor = None
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
@@ -260,6 +261,16 @@ class OmegaPipeline:
         except (ImportError, Exception) as exc:
             logger.info("OmegaPipeline: XGBoost CLint not available: %s", exc)
             self._clint_predictor = None
+
+        # XGBoost VDss predictor for Kp calibration
+        try:
+            from omega_pbpk.ml.models.adme.xgboost_vdss import XGBoostVDssPredictor
+
+            self._vdss_predictor = XGBoostVDssPredictor()
+            logger.info("OmegaPipeline: XGBoost VDss predictor initialized.")
+        except (ImportError, Exception) as exc:
+            logger.info("OmegaPipeline: XGBoost VDss not available: %s", exc)
+            self._vdss_predictor = None
 
         self._initialized = True
 
@@ -397,6 +408,50 @@ class OmegaPipeline:
         sol_mol_L = 10.0**logS
         sol_mg_mL = sol_mol_L * mw  # mg/mL = mol/L * g/mol * 1000 mL/L / 1000 mg/g
 
+        # Compute Berezhkovskiy-corrected Kp values (R&R + fup scaling).
+        # This fixes the systematic Vd over-estimation from the heuristic Kp chain
+        # by properly accounting for plasma protein binding.
+        # Optionally blend with XGBoost VDss prediction using geometric mean.
+        kp_dict = {}
+        try:
+            from omega_pbpk.core.heuristics import (
+                TISSUE_COMPOSITION,
+                berezhkovskiy_kp,
+                vdss_from_kp,
+            )
+
+            for t in TISSUE_COMPOSITION:
+                kp_dict[t] = berezhkovskiy_kp(logP=logP, fup=fup, tissue_name=t)
+
+            # If XGBoost VDss is available, use it to correct Berezhkovskiy
+            # only when XGBoost predicts LOWER Vd (avoids over-distributing).
+            # Berezhkovskiy is mechanistically grounded; XGBoost may over-predict
+            # for drugs outside its training domain.
+            if self._vdss_predictor is not None:
+                try:
+                    vdss_xgb = self._vdss_predictor.predict_vdss(smiles)
+                    vdss_berez = vdss_from_kp(kp_dict) / 70.0
+
+                    # Only apply VDss correction if XGBoost predicts LOWER Vd
+                    # This prevents the Kp from being scaled UP (which worsens Cmax)
+                    if vdss_xgb < vdss_berez * 0.9:
+                        vp = 0.043
+                        num = max(vdss_xgb - vp, 0.001)
+                        den = max(vdss_berez - vp, 0.001)
+                        scale = max(0.1, min(num / den, 1.0))
+                        kp_dict = {t: max(round(kp * scale, 4), 0.01) for t, kp in kp_dict.items()}
+                        logger.debug(
+                            "VDss correction: berez=%.3f → xgb=%.3f L/kg (scale=%.2f)",
+                            vdss_berez,
+                            vdss_xgb,
+                            scale,
+                        )
+                except Exception as exc:
+                    logger.debug("VDss correction failed: %s", exc)
+
+        except Exception as exc:
+            logger.debug("Berezhkovskiy Kp failed: %s", exc)
+
         if clint_hepatocyte > 0:
             # Regression-corrected IVIVE from ADMET-AI hepatocyte clearance.
             #
@@ -440,6 +495,7 @@ class OmegaPipeline:
                 clint_hepatic_L_per_h=clint_L_per_h,
                 peff=peff,
                 solubility_mg_mL=max(sol_mg_mL, 0.001),
+                kp=kp_dict,
             )
         else:
             # Legacy path: CYP-attributed units (µL/min/pmol CYP)
@@ -456,6 +512,7 @@ class OmegaPipeline:
                 clint=clint_dict,
                 peff=peff,
                 solubility_mg_mL=max(sol_mg_mL, 0.001),
+                kp=kp_dict,
             )
 
     def _analytical_oral(self, drug, request, adme_props, warnings_list):
@@ -486,32 +543,17 @@ class OmegaPipeline:
         CL_h = (Q_h * fup * clint_hepatic) / (Q_h + fup * clint_hepatic)
 
         # 3. Volume of distribution estimation
-        # Compute Vss from tissue partition coefficients (Kp) and standard
-        # tissue volumes: Vss = Vp + Σ(Kp_i × Vt_i)
-        from omega_pbpk.core.heuristics import estimate_all_kp
+        # Prefer VDss-calibrated Kp from the Drug's kp dict (set by _build_drug),
+        # fall back to heuristic estimation
+        from omega_pbpk.core.heuristics import estimate_all_kp, vdss_from_kp
 
         bw_kg = request.subject_weight_kg or 70.0
-        kp_dict = estimate_all_kp(logP=logP, fup=fup)
-        # Standard tissue volumes as fraction of body weight (L/kg)
-        _TISSUE_VOLS = {
-            "liver": 0.026,
-            "kidney": 0.0044,
-            "muscle": 0.40,
-            "adipose": 0.21,
-            "skin": 0.047,
-            "brain": 0.020,
-            "heart": 0.0047,
-            "lung": 0.0076,
-            "spleen": 0.0026,
-            "gut_wall": 0.017,
-            "bone": 0.079,
-            "rest": 0.043,
-        }
-        Vp = 0.043 * bw_kg  # Plasma volume (L)
-        Vd_L = Vp
-        for tissue, kp in kp_dict.items():
-            vol_frac = _TISSUE_VOLS.get(tissue, 0.0)
-            Vd_L += kp * vol_frac * bw_kg
+        if drug.kp:
+            kp_dict = drug.kp
+        else:
+            kp_dict = estimate_all_kp(logP=logP, fup=fup)
+        Vd_L = vdss_from_kp(kp_dict, bw_kg)
+        Vp = 0.043 * bw_kg
         Vd_L = max(Vd_L, Vp)  # Minimum: plasma volume
 
         # 4. Elimination rate constant
