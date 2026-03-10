@@ -54,7 +54,7 @@ class StageConfig:
     loss_weights: dict[str, float] = field(
         default_factory=lambda: {
             "w_pk_mse": 1.0,
-            "w_mass": 0.1,
+            "w_mass": 0.0,  # disabled: tissue_amounts not in training data
             "w_nonneg": 1.0,
             "w_monotone": 0.05,
             "w_plausible": 0.1,
@@ -111,7 +111,7 @@ class MultiFidelityCurriculum:
             weight_decay=1e-5,
             loss_weights={
                 "w_pk_mse": 1.0,
-                "w_mass": 0.05,
+                "w_mass": 0.0,  # disabled: tissue_amounts not in training data
                 "w_nonneg": 1.0,
                 "w_monotone": 0.02,
                 "w_plausible": 0.05,
@@ -126,7 +126,7 @@ class MultiFidelityCurriculum:
             weight_decay=1e-4,
             loss_weights={
                 "w_pk_mse": 1.0,
-                "w_mass": 0.1,
+                "w_mass": 0.0,  # disabled: tissue_amounts not in training data
                 "w_nonneg": 1.0,
                 "w_monotone": 0.05,
                 "w_plausible": 0.1,
@@ -141,7 +141,7 @@ class MultiFidelityCurriculum:
             weight_decay=1e-3,
             loss_weights={
                 "w_pk_mse": 2.0,
-                "w_mass": 0.1,
+                "w_mass": 0.0,  # disabled: tissue_amounts not in training data
                 "w_nonneg": 1.0,
                 "w_monotone": 0.1,
                 "w_plausible": 0.2,

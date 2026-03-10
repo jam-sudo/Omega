@@ -9,13 +9,13 @@
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)](#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
-[![AAFE](https://img.shields.io/badge/Cmax_AAFE-1.74-blueviolet?style=for-the-badge)](#benchmark-results)
-[![2-fold](https://img.shields.io/badge/within_2--fold-70%25-blueviolet?style=for-the-badge)](#benchmark-results)
+[![AAFE](https://img.shields.io/badge/AUC_AAFE-2.20-blueviolet?style=for-the-badge)](#benchmark-results)
+[![Status](https://img.shields.io/badge/Level_1-beta-orange?style=for-the-badge)](#benchmark-results)
 
 ```
 SMILES string  ──→  Omega  ──→  Cmax, AUC, t½, full PK profile
                      ⚡
-          GNN + ODE + clinical data
+          ADMET-AI + XGBoost + 35-state ODE
 ```
 
 </div>
@@ -52,33 +52,28 @@ Omega operates at three levels of sophistication. **Level 1 is in beta** (benchm
 | | Level | Status | Input | Method | Output |
 |---|-------|--------|-------|--------|--------|
 | **1** | Ensemble | **Beta** | SMILES | ADMET-AI + XGBoost → ADME → 35-state ODE | PK profile with conformal intervals |
-| **2** | End-to-End | Architecture ready | SMILES | GNN encoder → learned params → ODE | Sub-500ms prediction |
+| **2** | End-to-End | Surrogate trained; GNN pending | SMILES | GNN encoder → learned params → ODE | Sub-500ms prediction |
 | **3** | Personalized | Architecture ready | SMILES + patient + dosing | Cross-attention fusion + meta-learning | Few-shot adaptation (1-5 obs) |
 
 ## Benchmark Results
 
-Blind predictions on 22 drugs — SMILES-only input, no manual parameterization, no compound-specific tuning.
-Calibration set of 5 well-characterized drugs (healthy volunteers, fasted, single oral dose, IR formulation):
+SMILES-only predictions on 20 drugs — no manual parameterization, no compound-specific tuning.
+Healthy volunteers, fasted, single oral dose, IR formulation.
 
-| Drug | Dose | Cmax (pred / obs) | FE | AUC (pred / obs) | FE | Cmax 2-fold? |
-|------|------|--------------------|----|-------------------|----|:------------:|
-| Ibuprofen | 400 mg | — / 27.0 mg/L | — | — / 115 mg-h/L | — | -- |
-| Acetaminophen | 1000 mg | — / 17.0 mg/L | — | — / 60 mg-h/L | — | -- |
-| Theophylline | 300 mg | — / 7.0 mg/L | — | — / 100 mg-h/L | — | -- |
-| Diclofenac | 50 mg | — / 2.0 mg/L | — | — / 4.0 mg-h/L | — | -- |
-| Omeprazole | 20 mg | — / 0.7 mg/L | — | — / 1.5 mg-h/L | — | -- |
+**Aggregate (20-drug validation set):**
 
-> Run `pytest tests/test_blind_prediction.py -s` to see live predicted values and fold errors for all 22 drugs.
+| Metric | Achieved | Target | Status |
+|--------|----------|--------|--------|
+| AUC AAFE | **2.20** | < 3.0 | Pass |
+| Cmax AAFE | **3.18** | < 3.0 | In progress |
+| AUC within 2-fold | **40%** | >= 70% | In progress |
+| Cmax within 2-fold | **35%** | >= 70% | In progress |
 
-**Aggregate (calibration set, n=5):**
-
-| Metric | Achieved | Target |
-|--------|----------|--------|
-| Cmax AAFE | **1.74** | < 3.0 |
-| AUC AAFE | **2.02** | < 3.0 |
-| Overall within 2-fold | **70%** | >= 70% |
-
-The full 22-drug validation set includes caffeine, metformin, naproxen, warfarin, propranolol, verapamil, ciprofloxacin, carbamazepine, and others. Sources: FDA labels, Goodman & Gilman's (14th ed.), Rowland & Tozer.
+> **Scope:** Adult healthy volunteers, single oral IR dose, fasted state.
+> Benchmark drugs include caffeine, warfarin, metoprolol, midazolam, ibuprofen, theophylline, carbamazepine, and 13 others.
+> Sources: FDA labels, Goodman & Gilman's (14th ed.), Rowland & Tozer.
+>
+> Run `python scripts/run_l1_benchmarks.py` to reproduce.
 
 ## Installation
 
