@@ -1,0 +1,53 @@
+name: Amoxicillin
+mw: 365.40
+logP: 0.87
+pka: [2.4, 7.4, 9.6]
+drug_type: diprotic
+compound_type: zwitterion
+partition_method: rodgers_rowland
+fup: 0.82
+rbp: 0.90
+smiles: "CC1(C)S[C@@H]2[C@H](NC(=O)[C@@H](N)c3ccc(O)cc3)C(=O)N2[C@@H]1C(O)=O"
+
+clearance:
+  clint_uL_min_pmol: {}
+  fm:
+    other: 1.0
+  clint_hepatic_L_per_h: 2.0
+  clr_L_per_h: 12.0
+
+absorption:
+  peff: 0.5
+  solubility_mg_mL: 4.0
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 0.35
+    brain: 0.10
+    heart: 0.30
+    kidney: 0.50
+    liver: 0.35
+    spleen: 0.30
+    gut_wall: 0.40
+    pancreas: 0.30
+    thymus: 0.25
+    reproductive: 0.28
+    rest: 0.28
+  permeability_limited:
+    adipose:
+      kp: 0.10
+      ps: 5
+    muscle:
+      kp: 0.25
+      ps: 10
+    bone:
+      kp: 0.15
+      ps: 5
+    skin:
+      kp: 0.20
+      ps: 8
+
+gut_metabolism:
+  gut_clint_multiplier: 0.0

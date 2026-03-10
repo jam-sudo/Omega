@@ -1,0 +1,55 @@
+name: Atorvastatin
+mw: 558.64
+logP: 4.46
+pka: [4.3]
+drug_type: monoprotic_acid
+compound_type: acid
+partition_method: rodgers_rowland
+fup: 0.02
+rbp: 0.61
+smiles: "CC(C)c1n(CC[C@@H](O)C[C@@H](O)CC(O)=O)c(-c2ccc(F)cc2)c(-c2ccccc2)c1C(=O)Nc1ccccc1"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP3A4: 2.5
+  fm:
+    CYP3A4: 0.90
+    other: 0.10
+  clint_hepatic_L_per_h: 40.0
+  clr_L_per_h: 0.1
+
+absorption:
+  peff: 3.0
+  solubility_mg_mL: 0.001
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 3.0
+    brain: 0.5
+    heart: 2.5
+    kidney: 2.0
+    liver: 8.0
+    spleen: 2.5
+    gut_wall: 3.5
+    pancreas: 2.0
+    thymus: 1.8
+    reproductive: 2.0
+    rest: 2.0
+  permeability_limited:
+    adipose:
+      kp: 20.0
+      ps: 3
+    muscle:
+      kp: 1.5
+      ps: 15
+    bone:
+      kp: 1.0
+      ps: 5
+    skin:
+      kp: 2.0
+      ps: 8
+
+gut_metabolism:
+  gut_clint_multiplier: 0.8

@@ -1,0 +1,57 @@
+name: Fluoxetine
+mw: 309.33
+logP: 4.05
+pka: [9.8]
+drug_type: monoprotic_base
+compound_type: base
+partition_method: rodgers_rowland
+fup: 0.06
+rbp: 0.73
+smiles: "CNCCC(Oc1ccc(C(F)(F)F)cc1)c1ccccc1"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP2D6: 0.8
+    CYP2C9: 0.3
+  fm:
+    CYP2D6: 0.50
+    CYP2C9: 0.25
+    other: 0.25
+  clint_hepatic_L_per_h: 5.0
+  clr_L_per_h: 0.01
+
+absorption:
+  peff: 5.0
+  solubility_mg_mL: 0.014
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 8.0
+    brain: 5.0
+    heart: 4.0
+    kidney: 3.5
+    liver: 6.0
+    spleen: 4.0
+    gut_wall: 5.0
+    pancreas: 3.0
+    thymus: 3.0
+    reproductive: 3.5
+    rest: 3.0
+  permeability_limited:
+    adipose:
+      kp: 50.0
+      ps: 3
+    muscle:
+      kp: 3.0
+      ps: 15
+    bone:
+      kp: 2.0
+      ps: 5
+    skin:
+      kp: 4.0
+      ps: 8
+
+gut_metabolism:
+  gut_clint_multiplier: 0.2

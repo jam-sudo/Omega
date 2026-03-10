@@ -1,0 +1,59 @@
+name: Verapamil
+mw: 454.60
+logP: 3.79
+pka: [8.9]
+drug_type: monoprotic_base
+compound_type: base
+partition_method: rodgers_rowland
+fup: 0.10
+rbp: 0.60
+smiles: "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP3A4: 3.0
+    CYP1A2: 0.3
+    CYP2C8: 0.2
+  fm:
+    CYP3A4: 0.80
+    CYP1A2: 0.10
+    CYP2C8: 0.05
+    other: 0.05
+  clint_hepatic_L_per_h: 60.0
+  clr_L_per_h: 0.5
+
+absorption:
+  peff: 6.0
+  solubility_mg_mL: 0.05
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 5.0
+    brain: 2.0
+    heart: 4.0
+    kidney: 3.0
+    liver: 5.5
+    spleen: 3.0
+    gut_wall: 4.0
+    pancreas: 2.5
+    thymus: 2.0
+    reproductive: 2.5
+    rest: 2.5
+  permeability_limited:
+    adipose:
+      kp: 12.0
+      ps: 5
+    muscle:
+      kp: 2.0
+      ps: 20
+    bone:
+      kp: 1.5
+      ps: 5
+    skin:
+      kp: 3.0
+      ps: 8
+
+gut_metabolism:
+  gut_clint_multiplier: 0.6

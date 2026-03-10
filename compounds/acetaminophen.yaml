@@ -1,0 +1,59 @@
+name: Acetaminophen
+mw: 151.16
+logP: 0.46
+pka: [9.4]
+drug_type: neutral
+compound_type: neutral
+partition_method: heuristic
+fup: 0.80
+rbp: 1.0
+smiles: "CC(=O)Nc1ccc(O)cc1"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP2E1: 0.15
+    CYP1A2: 0.05
+    CYP3A4: 0.03
+  fm:
+    CYP2E1: 0.10
+    CYP1A2: 0.05
+    CYP3A4: 0.02
+    other: 0.83
+  clint_hepatic_L_per_h: 20.0
+  clr_L_per_h: 0.3
+
+absorption:
+  peff: 3.5
+  solubility_mg_mL: 14.0
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 0.90
+    brain: 0.95
+    heart: 0.85
+    kidney: 1.05
+    liver: 0.95
+    spleen: 0.85
+    gut_wall: 0.90
+    pancreas: 0.85
+    thymus: 0.80
+    reproductive: 0.82
+    rest: 0.80
+  permeability_limited:
+    adipose:
+      kp: 0.35
+      ps: 25
+    muscle:
+      kp: 0.85
+      ps: 40
+    bone:
+      kp: 0.60
+      ps: 12
+    skin:
+      kp: 0.80
+      ps: 18
+
+gut_metabolism:
+  gut_clint_multiplier: 0.05

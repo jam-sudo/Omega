@@ -1,0 +1,55 @@
+name: Carbamazepine
+mw: 236.27
+logP: 2.45
+pka: [14.0]
+drug_type: neutral
+compound_type: neutral
+partition_method: heuristic
+fup: 0.24
+rbp: 1.10
+smiles: "NC(=O)N1c2ccccc2C=Cc2ccccc21"
+
+clearance:
+  clint_uL_min_pmol:
+    CYP3A4: 0.6
+  fm:
+    CYP3A4: 0.75
+    other: 0.25
+  clint_hepatic_L_per_h: 3.5
+  clr_L_per_h: 0.1
+
+absorption:
+  peff: 4.0
+  solubility_mg_mL: 0.12
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 1.5
+    brain: 1.3
+    heart: 1.2
+    kidney: 1.3
+    liver: 1.4
+    spleen: 1.1
+    gut_wall: 1.3
+    pancreas: 1.1
+    thymus: 1.0
+    reproductive: 1.1
+    rest: 1.0
+  permeability_limited:
+    adipose:
+      kp: 3.5
+      ps: 10
+    muscle:
+      kp: 1.0
+      ps: 30
+    bone:
+      kp: 0.7
+      ps: 8
+    skin:
+      kp: 1.2
+      ps: 12
+
+gut_metabolism:
+  gut_clint_multiplier: 0.15

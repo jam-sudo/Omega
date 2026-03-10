@@ -1,0 +1,53 @@
+name: Digoxin
+mw: 780.94
+logP: 1.26
+pka: [14.0]
+drug_type: neutral
+compound_type: neutral
+partition_method: heuristic
+fup: 0.75
+rbp: 1.0
+smiles: "C[C@H]1OC(OC2CC(O)C(OC3CC(O)C(OC4CCC5(C)C(CCC6C5CC(O)C5(C)C(C7=CC(=O)OC7)CCC65)C4)C(C)O3)C(C)O2)CC(O)C1O"
+
+clearance:
+  clint_uL_min_pmol: {}
+  fm:
+    other: 1.0
+  clint_hepatic_L_per_h: 0.5
+  clr_L_per_h: 7.0
+
+absorption:
+  peff: 1.3
+  solubility_mg_mL: 0.065
+  particle_radius_um: 25.0
+  particle_density: 1.2
+
+distribution:
+  kp:
+    lung: 2.0
+    brain: 1.5
+    heart: 30.0
+    kidney: 25.0
+    liver: 5.0
+    spleen: 3.0
+    gut_wall: 4.0
+    pancreas: 2.5
+    thymus: 2.0
+    reproductive: 2.0
+    rest: 3.0
+  permeability_limited:
+    adipose:
+      kp: 1.0
+      ps: 3
+    muscle:
+      kp: 10.0
+      ps: 8
+    bone:
+      kp: 2.0
+      ps: 3
+    skin:
+      kp: 2.5
+      ps: 5
+
+gut_metabolism:
+  gut_clint_multiplier: 0.0
