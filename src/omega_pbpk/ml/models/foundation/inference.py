@@ -67,12 +67,97 @@ class MLPKPredictor:
 
             self.model = SMILESToPKModel.load(model_path, device=device)
             logger.info("Loaded model from %s", model_path)
+            self._check_encoder_trained(model_path)
         else:
             logger.warning(
                 "Model file not found: %s. predict() will fail until a model is loaded.",
                 model_path,
             )
             self.model = None
+
+    def _check_encoder_trained(self, model_path: Path) -> None:
+        """Check if GNN encoder weights appear trained; warn if not.
+
+        Uses two checks:
+        1. Explicit 'trained' metadata flag in checkpoint (if present).
+        2. Heuristic: compare encoder weights against a freshly initialized
+           model. If keys match, computes relative L2 norm difference.
+           If keys don't match (e.g. PureTorch vs PyG backend mismatch),
+           checks weight statistics — untrained weights have mean ≈ 0 and
+           small std, while trained weights diverge from init.
+        """
+        if self.model is None:
+            return
+        try:
+            checkpoint = torch.load(str(model_path), map_location="cpu", weights_only=False)
+
+            # Check 1: explicit metadata flag
+            if checkpoint.get("trained") is False:
+                logger.warning(
+                    "Level 2 GNN encoder has not been trained. "
+                    "End-to-end SMILES→PK predictions will be unreliable. "
+                    "Use Level 1 (omega predict) instead."
+                )
+                return
+
+            # Check 2: heuristic weight comparison
+            saved_state = checkpoint.get("model_state_dict", {})
+            encoder_keys = [k for k in saved_state if k.startswith("encoder.")]
+            if not encoder_keys:
+                return
+
+            # Try to compare against fresh model weights
+            from omega_pbpk.ml.models.foundation.end_to_end import SMILESToPKModel
+
+            fresh = SMILESToPKModel(
+                embedding_dim=checkpoint.get("embedding_dim", 256),
+                surrogate_n_output=checkpoint.get("surrogate_n_output", 241),
+                surrogate_hidden=checkpoint.get("surrogate_hidden", 256),
+            )
+            fresh_state = fresh.state_dict()
+
+            # Find matching encoder keys between saved and fresh
+            matching_keys = [k for k in encoder_keys if k in fresh_state]
+
+            if matching_keys:
+                # Direct comparison: compute relative L2 norm difference
+                total_diff = 0.0
+                total_norm = 0.0
+                for key in matching_keys:
+                    diff = (saved_state[key].float() - fresh_state[key].float()).norm().item()
+                    total_diff += diff
+                    total_norm += saved_state[key].float().norm().item()
+
+                if total_norm > 0 and total_diff / total_norm < 0.01:
+                    logger.warning(
+                        "Level 2 GNN encoder has not been trained. "
+                        "End-to-end SMILES→PK predictions will be unreliable. "
+                        "Use Level 1 (omega predict) instead."
+                    )
+            else:
+                # Keys don't match (architecture mismatch, e.g. PureTorch vs PyG).
+                # Use statistical heuristic: trained weights typically have larger
+                # absolute mean and std than Kaiming/Xavier initialization.
+                weight_keys = [
+                    k for k in encoder_keys if "weight" in k and saved_state[k].dim() >= 2
+                ]
+                if weight_keys:
+                    means = []
+                    for k in weight_keys:
+                        w = saved_state[k].float()
+                        means.append(w.abs().mean().item())
+                    avg_abs_mean = sum(means) / len(means)
+                    # Kaiming init for ReLU: std ≈ sqrt(2/fan_in), abs_mean ≈ 0.03-0.1
+                    # If abs_mean is suspiciously close to typical init, warn
+                    # (but this is a weaker signal, so only warn with explicit flag)
+                    logger.debug(
+                        "L2 encoder weight avg abs mean: %.4f (architecture mismatch, "
+                        "cannot compare directly)",
+                        avg_abs_mean,
+                    )
+
+        except Exception as exc:
+            logger.debug("Could not check encoder training status: %s", exc)
 
     def predict(
         self,
