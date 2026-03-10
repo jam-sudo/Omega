@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+xgb = pytest.importorskip("xgboost", reason="XGBoost not installed")
+
 
 @pytest.fixture(scope="module")
 def fup_predictor():

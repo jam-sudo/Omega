@@ -362,8 +362,13 @@ class TestMissingProperties:
         )
         predictor = _create_predictor(mock)
         result = _predict_with_mock_mw(predictor, "CCO", 100.0)
-        # RDKit logP for ethanol (CCO) is approximately -0.0
-        assert abs(result.logP) < 0.5  # reasonable range for ethanol
+        # RDKit logP for ethanol (CCO) ≈ -0.0; if RDKit unavailable, defaults to 2.0
+        try:
+            from rdkit import Chem  # noqa: F401
+
+            assert abs(result.logP) < 0.5  # RDKit available: ethanol logP ≈ -0.0
+        except ImportError:
+            assert abs(result.logP - 2.0) < 0.01  # fallback default
 
     def test_missing_ppbr_defaults_fup(self):
         """Missing PPBR -> fup defaults to 0.1."""
