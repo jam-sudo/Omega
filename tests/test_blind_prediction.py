@@ -16,6 +16,7 @@ import pytest
 # Sources: Goodman & Gilman's, DrugBank, clinical pharmacology textbooks
 
 BLIND_TEST_DRUGS = [
+    # ── Original 5 calibration drugs ──────────────────────────────────────────
     {
         "name": "Ibuprofen",
         "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
@@ -75,6 +76,213 @@ BLIND_TEST_DRUGS = [
         "ref_tmax_h": 2.0,
         "ref_auc_mg_h_L": 1.5,
         "ref_thalf_h": 1.0,
+    },
+    # ── Expanded validation set (17 additional drugs) ─────────────────────────
+    # Reference: FDA labels, Goodman & Gilman's (14th ed.), Rowland & Tozer
+    # All: healthy volunteers, fasted, single oral dose, IR formulation
+    {
+        "name": "Caffeine",
+        "smiles": "Cn1c(=O)c2c(ncn2C)n(C)c1=O",
+        "dose_mg": 200.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # Blanchard & Sawers 1983; F~99%, fup~0.65, Vd~0.6 L/kg, CYP1A2
+        "ref_cmax_mg_L": 4.0,
+        "ref_tmax_h": 0.5,
+        "ref_auc_mg_h_L": 30.0,
+        "ref_thalf_h": 5.0,
+    },
+    {
+        "name": "Metformin",
+        "smiles": "CN(C)C(=N)NC(=N)N",
+        "dose_mg": 500.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # Tucker 1981, FDA label; F~55%, fup~1.0, Vd~3.5 L/kg, renal elimination
+        "ref_cmax_mg_L": 1.0,
+        "ref_tmax_h": 2.5,
+        "ref_auc_mg_h_L": 6.0,
+        "ref_thalf_h": 5.0,
+    },
+    {
+        "name": "Naproxen",
+        "smiles": "COc1ccc2cc(C(C)C(=O)O)ccc2c1",
+        "dose_mg": 500.0,
+        "route": "oral",
+        "duration_h": 72.0,
+        # Todd & Clissold 1990; F~95%, fup~0.01, Vd~0.16 L/kg, CYP2C9
+        "ref_cmax_mg_L": 55.0,
+        "ref_tmax_h": 2.0,
+        "ref_auc_mg_h_L": 800.0,
+        "ref_thalf_h": 14.0,
+    },
+    {
+        "name": "Metronidazole",
+        "smiles": "Cc1ncc([N+](=O)[O-])n1CCO",
+        "dose_mg": 500.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # FDA label; F~100%, fup~0.80, Vd~0.7 L/kg
+        "ref_cmax_mg_L": 12.0,
+        "ref_tmax_h": 1.5,
+        "ref_auc_mg_h_L": 120.0,
+        "ref_thalf_h": 8.0,
+    },
+    {
+        "name": "Ciprofloxacin",
+        "smiles": "O=C(O)c1cn(C2CC2)c2cc(N3CCNCC3)c(F)cc2c1=O",
+        "dose_mg": 500.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # FDA label; F~70%, fup~0.65, Vd~2.5 L/kg
+        "ref_cmax_mg_L": 2.4,
+        "ref_tmax_h": 1.0,
+        "ref_auc_mg_h_L": 12.0,
+        "ref_thalf_h": 4.0,
+    },
+    {
+        "name": "Carbamazepine",
+        "smiles": "NC(=O)N1c2ccccc2C=Cc2ccccc21",
+        "dose_mg": 200.0,
+        "route": "oral",
+        "duration_h": 168.0,
+        # Gerardin 1976; single dose (before autoinduction), F~80%, fup~0.25
+        "ref_cmax_mg_L": 2.5,
+        "ref_tmax_h": 6.0,
+        "ref_auc_mg_h_L": 80.0,
+        "ref_thalf_h": 35.0,
+    },
+    {
+        "name": "Furosemide",
+        "smiles": "NS(=O)(=O)c1cc(C(=O)O)c(NCc2ccco2)cc1Cl",
+        "dose_mg": 40.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # Hammarlund 1984; F~50%, fup~0.01, Vd~0.13 L/kg
+        "ref_cmax_mg_L": 1.5,
+        "ref_tmax_h": 1.0,
+        "ref_auc_mg_h_L": 5.0,
+        "ref_thalf_h": 1.5,
+    },
+    {
+        "name": "Atenolol",
+        "smiles": "CC(C)NCC(O)COc1ccc(CC(N)=O)cc1",
+        "dose_mg": 100.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # FDA label; F~50%, fup~0.95, Vd~0.7 L/kg, renal elimination
+        "ref_cmax_mg_L": 0.4,
+        "ref_tmax_h": 3.0,
+        "ref_auc_mg_h_L": 3.5,
+        "ref_thalf_h": 6.5,
+    },
+    {
+        "name": "Warfarin",
+        "smiles": "CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O",
+        "dose_mg": 10.0,
+        "route": "oral",
+        "duration_h": 168.0,
+        # O'Reilly 1980; racemic, F~97%, fup~0.005, Vd~0.14 L/kg, CYP2C9
+        "ref_cmax_mg_L": 1.0,
+        "ref_tmax_h": 3.0,
+        "ref_auc_mg_h_L": 70.0,
+        "ref_thalf_h": 40.0,
+    },
+    {
+        "name": "Propranolol",
+        "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+        "dose_mg": 80.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # Shand & Rangno 1972; F~25%, fup~0.13, Vd~3.9 L/kg, CYP2D6/1A2
+        "ref_cmax_mg_L": 0.05,
+        "ref_tmax_h": 1.5,
+        "ref_auc_mg_h_L": 0.25,
+        "ref_thalf_h": 4.0,
+    },
+    {
+        "name": "Verapamil",
+        "smiles": "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC",
+        "dose_mg": 120.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # Echizen & Eichelbaum 1986; F~22%, fup~0.10, Vd~4.0 L/kg, CYP3A4
+        "ref_cmax_mg_L": 0.10,
+        "ref_tmax_h": 1.5,
+        "ref_auc_mg_h_L": 0.40,
+        "ref_thalf_h": 5.0,
+    },
+    {
+        "name": "Fluconazole",
+        "smiles": "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F",
+        "dose_mg": 200.0,
+        "route": "oral",
+        "duration_h": 168.0,
+        # FDA label; F~90%, fup~0.89, Vd~0.7 L/kg, CYP2C9/3A4
+        "ref_cmax_mg_L": 4.5,
+        "ref_tmax_h": 1.5,
+        "ref_auc_mg_h_L": 250.0,
+        "ref_thalf_h": 30.0,
+    },
+    {
+        "name": "Amoxicillin",
+        "smiles": "CC1(C)SC2C(NC(=O)C(N)c3ccc(O)cc3)C(=O)N2C1C(=O)O",
+        "dose_mg": 500.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # FDA label; F~80%, fup~0.80, Vd~0.3 L/kg, renal elimination
+        "ref_cmax_mg_L": 7.0,
+        "ref_tmax_h": 1.0,
+        "ref_auc_mg_h_L": 18.0,
+        "ref_thalf_h": 1.0,
+    },
+    {
+        "name": "Phenytoin",
+        "smiles": "O=C1NC(=O)C(c2ccccc2)(c2ccccc2)N1",
+        "dose_mg": 300.0,
+        "route": "oral",
+        "duration_h": 120.0,
+        # FDA label; single dose, F~90%, fup~0.10, Vd~0.6 L/kg, CYP2C9/2C19
+        "ref_cmax_mg_L": 5.0,
+        "ref_tmax_h": 4.0,
+        "ref_auc_mg_h_L": 200.0,
+        "ref_thalf_h": 22.0,
+    },
+    {
+        "name": "Gabapentin",
+        "smiles": "NCC1(CC(=O)O)CCCCC1",
+        "dose_mg": 300.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # FDA label; F~60%, fup~0.97, Vd~0.8 L/kg, renal elimination
+        "ref_cmax_mg_L": 2.7,
+        "ref_tmax_h": 2.5,
+        "ref_auc_mg_h_L": 18.0,
+        "ref_thalf_h": 6.0,
+    },
+    {
+        "name": "Zolpidem",
+        "smiles": "Cc1ccc2c(c1)c(-c1ncc(C)n1C)c(C)n2CC(=O)N(C)C",
+        "dose_mg": 10.0,
+        "route": "oral",
+        "duration_h": 24.0,
+        # FDA label; F~70%, fup~0.08, Vd~0.5 L/kg, CYP3A4
+        "ref_cmax_mg_L": 0.13,
+        "ref_tmax_h": 1.6,
+        "ref_auc_mg_h_L": 0.7,
+        "ref_thalf_h": 2.5,
+    },
+    {
+        "name": "Celecoxib",
+        "smiles": "Cc1ccc(-c2cc(C(F)(F)F)nn2-c2ccc(S(N)(=O)=O)cc2)cc1",
+        "dose_mg": 200.0,
+        "route": "oral",
+        "duration_h": 48.0,
+        # FDA label; F~40%, fup~0.03, Vd~6 L/kg, CYP2C9
+        "ref_cmax_mg_L": 0.7,
+        "ref_tmax_h": 3.0,
+        "ref_auc_mg_h_L": 8.0,
+        "ref_thalf_h": 11.0,
     },
 ]
 
@@ -185,7 +393,7 @@ def test_blind_prediction_runs_without_crash(drug):
 
 
 def test_blind_prediction_summary():
-    """Run all 5 drugs and print aggregate accuracy summary."""
+    """Run all drugs and print aggregate accuracy summary."""
     results = []
     for drug in BLIND_TEST_DRUGS:
         try:

@@ -24,3 +24,4 @@ models/meta.json
 
 # ML data caches (large, downloaded from APIs)
 data/ml/
+data/vdss_lombardo.tab

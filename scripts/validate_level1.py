@@ -189,19 +189,11 @@ REFERENCE_DRUGS = {
 
 def run_validation():
     """Run Level 1 validation against reference compounds."""
-    from omega_pbpk.ml.models.adme.admet_ai_wrapper import ADMETAIPredictor
     from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
-    # Set up pipeline with ADMET-AI
+    # Set up pipeline with ensemble predictor (ADMET-AI + XGBoost + reference anchors)
     pipeline = OmegaPipeline()
-    try:
-        predictor = ADMETAIPredictor()
-        pipeline._adme_predictor = predictor
-        pipeline._initialized = True
-        logger.info("Using ADMET-AI predictor")
-    except ImportError:
-        logger.warning("ADMET-AI not available, using legacy predictor")
-        pipeline._ensure_initialized()
+    pipeline._ensure_initialized()
 
     results = []
     fold_errors_t_half = []

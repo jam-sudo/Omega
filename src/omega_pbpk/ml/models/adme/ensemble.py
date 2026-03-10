@@ -34,6 +34,16 @@ class EnsembleADMEPredictor(MLADMEPredictor):
     predictor as fallback for that property.
     """
 
+    # Calibrated interval adjustment factors from conformal calibration
+    # (run calibrate_uncertainty() on adme_reference.csv to update)
+    # factor > 1 widens intervals, factor < 1 narrows them
+    _CALIBRATION_FACTORS: dict[str, float] = {
+        "fup": 0.95,  # over-covering 96% → target 90%
+        "clint_3a4": 8.30,  # under-covering 47% → target 90%
+        "peff": 1.00,  # already calibrated at 89%
+        "rbp": 0.25,  # over-covering 98% → target 90%
+    }
+
     def __init__(
         self,
         admet_ai: Any | None = None,
@@ -61,8 +71,11 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             return
         self._initialized = True
 
-        # Try to create ADMET-AI predictor
-        if self._admet_ai is None:
+        # Try to create ADMET-AI predictor (pass False to disable)
+        if self._admet_ai is False:
+            self._admet_ai = None
+            logger.info("EnsembleADME: ADMET-AI explicitly disabled.")
+        elif self._admet_ai is None:
             try:
                 from omega_pbpk.ml.models.adme.admet_ai_wrapper import ADMETAIPredictor
 
@@ -243,6 +256,13 @@ class EnsembleADMEPredictor(MLADMEPredictor):
         # fup: prefer XGBoost conformal intervals (calibrated from CV)
         if xgb_fup_lo is not None and xgb_fup_hi is not None:
             fup_lo, fup_hi = xgb_fup_lo, xgb_fup_hi
+            # Apply calibration adjustment to XGBoost intervals too
+            fup_factor = self._CALIBRATION_FACTORS.get("fup", 1.0)
+            if fup_factor != 1.0:
+                center = (fup_lo + fup_hi) / 2.0
+                half_w = (fup_hi - fup_lo) / 2.0 * fup_factor
+                fup_lo = center - half_w
+                fup_hi = center + half_w
         else:
             fup_lo, fup_hi = self._get_intervals("fup", admet_result, poly_result, fup, fup_src)
         clint_lo, clint_hi = self._get_intervals(
@@ -359,34 +379,47 @@ class EnsembleADMEPredictor(MLADMEPredictor):
             return 0
         return _CONFIDENCE_ORDER.get(result.confidence, 0)
 
-    @staticmethod
+    @classmethod
     def _get_intervals(
+        cls,
         prop: str,
         admet_result: ADMEProperties | None,
         poly_result: ADMEProperties | None,
         point_est: float,
         source: str,
     ) -> tuple[float, float]:
-        """Get conformal intervals for a property.
+        """Get conformal intervals for a property, adjusted by calibration factor.
 
         Uses the source backend's intervals if available, else +/-50%.
+        Then applies calibration adjustment to achieve ~90% coverage.
         """
         lo_attr = f"{prop}_lo"
         hi_attr = f"{prop}_hi"
 
+        lo: float = 0.0
+        hi: float = 0.0
+
         if source == "admet-ai" and admet_result is not None:
             lo = getattr(admet_result, lo_attr, 0.0)
             hi = getattr(admet_result, hi_attr, 0.0)
-            if hi > lo > 0.0:
-                return float(lo), float(hi)
-        if source == "polynomial" and poly_result is not None:
+        if hi <= lo and source == "polynomial" and poly_result is not None:
             lo = getattr(poly_result, lo_attr, 0.0)
             hi = getattr(poly_result, hi_attr, 0.0)
-            if hi > lo > 0.0:
-                return float(lo), float(hi)
 
-        # Default: +/-50%
-        return point_est * 0.5, point_est * 1.5
+        if hi <= lo or lo <= 0.0:
+            # Default: +/-50%
+            lo = point_est * 0.5
+            hi = point_est * 1.5
+
+        # Apply calibration adjustment factor
+        factor = cls._CALIBRATION_FACTORS.get(prop, 1.0)
+        if factor != 1.0:
+            center = (lo + hi) / 2.0
+            half_w = (hi - lo) / 2.0 * factor
+            lo = center - half_w
+            hi = center + half_w
+
+        return float(lo), float(hi)
 
     @staticmethod
     def _ensemble_fup(
@@ -428,25 +461,36 @@ class EnsembleADMEPredictor(MLADMEPredictor):
 
         return 0.1, "default"
 
-    @staticmethod
+    @classmethod
     def _get_rbp_intervals(
+        cls,
         admet_result: ADMEProperties | None,
         poly_result: ADMEProperties | None,
         rbp: float,
         source: str,
     ) -> tuple[float, float]:
-        """Get RBP prediction intervals."""
+        """Get RBP prediction intervals, adjusted by calibration factor."""
         if source == "xgboost":
-            # XGBoost doesn't provide intervals; use +/-20%
-            return max(0.5, rbp * 0.8), min(3.0, rbp * 1.2)
-        if source == "admet-ai" and admet_result is not None:
+            lo, hi = max(0.5, rbp * 0.8), min(3.0, rbp * 1.2)
+        elif source == "admet-ai" and admet_result is not None:
             lo = admet_result.rbp_lo
             hi = admet_result.rbp_hi
-            if hi > lo > 0.0:
-                return float(lo), float(hi)
-        if source == "polynomial" and poly_result is not None:
+            if not (hi > lo > 0.0):
+                lo, hi = max(0.5, rbp * 0.5), min(3.0, rbp * 1.5)
+        elif source == "polynomial" and poly_result is not None:
             lo = poly_result.rbp_lo
             hi = poly_result.rbp_hi
-            if hi > lo > 0.0:
-                return float(lo), float(hi)
-        return max(0.5, rbp * 0.5), min(3.0, rbp * 1.5)
+            if not (hi > lo > 0.0):
+                lo, hi = max(0.5, rbp * 0.5), min(3.0, rbp * 1.5)
+        else:
+            lo, hi = max(0.5, rbp * 0.5), min(3.0, rbp * 1.5)
+
+        # Apply calibration adjustment
+        factor = cls._CALIBRATION_FACTORS.get("rbp", 1.0)
+        if factor != 1.0:
+            center = (lo + hi) / 2.0
+            half_w = (hi - lo) / 2.0 * factor
+            lo = center - half_w
+            hi = center + half_w
+
+        return max(0.5, float(lo)), min(3.0, float(hi))
