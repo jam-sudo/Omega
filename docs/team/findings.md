@@ -965,3 +965,31 @@ Where GFR = 120 mL/min = 7.2 L/h (already in kidney_pk.py).
 This handles fluconazole, atenolol, gabapentin, metformin. For furosemide and amoxicillin
 (active tubular secretion), GFR-only will underestimate renal CL, but it's still an
 improvement over zero renal CL.
+
+---
+
+## 2026-03-10 CI-Auditor: Format Fix for benchmarks/generate_benchmark_data.py
+
+### CI Failure
+- Run 22925733489 failed on `Quality (ruff + mypy)` job
+- `ruff format --check .` reported: `Would reformat: benchmarks/generate_benchmark_data.py`
+- Root cause: complex multi-line f-string with inline lambda caused version-specific formatting
+
+### Fixes Applied
+
+**1. `benchmarks/generate_benchmark_data.py`** — 3 issues fixed:
+- Extracted inline lambda from f-string (lines ~218-221) to separate `peak_idx` variable
+- Removed unused `dose_str` variable (F841)
+- Removed extraneous `f` prefix on `f"t_end_h: 24.0\n"` string (F541)
+
+### Local Verification
+```
+ruff format --check .  → 3375 files already formatted (PASS)
+ruff check src/ benchmarks/ → All checks passed! (PASS)
+```
+
+### Files Changed
+- `benchmarks/generate_benchmark_data.py`
+
+### Status
+Fixes ready — awaiting team-lead commit and push.
