@@ -209,7 +209,6 @@ def _run_single_compound(
         BenchmarkResult for this compound.
     """
     from omega_pbpk.core.body import WholeBodyPBPK
-    from omega_pbpk.drugs.drug import Drug
 
     # Predict ADME
     adme = predictor.predict(smiles)
@@ -223,42 +222,30 @@ def _run_single_compound(
         "peff": adme.peff,
     }
 
-    # Build Drug and run simulation
-    # IVIVE: µL/min/pmol × MPPGL(40) × mg/g(45) × liver(1800g) / 1e6 / 60 ≈ ×0.054
-    clint_L_per_h = adme.clint_3a4 * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0
-
-    # Solubility: convert logS (log10 mol/L) → mg/mL
-    #   S_mol_L = 10^logS; S_mg_mL = S_mol_L × MW / 1000
-    solubility_mg_mL = max((10**adme.logS) * adme.mw / 1000.0, 1e-6)
-
-    # Gut-wall CYP3A4 extraction: enterocyte CYP3A4 activity is ~1-10% of hepatic.
-    # For CYP3A4-metabolized drugs, use a gut_clint_multiplier to model gut first-pass.
-    # Default multiplier of 0.1 means gut CYP3A4 = 10% of liver CYP3A4 activity.
-    # This is applied to CYP3A4 CLint only — non-CYP3A4 drugs get no gut extraction.
-    gut_clint_multiplier = 0.1  # standard value from literature
-
-    # Estimate renal clearance from physicochemical properties.
-    # Without this, renally-cleared drugs (metformin, atenolol, gabapentin)
-    # have no renal elimination in benchmarks and massively over-predict AUC.
+    # Build Drug using OmegaPipeline._build_drug() which has:
+    # - XGBoost CLint predictor (reference-anchored to clinical clearance)
+    # - Power-law IVIVE: CLh = 0.3 × CLint_hep^0.9 (Hallifax & Houston 2009)
+    # - Well-stirred pre-inversion (compensates for fup prediction errors)
+    # - Berezhkovskiy Kp (corrected tissue partitioning)
+    # - Renal clearance estimation from physicochemical properties
     from omega_pbpk.pipeline import OmegaPipeline
 
-    cl_renal = OmegaPipeline._estimate_renal_clearance(
-        adme.logP, max(adme.fup, 0.001), adme.mw, smiles=smiles
-    )
-
-    drug = Drug(
-        name=name,
-        mw=adme.mw,
-        logP=adme.logP,
-        fup=max(adme.fup, 0.001),
-        rbp=adme.rbp,
-        clint_hepatic_L_per_h=clint_L_per_h,
-        clint={"CYP3A4": adme.clint_3a4},
-        clr_L_per_h=cl_renal,
-        peff=adme.peff,
-        solubility_mg_mL=solubility_mg_mL,
-        gut_clint_multiplier=gut_clint_multiplier,
-    )
+    pipeline = OmegaPipeline()
+    pipeline._ensure_initialized()
+    adme_dict = {
+        "mw": adme.mw,
+        "logP": adme.logP,
+        "logS": adme.logS,
+        "fup": adme.fup,
+        "rbp": adme.rbp,
+        "clint_3a4": adme.clint_3a4,
+        "clint_2d6": getattr(adme, "clint_2d6", 0.5),
+        "peff": adme.peff,
+        "herg_ic50_uM": getattr(adme, "herg_ic50_uM", 100.0),
+        "clint_hepatocyte_uL_min": getattr(adme, "clint_hepatocyte_uL_min", 0.0),
+    }
+    warnings_list: list[str] = []
+    drug = pipeline._build_drug(smiles, adme_dict, warnings_list)
 
     model = WholeBodyPBPK(drug=drug, body_weight=70.0)
     if route == "iv":

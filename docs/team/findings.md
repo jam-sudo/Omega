@@ -32,6 +32,38 @@ Downloaded `libxrender1` deb package, extracted `libXrender.so.1` to `.venv/lib/
 
 ---
 
+## 2026-03-10 ML-Engineer: Pipeline IVIVE Sync & Benchmark Results (Task #21)
+
+### Problem
+`benchmarks.py` and `run_l1_benchmarks.py` used raw IVIVE scaling (`CLint × 3.6`) to build Drug objects, while `OmegaPipeline._build_drug()` has a sophisticated pipeline: XGBoost CLint → power-law IVIVE (`CLh = 0.3 × CLint_hep^0.9`) → well-stirred pre-inversion → Berezhkovskiy Kp → renal CL estimation.
+
+### Fix Applied
+Replaced raw Drug() construction in both files with `pipeline._build_drug(smiles, adme_dict, warnings_list)`, ensuring benchmarks use the same IVIVE as production.
+
+### Results (20 drugs)
+| Metric | Before | After | Target | Status |
+|--------|--------|-------|--------|--------|
+| AUC AAFE | 6.70 | **2.20** | <3.0 | ✅ PASS |
+| Cmax AAFE | 4.27 | **3.18** | <3.0 | ❌ FAIL |
+| %2-fold AUC | 25% | **40%** | ≥70% | ❌ FAIL |
+| %2-fold Cmax | 40% | **35%** | ≥70% | ❌ FAIL |
+
+### Root Cause of Remaining Cmax Failures
+Clearance is now accurate (AUC passes). Cmax errors are **Kp/Vd distribution problems**:
+- **amoxicillin** (27× Cmax): renal drug, poor oral absorption model
+- **fluoxetine** (19× Cmax): Vd~35 L/kg, Kp severely underestimated
+- **d_amphetamine** (7.3× Cmax): basic amine, renal elimination
+- **diazepam** (5.9× Cmax): high lipophilicity, deep tissue binding
+- **carbamazepine** (4.7× Cmax): autoinduction pharmacokinetics
+
+### IVIVE Calibration Deep-Dive (Task #20)
+- ADMET-AI hepatocyte CLint `/5480` conversion destroys discriminatory power (all drugs → clint_3a4 ≈ 0.01)
+- Single correction factor sweep (1×-2000×) proved futile: Cmax AAFE barely changed (4.27→4.50)
+- Performance ceiling with known literature CL: AAFE 2.52/1.98 (passes), but %2-fold Cmax only 45%
+- Conclusion: Pipeline's XGBoost CLint + power-law IVIVE is far superior to any single-factor correction
+
+---
+
 ## 2026-03-10 Infra-Engineer: Dev Environment & Test Suite Report
 
 ### Dev Environment Setup

@@ -80,7 +80,6 @@ def compute_aafe(fold_errors):
 
 def main():
     from omega_pbpk.core.body import WholeBodyPBPK
-    from omega_pbpk.drugs.drug import Drug
     from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
 
     predictor = EnsembleADMEPredictor()
@@ -112,31 +111,33 @@ def main():
                 f"rbp={adme.rbp:.3f}, clint_3a4={adme.clint_3a4:.3f}, peff={adme.peff:.3f}"
             )
 
-            # Build Drug - use hepatocyte CLint directly if available (ADMET-AI),
-            # otherwise use CYP3A4 pmol CLint with standard IVIVE
-            clint_hep_raw = getattr(adme, "clint_hepatocyte_uL_min", 0.0)
-            if clint_hep_raw and clint_hep_raw > 0.01:
-                # Direct hepatocyte IVIVE: µL/min/10^6 cells × hepatocellularity × liver_wt
-                # = cl_hep × 120e6 cells/g × 1800g / 1e6 µL/mL / 60 min/h / 1000 mL/L
-                clint_L_per_h = clint_hep_raw * 120.0 * 1800.0 / 1e6 / 60.0
-                ivive_source = "hepatocyte"
-            else:
-                # CYP3A4 pmol IVIVE: µL/min/pmol × MPPGL(40) × mg/g(45) × liver(1800g)
-                clint_L_per_h = adme.clint_3a4 * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0
-                ivive_source = "pmol_cyp"
+            # Build Drug using OmegaPipeline._build_drug() for proper IVIVE:
+            # - XGBoost CLint (reference-anchored to clinical clearance)
+            # - Power-law IVIVE: CLh = 0.3 × CLint_hep^0.9
+            # - Well-stirred pre-inversion
+            # - Berezhkovskiy Kp
+            # - Renal clearance estimation
+            from omega_pbpk.pipeline import OmegaPipeline
 
+            pipeline = OmegaPipeline()
+            pipeline._ensure_initialized()
+            adme_dict = {
+                "mw": adme.mw,
+                "logP": adme.logP,
+                "logS": adme.logS,
+                "fup": adme.fup,
+                "rbp": adme.rbp,
+                "clint_3a4": adme.clint_3a4,
+                "clint_2d6": getattr(adme, "clint_2d6", 0.5),
+                "peff": adme.peff,
+                "herg_ic50_uM": getattr(adme, "herg_ic50_uM", 100.0),
+                "clint_hepatocyte_uL_min": getattr(adme, "clint_hepatocyte_uL_min", 0.0),
+            }
+            warnings_list = []
+            drug = pipeline._build_drug(smiles, adme_dict, warnings_list)
             print(
-                f"  IVIVE: clint_hepatocyte={clint_hep_raw:.3f}, clint_L_per_h={clint_L_per_h:.4f} ({ivive_source})"
-            )
-
-            drug = Drug(
-                name=drug_name,
-                mw=adme.mw,
-                logP=adme.logP,
-                fup=max(adme.fup, 0.001),
-                rbp=adme.rbp,
-                clint_hepatic_L_per_h=clint_L_per_h,
-                peff=adme.peff,
+                f"  Pipeline Drug: CLint_hep={drug.clint_hepatic_L_per_h:.2f} L/h, "
+                f"CLr={drug.clr_L_per_h:.2f} L/h, Kp={len(drug.kp)} tissues"
             )
 
             # Simulate
