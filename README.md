@@ -1,28 +1,41 @@
-# Omega PBPK
+<div align="center">
 
-**AI/ML-driven pharmacokinetic prediction platform.**
+# &Omega; Omega PBPK
 
-SMILES string in → PK profile out, powered by learned models.
+### From molecule to pharmacokinetics in one line of code
 
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+**Draw a molecule. Predict its fate in the human body.**
 
-## Overview
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)](tests/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
+[![AAFE](https://img.shields.io/badge/Cmax_AAFE-1.74-blueviolet?style=for-the-badge)](#validation)
+[![2-fold](https://img.shields.io/badge/within_2--fold-70%25-blueviolet?style=for-the-badge)](#validation)
 
-Omega PBPK is a hybrid neural-mechanistic pharmacokinetic prediction platform. Unlike traditional PBPK tools that require manual parameterization, Omega learns to predict drug behavior directly from molecular structure using graph neural networks, then validates predictions through a mechanistic 35-state ODE engine.
+```
+SMILES string  ──→  Omega  ──→  Cmax, AUC, t½, full PK profile
+                     ⚡
+          GNN + ODE + clinical data
+```
 
-The platform operates at three levels of sophistication:
+</div>
 
-| Level | Input | Method | Output |
-|-------|-------|--------|--------|
-| **Level 1** | SMILES | ADMET-AI ensemble + XGBoost | ADME properties → ODE → PK profile |
-| **Level 2** | SMILES | GNN encoder → parameter head → ODE | End-to-end learned PK prediction |
-| **Level 3** | SMILES + patient + dosing | Foundation model with cross-attention | Personalized PK with few-shot adaptation |
+---
 
-The ODE engine serves as both training data generator and inference-time validator — not the product itself. The product is the learned prediction: SMILES in, PK profile out.
+Traditional PBPK tools demand hours of manual parameterization by expert pharmacokineticists. Omega replaces that with a single function call — a hybrid neural-mechanistic engine that learns drug behavior directly from molecular structure, then validates through a 35-state whole-body ODE.
 
-> **Safety Scope:** For computational research and model prototyping only. Not validated for clinical decision making.
+**No manual parameters. No lookup tables. Just chemistry in, pharmacokinetics out.**
+
+### Three levels of prediction
+
+| | Level | Input | How it works | What you get |
+|---|-------|-------|--------------|--------------|
+| **1** | Ensemble | SMILES | ADMET-AI + XGBoost → ADME → ODE | PK profile with conformal intervals |
+| **2** | End-to-End | SMILES | GNN encoder → learned params → ODE | Sub-500ms prediction, AAFE < 2.0 |
+| **3** | Personalized | SMILES + patient + dosing | Cross-attention fusion + meta-learning | Few-shot adaptation from 1-5 observations |
+
+> [!CAUTION]
+> **Research use only.** Not validated for clinical decision-making or regulatory submissions.
 
 ## Architecture
 
