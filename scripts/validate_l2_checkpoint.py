@@ -11,16 +11,15 @@ Checks:
 7. Compare final.pt vs pbpk_finetune/best.pt
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 # Add src to path
 repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 
-import torch
-import numpy as np
+import torch  # noqa: E402
 
 
 def main():

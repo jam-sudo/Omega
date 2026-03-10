@@ -6,9 +6,8 @@ Reports AAFE for Cmax/AUC, %2-fold accuracy per drug.
 Compares against L1 exit criteria: AAFE<3.0, ≤2-fold for ≥70% of 20+ drugs.
 """
 
-import sys
-import csv
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -80,9 +79,9 @@ def compute_aafe(fold_errors):
 
 
 def main():
-    from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
     from omega_pbpk.core.body import WholeBodyPBPK
     from omega_pbpk.drugs.drug import Drug
+    from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
 
     predictor = EnsembleADMEPredictor()
 
@@ -226,7 +225,7 @@ def main():
         f"AUC:  AAFE={aafe_auc:.2f}, within 2-fold={pct_2fold_auc:.0f}% ({sum(1 for fe in valid_auc if fe <= 2.0)}/{len(valid_auc)})"
     )
 
-    print(f"\n--- EXIT CRITERIA CHECK ---")
+    print("\n--- EXIT CRITERIA CHECK ---")
     print(
         f"  AAFE < 3.0:  Cmax={'PASS' if aafe_cmax < 3.0 else 'FAIL'} ({aafe_cmax:.2f}), AUC={'PASS' if aafe_auc < 3.0 else 'FAIL'} ({aafe_auc:.2f})"
     )

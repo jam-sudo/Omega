@@ -9,8 +9,8 @@ Strategy:
 5. Re-run benchmarks with the calibrated factor
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -95,7 +95,6 @@ def main():
     print("=" * 90)
 
     # Standard IVIVE constants
-    Q_H = 90.0  # hepatic blood flow (L/h)
     HEPATOCELLULARITY = 120.0  # 10^6 cells/g liver
     LIVER_WT = 1800.0  # g
 
@@ -103,7 +102,6 @@ def main():
 
     for drug_name, info in BENCHMARK_DRUGS.items():
         smiles = info["smiles"]
-        dose_mg = info["dose_mg"]
 
         try:
             adme = predictor.predict(smiles)

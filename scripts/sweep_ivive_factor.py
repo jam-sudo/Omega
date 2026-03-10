@@ -5,8 +5,8 @@ Tests multiple correction factor values applied to ADMET-AI hepatocyte CLint.
 For each factor, runs full ODE simulation and computes AAFE.
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
