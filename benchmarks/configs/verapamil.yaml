@@ -1,0 +1,7 @@
+name: verapamil
+dataset: benchmarks/datasets/verapamil_oral_80mg.csv
+compound_file: compounds/verapamil.yaml
+dose_mg: 80.0
+route: oral
+t_end_h: 24.0
+source: "FDA label (Calan); Hamann 1984 Clin Pharmacokinet 9(1):26-41"

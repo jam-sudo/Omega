@@ -1,0 +1,7 @@
+name: diazepam
+dataset: benchmarks/datasets/diazepam_oral_10mg.csv
+compound_file: compounds/diazepam.yaml
+dose_mg: 10.0
+route: oral
+t_end_h: 24.0
+source: "FDA label (Valium); Mandelli 1978 Clin Pharmacokinet 3(1):72-91"

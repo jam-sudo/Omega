@@ -1,0 +1,7 @@
+name: acetaminophen
+dataset: benchmarks/datasets/acetaminophen_oral_1000mg.csv
+compound_file: compounds/acetaminophen.yaml
+dose_mg: 1000.0
+route: oral
+t_end_h: 24.0
+source: "FDA label (Tylenol); Forrest 1982 Clin Pharmacokinet 7(2):93-107"

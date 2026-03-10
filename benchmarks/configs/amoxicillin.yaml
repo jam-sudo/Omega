@@ -1,0 +1,7 @@
+name: amoxicillin
+dataset: benchmarks/datasets/amoxicillin_oral_500mg.csv
+compound_file: compounds/amoxicillin.yaml
+dose_mg: 500.0
+route: oral
+t_end_h: 24.0
+source: "FDA label; Sjovall 1986 J Antimicrob Chemother 18(6):763-9"

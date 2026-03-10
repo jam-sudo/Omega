@@ -1,0 +1,7 @@
+name: atorvastatin
+dataset: benchmarks/datasets/atorvastatin_oral_40mg.csv
+compound_file: compounds/atorvastatin.yaml
+dose_mg: 40.0
+route: oral
+t_end_h: 24.0
+source: "FDA label (Lipitor); Lennernas 2003 Clin Pharmacokinet 42(13):1141-60"
