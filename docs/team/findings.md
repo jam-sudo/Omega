@@ -1228,3 +1228,69 @@ OpenFDA `https://api.fda.gov/drug/label.json` is **fully accessible**. Downloade
 2. **Refine FDA regex extractors** in `loaders.py` — raw text is downloaded, just need better parsing
 3. **Existing benchmarks/datasets/ CSVs are sufficient for Level 1** — do not block on PK-DB for L1 completion
 4. **For L3 training data**: PK-DB auth is critical — 4,700 C(t) curves await
+
+---
+
+## 2026-03-10 ML-Engineer: L2 GNN Encoder Training (Task #24)
+
+### What Was Done
+
+Trained the L2 GNN encoder + param_head end-to-end. This is the first time these components have trained weights (previously random).
+
+### Pipeline
+
+**Step 1 — Label Generation (72 seconds)**
+- Collected 2225 unique drug-like SMILES from TDC data files:
+  - `data/clearance_hepatocyte_az.tab` (1019 compounds)
+  - `data/ppbr_az.tab` (1206 new compounds)
+- Used batch ADMET-AI inference (`ADMETModel.predict(list)`) for 31× speedup vs single-compound
+- XGBoost RBP + fup predictors applied per-compound
+- Generated labels: `[logP, fup, clint_L_h, mw, rbp, peff]` in surrogate-compatible units
+- Result: 2225 valid labeled compounds (0 failures)
+- Cache saved to `data/ml/gnn_labels.csv`
+
+**Step 2 — Supervised Training (100 epochs, ~13 min)**
+- Architecture: `MolecularEncoder(PyG MPNN)` → `PKParameterHead` → 6D param predictions
+- Scaffold split: 1749 train / 437 val (1370 unique Murcko scaffolds)
+- Loss: MSE in log-space for [fup, clint_L_h, mw, peff]; linear MSE for [logP, rbp]
+- Best val loss: **0.630** (log-space MSE per param, averaged)
+- Device: RTX 4070 SUPER 12GB (CUDA)
+
+**Step 3 — Surrogate Fine-tuning (40 epochs, ~4 min)**
+- Frozen surrogate at `models/pbpk_surrogate/6param/surrogate_model.pt` (AAFE 1.20)
+- GNN-predicted params → surrogate → C(t) curves vs L1-label-generated target curves
+- Curve-level MSE in log1p space
+- Best val loss: **0.000967** (log1p curve MSE)
+
+**Step 4 — Checkpoint Saved**
+- File: `models/level2/final.pt` (6.6 MB)
+- Keys: `model_state_dict` (51 tensors), `trained_components`, `training_info`
+- trained_components: `["encoder", "param_head", "surrogate"]`
+
+### Results
+
+| Phase | Val Loss | Notes |
+|-------|----------|-------|
+| Supervised (param) | 0.630 | log-space MSE averaged over 6 params |
+| Surrogate finetune (curve) | 0.000967 | log1p MSE |
+
+**End-to-end inference verified** (midazolam SMILES):
+- cmax: 0.087 mg/L, AUC: 1.24 mg·h/L, t½: 25h
+- Note: param accuracy not yet validated against literature (see caveats)
+
+### Script Created
+
+`scripts/train_l2_gnn_encoder.py` — full training pipeline:
+- Batch ADMET-AI label generation
+- Scaffold split
+- Supervised GNN training
+- Surrogate fine-tuning
+- Checkpoint saving
+- `--skip-data-gen` flag to reuse cached labels
+
+### Caveats / Next Steps
+
+1. **Parameter accuracy not validated**: The supervised loss (0.63) is moderate — params may have systematic bias. Recommend running `scripts/validate_l2_checkpoint.py` against known drugs.
+2. **t½ overestimation**: midazolam t½ predicted as 25h (actual ~2-4h) — surrogate fine-tuning may not fully compensate for supervised param bias.
+3. **logP prediction**: Predicted 0.26 for midazolam (actual 3.89) — logP is hardest to learn from molecular graphs without pre-training.
+4. **Improving accuracy**: Options: (a) more training epochs, (b) larger backbone (chemprop), (c) add adme_reference.csv drug names with SMILES lookup, (d) curriculum with clinical data once available.
