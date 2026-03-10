@@ -657,6 +657,21 @@ class OmegaPipeline:
         # logP upper threshold = 2.0 to capture drugs with predicted logP
         # slightly above true value (e.g., ciprofloxacin: true ~0.28,
         # predicted ~1.58 by XGBoost/polynomial fallback).
+        # Check for basic amine (protonated at physiological pH → renal secretion
+        # via OCT2, even with low TPSA). Covers d-amphetamine, atenolol, etc.
+        is_basic_amine = False
+        if smiles and logP < 1.5 and mw < 300:
+            try:
+                from rdkit import Chem
+
+                mol = Chem.MolFromSmiles(smiles)
+                if mol is not None:
+                    # Primary or secondary amine (not amide)
+                    patt = Chem.MolFromSmarts("[NH2,NH1;!$(NC=O)]")
+                    is_basic_amine = mol.HasSubstructMatch(patt)
+            except Exception:
+                pass
+
         if logP < -0.5 and tpsa > 74.0:
             # Truly hydrophilic with high PSA → renally cleared
             # Active secretion via OCT2/OAT/MATE transporters
@@ -665,6 +680,10 @@ class OmegaPipeline:
             # ciprofloxacin (74.6) and metformin (TPSA~105).
             secretion_factor = min(3.0, 10.0 ** (-logP))
             cl_renal = cl_filt * (1.0 + secretion_factor)
+        elif is_basic_amine:
+            # Small basic amines: OCT2-mediated renal secretion regardless
+            # of TPSA. Amphetamine (TPSA=26), pseudoephedrine, etc.
+            cl_renal = cl_filt * 2.0
         elif logP < 2.0 and tpsa > 74.0:
             # Moderately polar → GFR-based filtration with reabsorption
             reabsorption = min(0.8, logP / 2.0) if logP > 0 else 0.0
@@ -681,6 +700,11 @@ class OmegaPipeline:
         fup = max(float(adme.get("fup", 0.1)), 0.001)
         logP = float(adme.get("logP", 2.0))
         peff = float(adme.get("peff", 1.0))
+        # Oral drugs must have minimum effective permeability.
+        # ML peff underestimates drugs with active transport (e.g. PepT1
+        # substrates like amoxicillin: predicted 0.1, actual F~90%).
+        # Floor of 0.5 × 10^-4 cm/s ≈ moderate absorption (~50% F_oral).
+        peff = max(peff, 0.5)
         herg = float(adme.get("herg_ic50_uM", 100.0))
         if herg < 1.0:
             warnings_list.append(f"hERG IC50 = {herg:.2f} uM -- potential cardiac safety concern")
@@ -716,9 +740,38 @@ class OmegaPipeline:
         sol_mg_mL = sol_mol_L * mw  # mg/mL = mol/L * g/mol * 1000 mL/L / 1000 mg/g
 
         # Compute Berezhkovskiy-corrected Kp values (R&R + fup scaling).
-        # This fixes the systematic Vd over-estimation from the heuristic Kp chain
-        # by properly accounting for plasma protein binding.
-        # Optionally blend with XGBoost VDss prediction using geometric mean.
+        # Use RDKit Crippen logP for Kp calculations — it's more reliable than
+        # ML-predicted logP for partition coefficients (e.g. fluoxetine:
+        # ML predicts 2.09, RDKit gives 4.44, literature 4.05).
+        logP_kp = logP  # fallback to ML logP
+        compound_type = "neutral"
+        pka_est = None
+        try:
+            from rdkit import Chem
+            from rdkit.Chem import Descriptors as RDDescriptors
+
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is not None:
+                logP_kp = RDDescriptors.MolLogP(mol)
+                # Detect compound type for ionization correction in Kp.
+                # Basic amines (pKa~9-10) have enhanced tissue uptake via
+                # lysosomal trapping — critical for fluoxetine, propranolol, etc.
+                base_patt = Chem.MolFromSmarts("[NH2,NH1,NH0;!$(NC=O);!$(NS=O)]")
+                acid_patt = Chem.MolFromSmarts("[CX3](=O)[OX1H1,OX2H0-]")
+                has_base = mol.HasSubstructMatch(base_patt)
+                has_acid = mol.HasSubstructMatch(acid_patt)
+                if has_base and has_acid:
+                    compound_type = "zwitterion"
+                    pka_est = 9.0  # typical amine pKa
+                elif has_base:
+                    compound_type = "base"
+                    pka_est = 9.0
+                elif has_acid:
+                    compound_type = "acid"
+                    pka_est = 4.0  # typical carboxylic acid pKa
+        except Exception:
+            pass
+
         kp_dict = {}
         try:
             from omega_pbpk.core.heuristics import (
@@ -727,7 +780,13 @@ class OmegaPipeline:
             )
 
             for t in TISSUE_COMPOSITION:
-                kp_dict[t] = berezhkovskiy_kp(logP=logP, fup=fup, tissue_name=t)
+                kp_dict[t] = berezhkovskiy_kp(
+                    logP=logP_kp,
+                    fup=fup,
+                    tissue_name=t,
+                    pka=pka_est,
+                    compound_type=compound_type,
+                )
 
             # XGBoost VDss is NOT used for Kp correction — Berezhkovskiy is
             # the sole Kp source. Previous downward-only VDss correction

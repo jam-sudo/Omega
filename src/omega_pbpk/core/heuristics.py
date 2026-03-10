@@ -416,8 +416,20 @@ def berezhkovskiy_kp(
         # Base/zwitterion: enhanced phospholipid binding
         kp_uu = (fw_t * ion + lipid_t + fp_t * max(ion - 1.0, 0.0)) / max(fw_p + lipid_p, 1e-12)
 
-    # Berezhkovskiy correction: Kp = Kp_uu × fup (assumes fut ≈ 1)
-    kp = kp_uu * max(fup, 0.001)
+    # Berezhkovskiy correction: Kp = Kp_uu × (fup / fut)
+    # When fut ≈ 1 (hydrophilic): Kp ≈ Kp_uu × fup
+    # For lipophilic drugs (high logP), tissue binding is significant (fut << 1),
+    # so using fup alone over-corrects → Kp too small → Cmax too high.
+    # Approximation: Kp = Kp_uu × fup^alpha, where alpha decreases with logP.
+    # For bases/zwitterions, tissue binding is especially strong (lysosomal
+    # trapping), so alpha is even lower — fut << fup means fup/fut > 1.
+    if ct in ("base", "zwitterion"):
+        # Bases: aggressive correction — tissue binding very strong
+        alpha = max(0.15, min(1.0, 1.0 - 0.2 * logP))
+    else:
+        # Neutral/acid: moderate correction
+        alpha = max(0.5, min(1.0, 1.0 - 0.125 * logP))
+    kp = kp_uu * max(fup, 0.001) ** alpha
 
     return float(max(round(kp, 4), 0.01))
 

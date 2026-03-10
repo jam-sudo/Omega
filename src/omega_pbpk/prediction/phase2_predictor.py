@@ -293,7 +293,7 @@ def _dominant_pathway(clint_ugt: float, clint_sult: float, clint_mao: float) -> 
     """Return name of the dominant Phase 2 pathway."""
     values = {"UGT": clint_ugt, "SULT": clint_sult, "MAO": clint_mao}
     total = sum(values.values())
-    if total < 0.01:
+    if total < 0.05:
         return "none"
     return max(values, key=lambda k: values[k])
 

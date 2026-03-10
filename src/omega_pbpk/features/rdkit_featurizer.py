@@ -36,6 +36,11 @@ class FeatureVector:
     descriptors: NDArray[np.float64]
     feature_names: list[str]
 
+    @property
+    def shape(self) -> tuple[int, ...]:
+        """Return shape of the descriptor array."""
+        return self.descriptors.shape
+
 
 class RDKitFeaturizer:
     """Compute 15 molecular descriptors from a SMILES string.
