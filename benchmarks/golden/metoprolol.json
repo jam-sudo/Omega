@@ -1,11 +1,11 @@
 {
   "drug": "metoprolol",
-  "generated_by": "ODE WholeBodyPBPK v0.9.0",
-  "note": "Golden snapshot for regression testing. Compare future ODE output against these values.",
+  "generated_by": "ODE WholeBodyPBPK v1.0.0 (CLint=232 L/h, EH~0.69)",
+  "note": "Golden snapshot for regression testing. Regenerated after first-pass metabolism fix. Previous v0.9.0 had Cmax=1.044 (6-13x too high).",
   "tolerance": {"auc_relative_error_max": 0.10, "cmax_relative_error_max": 0.10, "tmax_abs_error_h_max": 1.0},
   "simulated": {
-    "cmax_mg_L": 1.0439068479544937,
-    "auc_mg_h_L": 7.748284580802466,
-    "tmax_h": 0.75
+    "cmax_mg_L": 0.094048,
+    "auc_mg_h_L": 0.3621,
+    "tmax_h": 1.1
   }
 }
