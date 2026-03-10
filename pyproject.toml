@@ -36,6 +36,8 @@ dev = [
   "mypy~=1.8",
   "types-PyYAML",
   "httpx~=0.24",
+  "xgboost>=2.0",
+  "rdkit>=2023.0",
 ]
 ml-new = [
     "admet-ai>=1.0",

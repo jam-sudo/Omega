@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-rdkit = pytest.importorskip("rdkit", reason="RDKit not installed")
+rdkit_chem = pytest.importorskip("rdkit.Chem", reason="RDKit not installed or broken")
 
 
 class TestAnalogGenerator:
