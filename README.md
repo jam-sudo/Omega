@@ -47,11 +47,11 @@ Traditional PBPK tools demand hours of manual parameterization by expert pharmac
 
 ## How It Works
 
-Omega operates at three levels of sophistication. **Level 1 is production-ready today.** Levels 2 and 3 are architecturally complete but awaiting trained models.
+Omega operates at three levels of sophistication. **Level 1 is in beta** (benchmarking in progress). Levels 2 and 3 are architecturally complete but awaiting trained models.
 
 | | Level | Status | Input | Method | Output |
 |---|-------|--------|-------|--------|--------|
-| **1** | Ensemble | **Shipped** | SMILES | ADMET-AI + XGBoost → ADME → 35-state ODE | PK profile with conformal intervals |
+| **1** | Ensemble | **Beta** | SMILES | ADMET-AI + XGBoost → ADME → 35-state ODE | PK profile with conformal intervals |
 | **2** | End-to-End | Architecture ready | SMILES | GNN encoder → learned params → ODE | Sub-500ms prediction |
 | **3** | Personalized | Architecture ready | SMILES + patient + dosing | Cross-attention fusion + meta-learning | Few-shot adaptation (1-5 obs) |
 

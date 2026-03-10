@@ -38,8 +38,8 @@ dev = [
   "httpx~=0.24",
 ]
 ml-new = [
-    "admet-ai>=2.0",
-    "chemprop>=2.0",
+    "admet-ai>=1.0",
+    "chemprop>=1.0",
     "torchdiffeq>=0.2",
     "xgboost>=2.0",
     "optuna>=3.0",
