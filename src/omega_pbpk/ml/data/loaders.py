@@ -185,6 +185,93 @@ class PKDBLoader:
         """
         return self._get_all_pages("timecourses/", params={"study": study_id})
 
+    def get_timecourses_for_substance(
+        self, drug_name: str
+    ) -> list[dict[str, Any]]:
+        """Get all concentration–time curves for a substance across studies.
+
+        Returns a list of dicts, each containing::
+
+            {
+                "substance": str,
+                "study": str,         # study identifier
+                "group": str,         # group/individual identifier
+                "route": str,         # e.g. "oral", "iv"
+                "dose": float | None, # dose value
+                "dose_unit": str,     # e.g. "mg"
+                "timepoints": [       # list of (time, conc, unit) tuples
+                    {"time_h": float, "conc": float, "conc_unit": str},
+                    ...
+                ],
+            }
+
+        Parameters
+        ----------
+        drug_name:
+            Case-insensitive compound name, e.g. ``"caffeine"``.
+        """
+        raw = self._get_all_pages("timecourses/", params={"substance": drug_name})
+
+        # Group raw timecourse records by study + group
+        from collections import defaultdict
+
+        grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+        meta: dict[tuple[str, str], dict[str, Any]] = {}
+
+        for rec in raw:
+            study = rec.get("study", rec.get("study_name", "unknown"))
+            group = rec.get("group", rec.get("group_name", "unknown"))
+            key = (str(study), str(group))
+            grouped[key].append(rec)
+            if key not in meta:
+                meta[key] = {
+                    "substance": rec.get("substance", drug_name),
+                    "study": str(study),
+                    "group": str(group),
+                    "route": rec.get("route", ""),
+                    "dose": rec.get("dose"),
+                    "dose_unit": rec.get("dose_unit", "mg"),
+                }
+
+        results: list[dict[str, Any]] = []
+        for key, records in grouped.items():
+            timepoints = []
+            for r in records:
+                t = r.get("time") if r.get("time") is not None else r.get("time_value")
+                c = r.get("value") if r.get("value") is not None else r.get("concentration")
+                unit = r.get("unit", r.get("concentration_unit", "mg/L"))
+                time_unit = r.get("time_unit", "h")
+                if t is not None and c is not None:
+                    try:
+                        t_h = float(t)
+                        if time_unit == "min":
+                            t_h /= 60.0
+                        elif time_unit == "day":
+                            t_h *= 24.0
+                        timepoints.append(
+                            {"time_h": t_h, "conc": float(c), "conc_unit": unit}
+                        )
+                    except (TypeError, ValueError):
+                        continue
+
+            if timepoints:
+                timepoints.sort(key=lambda x: x["time_h"])
+                entry = dict(meta[key])
+                entry["timepoints"] = timepoints
+                results.append(entry)
+
+        logger.info(
+            "Found %d timecourse curves for %s across %d studies",
+            len(results),
+            drug_name,
+            len({r["study"] for r in results}),
+        )
+        return results
+
+    def get_statistics(self) -> dict[str, Any]:
+        """Return PK-DB database statistics (counts, version)."""
+        return self._get("statistics/")
+
 
 # ===========================================================================
 # Task D.2 — FDA / DailyMed Label Extractor
@@ -355,6 +442,10 @@ _SUPPORTED_TDC_ENDPOINTS: dict[str, str] = {
     "Solubility_AqSolDB": "Solubility_AqSolDB",
     "PPBR_AZ": "PPBR_AZ",
     "Clearance_Hepatocyte_AZ": "Clearance_Hepatocyte_AZ",
+    "Clearance_Microsome_AZ": "Clearance_Microsome_AZ",
+    "Half_Life_Obach": "Half_Life_Obach",
+    "VDss_Lombardo": "VDss_Lombardo",
+    "Bioavailability_Ma": "Bioavailability_Ma",
     "hERG": "hERG",
 }
 

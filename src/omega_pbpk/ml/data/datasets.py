@@ -118,6 +118,21 @@ _BUILTIN_SMILES: dict[str, str] = {
     "theophylline": "Cn1c(=O)c2[nH]cnc2n(C)c1=O",
     "midazolam": "Clc1ccc2c(c1)C(=NCC(=O)n2C)c1ccccc1F",
     "diazepam": "CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21",
+    # Benchmark drugs (added for 20-drug coverage)
+    "propranolol": "CC(C)NCC(O)c1cccc2ccccc12",
+    "metoprolol": "COCCOCC(CNC(C)C)c1ccc(OC)cc1",
+    "amphetamine": "CC(N)Cc1ccccc1",
+    "d-amphetamine": "C[C@@H](N)Cc1ccccc1",
+    "methanol": "CO",
+    "omeprazole": "COc1ccc2[nH]c(S(=O)Cc3ncc(C)c(OC)c3C)nc2c1",
+    "amoxicillin": "CC1(C)S[C@@H]2[C@H](NC(=O)[C@@H](N)c3ccc(O)cc3)C(=O)N2[C@@H]1C(O)=O",
+    "atorvastatin": "CC(C)c1n(CC[C@@H](O)C[C@@H](O)CC(O)=O)c(-c2ccc(F)cc2)c(-c2ccccc2)c1C(=O)Nc1ccccc1",
+    "fluoxetine": "CNCCC(Oc1ccc(C(F)(F)F)cc1)c1ccccc1",
+    "carbamazepine": "NC(=O)N1c2ccccc2C=Cc2ccccc21",
+    "phenytoin": "O=C1NC(=O)C(c2ccccc2)(c2ccccc2)N1",
+    "verapamil": "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC",
+    "nifedipine": "COC(=O)C1=C(C)NC(C)=C(C(=O)OC)C1c1ccccc1[N+]([O-])=O",
+    "digoxin": "C[C@H]1OC(OC2CC(O)C(OC3CC(O)C(OC4CCC5(C)C(CCC6C5CC(O)C5(C)C(C7=CC(=O)OC7)CCC65)C4)C(C)O3)C(C)O2)CC(O)C1O",
 }
 
 
@@ -472,3 +487,229 @@ def _extract_pk_text(sections: list[dict[str, Any]]) -> str | None:
             if result is not None:
                 return result
     return None
+
+
+# ---------------------------------------------------------------------------
+# Data Quality Validation (Phase D.4)
+# ---------------------------------------------------------------------------
+
+# Expected ranges for PK parameters in canonical units.
+# Records outside these ranges are flagged, not removed.
+_PK_EXPECTED_RANGES: dict[str, tuple[float, float, str]] = {
+    "cmax": (0.0001, 1000.0, "mg/L"),
+    "auc": (0.001, 10000.0, "mg*h/L"),
+    "t_half": (0.05, 1000.0, "h"),
+    "tmax": (0.01, 72.0, "h"),
+    "bioavailability": (0.0, 1.0, "fraction"),
+    "vd": (0.01, 50000.0, "L"),
+    "vss": (0.01, 50000.0, "L"),
+    "clearance": (0.001, 1000.0, "L/h"),
+    "cl": (0.001, 1000.0, "L/h"),
+}
+
+
+def validate_pk_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Check a PK record against expected ranges and add QC flags.
+
+    Adds ``qc_flag`` key: ``"pass"``, ``"out_of_range"``, or ``"missing_value"``.
+    Also adds ``qc_detail`` with explanation when flagged.
+
+    Parameters
+    ----------
+    record:
+        A single PK record dict with at least ``parameter``, ``value``, ``unit``.
+
+    Returns
+    -------
+    dict
+        The same record with ``qc_flag`` and optionally ``qc_detail`` added.
+    """
+    rec = dict(record)
+    param = rec.get("parameter", "").lower()
+    value = rec.get("value")
+
+    if value is None:
+        rec["qc_flag"] = "missing_value"
+        rec["qc_detail"] = "No numeric value"
+        return rec
+
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        rec["qc_flag"] = "missing_value"
+        rec["qc_detail"] = f"Non-numeric value: {value!r}"
+        return rec
+
+    if param in _PK_EXPECTED_RANGES:
+        lo, hi, expected_unit = _PK_EXPECTED_RANGES[param]
+        if value < lo or value > hi:
+            rec["qc_flag"] = "out_of_range"
+            rec["qc_detail"] = (
+                f"{param}={value} outside [{lo}, {hi}] {expected_unit}"
+            )
+            return rec
+
+    rec["qc_flag"] = "pass"
+    return rec
+
+
+def validate_dataset(dataset: ClinicalPKDataset) -> ClinicalPKDataset:
+    """Run QC validation on all records, adding flags.
+
+    Returns a new dataset with ``qc_flag`` on every record.
+    """
+    flagged = [validate_pk_record(r) for r in dataset.records]
+    n_pass = sum(1 for r in flagged if r.get("qc_flag") == "pass")
+    n_flag = len(flagged) - n_pass
+    logger.info("QC: %d pass, %d flagged out of %d total", n_pass, n_flag, len(flagged))
+    return ClinicalPKDataset(records=flagged)
+
+
+# ---------------------------------------------------------------------------
+# Pipeline Orchestration (Phase D.5)
+# ---------------------------------------------------------------------------
+
+
+def run_clinical_data_pipeline(
+    output_dir: Path | str | None = None,
+    use_pkdb: bool = True,
+    use_fda: bool = True,
+    use_tdc: bool = True,
+    drug_list: list[str] | None = None,
+    tdc_endpoints: list[str] | None = None,
+    seed: int = 42,
+) -> ClinicalPKDataset:
+    """Run the full clinical data collection and harmonization pipeline.
+
+    Steps:
+        1. Collect PK params (+ timecourses) from PK-DB
+        2. Collect PK params from FDA DailyMed labels
+        3. Collect ADME benchmark data from TDC
+        4. Merge all sources
+        5. Standardize units
+        6. Run QC validation
+        7. Assign train/valid/test splits
+        8. Save to output_dir
+
+    Parameters
+    ----------
+    output_dir:
+        Where to save the final dataset. Defaults to ``data/ml/clinical/``.
+    use_pkdb:
+        Whether to query PK-DB.
+    use_fda:
+        Whether to query FDA DailyMed labels.
+    use_tdc:
+        Whether to load TDC ADME datasets.
+    drug_list:
+        List of drug names to collect from PK-DB and FDA.
+        If ``None``, uses the PK-DB substances available.
+    tdc_endpoints:
+        Which TDC endpoints to load. Defaults to all supported.
+    seed:
+        Random seed for scaffold splitting.
+
+    Returns
+    -------
+    ClinicalPKDataset
+        Harmonized, QC-flagged, split dataset.
+    """
+    from omega_pbpk.ml.data.loaders import FDALabelExtractor, PKDBLoader, TDCLoader
+
+    out = Path(output_dir or _DEFAULT_OUTPUT_DIR)
+    out.mkdir(parents=True, exist_ok=True)
+
+    combined = ClinicalPKDataset()
+
+    # Default drug list: PK-DB's 10 substances
+    if drug_list is None:
+        drug_list = [
+            "acetaminophen", "caffeine", "codeine", "diazepam", "glucose",
+            "midazolam", "morphine", "oxazepam", "simvastatin", "torasemide",
+        ]
+
+    # --- Step 1: PK-DB ---
+    if use_pkdb:
+        logger.info("=== Step 1: Collecting from PK-DB ===")
+        pkdb = PKDBLoader()
+        pkdb_dataset = ClinicalPKDataset.from_pkdb(pkdb)
+        logger.info("PK-DB: %d records", len(pkdb_dataset.records))
+        combined = combined.merge(pkdb_dataset)
+
+    # --- Step 2: FDA DailyMed ---
+    if use_fda:
+        logger.info("=== Step 2: Collecting from FDA DailyMed ===")
+        fda = FDALabelExtractor()
+        for drug in drug_list:
+            try:
+                spls = fda.search_drug(drug)
+                if not spls:
+                    logger.warning("FDA: No labels found for %s", drug)
+                    continue
+                # Use first result
+                setid = spls[0].get("setid", spls[0].get("spl_set_id"))
+                if not setid:
+                    continue
+                pk_text = fda.get_pk_section(setid)
+                if not pk_text:
+                    logger.debug("FDA: No PK section for %s", drug)
+                    continue
+                params = fda.extract_pk_params(pk_text)
+                smiles = lookup_smiles(drug)
+                for param_name, matches in params.items():
+                    for match in matches:
+                        combined.records.append({
+                            "compound": drug,
+                            "smiles": smiles,
+                            "source": "fda",
+                            "parameter": param_name,
+                            "value": match["value"],
+                            "unit": match["unit"],
+                            "original_value": match["value"],
+                            "original_unit": match["unit"],
+                        })
+            except Exception:
+                logger.exception("FDA: Error processing %s", drug)
+                continue
+        logger.info("Combined after FDA: %d records", len(combined.records))
+
+    # --- Step 3: TDC ---
+    if use_tdc:
+        logger.info("=== Step 3: Collecting from TDC ===")
+        tdc = TDCLoader()
+        endpoints = tdc_endpoints or tdc.supported_endpoints()
+        for ep in endpoints:
+            try:
+                df = tdc.load_adme(ep)
+                for _, row in df.iterrows():
+                    combined.records.append({
+                        "compound": "",
+                        "smiles": row["smiles"],
+                        "source": f"tdc:{ep}",
+                        "parameter": ep.lower(),
+                        "value": row["value"],
+                        "unit": "",
+                        "split": row.get("split", "train"),
+                    })
+                logger.info("TDC %s: %d records", ep, len(df))
+            except (ImportError, ValueError):
+                logger.warning("TDC: Skipping %s (not available)", ep)
+            except Exception:
+                logger.exception("TDC: Error loading %s", ep)
+
+    logger.info("=== Total raw records: %d ===", len(combined.records))
+
+    # --- Step 4-5: Standardize units ---
+    combined = combined.standardize_units()
+
+    # --- Step 6: QC validation ---
+    combined = validate_dataset(combined)
+
+    # --- Step 7: Assign splits (only non-TDC records need splitting) ---
+    combined = combined.assign_splits(seed=seed)
+
+    # --- Step 8: Save ---
+    save_path = combined.save(out / "clinical_pk.parquet")
+    logger.info("Pipeline complete. Saved to %s", save_path)
+
+    return combined

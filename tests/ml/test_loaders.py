@@ -16,6 +16,8 @@ from omega_pbpk.ml.data.datasets import (  # noqa: E402
     convert_concentration,
     convert_time,
     convert_volume,
+    validate_dataset,
+    validate_pk_record,
 )
 from omega_pbpk.ml.data.loaders import (  # noqa: E402
     _SUPPORTED_TDC_ENDPOINTS,
@@ -410,3 +412,171 @@ class TestClinicalPKDataset:
         # Original should be unchanged
         assert ds.records[0]["value"] == 500.0
         assert result.records[0]["value"] != 500.0
+
+
+# ===========================================================================
+# Data Quality Validation tests (Phase D.4)
+# ===========================================================================
+
+
+class TestDataQualityValidation:
+    def test_validate_pass(self) -> None:
+        rec = {"parameter": "cmax", "value": 10.0, "unit": "mg/L"}
+        result = validate_pk_record(rec)
+        assert result["qc_flag"] == "pass"
+
+    def test_validate_out_of_range_high(self) -> None:
+        rec = {"parameter": "cmax", "value": 5000.0, "unit": "mg/L"}
+        result = validate_pk_record(rec)
+        assert result["qc_flag"] == "out_of_range"
+        assert "outside" in result["qc_detail"]
+
+    def test_validate_out_of_range_low(self) -> None:
+        rec = {"parameter": "cmax", "value": 0.00001, "unit": "mg/L"}
+        result = validate_pk_record(rec)
+        assert result["qc_flag"] == "out_of_range"
+
+    def test_validate_missing_value(self) -> None:
+        rec = {"parameter": "cmax", "value": None, "unit": "mg/L"}
+        result = validate_pk_record(rec)
+        assert result["qc_flag"] == "missing_value"
+
+    def test_validate_non_numeric_value(self) -> None:
+        rec = {"parameter": "t_half", "value": "N/A", "unit": "h"}
+        result = validate_pk_record(rec)
+        assert result["qc_flag"] == "missing_value"
+
+    def test_validate_unknown_parameter_passes(self) -> None:
+        """Parameters not in the range table should pass by default."""
+        rec = {"parameter": "some_custom_param", "value": 999.0, "unit": ""}
+        result = validate_pk_record(rec)
+        assert result["qc_flag"] == "pass"
+
+    def test_validate_t_half_range(self) -> None:
+        # 0.05 to 1000 hours
+        rec_ok = {"parameter": "t_half", "value": 6.0, "unit": "h"}
+        assert validate_pk_record(rec_ok)["qc_flag"] == "pass"
+
+        rec_too_long = {"parameter": "t_half", "value": 5000.0, "unit": "h"}
+        assert validate_pk_record(rec_too_long)["qc_flag"] == "out_of_range"
+
+    def test_validate_bioavailability_range(self) -> None:
+        rec_ok = {"parameter": "bioavailability", "value": 0.85, "unit": "fraction"}
+        assert validate_pk_record(rec_ok)["qc_flag"] == "pass"
+
+        rec_bad = {"parameter": "bioavailability", "value": 1.5, "unit": "fraction"}
+        assert validate_pk_record(rec_bad)["qc_flag"] == "out_of_range"
+
+    def test_validate_dataset(self) -> None:
+        ds = ClinicalPKDataset(records=[
+            {"parameter": "cmax", "value": 10.0, "unit": "mg/L"},
+            {"parameter": "cmax", "value": None, "unit": "mg/L"},
+            {"parameter": "cmax", "value": 99999.0, "unit": "mg/L"},
+        ])
+        result = validate_dataset(ds)
+        assert len(result.records) == 3
+        flags = [r["qc_flag"] for r in result.records]
+        assert flags == ["pass", "missing_value", "out_of_range"]
+
+
+# ===========================================================================
+# PKDBLoader timecourse extraction tests (Phase D.2)
+# ===========================================================================
+
+
+class TestPKDBTimecourses:
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_get_timecourses_for_substance(
+        self, mock_get: MagicMock, pkdb_loader: PKDBLoader
+    ) -> None:
+        mock_get.return_value = {
+            "count": 3,
+            "next": None,
+            "results": [
+                {
+                    "substance": "caffeine",
+                    "study": "S001",
+                    "group": "G1",
+                    "route": "oral",
+                    "dose": 100.0,
+                    "dose_unit": "mg",
+                    "time": 0.0,
+                    "value": 0.0,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
+                {
+                    "substance": "caffeine",
+                    "study": "S001",
+                    "group": "G1",
+                    "route": "oral",
+                    "dose": 100.0,
+                    "dose_unit": "mg",
+                    "time": 1.0,
+                    "value": 5.2,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
+                {
+                    "substance": "caffeine",
+                    "study": "S001",
+                    "group": "G1",
+                    "route": "oral",
+                    "dose": 100.0,
+                    "dose_unit": "mg",
+                    "time": 4.0,
+                    "value": 2.1,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
+            ],
+        }
+        curves = pkdb_loader.get_timecourses_for_substance("caffeine")
+        assert len(curves) == 1  # one study+group combo
+        assert curves[0]["substance"] == "caffeine"
+        assert len(curves[0]["timepoints"]) == 3
+        # Should be sorted by time
+        times = [tp["time_h"] for tp in curves[0]["timepoints"]]
+        assert times == [0.0, 1.0, 4.0]
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_timecourses_time_conversion(
+        self, mock_get: MagicMock, pkdb_loader: PKDBLoader
+    ) -> None:
+        """Minutes should be converted to hours."""
+        mock_get.return_value = {
+            "count": 1,
+            "next": None,
+            "results": [
+                {
+                    "substance": "test",
+                    "study": "S1",
+                    "group": "G1",
+                    "time": 30,
+                    "value": 1.0,
+                    "unit": "mg/L",
+                    "time_unit": "min",
+                },
+            ],
+        }
+        curves = pkdb_loader.get_timecourses_for_substance("test")
+        assert len(curves) == 1
+        assert abs(curves[0]["timepoints"][0]["time_h"] - 0.5) < 1e-9
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_timecourses_multiple_groups(
+        self, mock_get: MagicMock, pkdb_loader: PKDBLoader
+    ) -> None:
+        """Different groups should produce separate curves."""
+        mock_get.return_value = {
+            "count": 2,
+            "next": None,
+            "results": [
+                {"substance": "drug", "study": "S1", "group": "G1",
+                 "time": 1.0, "value": 5.0, "unit": "mg/L", "time_unit": "h"},
+                {"substance": "drug", "study": "S1", "group": "G2",
+                 "time": 1.0, "value": 3.0, "unit": "mg/L", "time_unit": "h"},
+            ],
+        }
+        curves = pkdb_loader.get_timecourses_for_substance("drug")
+        assert len(curves) == 2
