@@ -32,7 +32,7 @@ def _load_ref_drugs() -> list[dict]:
                         "logP": float(row["logP"]),
                         "fup": float(row["fup"]),
                         "rbp": float(row["rbp"]),
-                        "clint": float(row["clint_3a4_uL_min_pmol"]) * 3.6,  # → L/h
+                        "clint": float(row["clint_3a4_uL_min_pmol"]) * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0,  # IVIVE → L/h
                         "peff": float(row["peff_cm_s"]),
                     }
                 )

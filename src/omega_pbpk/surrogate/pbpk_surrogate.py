@@ -247,8 +247,10 @@ def predict_from_adme_dict(
         # Extract features with defaults
         logP = float(adme.get("logP", 2.0))
         fup = float(np.clip(adme.get("fup", 0.5), 0.001, 1.0))
-        # CLint: prefer hepatic_L_h, fall back to clint_3a4 (µL/min/pmol → L/h ≈ ×3.6)
-        clint = float(adme.get("clint_hepatic_L_h", adme.get("clint_3a4", 5.0) * 3.6))
+        # CLint: prefer hepatic_L_h, fall back to clint_3a4 with IVIVE scaling
+        # IVIVE: µL/min/pmol × MPPGL(40) × mg/g(45) × liver(1800g) / 1e6 / 60 ≈ ×0.054
+        _ivive_factor = 40.0 * 45.0 * 1800.0 / 1e6 / 60.0  # ~0.054
+        clint = float(adme.get("clint_hepatic_L_h", adme.get("clint_3a4", 5.0) * _ivive_factor))
         clint = max(clint, 0.01)
         mw = float(adme.get("mw", 300.0))
         peff = float(adme.get("peff", 1.0))
@@ -269,7 +271,7 @@ def predict_from_adme_dict(
         logger.warning("PBPKSurrogate prediction failed: %s; returning defaults", exc)
         # Simple 1-cpt analytical fallback
         fup_safe = float(np.clip(adme.get("fup", 0.5), 0.001, 1.0))
-        clint_fallback = float(adme.get("clint_3a4", 5.0) * 3.6)
+        clint_fallback = float(adme.get("clint_3a4", 5.0) * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0)
         cl_approx = fup_safe * max(clint_fallback, 0.01)
         vd_approx = float(adme.get("mw", 300.0)) / 15.0 + 5.0  # rough allometric
         cmax = (dose_mg * fup_safe) / vd_approx if route == "oral" else dose_mg / vd_approx
