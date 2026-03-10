@@ -64,6 +64,31 @@ Clearance is now accurate (AUC passes). Cmax errors are **Kp/Vd distribution pro
 
 ---
 
+## 2026-03-10 ML-Engineer: Cmax Outlier Fixes (Task #22)
+
+### Fixes Applied
+1. **Peff floor** (`pipeline/__init__.py`): min peff=0.5×10^-4 cm/s for oral drugs. Fixes amoxicillin (PepT1 active transport → 27×→7×).
+2. **RDKit Crippen logP for Kp** (`pipeline/__init__.py`): ML logP has large errors for some drugs (fluoxetine: ML=2.09, RDKit=4.44, lit=4.05). RDKit logP is more reliable for partition coefficients.
+3. **Compound type detection** (`pipeline/__init__.py`): SMARTS-based detection of base/acid/zwitterion from molecular structure. Passes compound_type + estimated pKa to Berezhkovskiy Kp, enabling ionization correction.
+4. **Base-specific Berezhkovskiy alpha** (`core/heuristics.py`): For bases: `alpha = max(0.15, 1.0-0.2×logP)`. For neutral/acid: `alpha = max(0.5, 1.0-0.125×logP)`. Bases have stronger tissue binding (lysosomal trapping), so fup correction should be weaker.
+5. **Basic amine renal CL** (`pipeline/__init__.py`): Detect small basic amines (MW<300, logP<1.5, NH/NH2 SMARTS) and apply OCT2 renal secretion regardless of TPSA. Fixes d_amphetamine (CLr 0→7.86 L/h).
+
+### Final Results
+| Metric | Original | After IVIVE sync | After Cmax fixes | Target |
+|--------|----------|-----------------|------------------|--------|
+| Cmax AAFE | 4.27 | 3.18 | **2.61** ✅ | <3.0 |
+| AUC AAFE | 6.70 | 2.20 | **1.74** ✅ | <3.0 |
+| %2f Cmax | 40% | 35% | **35%** ❌ | ≥70% |
+| %2f AUC | 25% | 40% | **55%** ❌ | ≥70% |
+
+### Remaining Outliers
+- fluoxetine: 13.7× (lysosomal trapping not captured by R&R/Berezhkovskiy)
+- amoxicillin: 7.0× (PepT1 active transport, not predictable from SMILES)
+- d_amphetamine: 4.0× (improved but still over-predicted)
+- atorvastatin: 4.3× (high first-pass extraction)
+
+---
+
 ## 2026-03-10 Infra-Engineer: Dev Environment & Test Suite Report
 
 ### Dev Environment Setup
@@ -1123,3 +1148,83 @@ Two independent problems block L1 exit:
 - `scripts/benchmark_with_known_cl.py` — performance ceiling test
 - `outputs/ivive_calibration.json` — per-drug calibration data
 - `outputs/ivive_sweep_results.json` — sweep results
+
+---
+
+## 2026-03-10 Data-Engineer: PK-DB + OpenFDA Clinical Data Pipeline (Task #25)
+
+### Step 1: PK-DB API Connectivity
+
+API root at `https://pk-db.com/api/v1/` is **accessible** (HTTP 200). Tested all relevant endpoints:
+
+| Endpoint | Status | Records |
+|----------|--------|---------|
+| `/studies/` | ✅ accessible | 803 studies |
+| `/pkdata/groups/` | ✅ accessible | 20,727 demographic records |
+| `/pkdata/individuals/` | ✅ accessible | 166,946 individual records |
+| `/outputs/` | ⚠️ returns 0 | 0 (auth required) |
+| `/pkdata/timecourses/` | ⚠️ returns 0 | 0 (auth required) |
+| `/pkdata/outputs/` | ⚠️ returns 0 | 0 (auth required) |
+| `/pkdata/interventions/` | ⚠️ returns 0 | 0 (auth required) |
+
+**Root cause**: PK-DB API returns `Vary: Accept, Origin, Cookie` headers. All studies in the first 100 have `"licence": "closed"`. Only 3 of 803 total studies have `"licence": "open"`. The `outputs` and `timecourses` data is behind authentication for all 803 studies. This is a **confirmed blocker** for downloading actual C(t) curves.
+
+### Step 2: PK-DB Study Metadata (Without Authentication)
+
+Successfully downloaded study-level metadata for 49 benchmark and expansion drugs. The metadata tells us *what exists* in PK-DB, even though we can't access the data itself without auth.
+
+**Summary**:
+- 30/49 queried drugs have studies with timecourse data (need auth to access)
+- 19/49 drugs have no PK-DB presence at all
+- Total timecourse records across queried drugs: **4,700** (auth required)
+- Total output records across queried drugs: **104,428** (auth required)
+
+**Top drugs by PK-DB timecourse count (auth required)**:
+| Drug | Studies w/ TCs | Total TCs |
+|------|----------------|-----------|
+| caffeine | 62 | 946 |
+| midazolam | 41 | 707 |
+| omeprazole | 36 | 624 |
+| losartan | 21 | 414 |
+| digoxin | 10 | 323 |
+| simvastatin | 36 | 237 |
+| furosemide | 4 | 175 |
+| rifampicin | 14 | 169 |
+| metoprolol | 12 | 150 |
+| lisinopril | 16 | 146 |
+
+**Drugs absent from PK-DB** (18/49):
+acetaminophen, amphetamine, fluconazole, fluoxetine, gabapentin, phenytoin, propranolol, sertraline, clonazepam, tacrolimus, hydroxychloroquine, chloroquine, lamotrigine, valproic acid, lithium, haloperidol, risperidone, olanzapine
+
+Note: For our 25 benchmark drugs in `benchmarks/datasets/`, only 23 were queried by name; 17/23 have PK-DB timecourse data behind auth.
+
+### Step 3: OpenFDA PK Parameters (Accessible Without Auth)
+
+OpenFDA `https://api.fda.gov/drug/label.json` is **fully accessible**. Downloaded raw pharmacokinetics/clinical_pharmacology text for 44/49 drugs. This provides:
+- PK text sections with Cmax, AUC, t½, Vd, CL, bioavailability, protein binding values
+- Not C(t) curves, but validated summary PK parameters suitable for benchmarking
+
+**FDA coverage gaps** (5/49 drugs): acetaminophen, caffeine, omeprazole, rifampicin, lithium
+
+**Regex extraction note**: The current `_PK_PATTERNS` in `loaders.py` are too restrictive — they matched only 3/49 drugs for Cmax, 5/49 for t½. The raw PK text is saved and contains all parameters. A refined extraction pass is recommended.
+
+### Step 4: Data Quality Assessment
+
+- **C(t) curves from PK-DB**: Not downloadable without authentication → **BLOCKER**
+- **Existing benchmark C(t) data**: 25 drugs already have manually curated C(t) CSVs in `benchmarks/datasets/` — these are the ground truth for Level 1 benchmarking
+- **OpenFDA PK summaries**: 44 drugs accessible, suitable for parameter validation but not C(t) training
+- **IV + oral data overlap**: Not determinable without PK-DB auth, but the study metadata shows many studies include multiple routes
+
+### Files Saved
+
+- `data/ml/pkdb/raw/<drug>_pkdb_studies.json` — PK-DB study metadata (49 drugs)
+- `data/ml/fda/raw/<drug>_fda.json` — OpenFDA PK label text (44/49 drugs)
+- `data/ml/pkdb/manifest.json` — combined manifest with drug coverage stats
+- `data/ml/pkdb/download_pkdb.py` — reusable download script
+
+### Recommendations
+
+1. **Register for PK-DB account** at pk-db.com to unlock C(t) data — the data is there (4,700+ TCs for our drugs), just behind auth
+2. **Refine FDA regex extractors** in `loaders.py` — raw text is downloaded, just need better parsing
+3. **Existing benchmarks/datasets/ CSVs are sufficient for Level 1** — do not block on PK-DB for L1 completion
+4. **For L3 training data**: PK-DB auth is critical — 4,700 C(t) curves await
