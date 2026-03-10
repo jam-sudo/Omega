@@ -993,3 +993,101 @@ ruff check src/ benchmarks/ → All checks passed! (PASS)
 
 ### Status
 Fixes ready — awaiting team-lead commit and push.
+
+
+## ML-Engineer: IVIVE Calibration Deep-Dive (2026-03-10, Task #20)
+
+### Problem
+L1 benchmark AAFE = 4.27 (Cmax) / 6.70 (AUC) — both fail <3.0 target.
+Root cause: IVIVE (In Vitro to In Vivo Extrapolation) systematically underpredicts
+hepatic clearance by 2-3 orders of magnitude.
+
+### IVIVE Pipeline Analysis
+
+The clearance pipeline has three stages:
+1. **ADMET-AI** predicts hepatocyte CLint (µL/min/10^6 cells): range 2-75 across 20 drugs
+2. **Conversion** to pmol CYP3A4: `/5480` → all values collapse to 0.01 (floor)
+3. **IVIVE scaling**: `× 0.054` → gives 0.0005 L/h (essentially zero clearance)
+
+The `/5480` conversion destroys all discriminatory power. After conversion + IVIVE,
+all drugs get virtually identical zero clearance regardless of ADMET-AI prediction.
+
+### Calibration Results
+
+Compared ADMET-AI hepatocyte IVIVE (CLint_hep × 3.6 L/h) against known in-vivo CL
+for 16 drugs with literature CL values:
+
+| Metric | Value |
+|--------|-------|
+| Geometric mean correction factor | **150×** |
+| Median correction factor | **207×** |
+| Range | **2.4× – 2,483×** |
+| Min (warfarin) | 2.4× |
+| Max (metoprolol) | 2,483× |
+
+**The 1000× variance means ADMET-AI hepatocyte CLint predictions do not discriminate
+between low-clearance and high-clearance drugs.** All predictions are in a narrow
+2-75 µL/min/10^6 cells range while actual in-vivo CL spans 0.2-63 L/h (315× range).
+
+### Correction Factor Sweep Results
+
+Swept correction factors from 1× to 2000× applied to hepatocyte IVIVE:
+
+| Factor | Cmax AAFE | AUC AAFE | %2f Cmax | %2f AUC |
+|--------|-----------|----------|----------|---------|
+| 1× (baseline) | 4.27 | 6.70 | 40% | 25% |
+| 100× | 4.30 | 5.42 | 35% | 30% |
+| 500× | 4.36 | 4.73 | 25% | 30% |
+| 900× (best combined) | 4.39 | 4.55 | 30% | 30% |
+| 2000× | 4.50 | 4.63 | 30% | 45% |
+
+**Critical finding: Cmax AAFE barely changes (4.27→4.50) regardless of correction factor.**
+AUC improves modestly (6.70→4.55) but never reaches target. A uniform correction factor
+fundamentally cannot fix this problem because per-drug corrections vary 1000×.
+
+### Performance Ceiling Test (Known In-Vivo CL)
+
+Ran 20-drug benchmark using literature in-vivo hepatic CL values:
+
+| Metric | Achieved | Target | Status |
+|--------|----------|--------|--------|
+| Cmax AAFE | **2.52** | < 3.0 | ✅ PASS |
+| AUC AAFE | **1.98** | < 3.0 | ✅ PASS |
+| Cmax ≤2-fold | **45%** | ≥ 70% | ❌ FAIL |
+| AUC ≤2-fold | **70%** | ≥ 70% | ✅ PASS |
+
+**AAFE criteria pass when CL is correct!** The ODE engine + ADME predictions for
+fup/logP/peff/rbp are sufficient for AAFE < 3.0. But Cmax within-2-fold still fails
+at 45%, indicating Kp (tissue partitioning) and absorption prediction errors.
+
+### Root Cause Diagnosis
+
+Two independent problems block L1 exit:
+
+1. **CL prediction** (blocks AAFE): ADMET-AI hepatocyte CLint doesn't discriminate.
+   Fix requires a model that predicts in-vivo CL directly — either:
+   - Train XGBoost on clinical CL data (need PK-DB pipeline, Task #10)
+   - Use a pharmacophore-based CL classifier (low/medium/high)
+   - Use drug-specific CL lookup for well-studied compounds
+
+2. **Kp/absorption** (blocks %2-fold Cmax): Even with perfect CL, 55% of drugs have
+   >2-fold Cmax error. This is driven by:
+   - Kp estimation errors (heuristic method) → wrong Vd → wrong Cmax
+   - peff prediction errors → wrong absorption rate → wrong Tmax/Cmax
+   - Requires Rodgers-Rowland Kp + better peff calibration
+
+### Recommendations (Priority Order)
+
+1. **Train in-vivo CL predictor** — XGBoost on molecular fingerprints + clinical CL data
+   from PK-DB. This is the single highest-impact improvement.
+2. **Switch to Rodgers-Rowland Kp** — reduces Kp errors for the 55% with Cmax issues
+3. **Calibrate peff predictions** — the Sun 2002 correlation helps but needs refinement
+4. **Do NOT use single IVIVE correction factor** — it doesn't work (Cmax AAFE unchanged)
+5. **Do NOT rely on ADMET-AI for CLint** — its predictions lack discriminatory power
+
+### Files Created
+- `scripts/calibrate_ivive.py` — IVIVE gap analysis
+- `scripts/sweep_ivive_factor.py` — correction factor sweep
+- `scripts/benchmark_with_known_cl.py` — performance ceiling test
+- `outputs/ivive_calibration.json` — per-drug calibration data
+- `outputs/ivive_sweep_results.json` — sweep results
