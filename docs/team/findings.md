@@ -1,5 +1,37 @@
 # Team Findings
 
+## 2026-03-10 Infra-Engineer: Renal Clearance Pathway (Task #16)
+
+### Problem Found
+The benchmark system (`_run_single_compound` in `benchmarks.py`) was building Drug objects **without renal clearance** — it bypassed the pipeline's `_estimate_renal_clearance()`. This meant renally-cleared drugs had CLr=0 in benchmarks even though the pipeline handles them.
+
+### Fix Applied
+Added `OmegaPipeline._estimate_renal_clearance()` call to `_run_single_compound` in `benchmarks.py`, setting `clr_L_per_h` on the Drug object.
+
+### Benchmark Data Added
+Created clinical C(t) datasets for 5 renally-eliminated drugs:
+- `benchmarks/datasets/metformin_oral_500mg.csv` (fe_renal=100%)
+- `benchmarks/datasets/gabapentin_oral_300mg.csv` (fe_renal=100%)
+- `benchmarks/datasets/atenolol_oral_50mg.csv` (fe_renal=90%)
+- `benchmarks/datasets/fluconazole_oral_200mg.csv` (fe_renal=80%)
+- `benchmarks/datasets/furosemide_oral_40mg.csv` (fe_renal=65%)
+
+### Benchmark Results (correct clinical doses)
+| Drug | Dose | Pred Cmax | Obs Cmax | Fold Error |
+|------|------|-----------|----------|------------|
+| Atenolol | 50mg | 0.63 | 0.38 | 1.66x |
+| Metformin | 500mg | 0.34 | 1.35 | 3.94x |
+| Gabapentin | 300mg | 7.85 | 2.90 | 2.71x |
+| Furosemide | 40mg | 0.41 | 2.00 | 4.89x |
+
+### t½=nan Investigation
+Root cause: Without ADMET-AI, polynomial fallback predicts near-zero CLint → monotonically increasing curve → no post-Cmax points → nan. Fixed by enabling ADMET-AI (libXrender fix).
+
+### ADMET-AI libXrender Fix
+Downloaded `libxrender1` deb package, extracted `libXrender.so.1` to `.venv/lib/`, updated `.venv/bin/activate` to set `LD_LIBRARY_PATH`. No sudo needed.
+
+---
+
 ## 2026-03-10 Infra-Engineer: Dev Environment & Test Suite Report
 
 ### Dev Environment Setup

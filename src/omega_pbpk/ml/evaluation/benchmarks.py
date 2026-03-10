@@ -229,7 +229,7 @@ def _run_single_compound(
 
     # Solubility: convert logS (log10 mol/L) → mg/mL
     #   S_mol_L = 10^logS; S_mg_mL = S_mol_L × MW / 1000
-    solubility_mg_mL = max((10 ** adme.logS) * adme.mw / 1000.0, 1e-6)
+    solubility_mg_mL = max((10**adme.logS) * adme.mw / 1000.0, 1e-6)
 
     # Gut-wall CYP3A4 extraction: enterocyte CYP3A4 activity is ~1-10% of hepatic.
     # For CYP3A4-metabolized drugs, use a gut_clint_multiplier to model gut first-pass.

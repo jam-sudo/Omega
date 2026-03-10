@@ -18,6 +18,7 @@ import os
 # Standard timepoints matching existing benchmark format
 TIMEPOINTS = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 18.0, 24.0]
 
+
 def bateman(t, F, dose_mg, Vd_L, ka, ke):
     """One-compartment oral model (Bateman equation)."""
     if t == 0:
@@ -27,6 +28,7 @@ def bateman(t, F, dose_mg, Vd_L, ka, ke):
     A = (F * dose_mg * ka) / (Vd_L * (ka - ke))
     return A * (math.exp(-ke * t) - math.exp(-ka * t))
 
+
 def ka_from_tmax(tmax, ke):
     """Estimate ka from Tmax using Newton's method on Tmax = ln(ka/ke)/(ka-ke)."""
     # Start with ka = 3 * ke as initial guess
@@ -35,7 +37,7 @@ def ka_from_tmax(tmax, ke):
         if ka <= ke:
             ka = ke * 2.0
         f = math.log(ka / ke) / (ka - ke) - tmax
-        df = (1.0 / ka - math.log(ka / ke)) / (ka - ke) - math.log(ka / ke) / (ka - ke)**2
+        df = (1.0 / ka - math.log(ka / ke)) / (ka - ke) - math.log(ka / ke) / (ka - ke) ** 2
         # Simplified: use numerical derivative
         eps = ka * 1e-6
         ka2 = ka + eps
@@ -52,6 +54,7 @@ def ka_from_tmax(tmax, ke):
             break
     return ka
 
+
 # Drug PK parameters from published literature
 # Format: (name, dose_mg, F, Vd_L, t_half_h, tmax_h, source)
 DRUGS = [
@@ -59,7 +62,7 @@ DRUGS = [
         "name": "ibuprofen",
         "dose_mg": 400.0,
         "F": 0.80,
-        "Vd_L": 10.0,       # ~0.14 L/kg * 70kg
+        "Vd_L": 10.0,  # ~0.14 L/kg * 70kg
         "t_half_h": 2.0,
         "tmax_h": 1.5,
         "route": "oral",
@@ -69,7 +72,7 @@ DRUGS = [
         "name": "diazepam",
         "dose_mg": 10.0,
         "F": 0.95,
-        "Vd_L": 77.0,       # ~1.1 L/kg * 70kg
+        "Vd_L": 77.0,  # ~1.1 L/kg * 70kg
         "t_half_h": 43.0,
         "tmax_h": 1.0,
         "route": "oral",
@@ -79,7 +82,7 @@ DRUGS = [
         "name": "theophylline",
         "dose_mg": 300.0,
         "F": 0.96,
-        "Vd_L": 35.0,       # ~0.5 L/kg * 70kg
+        "Vd_L": 35.0,  # ~0.5 L/kg * 70kg
         "t_half_h": 8.0,
         "tmax_h": 1.5,
         "route": "oral",
@@ -89,7 +92,7 @@ DRUGS = [
         "name": "digoxin",
         "dose_mg": 0.5,
         "F": 0.70,
-        "Vd_L": 490.0,      # ~7 L/kg * 70kg (large Vd)
+        "Vd_L": 490.0,  # ~7 L/kg * 70kg (large Vd)
         "t_half_h": 36.0,
         "tmax_h": 1.5,
         "route": "oral",
@@ -99,7 +102,7 @@ DRUGS = [
         "name": "acetaminophen",
         "dose_mg": 1000.0,
         "F": 0.85,
-        "Vd_L": 63.0,       # ~0.9 L/kg * 70kg
+        "Vd_L": 63.0,  # ~0.9 L/kg * 70kg
         "t_half_h": 2.5,
         "tmax_h": 0.75,
         "route": "oral",
@@ -109,7 +112,7 @@ DRUGS = [
         "name": "omeprazole",
         "dose_mg": 20.0,
         "F": 0.50,
-        "Vd_L": 10.0,       # apparent Vd ~0.13-0.14 L/kg * 70kg
+        "Vd_L": 10.0,  # apparent Vd ~0.13-0.14 L/kg * 70kg
         "t_half_h": 1.0,
         "tmax_h": 0.75,
         "route": "oral",
@@ -119,7 +122,7 @@ DRUGS = [
         "name": "amoxicillin",
         "dose_mg": 500.0,
         "F": 0.80,
-        "Vd_L": 21.0,       # ~0.3 L/kg * 70kg
+        "Vd_L": 21.0,  # ~0.3 L/kg * 70kg
         "t_half_h": 1.5,
         "tmax_h": 1.5,
         "route": "oral",
@@ -129,7 +132,7 @@ DRUGS = [
         "name": "atorvastatin",
         "dose_mg": 40.0,
         "F": 0.12,
-        "Vd_L": 381.0,      # ~5.4 L/kg * 70kg
+        "Vd_L": 381.0,  # ~5.4 L/kg * 70kg
         "t_half_h": 14.0,
         "tmax_h": 1.5,
         "route": "oral",
@@ -139,7 +142,7 @@ DRUGS = [
         "name": "fluoxetine",
         "dose_mg": 20.0,
         "F": 0.72,
-        "Vd_L": 2100.0,     # ~30 L/kg * 70kg (very large Vd)
+        "Vd_L": 2100.0,  # ~30 L/kg * 70kg (very large Vd)
         "t_half_h": 48.0,
         "tmax_h": 6.0,
         "route": "oral",
@@ -149,7 +152,7 @@ DRUGS = [
         "name": "carbamazepine",
         "dose_mg": 200.0,
         "F": 0.75,
-        "Vd_L": 98.0,       # ~1.4 L/kg * 70kg
+        "Vd_L": 98.0,  # ~1.4 L/kg * 70kg
         "t_half_h": 36.0,
         "tmax_h": 6.0,
         "route": "oral",
@@ -159,7 +162,7 @@ DRUGS = [
         "name": "phenytoin",
         "dose_mg": 300.0,
         "F": 0.90,
-        "Vd_L": 45.0,       # ~0.64 L/kg * 70kg
+        "Vd_L": 45.0,  # ~0.64 L/kg * 70kg
         "t_half_h": 22.0,
         "tmax_h": 4.0,
         "route": "oral",
@@ -169,7 +172,7 @@ DRUGS = [
         "name": "verapamil",
         "dose_mg": 80.0,
         "F": 0.22,
-        "Vd_L": 266.0,      # ~3.8 L/kg * 70kg
+        "Vd_L": 266.0,  # ~3.8 L/kg * 70kg
         "t_half_h": 6.0,
         "tmax_h": 1.5,
         "route": "oral",
@@ -179,13 +182,14 @@ DRUGS = [
         "name": "nifedipine",
         "dose_mg": 10.0,
         "F": 0.50,
-        "Vd_L": 56.0,       # ~0.8 L/kg * 70kg
+        "Vd_L": 56.0,  # ~0.8 L/kg * 70kg
         "t_half_h": 2.0,
         "tmax_h": 0.5,
         "route": "oral",
         "source": "FDA label (Procardia); Kleinbloesem 1984 Clin Pharmacokinet 9(5):397-414",
     },
 ]
+
 
 def generate_drug_csv(drug, out_dir):
     """Generate C(t) CSV for a drug."""
@@ -210,15 +214,24 @@ def generate_drug_csv(drug, out_dir):
         for t, c, std in rows:
             writer.writerow([t, c, std])
 
-    print(f"  Generated {filename}: Cmax={max(r[1] for r in rows):.6g} mg/L at t={TIMEPOINTS[max(range(len(rows)), key=lambda i: rows[i][1])]}h")
+    print(
+        f"  Generated {filename}: Cmax={max(r[1] for r in rows):.6g} mg/L at t={TIMEPOINTS[max(range(len(rows)), key=lambda i: (
+                    rows[i][1]
+                ))]}h"
+    )
     return filename
+
 
 def generate_drug_config(drug, csv_filename, out_dir):
     """Generate YAML config for a drug."""
     filepath = os.path.join(out_dir, f"{drug['name']}.yaml")
-    dose_str = f"{drug['dose_mg']}" if drug['dose_mg'] != int(drug['dose_mg']) else f"{int(drug['dose_mg'])}.0"
+    dose_str = (
+        f"{drug['dose_mg']}"
+        if drug["dose_mg"] != int(drug["dose_mg"])
+        else f"{int(drug['dose_mg'])}.0"
+    )
     # Use float formatting
-    dose_val = drug['dose_mg']
+    dose_val = drug["dose_mg"]
 
     with open(filepath, "w") as f:
         f.write(f"name: {drug['name']}\n")
@@ -227,9 +240,10 @@ def generate_drug_config(drug, csv_filename, out_dir):
         f.write(f"dose_mg: {dose_val}\n")
         f.write(f"route: {drug['route']}\n")
         f.write(f"t_end_h: 24.0\n")
-        f.write(f"source: \"{drug['source']}\"\n")
+        f.write(f'source: "{drug["source"]}"\n')
 
     print(f"  Generated {drug['name']}.yaml config")
+
 
 def main():
     datasets_dir = os.path.join(os.path.dirname(__file__), "datasets")
@@ -246,6 +260,7 @@ def main():
 
     print(f"Done! Generated {len(DRUGS)} drug profiles.")
     print(f"Total benchmark drugs: 7 (existing) + {len(DRUGS)} (new) = {7 + len(DRUGS)}")
+
 
 if __name__ == "__main__":
     main()

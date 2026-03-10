@@ -185,9 +185,7 @@ class PKDBLoader:
         """
         return self._get_all_pages("timecourses/", params={"study": study_id})
 
-    def get_timecourses_for_substance(
-        self, drug_name: str
-    ) -> list[dict[str, Any]]:
+    def get_timecourses_for_substance(self, drug_name: str) -> list[dict[str, Any]]:
         """Get all concentration–time curves for a substance across studies.
 
         Returns a list of dicts, each containing::
@@ -248,9 +246,7 @@ class PKDBLoader:
                             t_h /= 60.0
                         elif time_unit == "day":
                             t_h *= 24.0
-                        timepoints.append(
-                            {"time_h": t_h, "conc": float(c), "conc_unit": unit}
-                        )
+                        timepoints.append({"time_h": t_h, "conc": float(c), "conc_unit": unit})
                     except (TypeError, ValueError):
                         continue
 

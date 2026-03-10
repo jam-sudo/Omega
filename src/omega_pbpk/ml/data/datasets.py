@@ -544,9 +544,7 @@ def validate_pk_record(record: dict[str, Any]) -> dict[str, Any]:
         lo, hi, expected_unit = _PK_EXPECTED_RANGES[param]
         if value < lo or value > hi:
             rec["qc_flag"] = "out_of_range"
-            rec["qc_detail"] = (
-                f"{param}={value} outside [{lo}, {hi}] {expected_unit}"
-            )
+            rec["qc_detail"] = f"{param}={value} outside [{lo}, {hi}] {expected_unit}"
             return rec
 
     rec["qc_flag"] = "pass"
@@ -624,8 +622,16 @@ def run_clinical_data_pipeline(
     # Default drug list: PK-DB's 10 substances
     if drug_list is None:
         drug_list = [
-            "acetaminophen", "caffeine", "codeine", "diazepam", "glucose",
-            "midazolam", "morphine", "oxazepam", "simvastatin", "torasemide",
+            "acetaminophen",
+            "caffeine",
+            "codeine",
+            "diazepam",
+            "glucose",
+            "midazolam",
+            "morphine",
+            "oxazepam",
+            "simvastatin",
+            "torasemide",
         ]
 
     # --- Step 1: PK-DB ---
@@ -658,16 +664,18 @@ def run_clinical_data_pipeline(
                 smiles = lookup_smiles(drug)
                 for param_name, matches in params.items():
                     for match in matches:
-                        combined.records.append({
-                            "compound": drug,
-                            "smiles": smiles,
-                            "source": "fda",
-                            "parameter": param_name,
-                            "value": match["value"],
-                            "unit": match["unit"],
-                            "original_value": match["value"],
-                            "original_unit": match["unit"],
-                        })
+                        combined.records.append(
+                            {
+                                "compound": drug,
+                                "smiles": smiles,
+                                "source": "fda",
+                                "parameter": param_name,
+                                "value": match["value"],
+                                "unit": match["unit"],
+                                "original_value": match["value"],
+                                "original_unit": match["unit"],
+                            }
+                        )
             except Exception:
                 logger.exception("FDA: Error processing %s", drug)
                 continue
@@ -682,15 +690,17 @@ def run_clinical_data_pipeline(
             try:
                 df = tdc.load_adme(ep)
                 for _, row in df.iterrows():
-                    combined.records.append({
-                        "compound": "",
-                        "smiles": row["smiles"],
-                        "source": f"tdc:{ep}",
-                        "parameter": ep.lower(),
-                        "value": row["value"],
-                        "unit": "",
-                        "split": row.get("split", "train"),
-                    })
+                    combined.records.append(
+                        {
+                            "compound": "",
+                            "smiles": row["smiles"],
+                            "source": f"tdc:{ep}",
+                            "parameter": ep.lower(),
+                            "value": row["value"],
+                            "unit": "",
+                            "split": row.get("split", "train"),
+                        }
+                    )
                 logger.info("TDC %s: %d records", ep, len(df))
             except (ImportError, ValueError):
                 logger.warning("TDC: Skipping %s (not available)", ep)

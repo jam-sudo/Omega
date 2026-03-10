@@ -468,11 +468,13 @@ class TestDataQualityValidation:
         assert validate_pk_record(rec_bad)["qc_flag"] == "out_of_range"
 
     def test_validate_dataset(self) -> None:
-        ds = ClinicalPKDataset(records=[
-            {"parameter": "cmax", "value": 10.0, "unit": "mg/L"},
-            {"parameter": "cmax", "value": None, "unit": "mg/L"},
-            {"parameter": "cmax", "value": 99999.0, "unit": "mg/L"},
-        ])
+        ds = ClinicalPKDataset(
+            records=[
+                {"parameter": "cmax", "value": 10.0, "unit": "mg/L"},
+                {"parameter": "cmax", "value": None, "unit": "mg/L"},
+                {"parameter": "cmax", "value": 99999.0, "unit": "mg/L"},
+            ]
+        )
         result = validate_dataset(ds)
         assert len(result.records) == 3
         flags = [r["qc_flag"] for r in result.records]
@@ -572,10 +574,24 @@ class TestPKDBTimecourses:
             "count": 2,
             "next": None,
             "results": [
-                {"substance": "drug", "study": "S1", "group": "G1",
-                 "time": 1.0, "value": 5.0, "unit": "mg/L", "time_unit": "h"},
-                {"substance": "drug", "study": "S1", "group": "G2",
-                 "time": 1.0, "value": 3.0, "unit": "mg/L", "time_unit": "h"},
+                {
+                    "substance": "drug",
+                    "study": "S1",
+                    "group": "G1",
+                    "time": 1.0,
+                    "value": 5.0,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
+                {
+                    "substance": "drug",
+                    "study": "S1",
+                    "group": "G2",
+                    "time": 1.0,
+                    "value": 3.0,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
             ],
         }
         curves = pkdb_loader.get_timecourses_for_substance("drug")

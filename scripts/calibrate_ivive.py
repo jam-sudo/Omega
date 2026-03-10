@@ -30,10 +30,16 @@ BENCHMARK_DRUGS = {
     "ibuprofen": {"smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1", "dose_mg": 400},
     "acetaminophen": {"smiles": "CC(=O)Nc1ccc(O)cc1", "dose_mg": 1000},
     "amoxicillin": {"smiles": "CC1(C)SC2C(NC(=O)C(N)c3ccc(O)cc3)C(=O)N2C1C(=O)O", "dose_mg": 500},
-    "atorvastatin": {"smiles": "CC(C)c1n(CC[C@@H](O)C[C@@H](O)CC(=O)O)c(-c2ccccc2)c(-c2ccc(F)cc2)c1C(=O)Nc1ccccc1", "dose_mg": 40},
+    "atorvastatin": {
+        "smiles": "CC(C)c1n(CC[C@@H](O)C[C@@H](O)CC(=O)O)c(-c2ccccc2)c(-c2ccc(F)cc2)c1C(=O)Nc1ccccc1",
+        "dose_mg": 40,
+    },
     "carbamazepine": {"smiles": "NC(=O)N1c2ccccc2C=Cc2ccccc21", "dose_mg": 200},
     "diazepam": {"smiles": "CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21", "dose_mg": 10},
-    "digoxin": {"smiles": "C[C@@H]1O[C@@H](O[C@@H]2C[C@H](O)[C@@H](O[C@@H]3C[C@H](O)[C@@H](O[C@@H]4C[C@H](O)[C@@H](OC5CC(CO)=CC(=O)O5)C(C)O4)C(C)O3)C(C)O2)C[C@H](O)[C@H]1O", "dose_mg": 0.5},
+    "digoxin": {
+        "smiles": "C[C@@H]1O[C@@H](O[C@@H]2C[C@H](O)[C@@H](O[C@@H]3C[C@H](O)[C@@H](O[C@@H]4C[C@H](O)[C@@H](OC5CC(CO)=CC(=O)O5)C(C)O4)C(C)O3)C(C)O2)C[C@H](O)[C@H]1O",
+        "dose_mg": 0.5,
+    },
     "fluoxetine": {"smiles": "CNCCC(Oc1ccc(C(F)(F)F)cc1)c1ccccc1", "dose_mg": 20},
     "nifedipine": {"smiles": "COC(=O)C1=C(C)NC(C)=C(C(=O)OC)C1c1ccccc1[N+](=O)[O-]", "dose_mg": 10},
     "omeprazole": {"smiles": "COc1ccc2[nH]c(S(=O)Cc3ncc(C)c(OC)c3C)nc2c1", "dose_mg": 20},
@@ -45,23 +51,23 @@ BENCHMARK_DRUGS = {
 # Known in-vivo hepatic clearances (L/h) from literature for calibration
 # Source: various clinical PK reviews, Drug Information Handbook
 KNOWN_CL_HEPATIC = {
-    "caffeine": 6.0,        # ~6 L/h, CYP1A2 primary
-    "metoprolol": 63.0,     # ~63 L/h, CYP2D6 extensive metabolizer
-    "midazolam": 27.0,      # ~27 L/h, CYP3A4 primary
-    "propranolol": 60.0,    # ~60 L/h, CYP1A2/2D6
-    "warfarin": 0.2,        # ~0.2 L/h, very low CL (long half-life)
+    "caffeine": 6.0,  # ~6 L/h, CYP1A2 primary
+    "metoprolol": 63.0,  # ~63 L/h, CYP2D6 extensive metabolizer
+    "midazolam": 27.0,  # ~27 L/h, CYP3A4 primary
+    "propranolol": 60.0,  # ~60 L/h, CYP1A2/2D6
+    "warfarin": 0.2,  # ~0.2 L/h, very low CL (long half-life)
     "d_amphetamine": 20.0,  # ~20 L/h, CYP2D6
-    "ibuprofen": 3.6,       # ~3.6 L/h, CYP2C9
+    "ibuprofen": 3.6,  # ~3.6 L/h, CYP2C9
     "acetaminophen": 21.0,  # ~21 L/h, UGT + CYP2E1
-    "atorvastatin": 38.0,   # ~38 L/h, CYP3A4, high first-pass
-    "carbamazepine": 5.0,   # ~5 L/h, CYP3A4 (autoinduction)
-    "diazepam": 1.6,        # ~1.6 L/h, CYP3A4/2C19
-    "fluoxetine": 40.0,     # ~40 L/h, CYP2D6/2C9
-    "nifedipine": 30.0,     # ~30 L/h, CYP3A4
-    "omeprazole": 30.0,     # ~30 L/h, CYP2C19/3A4
-    "phenytoin": 1.5,       # ~1.5 L/h, CYP2C9/2C19 (saturable)
-    "theophylline": 3.0,    # ~3.0 L/h, CYP1A2
-    "verapamil": 63.0,      # ~63 L/h, CYP3A4, high first-pass
+    "atorvastatin": 38.0,  # ~38 L/h, CYP3A4, high first-pass
+    "carbamazepine": 5.0,  # ~5 L/h, CYP3A4 (autoinduction)
+    "diazepam": 1.6,  # ~1.6 L/h, CYP3A4/2C19
+    "fluoxetine": 40.0,  # ~40 L/h, CYP2D6/2C9
+    "nifedipine": 30.0,  # ~30 L/h, CYP3A4
+    "omeprazole": 30.0,  # ~30 L/h, CYP2C19/3A4
+    "phenytoin": 1.5,  # ~1.5 L/h, CYP2C9/2C19 (saturable)
+    "theophylline": 3.0,  # ~3.0 L/h, CYP1A2
+    "verapamil": 63.0,  # ~63 L/h, CYP3A4, high first-pass
 }
 
 
@@ -104,7 +110,7 @@ def main():
             observed = load_observed_pk(drug_name)
 
             # Raw hepatocyte CLint from ADMET-AI (µL/min/10^6 cells)
-            clint_hep_raw = getattr(adme, 'clint_hepatocyte_uL_min', 0.0)
+            clint_hep_raw = getattr(adme, "clint_hepatocyte_uL_min", 0.0)
 
             # Standard hepatocyte IVIVE: µL/min/10^6 cells → L/h
             # = clint_hep × hepatocellularity × liver_wt / 1e6 / 60
@@ -163,14 +169,16 @@ def main():
         print(f"  Correction factors: {[f'{r:.1f}' for r in sorted(ratios)]}")
         print(f"  Median:  {np.median(ratios):.1f}×")
         print(f"  Mean:    {np.mean(ratios):.1f}×")
-        print(f"  Geomean: {10**np.mean(np.log10(ratios)):.1f}×")
+        print(f"  Geomean: {10 ** np.mean(np.log10(ratios)):.1f}×")
         print(f"  Min:     {min(ratios):.1f}×")
         print(f"  Max:     {max(ratios):.1f}×")
 
         # Use geometric mean as the empirical correction factor
-        correction = 10**np.mean(np.log10(ratios))
+        correction = 10 ** np.mean(np.log10(ratios))
         print(f"\n  → Recommended empirical IVIVE correction: {correction:.1f}×")
-        print(f"    (applied to standard hepatocyte IVIVE: CLint_in_vivo = CLint_hep × 3.6 × {correction:.0f})")
+        print(
+            f"    (applied to standard hepatocyte IVIVE: CLint_in_vivo = CLint_hep × 3.6 × {correction:.0f})"
+        )
 
     # Also analyze drugs with zero/negligible hepatocyte CLint
     zero_clint = [r for r in results if r["clint_hep_raw"] < 0.1]
@@ -183,7 +191,7 @@ def main():
     out = {
         "per_drug": results,
         "correction_factors": ratios,
-        "recommended_factor": float(10**np.mean(np.log10(ratios))) if ratios else None,
+        "recommended_factor": float(10 ** np.mean(np.log10(ratios))) if ratios else None,
         "median_factor": float(np.median(ratios)) if ratios else None,
     }
     out_path = repo_root / "outputs" / "ivive_calibration.json"

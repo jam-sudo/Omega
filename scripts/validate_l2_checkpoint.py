@@ -79,14 +79,20 @@ def main():
             curve = output["curve"].numpy().flatten()
 
             print(f"\n  {drug_name} ({smiles[:30]}...):")
-            print(f"    Params: mw={params['mw']:.1f}, logP={params['logP']:.2f}, "
-                  f"fup={params['fup']:.4f}, rbp={params['rbp']:.3f}")
+            print(
+                f"    Params: mw={params['mw']:.1f}, logP={params['logP']:.2f}, "
+                f"fup={params['fup']:.4f}, rbp={params['rbp']:.3f}"
+            )
             print(f"    CLint: 3a4={params['clint_3a4']:.3f}, 2d6={params['clint_2d6']:.3f}")
             print(f"    peff={params['peff']:.3f}")
-            print(f"    PK: Cmax={pk['cmax']:.4f}, AUC={pk['auc']:.4f}, "
-                  f"Tmax={pk['tmax']:.2f}h, t_half={pk['t_half']:.2f}h")
-            print(f"    Curve: shape={curve.shape}, min={curve.min():.6f}, "
-                  f"max={curve.max():.6f}, mean={curve.mean():.6f}")
+            print(
+                f"    PK: Cmax={pk['cmax']:.4f}, AUC={pk['auc']:.4f}, "
+                f"Tmax={pk['tmax']:.2f}h, t_half={pk['t_half']:.2f}h"
+            )
+            print(
+                f"    Curve: shape={curve.shape}, min={curve.min():.6f}, "
+                f"max={curve.max():.6f}, mean={curve.mean():.6f}"
+            )
 
             inference_results[drug_name] = {
                 "params": params,
@@ -166,8 +172,9 @@ def main():
             out_final = model("Cn1c(=O)c2c(ncn2C)n(C)c1=O")
             out_ft = model_ft("Cn1c(=O)c2c(ncn2C)n(C)c1=O")
 
-        cmax_diff = abs(out_final["pk_metrics"]["cmax"].item() -
-                       out_ft["pk_metrics"]["cmax"].item())
+        cmax_diff = abs(
+            out_final["pk_metrics"]["cmax"].item() - out_ft["pk_metrics"]["cmax"].item()
+        )
         print(f"  Caffeine Cmax diff (final vs finetune): {cmax_diff:.6f}")
         results["checks"]["finetune_cmax_diff_caffeine"] = float(cmax_diff)
 
