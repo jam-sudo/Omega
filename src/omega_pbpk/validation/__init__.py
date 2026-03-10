@@ -17,7 +17,8 @@ def mass_balance_check(
     amounts: NDArray[np.floating[Any]],
     dose_mg: float,
     time_h: NDArray[np.floating[Any]] | None = None,
-    tolerance_frac: float = 0.005,
+    tolerance_frac: float | None = None,
+    tolerance_mg: float | None = None,
 ) -> list[str]:
     """Verify mass conservation across all compartments.
 
@@ -41,7 +42,12 @@ def mass_balance_check(
         amounts: Array of shape (n_time, n_states) from SimulationResult.amounts.
         dose_mg: Administered dose (mg).
         time_h: Optional time array for pinpointing deviations.
-        tolerance_frac: Maximum allowed fractional deviation from dose (default 0.5%).
+        tolerance_frac: Maximum allowed fractional deviation from dose.
+            Mutually exclusive with tolerance_mg. If neither is provided,
+            dose-relative tolerance ``dose_mg * 1e-3`` mg is used.
+        tolerance_mg: Maximum allowed absolute deviation in mg.
+            Mutually exclusive with tolerance_frac. If neither is provided,
+            dose-relative tolerance ``dose_mg * 1e-3`` mg is used.
 
     Returns:
         List of warning messages (empty if mass is conserved).
@@ -50,18 +56,30 @@ def mass_balance_check(
     if dose_mg <= 0:
         return warnings_out
 
-    total_mass = np.sum(amounts, axis=1)
-    deviation_frac = np.abs(total_mass - dose_mg) / dose_mg
-    max_dev_idx = int(np.argmax(deviation_frac))
-    max_dev = float(deviation_frac[max_dev_idx])
+    # Resolve tolerance: explicit args take priority, otherwise dose-relative
+    if tolerance_frac is not None and tolerance_mg is not None:
+        raise ValueError("Specify tolerance_frac or tolerance_mg, not both")
 
-    if max_dev > tolerance_frac:
+    if tolerance_frac is not None:
+        abs_tol = tolerance_frac * dose_mg
+    elif tolerance_mg is not None:
+        abs_tol = tolerance_mg
+    else:
+        abs_tol = dose_mg * 1e-3  # dose-relative default
+
+    total_mass = np.sum(amounts, axis=1)
+    deviation = np.abs(total_mass - dose_mg)
+    max_dev_idx = int(np.argmax(deviation))
+    max_dev_mg = float(deviation[max_dev_idx])
+    max_dev_frac = max_dev_mg / dose_mg
+
+    if max_dev_mg > abs_tol:
         t_info = ""
         if time_h is not None and max_dev_idx < len(time_h):
             t_info = f" at t={float(time_h[max_dev_idx]):.2f}h"
         msg = (
-            f"Mass balance deviation {max_dev:.4%} exceeds tolerance "
-            f"{tolerance_frac:.4%}{t_info}: "
+            f"Mass balance deviation {max_dev_frac:.4%} exceeds tolerance "
+            f"{abs_tol:.6f} mg{t_info}: "
             f"total_mass={float(total_mass[max_dev_idx]):.6f} mg vs dose={dose_mg:.6f} mg"
         )
         warnings.warn(msg, RuntimeWarning, stacklevel=2)
@@ -131,7 +149,8 @@ def oral_mass_balance_check(
     dose_mg: float,
     time_h: NDArray[np.floating[Any]],
     gi_states: NDArray[np.floating[Any]] | None = None,
-    tolerance_frac: float = 0.02,
+    tolerance_frac: float | None = None,
+    tolerance_mg: float | None = None,
     min_absorption_frac: float = 0.99,
 ) -> list[str]:
     """Verify mass conservation for oral dosing at simulation end.
@@ -154,7 +173,12 @@ def oral_mass_balance_check(
         gi_states: Optional sub-array (n_time, n_gi_states) of GI compartment
             amounts only. If provided, used to compute GI residual fraction.
             If None, the check is performed unconditionally at the last timepoint.
-        tolerance_frac: Maximum allowed fractional deviation from dose (default 2%).
+        tolerance_frac: Maximum allowed fractional deviation from dose.
+            Mutually exclusive with tolerance_mg. If neither is provided,
+            dose-relative tolerance ``dose_mg * 1e-3`` mg is used.
+        tolerance_mg: Maximum allowed absolute deviation in mg.
+            Mutually exclusive with tolerance_frac. If neither is provided,
+            dose-relative tolerance ``dose_mg * 1e-3`` mg is used.
         min_absorption_frac: Fraction of dose that must have left GI before checking.
             Only used when gi_states is provided (default 99%).
 
@@ -165,6 +189,17 @@ def oral_mass_balance_check(
     warnings_out: list[str] = []
     if dose_mg <= 0:
         return warnings_out
+
+    # Resolve tolerance: explicit args take priority, otherwise dose-relative
+    if tolerance_frac is not None and tolerance_mg is not None:
+        raise ValueError("Specify tolerance_frac or tolerance_mg, not both")
+
+    if tolerance_frac is not None:
+        abs_tol = tolerance_frac * dose_mg
+    elif tolerance_mg is not None:
+        abs_tol = tolerance_mg
+    else:
+        abs_tol = dose_mg * 1e-3  # dose-relative default
 
     # Determine the timepoint at which to evaluate mass balance
     if gi_states is not None and len(gi_states) > 0:
@@ -182,16 +217,17 @@ def oral_mass_balance_check(
         check_idx = -1
 
     total_mass = float(np.sum(amounts[check_idx]))
-    deviation_frac = abs(total_mass - dose_mg) / dose_mg
+    deviation_mg = abs(total_mass - dose_mg)
+    deviation_frac = deviation_mg / dose_mg
     t_val = (
         float(time_h[check_idx]) if time_h is not None and len(time_h) > abs(check_idx) else None
     )
 
-    if deviation_frac > tolerance_frac:
+    if deviation_mg > abs_tol:
         t_info = f" at t={t_val:.2f}h" if t_val is not None else ""
         msg = (
             f"Oral mass balance deviation {deviation_frac:.4%} exceeds tolerance "
-            f"{tolerance_frac:.4%}{t_info}: "
+            f"{abs_tol:.6f} mg{t_info}: "
             f"total_mass={total_mass:.6f} mg vs dose={dose_mg:.6f} mg"
         )
         warnings.warn(msg, RuntimeWarning, stacklevel=2)

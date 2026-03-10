@@ -72,7 +72,7 @@ class TestMassBalanceCheckIV:
 
     def test_deviation_within_tolerance_no_warning(self):
         amounts = _perfect_amounts(100, 35, 100.0)
-        amounts[:, 0] *= 0.999  # 0.1% loss — within default 0.5% tolerance
+        amounts[:, 0] *= 0.999  # 0.1% loss — within default dose-relative tolerance (dose*1e-3)
         result = mass_balance_check(amounts, 100.0)
         assert result == []
 
@@ -209,7 +209,7 @@ class TestOralMassBalanceCheck:
 @pytest.mark.integration
 class TestMassBalanceWithRealSimulation:
     def test_iv_simulation_conserves_mass(self):
-        """Real 35-state ODE IV simulation must pass mass balance (±0.5%)."""
+        """Real 35-state ODE IV simulation must pass mass balance (dose-relative tolerance)."""
         pytest.importorskip("omega_pbpk.core.body")
         from omega_pbpk.core.body import WholeBodyPBPK
         from omega_pbpk.drugs.drug import Drug
