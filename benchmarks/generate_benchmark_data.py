@@ -214,10 +214,9 @@ def generate_drug_csv(drug, out_dir):
         for t, c, std in rows:
             writer.writerow([t, c, std])
 
+    peak_idx = max(range(len(rows)), key=lambda i: rows[i][1])
     print(
-        f"  Generated {filename}: Cmax={max(r[1] for r in rows):.6g} mg/L at t={TIMEPOINTS[max(range(len(rows)), key=lambda i: (
-                    rows[i][1]
-                ))]}h"
+        f"  Generated {filename}: Cmax={max(r[1] for r in rows):.6g} mg/L at t={TIMEPOINTS[peak_idx]}h"
     )
     return filename
 
@@ -225,12 +224,6 @@ def generate_drug_csv(drug, out_dir):
 def generate_drug_config(drug, csv_filename, out_dir):
     """Generate YAML config for a drug."""
     filepath = os.path.join(out_dir, f"{drug['name']}.yaml")
-    dose_str = (
-        f"{drug['dose_mg']}"
-        if drug["dose_mg"] != int(drug["dose_mg"])
-        else f"{int(drug['dose_mg'])}.0"
-    )
-    # Use float formatting
     dose_val = drug["dose_mg"]
 
     with open(filepath, "w") as f:
@@ -239,7 +232,7 @@ def generate_drug_config(drug, csv_filename, out_dir):
         f.write(f"compound_file: compounds/{drug['name']}.yaml\n")
         f.write(f"dose_mg: {dose_val}\n")
         f.write(f"route: {drug['route']}\n")
-        f.write(f"t_end_h: 24.0\n")
+        f.write("t_end_h: 24.0\n")
         f.write(f'source: "{drug["source"]}"\n')
 
     print(f"  Generated {drug['name']}.yaml config")
