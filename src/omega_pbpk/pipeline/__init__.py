@@ -320,7 +320,7 @@ class OmegaPipeline:
             _F_result = predict_bioavailability(drug, dose_mg=request.dose_mg)
             _F = max(_F_result.F_total, 0.01)
 
-            if _F > 0.7 and _cl_r < 5.0 and request.route == "oral":
+            if _cl_r < 5.0 and request.route == "oral":
                 _bw = request.subject_weight_kg or 70.0
                 _vd_berez = vdss_from_kp(drug.kp, _bw) if drug.kp else 50.0
                 _vd_berez = max(_vd_berez, 0.043 * _bw)
@@ -377,31 +377,17 @@ class OmegaPipeline:
                     )
                     cmax = _cmax_an
                 else:
-                    # Asymmetric divergence thresholds:
-                    # - ODE over-predicts (ODE >> analytical, 3x): perfusion-
-                    #   limited model gives unrealistically high plasma spike
-                    # - ODE under-predicts (analytical >> ODE, 2x): ODE distributes
-                    #   drug too widely, reducing plasma peak
-                    _use_analytical = False
-                    if cmax > _cmax_an * 3.0:
-                        _use_analytical = True
-                        logger.debug(
-                            "Hybrid Cmax: ODE=%.4f >> analytical=%.4f (%.1fx), using analytical",
-                            cmax,
-                            _cmax_an,
-                            cmax / _cmax_an,
-                        )
-                    elif _cmax_an > cmax * 2.0:
-                        _use_analytical = True
-                        logger.debug(
-                            "Hybrid Cmax: ODE=%.4f << analytical=%.4f (%.1fx), using analytical",
-                            cmax,
-                            _cmax_an,
-                            _cmax_an / cmax,
-                        )
-
-                    if _use_analytical:
-                        cmax = _cmax_an
+                    # Geometric mean of ODE and analytical Cmax.
+                    # ODE systematically over-predicts due to distribution-phase
+                    # plasma spike before tissue equilibrium. The analytical
+                    # model (F*Dose/Vd) is lower but can under-predict for
+                    # high-extraction drugs. Geometric mean balances both.
+                    cmax_blend = float(np.sqrt(cmax * _cmax_an))
+                    logger.debug(
+                        "Blended Cmax: ODE=%.4f, analytical=%.4f, geo_mean=%.4f",
+                        cmax, _cmax_an, cmax_blend,
+                    )
+                    cmax = cmax_blend
         except Exception as exc:
             logger.debug("Hybrid Cmax selector failed: %s", exc)
 
@@ -845,7 +831,7 @@ class OmegaPipeline:
                 mw=mw,
                 logP=logP,
                 fup=fup,
-                rbp=float(adme.get("rbp", 0.55)),
+                rbp=min(float(adme.get("rbp", 0.55)), 1.5),  # Cap: most drugs have RBP 0.5-1.2
                 clint_hepatic_L_per_h=clint_L_per_h,
                 clr_L_per_h=cl_renal,
                 peff=peff,
@@ -863,7 +849,7 @@ class OmegaPipeline:
                 mw=mw,
                 logP=logP,
                 fup=fup,
-                rbp=float(adme.get("rbp", 0.55)),
+                rbp=min(float(adme.get("rbp", 0.55)), 1.5),  # Cap: most drugs have RBP 0.5-1.2
                 clint=clint_dict,
                 clr_L_per_h=cl_renal,
                 peff=peff,

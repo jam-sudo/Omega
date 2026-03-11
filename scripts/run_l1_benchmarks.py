@@ -79,17 +79,16 @@ def compute_aafe(fold_errors):
 
 
 def main():
-    from omega_pbpk.core.body import WholeBodyPBPK
-    from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
+    from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
 
-    predictor = EnsembleADMEPredictor()
+    pipeline = OmegaPipeline()
 
     all_results = []
     cmax_fold_errors = []
     auc_fold_errors = []
 
     print("=" * 80)
-    print("L1 BENCHMARK: SMILES → EnsembleADMEPredictor → WholeBodyPBPK → PK Metrics")
+    print("L1 BENCHMARK: SMILES → OmegaPipeline.simulate() → PK Metrics")
     print("=" * 80)
 
     for drug_name, info in BENCHMARK_DRUGS.items():
@@ -104,51 +103,32 @@ def main():
             print(f"  WARNING: No observed data found for {drug_name}")
 
         try:
-            # Predict ADME
-            adme = predictor.predict(smiles)
-            print(
-                f"  ADME: mw={adme.mw:.1f}, logP={adme.logP:.2f}, fup={adme.fup:.4f}, "
-                f"rbp={adme.rbp:.3f}, clint_3a4={adme.clint_3a4:.3f}, peff={adme.peff:.3f}"
-            )
-
-            # Build Drug using OmegaPipeline._build_drug() for proper IVIVE:
-            # - XGBoost CLint (reference-anchored to clinical clearance)
-            # - Power-law IVIVE: CLh = 0.3 × CLint_hep^0.9
-            # - Well-stirred pre-inversion
-            # - Berezhkovskiy Kp
+            # Use the full OmegaPipeline.simulate() which includes:
+            # - ADME prediction (ensemble)
+            # - IVIVE (power-law CLh = 0.3 × CLint^0.9)
+            # - Berezhkovskiy Kp + RDKit logP
             # - Renal clearance estimation
-            from omega_pbpk.pipeline import OmegaPipeline
+            # - ODE simulation
+            # - Hybrid Cmax selector (geometric mean of ODE + analytical)
+            # - Hybrid t½ selector (curve-fit vs analytical)
+            # - VDss correction (XGBoost vs Berezhkovskiy)
+            sim_result = pipeline.simulate(SimulationRequest(
+                smiles=smiles,
+                dose_mg=dose_mg,
+                route="oral",
+                duration_h=24.0,
+            ))
 
-            pipeline = OmegaPipeline()
-            pipeline._ensure_initialized()
-            adme_dict = {
-                "mw": adme.mw,
-                "logP": adme.logP,
-                "logS": adme.logS,
-                "fup": adme.fup,
-                "rbp": adme.rbp,
-                "clint_3a4": adme.clint_3a4,
-                "clint_2d6": getattr(adme, "clint_2d6", 0.5),
-                "peff": adme.peff,
-                "herg_ic50_uM": getattr(adme, "herg_ic50_uM", 100.0),
-                "clint_hepatocyte_uL_min": getattr(adme, "clint_hepatocyte_uL_min", 0.0),
-            }
-            warnings_list = []
-            drug = pipeline._build_drug(smiles, adme_dict, warnings_list)
+            adme = sim_result.adme_properties
             print(
-                f"  Pipeline Drug: CLint_hep={drug.clint_hepatic_L_per_h:.2f} L/h, "
-                f"CLr={drug.clr_L_per_h:.2f} L/h, Kp={len(drug.kp)} tissues"
+                f"  ADME: mw={adme.get('mw', 0):.1f}, logP={adme.get('logP', 0):.2f}, "
+                f"fup={adme.get('fup', 0):.4f}, rbp={adme.get('rbp', 0):.3f}, "
+                f"clint_3a4={adme.get('clint_3a4', 0):.3f}, peff={adme.get('peff', 0):.3f}"
             )
 
-            # Simulate
-            model = WholeBodyPBPK(drug=drug, body_weight=70.0)
-            model.setup_oral(dose_mg)
-            result = model.simulate(t_end_h=24.0)
-            pk = result.pk_summary()
-
-            pred_cmax = pk.get("Cmax_mg_L", float("nan"))
-            pred_auc = pk.get("AUC_mg_h_L", float("nan"))
-            pred_thalf = pk.get("half_life_h", float("nan"))
+            pred_cmax = sim_result.cmax_mg_L
+            pred_auc = sim_result.auc0t_mg_h_L
+            pred_thalf = sim_result.t_half_h
 
             print(
                 f"  Predicted: Cmax={pred_cmax:.4f} mg/L, AUC={pred_auc:.4f} mg*h/L, "
@@ -163,12 +143,12 @@ def main():
                 "predicted_auc": pred_auc,
                 "predicted_thalf": pred_thalf,
                 "adme": {
-                    "mw": adme.mw,
-                    "logP": adme.logP,
-                    "fup": adme.fup,
-                    "rbp": adme.rbp,
-                    "clint_3a4": adme.clint_3a4,
-                    "peff": adme.peff,
+                    "mw": adme.get("mw", 0),
+                    "logP": adme.get("logP", 0),
+                    "fup": adme.get("fup", 0),
+                    "rbp": adme.get("rbp", 0),
+                    "clint_3a4": adme.get("clint_3a4", 0),
+                    "peff": adme.get("peff", 0),
                 },
                 "success": True,
             }
