@@ -1,0 +1,74 @@
+drug_name,parameter,value,unit,context
+sitagliptin and metformin,cmax,950.0,nM,"f sitagliptin was 8.52 µM•hr, C max was 950 nM, and apparent terminal half-l"
+sitagliptin and metformin,auc,8.52,µM•hr,"althy volunteers, mean plasma AUC of sitagliptin was 8.52 µM•hr, C max was 950 nM, and appare"
+sitagliptin and metformin,t_half,12.4,hours,apparent terminal half-life (t 1/2 ) was 12.4 hours. Plasma AUC of sitagliptin in
+sitagliptin and metformin,tmax,1.0,hours,plasma concentrations (median T max ) occurring 1 to 4 hours postdose. The absolute bioava
+sitagliptin and metformin,clearance,350.0,mL/min,approximately 12.4 hours and renal clearance was approximately 350 mL/min. Metformin Following oral adm
+sitagliptin and metformin,bioavailability,87.0,%,ng 1 to 4 hours postdose. The absolute bioavailability of sitagliptin is approximately 87%. Effect of Food Coadministrat
+metformin,t_half,6.2,hours,"rs, with a plasma elimination half-life of approximately 6.2 hours. In blood, the elimination ha"
+nifedipine,bioavailability,86.0,%,"Tablet. At steady-state, the bioavailability of the Nifedipine Extended-release Tablet is 86% relative to immediate-release"
+propranolol,t_half,10.0,hours,entially. The apparent plasma half-life is about 10 hours. Enantiomers Propranolol is a
+propranolol,vd,4.0,L,ntially bound to albumin. The volume of distribution of propranolol is approximately 4 liters/kg. Propranolol crosses the b
+propranolol,bioavailability,90.0,%,"tended-Release Capsules, USP, bioavailability has not been investigated. Distribution Approximately 90% of circulating propranolol is"
+alprazolam,t_half,11.2,hours,plasma elimination half-life (T 1/2 ) of alprazolam is approximately 11.2 hours (range: 6.3 to 26.9 hours) in
+levofloxacin,t_half,6.0,hours,n terminal plasma elimination half-life of levofloxacin ranges from approximately 6 to 8 hours following single or multiple
+levofloxacin,tmax,1.0,hours,oxacin with food prolongs the time to peak concentration by approximately 1 hour and decreases the peak concen
+tacrolimus,t_half,25.0,hours,t difference in mean terminal half-life among the three ethnic groups (range from approximately 25 to 30 hours). Male and Female Patients A
+tacrolimus,clearance,0.226,L/h,imus concentrations. The mean clearance of radiolabel was 0.226 ± 0.116 L/hr/kg and the mean clearance of
+tacrolimus,protein_binding,99.0,%,ning. Distribution The plasma protein binding of tacrolimus is approximately 99% and is independent of concent
+amlodipine,t_half,30.0,hours,c with a terminal elimination half-life of about 30 to 50 hours. Steady-state plasma levels o
+fluoxetine,t_half,1.0,hours,on of fluoxetine (elimination half-life of 1 to 3 days after acute administration an
+clarithromycin,t_half,3.0,hours,to 12 hours. The elimination half-life of clarithromycin was about 3 hours to 4 hours with 250 mg admini
+codeine,protein_binding,7.0,%,ssues. Codeine has low plasma protein binding with about 7% to 25% of codeine bound to pl
+risperidone,t_half,3.0,hours,4% in the feces. The apparent half-life of risperidone was 3 hours (CV=30%) in extensive metabol
+risperidone,bioavailability,70.0,%,s well absorbed. The absolute oral bioavailability of risperidone is 70% (CV=25%). The relative oral b
+risperidone,protein_binding,90.0,%,"acid glycoprotein. The plasma protein binding of risperidone is approximately 90%, and that of its major metabo"
+sertraline,cmax,165.0,ng/mL,"24 hr) of 3107 ng-hr/mL, mean C max of 165 ng/mL, and mean half-life of 26.2 h"
+sertraline,t_half,26.0,hours,average terminal elimination half-life of plasma sertraline is about 26 hours. Based on this pharmacokineti
+metoprolol,t_half,3.0,hours,e liver. The mean elimination half-life of metoprolol is 3 to 4 hours; in poor CYP2D6 metabolizers
+metoprolol,bioavailability,50.0,%,cs Absorption : The estimated oral bioavailability of immediate release metoprolol is about 50% because of pre-systemic metab
+atorvastatin,t_half,14.0,hours,"tion. Mean plasma elimination half-life of atorvastatin in humans is approximately 14 hours, but the half-life of inhibit"
+atorvastatin,vd,381.0,L,istration . Distribution Mean volume of distribution of atorvastatin is approximately 381 liters. Atorvastatin is ≥98% bound t
+atorvastatin,bioavailability,14.0,%,ion to atorvastatin dose. The absolute bioavailability of atorvastatin (parent drug) is approximately 14% and the systemic availability
+ezetimibe and simvastatin,t_half,22.0,hours,eliminated from plasma with a half-life of approximately 22 hours for both ezetimibe and ezetim
+ezetimibe and simvastatin,clearance,13.2,mL/min,nal insufficiency (creatinine clearance of 13.2 mL/min/1.73 m 2 ) who was receiving
+theophylline anhydrous,t_half,8.0,hours,assuming a mean theophylline half-life of 8 hours. The difference between peak
+theophylline anhydrous,vd,0.45,L/kg,y into body fat. The apparent volume of distribution of theophylline is approximately 0.45 L/kg (range 0.3-0.7 L/kg) based
+lisinopril and hydrochlorothiazide,t_half,12.0,hours,inopril exhibits an effective half-life of accumulation of 12 hours. Impaired renal function decr
+lamotrigine,t_half,31.2,hours,": 33 to 108 mL/min). The mean half-life of lamotrigine in these subjects was 31.2 hours (range: 24.5 to 43.4 hours),"
+lamotrigine,clearance,61.0,mL/min,"and 76 years (mean creatinine clearance = 61 mL/min, range: 33 to 108 mL/min). Th"
+lamotrigine,bioavailability,98.0,%,igible first-pass metabolism (absolute bioavailability is 98%). The bioavailability is not
+lamotrigine,protein_binding,55.0,%,sy and in healthy volunteers. Protein Binding Data from in vitro studies indicate that lamotrigine is approximately 55% bound to human plasma protein
+midazolam,cmax,90.0,ng/mL,.5 mg IV or IM dose. The mean peak concentration (C max ) and time to peak (T max ) following the IM dose was 90 ng/mL (20% CV) and 0.5 hr (50% CV).
+midazolam,tmax,1.0,hours,wing the IM dose was 8 ng/mL (T max =1.0 hr). Following IM administration
+fluconazole,cmax,6.72,mcg/mL,f fluconazole leads to a mean C max of 6.72 mcg/mL (range: 4.12 to 8.08 mcg/mL)
+fluconazole,t_half,30.0,hours,a terminal plasma elimination half-life of approximately 30 hours (range: 20 to 50 hours) after
+losartan,t_half,2.0,hours,"n, respectively. The terminal half-life of losartan is about 2 hours and of the metabolite is abou"
+losartan,vd,34.0,L,"e over time. Distribution The volume of distribution of losartan and the active metabolite is about 34 liters and 12 liters, respectively."
+losartan,clearance,600.0,mL/min,"tes. Elimination Total plasma clearance of losartan and the active metabolite is about 600 mL/min and 50 mL/min, respectively,"
+losartan,bioavailability,33.0,%,pass metabolism. The systemic bioavailability of losartan is approximately 33%. Mean peak concentrations of
+losartan,protein_binding,1.3,%,"active metabolite are highly bound to plasma proteins, primarily albumin, with plasma free fractions of 1.3% and 0.2%, respectively. Plasm"
+hydroxychloroquine,cmax,129.6,ng/mL,hole blood hydroxychloroquine Cmax was 129.6 ng/mL (plasma C max was 50.3 ng/mL)
+hydroxychloroquine,t_half,40.0,hours,200 mg tablet demonstrated a half-life of hydroxychloroquine about 40 days in whole blood. Following chr
+hydroxychloroquine,tmax,3.3,hours,ma C max was 50.3 ng/mL) with T max of 3.3 hours (plasma T max 3.7 hours). Pea
+hydroxychloroquine,bioavailability,79.0,%,oxychloroquine. Mean absolute oral bioavailability is 79% (SD: 12%) in fasting conditio
+olanzapine,t_half,21.0,hours,he clinical dosing range. Its half-life ranges from 21 to 54 hours (5th to 95th percentile; mean
+olanzapine,vd,1000.0,L,"d throughout the body, with a volume of distribution of approximately 1000 L. It is 93% bound to plasma pr"
+warfarin,t_half,20.0,hours,"week; however, the effective half-life ranges from 20 to 60 hours, with a mean of about 40 hour"
+warfarin,vd,0.14,L/kg,Distribution Warfarin shows a volume of distribution of about 0.14 L/kg. Approximately 99% of the
+diazepam,t_half,1.0,hours,"tial distribution phase has a half-life of approximately 1 hour, although it may range up to"
+carbamazepine,t_half,25.0,hours,"fixed dosing regimen. Initial half-life values range from 25 to 65 hours, decreasing to 12 to 17 hours"
+carbamazepine,bioavailability,89.0,%,the conventional tablet. The bioavailability of the XR tablet was 89% compared to suspension. Follo
+itraconazole,cmax,0.6,mcg/ml,"thin about 15 days, with mean C max values of 0.6 mcg/ml and 1.7 mcg/ml after oral adm"
+itraconazole,clearance,13.0,mL/min,"bjects with a mean creatinine clearance of 13 mL/min. × 1.73 m 2 , the exposure, b"
+clonazepam,clearance,0.42,mL/min/kg,"RAINDICATIONS ). In children, clearance values of 0.42 ± 0.32 mL/min/kg (ages 2 to 18 years) and 0"
+clonazepam,bioavailability,90.0,%,fter oral administration. The absolute bioavailability of clonazepam is about 90%. Maximum plasma concentration
+ciprofloxacin,t_half,4.0,hours,tively. The serum elimination half-life in subjects with normal renal function is approximately 4 hours. Serum concentrations increas
+ciprofloxacin,clearance,300.0,mL/min,"in 24 hours after dosing. The renal clearance of ciprofloxacin, which is approximately 300 mL/minute, exceeds the normal glomer"
+ciprofloxacin,bioavailability,70.0,%,armacokinetics Absorption The absolute bioavailability of ciprofloxacin when given as an oral tablet is approximately 70% with no substantial loss by f
+digoxin,t_half,1.5,hours,"renal function, digoxin has a half-life of 1.5 to 2 days. The half-life in anuric pati"
+morphine,t_half,2.0,hours,in/kg. The effective terminal half-life of morphine sulfate after IV administration is reported to be approximately 2 hours. In some studies involving lo
+phenytoin,t_half,10.0,hours,cement. Elimination The serum half-life in man after intravenous administration ranges from 10 to 15 hours. Metabolism Phenytoin is meta
+gabapentin,t_half,5.0,hours,umans. Gabapentin elimination half-life is 5 to 7 hours and is unaltered by dose or f
+gabapentin,clearance,225.0,mL/min,"20-80 years of age. Apparent oral clearance (CL/F) of gabapentin decreased as age increased, from about 225 mL/min in those under 30 years of ag"
+gabapentin,bioavailability,60.0,%,"; i.e., as dose is increased, bioavailability decreases. Bioavailability of gabapentin is approximately 60%, 47%, 34%, 33%, and 27% follo"
