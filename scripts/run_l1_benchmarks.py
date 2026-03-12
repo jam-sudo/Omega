@@ -112,12 +112,14 @@ def main():
             # - Hybrid Cmax selector (geometric mean of ODE + analytical)
             # - Hybrid t½ selector (curve-fit vs analytical)
             # - VDss correction (XGBoost vs Berezhkovskiy)
-            sim_result = pipeline.simulate(SimulationRequest(
-                smiles=smiles,
-                dose_mg=dose_mg,
-                route="oral",
-                duration_h=24.0,
-            ))
+            sim_result = pipeline.simulate(
+                SimulationRequest(
+                    smiles=smiles,
+                    dose_mg=dose_mg,
+                    route="oral",
+                    duration_h=24.0,
+                )
+            )
 
             adme = sim_result.adme_properties
             print(

@@ -385,7 +385,9 @@ class OmegaPipeline:
                     cmax_blend = float(np.sqrt(cmax * _cmax_an))
                     logger.debug(
                         "Blended Cmax: ODE=%.4f, analytical=%.4f, geo_mean=%.4f",
-                        cmax, _cmax_an, cmax_blend,
+                        cmax,
+                        _cmax_an,
+                        cmax_blend,
                     )
                     cmax = cmax_blend
         except Exception as exc:

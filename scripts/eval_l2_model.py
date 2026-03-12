@@ -125,9 +125,7 @@ def eval_l2(model_path: str, device: str = "cpu"):
 
         try:
             t0 = time.perf_counter()
-            result = predictor.predict(
-                smiles, dose_mg=dose_mg, route="oral", t_end_h=24.0
-            )
+            result = predictor.predict(smiles, dose_mg=dose_mg, route="oral", t_end_h=24.0)
             latency_ms = (time.perf_counter() - t0) * 1000
             latencies.append(latency_ms)
 
@@ -143,12 +141,16 @@ def eval_l2(model_path: str, device: str = "cpu"):
             # Surrogate Cmax for comparison
             surr_cmax = float(np.max(surr_curve)) if surr_curve is not None else 0
 
-            print(f"  Params: logP={params.get('logP', 0):.2f}, "
-                  f"fup={params.get('fup', 0):.4f}, "
-                  f"clint={params.get('clint_L_h', params.get('clint_3a4', 0)):.3f}, "
-                  f"mw={params.get('mw', 0):.0f}")
-            print(f"  PK (ODE): Cmax={pred_cmax:.4f} mg/L, "
-                  f"AUC={pred_auc:.4f} mg*h/L, t½={pred_thalf:.2f}h")
+            print(
+                f"  Params: logP={params.get('logP', 0):.2f}, "
+                f"fup={params.get('fup', 0):.4f}, "
+                f"clint={params.get('clint_L_h', params.get('clint_3a4', 0)):.3f}, "
+                f"mw={params.get('mw', 0):.0f}"
+            )
+            print(
+                f"  PK (ODE): Cmax={pred_cmax:.4f} mg/L, "
+                f"AUC={pred_auc:.4f} mg*h/L, t½={pred_thalf:.2f}h"
+            )
             print(f"  Surrogate Cmax: {surr_cmax:.4f} mg/L")
             print(f"  Latency: {latency_ms:.0f}ms")
 
@@ -169,8 +171,10 @@ def eval_l2(model_path: str, device: str = "cpu"):
                 cmax_fes.append(fe_c)
                 auc_fes.append(fe_a)
                 print(f"  Observed: Cmax={observed['cmax']:.4f}, AUC={observed['auc']:.4f}")
-                print(f"  Fold-error: Cmax={fe_c:.2f}x, AUC={fe_a:.2f}x "
-                      f"{'✓' if fe_c <= 2.0 and fe_a <= 2.0 else '✗'}")
+                print(
+                    f"  Fold-error: Cmax={fe_c:.2f}x, AUC={fe_a:.2f}x "
+                    f"{'✓' if fe_c <= 2.0 and fe_a <= 2.0 else '✗'}"
+                )
                 entry["obs_cmax"] = observed["cmax"]
                 entry["obs_auc"] = observed["auc"]
                 entry["fe_cmax"] = fe_c
@@ -205,10 +209,14 @@ def eval_l2(model_path: str, device: str = "cpu"):
     print(f"\nLatency: mean={avg_latency:.0f}ms, p50={p50_latency:.0f}ms")
 
     print("\n--- L2 EXIT CRITERIA ---")
-    print(f"  AAFE < 2.0:   Cmax={'PASS' if aafe_cmax < 2.0 else 'FAIL'} ({aafe_cmax:.2f}), "
-          f"AUC={'PASS' if aafe_auc < 2.0 else 'FAIL'} ({aafe_auc:.2f})")
-    print(f"  %2-fold ≥70%: Cmax={'PASS' if pct_2f_c >= 70 else 'FAIL'} ({pct_2f_c:.0f}%), "
-          f"AUC={'PASS' if pct_2f_a >= 70 else 'FAIL'} ({pct_2f_a:.0f}%)")
+    print(
+        f"  AAFE < 2.0:   Cmax={'PASS' if aafe_cmax < 2.0 else 'FAIL'} ({aafe_cmax:.2f}), "
+        f"AUC={'PASS' if aafe_auc < 2.0 else 'FAIL'} ({aafe_auc:.2f})"
+    )
+    print(
+        f"  %2-fold ≥70%: Cmax={'PASS' if pct_2f_c >= 70 else 'FAIL'} ({pct_2f_c:.0f}%), "
+        f"AUC={'PASS' if pct_2f_a >= 70 else 'FAIL'} ({pct_2f_a:.0f}%)"
+    )
     print(f"  Speed <500ms: {'PASS' if avg_latency < 500 else 'FAIL'} ({avg_latency:.0f}ms)")
 
     # --- Load L1 results for comparison ---
@@ -217,10 +225,14 @@ def eval_l2(model_path: str, device: str = "cpu"):
         l1 = json.load(open(l1_path))
         print("\n--- L2 vs L1 COMPARISON ---")
         print(f"  {'Metric':<20s} {'L1':>10s} {'L2':>10s} {'Delta':>10s}")
-        print(f"  {'Cmax AAFE':<20s} {l1['aafe_cmax']:>10.2f} {aafe_cmax:>10.2f} "
-              f"{'↑' if aafe_cmax > l1['aafe_cmax'] else '↓'}{abs(aafe_cmax - l1['aafe_cmax']):.2f}")
-        print(f"  {'AUC AAFE':<20s} {l1['aafe_auc']:>10.2f} {aafe_auc:>10.2f} "
-              f"{'↑' if aafe_auc > l1['aafe_auc'] else '↓'}{abs(aafe_auc - l1['aafe_auc']):.2f}")
+        print(
+            f"  {'Cmax AAFE':<20s} {l1['aafe_cmax']:>10.2f} {aafe_cmax:>10.2f} "
+            f"{'↑' if aafe_cmax > l1['aafe_cmax'] else '↓'}{abs(aafe_cmax - l1['aafe_cmax']):.2f}"
+        )
+        print(
+            f"  {'AUC AAFE':<20s} {l1['aafe_auc']:>10.2f} {aafe_auc:>10.2f} "
+            f"{'↑' if aafe_auc > l1['aafe_auc'] else '↓'}{abs(aafe_auc - l1['aafe_auc']):.2f}"
+        )
         print(f"  {'Cmax %2-fold':<20s} {l1['pct_2fold_cmax']:>9.0f}% {pct_2f_c:>9.0f}%")
         print(f"  {'AUC %2-fold':<20s} {l1['pct_2fold_auc']:>9.0f}% {pct_2f_a:>9.0f}%")
 
