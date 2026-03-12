@@ -16,8 +16,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
-import time
 from pathlib import Path
 
 import numpy as np
@@ -218,7 +216,6 @@ def train(
 
 def validate_against_benchmark(model_path: str) -> dict:
     """Run validate_surrogate logic against 20 benchmark drugs."""
-    import torch
 
     from omega_pbpk.ml.models.surrogate.differentiable_ode import load_surrogate
 
