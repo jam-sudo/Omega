@@ -35,12 +35,12 @@ DT_H = 0.1
 
 # 6D parameter space for PBPK ODE data generation
 PBPK_PARAM_RANGES: dict[str, tuple[float, float]] = {
-    "logP": (-2.0, 6.0),
-    "fup": (0.01, 1.0),
-    "clint_L_h": (0.1, 1000.0),
-    "mw": (150.0, 900.0),
+    "logP": (-2.0, 7.0),
+    "fup": (0.005, 1.0),
+    "clint_L_h": (0.0001, 10.0),  # Realistic after IVIVE: ~0.0005-5 L/h
+    "mw": (100.0, 900.0),
     "rbp": (0.3, 3.0),
-    "peff": (0.01, 100.0),
+    "peff": (0.01, 10.0),  # Realistic: ~0.1-5 × 10⁻⁴ cm/s
 }
 
 PBPK_PARAM_NAMES: list[str] = list(PBPK_PARAM_RANGES.keys())
