@@ -25,3 +25,8 @@ models/meta.json
 # ML data caches (large, downloaded from APIs)
 data/ml/
 data/vdss_lombardo.tab
+
+# Claude ↔ Codex automation logs
+ai/logs/*
+!ai/logs/.gitkeep
+ai/codex_last_message.txt

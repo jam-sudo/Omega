@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(scripts/verify_codex_setup.sh)",
+      "Bash(scripts/run_codex_from_plan.sh)",
+      "Bash(source .venv/bin/activate*)",
+      "Bash(pytest*)",
+      "Bash(ruff*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(codex --version*)",
+      "Bash(cat ai/*)",
+      "Bash(ls *)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(secrets/**)",
+      "Read(**/*secret*)",
+      "Read(**/*token*)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(secrets/**)"
+    ]
+  }
+}

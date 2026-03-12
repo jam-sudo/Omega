@@ -109,3 +109,24 @@ Cross-review protocol: see review matrix in `memory/team.md`
 - Don't break ADMEProperties contract
 - Don't work across branches in one session without user approval
 - Don't merge branches without running full test suite
+
+## Build / Test / Lint Commands
+
+```bash
+source .venv/bin/activate
+pytest tests/ -m "not slow and not benchmark" -q          # fast tests
+pytest tests/ -m benchmark -v --timeout=300               # benchmarks
+ruff check .                                              # lint
+ruff format --check .                                     # format check
+mypy src/omega_pbpk/core src/omega_pbpk/drugs src/omega_pbpk/config.py  # type check
+omega --help                                              # CLI smoke test
+```
+
+## Claude ↔ Codex Collaboration
+
+For scoped implementation tasks (bug fixes, narrow refactors, bounded features):
+- Use `/codex-loop <task>` to run the Claude-as-architect / Codex-as-implementer workflow
+- Claude writes `ai/plan.md`, Codex implements, Claude reviews
+- Keep diffs small, avoid scope creep, verify after edits
+- Bootstrap/automation files live under `ai/`, `.claude/`, `.agents/`, `scripts/`
+- Do not use `/codex-loop` for large architectural rewrites

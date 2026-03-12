@@ -2,7 +2,37 @@
 
 ## Project
 
-Omega PBPK v0.9.0 — Whole-body PBPK simulation platform.
+Omega PBPK v0.9.0 — AI/ML-driven whole-body PBPK simulation platform.
+SMILES in → PK profile out. 35-state ODE engine + ML prediction pipeline.
+
+## Key Directories
+
+- `src/omega_pbpk/` — main source (core/, ml/, pipeline/, drugs/, api/)
+- `tests/` — test suite (pytest)
+- `scripts/` — training, benchmarking, evaluation scripts
+- `models/` — trained model checkpoints
+- `benchmarks/datasets/` — clinical PK reference data
+- `ai/` — Claude ↔ Codex collaboration files (plans, reports, logs)
+
+## Build / Test / Lint
+
+```bash
+source .venv/bin/activate
+pytest tests/ -m "not slow and not benchmark" -q    # fast tests
+ruff check .                                         # lint
+ruff format --check .                                # format check
+```
+
+## Codex Operating Rules
+
+1. **Always read `ai/plan.md` before editing any files.**
+2. Edit ONLY files explicitly listed in `ai/plan.md` → Allowed Files.
+3. Do NOT widen scope beyond the stated goal.
+4. Do NOT touch secrets, .env files, or unrelated code.
+5. Run verification commands listed in `ai/plan.md` when feasible.
+6. Write `ai/codex_report.md` after each run using the required template sections.
+7. Stop after completing the scoped task.
+8. Summarize which verification commands you ran and their outcomes.
 
 ---
 

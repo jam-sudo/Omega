@@ -1294,3 +1294,69 @@ Trained the L2 GNN encoder + param_head end-to-end. This is the first time these
 2. **t½ overestimation**: midazolam t½ predicted as 25h (actual ~2-4h) — surrogate fine-tuning may not fully compensate for supervised param bias.
 3. **logP prediction**: Predicted 0.26 for midazolam (actual 3.89) — logP is hardest to learn from molecular graphs without pre-training.
 4. **Improving accuracy**: Options: (a) more training epochs, (b) larger backbone (chemprop), (c) add adme_reference.csv drug names with SMILES lookup, (d) curriculum with clinical data once available.
+
+---
+
+## 2026-03-10 ML-Engineer: L2 GNN Scale-Up Training (Task #24 continuation)
+
+### Scale-Up Motivation
+
+Initial 2225-compound training had val loss 0.630 (log-space MSE) but poor generalization:
+- midazolam logP: predicted 0.26, actual 3.89 → model memorizing rather than generalizing
+- Team-lead requested scale-up to 10K-50K compounds
+
+### Data Acquisition
+
+**ChEMBL drug-like SMILES (20K)**
+- Source: ChEMBL REST API (`/api/data/molecule.json`) via paginated curl requests
+- Filters: MW 150–600, aLogP -2 to 5, limit 20,000
+- Cache: `data/ml/zinc_drug_like.smi` (20,000 SMILES)
+- Note: ZINC15 rejected (403 errors, Python requests library incompatible; ChEMBL more reliable)
+
+**L1 Ensemble Labeling**
+- Method: Batch ADMET-AI (500/batch) + per-compound XGBoost fup/rbp
+- Total: 19,905 valid compounds labeled
+- Cache: `data/ml/gnn_labels_large.csv`
+- Label generation time: ~4 minutes (batch ADMET-AI, ~31× faster than single-compound)
+
+**SMILES Augmentation ×4**
+- Method: `Chem.MolToSmiles(mol, doRandom=True)` for 4 random SMILES per molecule
+- Train: 15,894 base × aug×4 = **79,468 samples**
+- Val: 4,010 samples (scaffold split, no augmentation)
+
+### Training Configuration
+
+- Script: `scripts/train_l2_gnn_large.py`
+- Supervised: 300 epochs, batch=128, lr=3e-4, hidden=256, layers=3
+- Warmup: 20 epochs cosine annealing + warmup
+- DataLoader: `num_workers=4, persistent_workers=True` (fixed from initial num_workers=0)
+- Fine-tune: 60 epochs through frozen surrogate
+- Device: RTX 4070 SUPER 12GB, CUDA 13.0
+
+### Performance Analysis
+
+| Config | ioctls/sec | Batches/sec | Epoch time |
+|--------|-----------|-------------|------------|
+| num_workers=0 (old) | 164 | ~1.64 | ~6 min |
+| num_workers=4 (current) | 235 | ~2.35 | ~4.4 min |
+
+- Bottleneck: PyG `Batch.from_data_list(128 graphs)` CPU work per batch
+- GPU util: 98-100%, VRAM: 11.7 GB / 12.3 GB
+
+### Training Status (in progress)
+
+- Started: 2026-03-10 20:47 KST
+- Expected epoch 30 log: ~22:30 KST
+- Expected completion: ~2026-03-11 13:00 KST (~16 hours total)
+- Output: `PYTHONUNBUFFERED=1` enabled → logs stream in real time
+- Task ID: `bqgw9p9yh`
+
+### Technical Issues Encountered
+
+1. **Output buffering**: `logging.basicConfig()` + background task = output buffered in OS. Fixed by `PYTHONUNBUFFERED=1` env var.
+2. **num_workers=0 bottleneck**: With 79K pre-cached PyG graphs, the DataLoader with `num_workers=0` blocked the main thread on `Batch.from_data_list()` per batch. Changed to `num_workers=4, persistent_workers=True` → 43% speed improvement.
+3. **Zombie CUDA context**: Killed old training process (PID 15123); WSL2 CUDA driver retained ghost GPU context under a remapped PID. New training successfully initialized CUDA on the same device.
+
+### Preliminary Results
+
+*Pending epoch 30 log. Will update when first metrics available.*
