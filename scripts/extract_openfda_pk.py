@@ -33,78 +33,183 @@ def normalize_drug_name(name: str) -> str:
         " hydrochloride", " hcl", " sulfate", " sodium", " potassium",
         " besylate", " calcium", " tartrate", " succinate", " mesylate",
         " phosphate", " acetate", " fumarate", " maleate", " citrate",
+        " saccharate", " aspartate", " monohydrate",
         " ophthalmic solution", " extended-release capsules",
-        " er tablets", " tablets", " capsules",
+        " er tablets", " tablets", " capsules", " film coated",
+        " anhydrous", ", benzalkonium chloride",
     ]:
         name = name.replace(suffix, "")
+    # For combos like "X and Y", keep first drug only
+    if " and " in name:
+        name = name.split(" and ")[0]
+    # For "X, Y, Z" combos, keep first
+    if ", " in name:
+        name = name.split(", ")[0]
     return name.strip()
 
+
+# Unit pattern fragments (non-capturing for inline use, capturing versions for tabular)
+_CONC_UNITS_NC = r"(?:ng/mL|µg/mL|mcg/mL|μg/mL|mg/L|µM|nM|ug/mL)"
+_CONC_UNITS_C = r"(ng/mL|µg/mL|mcg/mL|μg/mL|mg/L|µM|nM|ug/mL)"
+_AUC_UNITS_INNER = (
+    r"(?:ng|µg|mcg|μg|ug|mg)[·•*×x\s]h(?:r|our)?s?/mL|"  # ng·hr/mL etc
+    r"(?:ng|µg|mcg|μg|ug|mg)/mL[·•*×x\s]h(?:r|our)?s?|"  # ng/mL·hr etc
+    r"h(?:r|our)?s?[·•*×x\s](?:ng|µg|mcg|μg|ug|mg)/(?:mL|ml)|"  # hr*ng/mL etc
+    r"µM[·•*×x\s]h(?:r|our)?s?|"  # µM·hr
+    r"hr?\*(?:ng|µg|mcg|μg|ug|mg)/(?:mL|ml)|"  # hr*mcg/ml (table format)
+    r"(?:ng|µg|mcg|μg|ug|mg)\*h(?:r|our)?s?/(?:mL|ml)"  # mcg*hr/mL
+)
+_AUC_UNITS_NC = r"(?:" + _AUC_UNITS_INNER + r")"
+_AUC_UNITS_C = r"(" + _AUC_UNITS_INNER + r")"
+_TIME_UNITS = r"(?:hours?|hrs?|h\b|days?|minutes?|min)"
+_VERB = r"(?:was|of|is|approximately|about|~|=|averaged?|averaging|ranges?\s+from|occurring|estimated|reported)"
 
 # Patterns for PK parameter extraction
 # Each pattern: (parameter_name, regex, value_group, unit_group)
 PK_PATTERNS = [
-    # Cmax
+    # --- Cmax ---
+    # Pattern 1: Cmax was/of/= VALUE UNIT
     (
         "cmax",
         r"(?:C\s*max|peak\s+(?:plasma\s+)?concentration)[^\d]{0,60}?"
-        r"(?:(?:was|of|is|approximately|about|~|=)\s*)"
-        r"(\d+\.?\d*)\s*(ng/mL|µg/mL|mg/L|µM|nM|mcg/mL|μg/mL)",
+        r"(?:" + _VERB + r"\s*)"
+        r"(\d+\.?\d*)\s*" + _CONC_UNITS_NC,
         1, 2,
     ),
-    # AUC
+    # Pattern 2: Cmax (UNIT) VALUE  (tabular)
+    (
+        "cmax",
+        r"C\s*max(?:\s*,?\s*ss)?\s*\(\s*" + _CONC_UNITS_C + r"\s*\)\s*(\d+\.?\d*)",
+        2, 1,
+    ),
+
+    # --- AUC ---
+    # Pattern 1: AUC was/of VALUE UNIT
     (
         "auc",
-        r"(?:AUC(?:\s*0\s*[-–]\s*(?:∞|inf|last|24h?r?|12h?r?))?|area\s+under\s+the\s+(?:plasma\s+)?(?:concentration|curve))[^\d]{0,80}?"
-        r"(?:(?:was|of|is|approximately|about|~|=)\s*)"
-        r"(\d+\.?\d*)\s*(ng[·•\*\s]h(?:r|our)?s?/mL|µg[·•\*\s]h(?:r|our)?s?/mL|mg[·•\*\s]h(?:r|our)?s?/L|µM[·•\*\s]h(?:r|our)?s?|mcg[·•\*\s]h(?:r|our)?s?/mL|h[·•\*\s](?:ng|µg|mcg)/mL|ng/mL[·•\*\s]h(?:r|our)?s?|µg/mL[·•\*\s]h(?:r|our)?s?)",
+        r"(?:AUC(?:\s*0?\s*[-–]\s*(?:∞|inf|infinity|last|tau|24\s*h?r?|12\s*h?r?))?|"
+        r"area\s+under\s+the\s+(?:plasma\s+)?(?:concentration[- ]*time\s+)?curve)"
+        r"[^\d]{0,80}?"
+        r"(?:" + _VERB + r"\s*)"
+        r"(\d+\.?\d*)\s*" + _AUC_UNITS_NC,
         1, 2,
     ),
-    # t½ (half-life)
+    # Pattern 2: AUC (UNIT) VALUE  (tabular)
+    (
+        "auc",
+        r"AUC(?:\s*0?\s*[-–]\s*(?:∞|inf|infinity|last|tau))?\s*\(\s*" + _AUC_UNITS_C + r"\s*\)\s*(\d+\.?\d*)",
+        2, 1,
+    ),
+    # Pattern 3: AUC was VALUE UNIT (relaxed)
+    (
+        "auc",
+        r"(?:AUC(?:\s*0?\s*[-–]\s*(?:∞|inf|last|tau))?)\s+(?:" + _VERB + r"\s+)"
+        r"(\d+\.?\d*)\s+" + _AUC_UNITS_NC,
+        1, 2,
+    ),
+    # Pattern 4: AUC 0-∞ of VALUE (no unit — infer from context)
+    (
+        "auc",
+        r"AUC(?:\s*0?\s*[-–]\s*(?:∞|inf|infinity|last|tau))\s+(?:" + _VERB + r"\s+)"
+        r"(\d+\.?\d*)",
+        1, None,
+    ),
+    # Pattern 5: AUC=VALUE (compact, e.g. "AUC=241.9")
+    (
+        "auc",
+        r"AUC\s*=\s*(\d+\.?\d*)",
+        1, None,
+    ),
+
+    # --- t½ (half-life) ---
+    # Pattern 1: standard "half-life was X hours"
     (
         "t_half",
         r"(?:half[\-\s]*life|t\s*1\s*/?\s*2|t½)[^\d]{0,80}?"
-        r"(?:(?:was|of|is|approximately|about|~|=|ranges?\s+from)\s*)"
-        r"(\d+\.?\d*)\s*(?:to\s+\d+\.?\d*\s*)?(?:hours?|hrs?|h\b|days?)",
+        r"(?:" + _VERB + r"\s*)"
+        r"(\d+\.?\d*)\s*(?:to\s+\d+\.?\d*\s*)?" + _TIME_UNITS,
         1, None,
     ),
-    # Tmax
+    # Pattern 2: "elimination t½ X hours" (no verb)
+    (
+        "t_half",
+        r"(?:elimination|terminal|plasma|mean)\s+(?:half[\-\s]*life|t\s*1\s*/?\s*2|t½)\s+"
+        r"(\d+\.?\d*)\s*" + _TIME_UNITS,
+        1, None,
+    ),
+
+    # --- Tmax ---
     (
         "tmax",
         r"(?:T\s*max|time\s+to\s+(?:peak|maximum)\s+(?:plasma\s+)?concentration)[^\d]{0,60}?"
-        r"(?:(?:was|of|is|approximately|about|~|=|occurring)\s*)"
-        r"(\d+\.?\d*)\s*(?:to\s+(\d+\.?\d*)\s*)?(?:hours?|hrs?|h\b)",
+        r"(?:" + _VERB + r"\s*)"
+        r"(\d+\.?\d*)\s*(?:to\s+(\d+\.?\d*)\s*)?" + _TIME_UNITS,
         1, None,
     ),
-    # Vd (volume of distribution)
+
+    # --- Vd (volume of distribution) ---
+    # Pattern 1: standard
     (
         "vd",
         r"(?:volume\s+of\s+distribution|V\s*d|V/F|Vd?ss)[^\d]{0,80}?"
-        r"(?:(?:was|of|is|approximately|about|~|=|averaged)\s*)"
+        r"(?:" + _VERB + r"\s*)"
+        r"(?:approximately\s+)?"
         r"(\d+\.?\d*)\s*(?:±\s*\d+\.?\d*\s*)?(?:liters?|L\b|L/kg)",
         1, None,
     ),
-    # Clearance
+    # Pattern 2: "Vd (L) VALUE" or "Vd (L/kg) VALUE" (tabular)
+    (
+        "vd",
+        r"(?:volume\s+of\s+distribution|V\s*d|V/F|Vd?ss)\s*\(\s*(L(?:/kg)?|liters?)\s*\)\s*(\d+\.?\d*)",
+        2, None,
+    ),
+
+    # --- Clearance ---
+    # Pattern 1: standard
     (
         "clearance",
-        r"(?:(?:oral|renal|total|apparent|systemic)\s+)?(?:clearance|CL(?:/F)?)[^\d]{0,60}?"
-        r"(?:(?:was|of|is|approximately|about|~|=)\s*)"
-        r"(\d+\.?\d*)\s*(?:±\s*\d+\.?\d*\s*)?(?:mL/min|L/hr?|L/h|mL/min/kg|L/h/kg)",
+        r"(?:(?:oral|renal|total|apparent|systemic|plasma|body)\s+)?(?:clearance|CL(?:/F)?)[^\d]{0,60}?"
+        r"(?:" + _VERB + r"\s*)"
+        r"(?:approximately\s+)?"
+        r"(\d+\.?\d*)\s*(?:±\s*\d+\.?\d*\s*)?(?:mL/min(?:/kg)?|L/h(?:r|our)?(?:/kg)?)",
         1, None,
     ),
-    # Bioavailability
+    # Pattern 2: "CL (mL/min) VALUE" (tabular)
+    (
+        "clearance",
+        r"(?:clearance|CL(?:/F)?)\s*\(\s*(mL/min(?:/kg)?|L/h(?:r)?(?:/kg)?)\s*\)\s*(\d+\.?\d*)",
+        2, None,
+    ),
+
+    # --- Bioavailability ---
     (
         "bioavailability",
-        r"(?:(?:absolute|oral)\s+)?bioavailability[^\d]{0,60}?"
-        r"(?:(?:was|of|is|approximately|about|~|=)\s*)"
+        r"(?:(?:absolute|oral|mean)\s+)?bioavailability[^\d]{0,60}?"
+        r"(?:" + _VERB + r"\s*)"
+        r"(?:approximately\s+)?"
         r"(\d+\.?\d*)\s*%",
         1, None,
     ),
-    # Protein binding
+
+    # --- Protein binding ---
+    # Pattern 1: "protein binding was X%"
     (
         "protein_binding",
         r"(?:protein\s+bind(?:ing|s)|bound\s+to\s+(?:plasma\s+)?proteins?)[^\d]{0,60}?"
-        r"(?:(?:was|of|is|approximately|about|~|=)\s*)"
+        r"(?:" + _VERB + r"\s*)"
         r"(\d+\.?\d*)\s*%",
+        1, None,
+    ),
+    # Pattern 2: "X% bound to (plasma) protein" (reverse pattern)
+    (
+        "protein_binding",
+        r"(\d+\.?\d*)\s*%\s*(?:is\s+)?(?:bound\s+to\s+(?:plasma\s+)?proteins?|protein[- ]bound)",
+        1, None,
+    ),
+    # Pattern 3: "plasma protein binding X%" (no verb)
+    (
+        "protein_binding",
+        r"(?:plasma\s+)?protein\s+binding\s+(?:is\s+)?(\d+\.?\d*)\s*%",
         1, None,
     ),
 ]
@@ -125,13 +230,24 @@ def extract_pk_from_text(drug_name: str, text: str) -> list[PKExtraction]:
             # Get unit
             if unit_group is not None:
                 try:
-                    unit = match.group(unit_group)
+                    raw_unit = match.group(unit_group)
+                    unit = raw_unit.strip() if raw_unit else ""
                 except IndexError:
                     unit = ""
             else:
                 # Infer unit from parameter
-                if param_name == "t_half":
-                    unit = "hours"
+                if param_name == "auc":
+                    # Try to find unit in nearby text
+                    span_text = text[max(0, match.start() - 30):match.end() + 30]
+                    if re.search(r'mcg|µg|μg|ug', span_text, re.IGNORECASE):
+                        unit = "mcg·hr/mL"
+                    elif re.search(r'ng', span_text, re.IGNORECASE):
+                        unit = "ng·hr/mL"
+                    else:
+                        unit = "unknown"
+                elif param_name == "t_half":
+                    span_text = text[match.start():match.end() + 5]
+                    unit = "days" if "day" in span_text.lower() else "hours"
                 elif param_name == "tmax":
                     unit = "hours"
                 elif param_name == "vd":
@@ -152,6 +268,10 @@ def extract_pk_from_text(drug_name: str, text: str) -> list[PKExtraction]:
                     unit = ""
 
             # Sanity checks
+            if param_name == "auc" and value < 0.1:
+                continue
+            if param_name == "cmax" and value < 0.01:
+                continue
             if param_name == "t_half" and (value < 0.1 or value > 1000):
                 continue
             if param_name == "bioavailability" and (value < 1 or value > 100):
@@ -198,17 +318,20 @@ def main():
                 continue
             drug_name = generic_names[0] if isinstance(generic_names, list) else generic_names
 
-            # Get PK text
-            pk_text = result.get("pharmacokinetics", [""])[0] if isinstance(
-                result.get("pharmacokinetics"), list
-            ) else result.get("pharmacokinetics", "")
+            # Get PK text from multiple fields
+            pk_parts = []
+            for field in ["pharmacokinetics", "clinical_pharmacology"]:
+                raw = result.get(field)
+                if raw:
+                    text = raw[0] if isinstance(raw, list) else raw
+                    if text and len(text) > 50:
+                        pk_parts.append(text)
+            pk_text = "\n".join(pk_parts)
 
             if not pk_text or len(pk_text) < 100:
                 continue
 
             normalized = normalize_drug_name(drug_name)
-            if normalized in drugs_processed:
-                continue
             drugs_processed.add(normalized)
 
             extractions = extract_pk_from_text(drug_name, pk_text)
