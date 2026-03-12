@@ -1,7 +1,7 @@
 # Omega PBPK — Project Instructions
 
-> **Execution plan:** `docs/plan.md` | **Progress tracker:** `memory/plan_v3.md`
-> **Memory path:** `~/.claude/projects/-home-ubuntu-Omega/memory/`
+> **Execution plan:** `docs/plan-real.md` | **Progress tracker:** `memory/MEMORY.md`
+> **Memory path:** `~/.claude/projects/-home-jam-Omega/memory/`
 > **Auto-loaded every conversation. Source of truth for all sessions.**
 
 ---
@@ -14,9 +14,11 @@ The ODE engine is infrastructure (training data, validation, explainability) —
 
 ## Parallel Branch System
 
-Work is organized into **5 parallel git branches**. Each session, check which branch
-the user wants to work on. If unclear, read `memory/plan_v3.md` for current status
-and pick the branch with the highest-priority unfinished task.
+> **NOTE:** In practice, all work has been done on `main`. The branch system below
+> was planned but never executed. Kept for future reference only.
+
+Work is organized into **5 parallel git branches**. Each session, check
+`memory/MEMORY.md` for current status and pick the highest-priority unfinished task.
 
 ### Branch Map
 
@@ -41,20 +43,15 @@ Level 2 + D → feat/foundation-model (3.3-3.7) → Level 3 complete
 ```
 
 ### Session Startup Checklist
-1. Read `memory/plan_v3.md` for current branch statuses
-2. Read `memory/team.md` for team roles and protocols
-3. Ask user which branch to work on (or pick highest priority TODO)
-4. Spawn team member agents per wave plan (see `memory/team.md`)
-5. Agents write findings to `docs/team/findings.md`, blockers to `docs/team/blockers.md`
-6. Before ending: update task statuses in `memory/plan_v3.md`
+1. Read `memory/MEMORY.md` for current status
+2. Ask user what to work on (or pick highest-priority TODO from MEMORY.md)
+3. Before ending: update status in `memory/MEMORY.md`
 
 ### Team Structure
-4 named, resumable agents (see `memory/team.md` for full details):
-- **ode-engineer**: ODE bugs, training data, differentiable surrogate (Branches 0A, A)
-- **ml-engineer**: ML infra, ADMET-AI, GNN, training (Branches 0B, B, C, L2)
-- **data-engineer**: PK-DB, FDA labels, TDC, data harmonization (Branch D)
-- **domain-scientist**: Phase params, unit validation, clinical benchmarks (Branch E, reviews)
-Cross-review protocol: see review matrix in `memory/team.md`
+`/team` creates an Agent Team (via `TeamCreate`) — task에 맞는 역할만 동적 선택 (1-4명).
+Teammates are independent sessions that communicate via `SendMessage` and share a task list.
+Available roles: ml-engineer, infra-engineer, data-engineer, ci-auditor, domain-scientist, ode-engineer.
+Details + cross-review protocol: `.claude/commands/team.md`
 
 ## Key Decisions (SETTLED — do not revisit)
 

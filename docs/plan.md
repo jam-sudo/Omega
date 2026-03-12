@@ -1,7 +1,10 @@
 # Omega PBPK — Implementation Plan v3 (Parallel Execution)
 
+> **HISTORICAL** — The 5-branch parallel plan was never executed. All work has been
+> done on `main`. For the actual execution plan, see `docs/plan-real.md`.
+> Current status is tracked in `~/.claude/projects/-home-jam-Omega/memory/MEMORY.md`.
+
 > **Quick reference:** `/CLAUDE.md` (auto-loaded every session)
-> **Progress tracker:** `~/.claude/projects/-home-ubuntu-Omega/memory/plan_v3.md`
 > **Date:** 2026-03-08 | **Plan version:** v3.1 (parallel branch model)
 
 ---
