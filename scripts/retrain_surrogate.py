@@ -94,7 +94,9 @@ def train(
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs, eta_min=lr / 100)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=n_epochs, eta_min=lr / 100
+    )
     mse_fn = nn.MSELoss()
 
     best_val_loss = float("inf")
@@ -326,8 +328,12 @@ def main() -> None:
         default="models/pbpk_surrogate/6param",
         help="Model save directory",
     )
-    parser.add_argument("--skip-generate", action="store_true", help="Skip data generation, use existing HDF5")
-    parser.add_argument("--data-file", type=str, default="data/ml/pbpk_curves.h5", help="HDF5 data file")
+    parser.add_argument(
+        "--skip-generate", action="store_true", help="Skip data generation, use existing HDF5"
+    )
+    parser.add_argument(
+        "--data-file", type=str, default="data/ml/pbpk_curves.h5", help="HDF5 data file"
+    )
     parser.add_argument("--skip-validate", action="store_true", help="Skip benchmark validation")
     args = parser.parse_args()
 
