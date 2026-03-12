@@ -5,11 +5,16 @@ Pipeline:
   1. Download ~20K drug-like SMILES from ZINC15 (filter: MW 150-600, logP -2..5, RB ≤10)
   2. Merge with existing TDC labels (data/ml/gnn_labels.csv)
   3. Batch ADMET-AI labeling → data/ml/gnn_labels_large.csv
-  4. SMILES augmentation ×4 per molecule on training set
-  5. Train with batch_size=128, 300 epochs, cosine-annealing + warmup
-  6. Surrogate fine-tuning (frozen)
-  7. Optional Optuna sweep (--optuna)
-  8. Save checkpoint to models/level2/final.pt
+  4. Train with batch_size=128, cosine-annealing + warmup, early stopping
+  5. Surrogate fine-tuning with multi-task loss (curve + param supervision)
+  6. Optional Optuna sweep (--optuna)
+  7. Save checkpoint to models/level2/final.pt
+
+v2 changes:
+  - SMILES augmentation default=1 (GNN graphs are SMILES-invariant, augment>1 was causing overfitting)
+  - Early stopping with patience (default=50)
+  - Multi-task finetune loss: curve_loss + param_loss_weight * direct_param_loss
+  - MW can be computed from RDKit (not predicted by GNN)
 
 Usage:
     python scripts/train_l2_gnn_large.py
@@ -53,6 +58,8 @@ SURROGATE_PATH = Path("models/pbpk_surrogate/6param/surrogate_model.pt")
 CHECKPOINT_PATH = Path("models/level2/final.pt")
 
 PARAM_NAMES = ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
+# For v2 training: MW is computed from RDKit, not predicted
+PARAM_NAMES_V2 = ["logP", "fup", "clint_L_h", "rbp", "peff"]
 LOG_PARAMS = {"fup", "clint_L_h", "mw", "peff"}
 
 # Drug-likeness filters (applied to ZINC download)
@@ -515,15 +522,21 @@ def scaffold_split(smiles: list[str], val_frac: float = 0.2) -> tuple[list[int],
 # ---------------------------------------------------------------------------
 
 
-def param_loss(pred: dict[str, torch.Tensor], target: torch.Tensor) -> torch.Tensor:
+def param_loss(
+    pred: dict[str, torch.Tensor],
+    target: torch.Tensor,
+    param_names: list[str] | None = None,
+) -> torch.Tensor:
     """Per-param MSE in log-space (positive params) or linear (logP, rbp)."""
     eps = 1e-6
+    if param_names is None:
+        param_names = PARAM_NAMES
     pred_clint_L_h = (pred["clint_3a4"] + pred["clint_2d6"]) * IVIVE_FACTOR
     pred_aligned = {
         "logP": pred["logP"],
         "fup": pred["fup"],
         "clint_L_h": pred_clint_L_h,
-        "mw": pred["mw"],
+        "mw": pred.get("mw", target[:, PARAM_NAMES.index("mw")]),  # passthrough if not predicted
         "rbp": pred["rbp"],
         "peff": pred["peff"],
     }
@@ -583,8 +596,16 @@ def train_supervised(
     lr: float = 3e-4,
     n_epochs: int = 300,
     warmup_epochs: int = 20,
+    patience: int = 0,
 ) -> tuple[nn.Module, nn.Module, float]:
-    """Train GNN encoder + param_head supervised."""
+    """Train GNN encoder + param_head supervised.
+
+    Parameters
+    ----------
+    patience : int
+        Early stopping patience (0 = disabled). Stops if val loss doesn't
+        improve for this many epochs after warmup.
+    """
     from omega_pbpk.ml.models.foundation.gnn_encoder import MolecularEncoder
     from omega_pbpk.ml.models.foundation.param_head import PKParameterHead
 
@@ -599,6 +620,7 @@ def train_supervised(
     best_val = float("inf")
     best_enc_state = None
     best_head_state = None
+    epochs_no_improve = 0
 
     for epoch in range(n_epochs):
         encoder.train()
@@ -642,18 +664,31 @@ def train_supervised(
             best_val = avg_val
             best_enc_state = {k: v.cpu().clone() for k, v in encoder.state_dict().items()}
             best_head_state = {k: v.cpu().clone() for k, v in param_head.state_dict().items()}
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
 
         if (epoch + 1) % 30 == 0:
             current_lr = scheduler.get_last_lr()[0] * lr
             logger.info(
-                "Epoch %d/%d  train=%.4f  val=%.4f  best=%.4f  lr=%.2e",
+                "Epoch %d/%d  train=%.4f  val=%.4f  best=%.4f  lr=%.2e  stale=%d",
                 epoch + 1,
                 n_epochs,
                 avg_train,
                 avg_val,
                 best_val,
                 current_lr,
+                epochs_no_improve,
             )
+
+        # Early stopping (only after warmup)
+        if patience > 0 and epoch >= warmup_epochs and epochs_no_improve >= patience:
+            logger.info(
+                "Early stopping at epoch %d (no improvement for %d epochs)",
+                epoch + 1,
+                patience,
+            )
+            break
 
     logger.info("Supervised done. Best val: %.4f", best_val)
     encoder.load_state_dict(best_enc_state)
@@ -666,6 +701,20 @@ def train_supervised(
 # ---------------------------------------------------------------------------
 
 
+def _build_pred_params_6d(
+    pred_p: dict[str, torch.Tensor],
+    target_params: torch.Tensor,
+) -> torch.Tensor:
+    """Stack predicted params into 6D tensor, using ground-truth MW."""
+    clint_L_h = (pred_p["clint_3a4"] + pred_p["clint_2d6"]) * IVIVE_FACTOR
+    # MW from ground truth (index 3 in PARAM_NAMES) — not predicted
+    mw = pred_p.get("mw", target_params[:, PARAM_NAMES.index("mw")])
+    return torch.stack(
+        [pred_p["logP"], pred_p["fup"], clint_L_h, mw, pred_p["rbp"], pred_p["peff"]],
+        dim=-1,
+    )
+
+
 def finetune_surrogate(
     encoder: nn.Module,
     param_head: nn.Module,
@@ -674,8 +723,19 @@ def finetune_surrogate(
     device: torch.device,
     n_epochs: int = 60,
     lr: float = 5e-5,
+    patience: int = 0,
+    param_loss_weight: float = 0.3,
 ) -> tuple[nn.Module, nn.Module, float]:
-    """Fine-tune GNN+param_head through frozen surrogate (curve-level loss)."""
+    """Fine-tune GNN+param_head through frozen surrogate (curve + param loss).
+
+    Parameters
+    ----------
+    patience : int
+        Early stopping patience (0 = disabled).
+    param_loss_weight : float
+        Weight for direct parameter supervision loss alongside curve loss.
+        Combined loss = curve_loss + param_loss_weight * param_loss.
+    """
     from omega_pbpk.ml.models.surrogate.differentiable_ode import load_surrogate
 
     surrogate = load_surrogate(SURROGATE_PATH).to(device)
@@ -694,6 +754,7 @@ def finetune_surrogate(
     best_val = float("inf")
     best_enc_state = None
     best_head_state = None
+    epochs_no_improve = 0
 
     for epoch in range(n_epochs):
         encoder.train()
@@ -708,20 +769,13 @@ def finetune_surrogate(
 
             emb = forward_batch(encoder, graphs, device)
             pred_p = param_head(emb)
-            clint_L_h = (pred_p["clint_3a4"] + pred_p["clint_2d6"]) * IVIVE_FACTOR
-            pred_params_6d = torch.stack(
-                [
-                    pred_p["logP"],
-                    pred_p["fup"],
-                    clint_L_h,
-                    pred_p["mw"],
-                    pred_p["rbp"],
-                    pred_p["peff"],
-                ],
-                dim=-1,
-            )
+            pred_params_6d = _build_pred_params_6d(pred_p, target_params)
             pred_curves = surrogate(pred_params_6d)
-            loss = mse(pred_curves, target_curves)
+
+            # Multi-task loss: curve reconstruction + direct param supervision
+            curve_loss = mse(pred_curves, target_curves)
+            p_loss = param_loss(pred_p, target_params)
+            loss = curve_loss + param_loss_weight * p_loss
 
             optimizer.zero_grad()
             loss.backward()
@@ -743,19 +797,10 @@ def finetune_surrogate(
                 target_curves = surrogate(target_params)
                 emb = forward_batch(encoder, graphs, device)
                 pred_p = param_head(emb)
-                clint_L_h = (pred_p["clint_3a4"] + pred_p["clint_2d6"]) * IVIVE_FACTOR
-                pred_params_6d = torch.stack(
-                    [
-                        pred_p["logP"],
-                        pred_p["fup"],
-                        clint_L_h,
-                        pred_p["mw"],
-                        pred_p["rbp"],
-                        pred_p["peff"],
-                    ],
-                    dim=-1,
-                )
-                val_loss += mse(surrogate(pred_params_6d), target_curves).item()
+                pred_params_6d = _build_pred_params_6d(pred_p, target_params)
+                curve_loss = mse(surrogate(pred_params_6d), target_curves)
+                p_loss = param_loss(pred_p, target_params)
+                val_loss += (curve_loss + param_loss_weight * p_loss).item()
                 n_val += 1
 
         avg_train = train_loss / max(n_batches, 1)
@@ -765,16 +810,28 @@ def finetune_surrogate(
             best_val = avg_val
             best_enc_state = {k: v.cpu().clone() for k, v in encoder.state_dict().items()}
             best_head_state = {k: v.cpu().clone() for k, v in param_head.state_dict().items()}
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
 
         if (epoch + 1) % 10 == 0:
             logger.info(
-                "Finetune %d/%d  train=%.6f  val=%.6f  best=%.6f",
+                "Finetune %d/%d  train=%.6f  val=%.6f  best=%.6f  stale=%d",
                 epoch + 1,
                 n_epochs,
                 avg_train,
                 avg_val,
                 best_val,
+                epochs_no_improve,
             )
+
+        if patience > 0 and epochs_no_improve >= patience:
+            logger.info(
+                "Finetune early stop at epoch %d (no improvement for %d epochs)",
+                epoch + 1,
+                patience,
+            )
+            break
 
     logger.info("Finetune done. Best val: %.6f", best_val)
     encoder.load_state_dict(best_enc_state)
@@ -886,7 +943,12 @@ def main() -> None:
     parser.add_argument("--zinc-count", type=int, default=20000, help="Target ZINC compounds")
     parser.add_argument("--skip-download", action="store_true", help="Skip ZINC download")
     parser.add_argument("--skip-labels", action="store_true", help="Skip label generation")
-    parser.add_argument("--augment", type=int, default=4, help="SMILES augmentations per compound")
+    parser.add_argument(
+        "--augment",
+        type=int,
+        default=1,
+        help="SMILES augmentations per compound (1=none, GNN graphs are SMILES-invariant)",
+    )
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--finetune-epochs", type=int, default=60)
@@ -894,6 +956,13 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--n-layers", type=int, default=3)
+    parser.add_argument("--patience", type=int, default=50, help="Early stopping patience (0=off)")
+    parser.add_argument(
+        "--param-loss-weight",
+        type=float,
+        default=0.3,
+        help="Weight for direct param supervision in finetune stage",
+    )
     parser.add_argument("--optuna", action="store_true", help="Run Optuna sweep first")
     parser.add_argument("--optuna-trials", type=int, default=20)
     parser.add_argument("--device", default="auto")
@@ -1020,6 +1089,7 @@ def main() -> None:
         lr=hp["lr"],
         n_epochs=args.epochs,
         warmup_epochs=args.warmup,
+        patience=args.patience,
     )
     logger.info("Supervised val loss: %.4f", sup_val)
 
@@ -1036,6 +1106,8 @@ def main() -> None:
             device=device,
             n_epochs=args.finetune_epochs,
             lr=hp["lr"] * 0.1,
+            patience=max(args.patience // 2, 20) if args.patience > 0 else 0,
+            param_loss_weight=args.param_loss_weight,
         )
         final_val = ft_val
         logger.info("Finetune val loss: %.6f", ft_val)
