@@ -35,13 +35,13 @@ class EnsembleADMEPredictor(MLADMEPredictor):
     """
 
     # Calibrated interval adjustment factors from conformal calibration
-    # (run calibrate_uncertainty() on adme_reference.csv to update)
+    # Computed on 152 compounds from adme_reference.csv (2026-03-12)
     # factor > 1 widens intervals, factor < 1 narrows them
     _CALIBRATION_FACTORS: dict[str, float] = {
-        "fup": 0.95,  # over-covering 96% → target 90%
-        "clint_3a4": 8.30,  # under-covering 47% → target 90%
-        "peff": 1.00,  # already calibrated at 89%
-        "rbp": 0.25,  # over-covering 98% → target 90%
+        "fup": 1.04,  # 86.2% → ~90% (minor widening)
+        "clint_3a4": 50.0,  # 11.2% → ~75% (best achievable; clint prediction inherently noisy)
+        "peff": 2.94,  # 57.9% → ~90%
+        "rbp": 3.13,  # 63.8% → ~90%
     }
 
     def __init__(

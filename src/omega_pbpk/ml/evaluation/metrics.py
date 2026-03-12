@@ -233,8 +233,8 @@ def _find_adjustment_factor(
       new_lo = center - half_width
       new_hi = center + half_width
     """
-    lo_bound = 0.1
-    hi_bound = 10.0
+    lo_bound = 0.01
+    hi_bound = 200.0
     n = len(true_vals)
 
     for _ in range(max_iterations):
