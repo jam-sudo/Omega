@@ -8,7 +8,7 @@ Maps ADMET-AI outputs to the ADMEProperties contract with proper unit conversion
   - Solubility_AqSolDB -> logS (direct, log mol/L)
   - hERG -> herg_ic50_uM (direct)
   - CYP2D6_Substrate -> clint_2d6 (categorical heuristic)
-  - RBP: default 1.0 (overridden by XGBoost in ensemble)
+  - RBP: default 1.5 (population mean; overridden by XGBoost in ensemble)
   - MW: computed from SMILES via RDKit
 """
 
@@ -38,6 +38,15 @@ HEPATOCELLULARITY = 120.0  # 10^6 cells / g liver
 # clint_pmol = clint_hepatocyte / (MPPGL * CYP3A4_ABUNDANCE)
 # This accounts for: hepatocytes -> microsomes -> specific CYP isoform
 HEPATOCYTE_TO_PMOL_CYP3A4 = MPPGL * CYP3A4_ABUNDANCE  # ~5480
+
+# Fraction of total hepatic clearance attributed to each CYP isoform.
+# ADMET-AI Clearance_Hepatocyte is TOTAL across all pathways; we must
+# apportion before converting to per-enzyme units.
+# Literature estimates (Rodrigues 1999, Rendic 2002):
+#   CYP3A4: ~50% of hepatic CYP-mediated clearance
+#   CYP2D6: ~10% of hepatic CYP-mediated clearance
+CYP3A4_FRACTION = 0.50
+CYP2D6_FRACTION = 0.10
 
 # Default clint_2d6 values based on CYP2D6 substrate classification
 CLINT_2D6_SUBSTRATE = 5.0  # uL/min/pmol if CYP2D6 substrate
@@ -144,7 +153,7 @@ class ADMETAIPredictor(MLADMEPredictor):
         logs = self._extract_logs(raw)
         herg = self._extract_herg(raw)
         clint_2d6 = self._extract_clint_2d6(raw)
-        rbp = 1.0  # Default; overridden by XGBoost in ensemble
+        rbp = 1.5  # Default (population mean); overridden by XGBoost in ensemble
 
         # Confidence from applicability domain if available
         confidence = self._determine_confidence(raw)
@@ -152,7 +161,7 @@ class ADMETAIPredictor(MLADMEPredictor):
         # Conformal intervals: use ADMET-AI intervals if available, else +/-50%
         fup_lo, fup_hi = self._get_interval(raw, "PPBR", fup, transform_fup=True)
         clint_lo, clint_hi = self._get_interval(
-            raw, "Clearance_Hepatocyte", clint_3a4, scale_factor=1.0 / HEPATOCYTE_TO_PMOL_CYP3A4
+            raw, "Clearance_Hepatocyte", clint_3a4, scale_factor=CYP3A4_FRACTION / HEPATOCYTE_TO_PMOL_CYP3A4
         )
         peff_lo, peff_hi = self._get_interval(raw, "Caco2_Wang", peff, scale_factor=100.0)
         rbp_lo = max(0.5, rbp * 0.5)
@@ -278,8 +287,9 @@ class ADMETAIPredictor(MLADMEPredictor):
         )
         if cl_hep is not None:
             cl_hep_val = float(cl_hep)
-            # Convert from uL/min/10^6 cells -> uL/min/pmol CYP3A4
-            clint_pmol = cl_hep_val / HEPATOCYTE_TO_PMOL_CYP3A4
+            # Apportion total hepatic clearance to CYP3A4 fraction, then
+            # convert from uL/min/10^6 cells -> uL/min/pmol CYP3A4
+            clint_pmol = cl_hep_val * CYP3A4_FRACTION / HEPATOCYTE_TO_PMOL_CYP3A4
             return max(0.01, clint_pmol)
         logger.warning("Clearance_Hepatocyte not in ADMET-AI output; defaulting clint_3a4 to 1.0")
         return 1.0
@@ -354,15 +364,20 @@ class ADMETAIPredictor(MLADMEPredictor):
         herg_prob = raw.get("hERG", None)
         if herg_prob is not None:
             p = float(herg_prob)
-            # Convert probability to pseudo IC50
-            # High probability of blocking -> low IC50 (more dangerous)
+            # Convert probability to pseudo IC50.
+            # ADMET-AI hERG classifier threshold = IC50 < 10 µM (blocker).
+            # Calibrated to reference compounds in data/adme_reference.csv:
+            #   p=0.0 -> IC50=100 µM (non-blocker)
+            #   p=0.5 -> IC50=10 µM (decision boundary = classification threshold)
+            #   p=1.0 -> IC50=1 µM (confirmed blocker)
+            # Formula: log10(IC50) = 2 - 2*p  =>  IC50 = 10^(2 - 2*p)
+            # This correctly anchors p=0.5 to the 10 µM threshold, unlike the
+            # previous 10^(2-3*p) which erroneously mapped p=0.5 → 3.16 µM.
             if p > 0.99:
                 return 0.1
             if p < 0.01:
                 return 100.0
-            # Logistic mapping: IC50 ~ 10^(2 - 3*p)
-            # p=0 -> IC50=100, p=0.5 -> IC50~3.16, p=1 -> IC50=0.1
-            ic50 = 10.0 ** (2.0 - 3.0 * p)
+            ic50 = 10.0 ** (2.0 - 2.0 * p)
             return max(0.01, min(1000.0, ic50))
         logger.warning("hERG not in ADMET-AI output; defaulting herg_ic50_uM to 10.0")
         return 10.0

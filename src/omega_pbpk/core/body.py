@@ -147,7 +147,7 @@ class SimulationResult:
     """Container for simulation output."""
 
     time_h: NDArray[np.floating[Any]]
-    amounts: NDArray[np.floating[Any]]  # shape (n_time, 34)
+    amounts: NDArray[np.floating[Any]]  # shape (n_time, 35)
     drug: Drug
     organs: dict[str, Organ] = field(default_factory=dict)
 
@@ -585,9 +585,11 @@ class WholeBodyPBPK:
         sc_amount = y[IDX_SC_DEPOT]
         sc_absorption_rate = ka_sc * sc_amount
         dydt[IDX_SC_DEPOT] = -sc_absorption_rate
-        # Absorbed fraction enters venous blood; lost fraction accounts for
-        # incomplete bioavailability (e.g. local degradation)
+        # Absorbed fraction enters venous blood; lost fraction (1-f_sc) is
+        # pre-systemic degradation at the injection site — tracked in the
+        # hepatic metabolized sink to preserve mass balance.
         venous_inflow += f_sc * sc_absorption_rate
+        dydt[IDX_MET_HEPATIC] += (1.0 - f_sc) * sc_absorption_rate
 
         # --- Venous blood ---
         dydt[IDX_VEN] = venous_inflow - co * c_ven
