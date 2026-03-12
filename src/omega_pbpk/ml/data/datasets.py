@@ -16,7 +16,11 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import pandas as pd
 
-    from omega_pbpk.ml.data.loaders import FDALabelExtractor, PKDBLoader
+    from omega_pbpk.ml.data.loaders import (
+        FDALabelExtractor,
+        OpenFDAExtractor,
+        PKDBLoader,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +137,40 @@ _BUILTIN_SMILES: dict[str, str] = {
     "verapamil": "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC",
     "nifedipine": "COC(=O)C1=C(C)NC(C)=C(C(=O)OC)C1c1ccccc1[N+]([O-])=O",
     "digoxin": "C[C@H]1OC(OC2CC(O)C(OC3CC(O)C(OC4CCC5(C)C(CCC6C5CC(O)C5(C)C(C7=CC(=O)OC7)CCC65)C4)C(C)O3)C(C)O2)CC(O)C1O",
+    # Additional drugs from download_pkdb.py
+    "atenolol": "CC(C)NCC(O)c1ccc(OCC(N)=O)cc1",
+    "fluconazole": "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F",
+    "furosemide": "NS(=O)(=O)c1cc(C(=O)O)c(NCc2ccco2)cc1Cl",
+    "gabapentin": "NCC1(CC(O)=O)CCCCC1",
+    "simvastatin": "CCC(C)(C)C(=O)O[C@H]1C[C@@H](O)C=C2C=C[C@H](C)[C@H](CC[C@@H](O)CC(O)=O)[C@@H]21",
+    "lisinopril": "NCCCC[C@@H](N[C@@H](CCc1ccccc1)C(O)=O)C(=O)N1CCCC1C(O)=O",
+    "amlodipine": "CCOC(=O)C1=C(COCCN)NC(C)=C(C(=O)OC)C1c1ccccc1Cl",
+    "losartan": "CCCCc1nc(Cl)c(CO)n1Cc1ccc(-c2ccccc2-c2nn[nH]n2)cc1",
+    "sertraline": "CN[C@H]1CC[C@@H](c2ccc(Cl)c(Cl)c2)c2ccccc21",
+    "alprazolam": "Cc1nnc2n1-c1ccc(Cl)cc1C(=NC2)c1ccccc1",
+    "lorazepam": "OC1N=C(c2ccccc2Cl)c2cc(Cl)ccc2NC1=O",
+    "clonazepam": "O=C1CN=C(c2ccccc2Cl)c2cc([N+](=O)[O-])ccc2N1",
+    "cyclosporine": "CC[C@@H]1NC(=O)[C@H]([C@@H](O)[C@H](C)C\\C=C\\C)N(C)C(=O)[C@H](C(C)C)N(C)C(=O)[C@H](CC(C)C)N(C)C(=O)[C@H](CC(C)C)N(C)C(=O)[C@@H](C)NC(=O)[C@H](C)NC(=O)[C@H](CC(C)C)N(C)C(=O)[C@H](C(C)C)NC(=O)[C@H](CC(C)C)N(C)C(=O)C(C)(C)N(C)C1=O",
+    "tacrolimus": "CO\\C=C(/C[C@@H](OC)[C@H](O)[C@@H](O)CC(=O)[C@@H](CC=C)\\C=C(\\C)[C@@H](O[C@H]1O[C@H](C)C[C@@H](O)[C@H]1OC)[C@@H](OC)C[C@@H](C)C\\C(C)=C\\[C@@H]1CC[C@@H](O)[C@H](O1)\\C=C\\C1=CC=CC(=O)O1)C",
+    "clarithromycin": "CC[C@@H]1OC(=O)[C@H](C)[C@@H](O[C@H]2C[C@@](C)(OC)[C@@H](O)[C@H](C)O2)[C@H](C)[C@@H](O[C@@H]2O[C@H](C)C[C@@H]([C@H]2O)N(C)C)[C@](C)(OC)C[C@@H](C)C(=O)[C@H](CC)[C@@H](O)[C@]1(C)O",
+    "erythromycin": "CC[C@@H]1OC(=O)[C@H](C)[C@@H](O[C@H]2C[C@@](C)(OC)[C@@H](O)[C@H](C)O2)[C@H](C)[C@@H](O[C@@H]2O[C@H](C)C[C@@H]([C@H]2O)N(C)C)[C@](C)(O)C[C@@H](C)C(=O)[C@H](CC)[C@@H](O)[C@]1(C)O",
+    "ciprofloxacin": "O=C(O)c1cn(C2CC2)c2cc(N3CCNCC3)c(F)cc2c1=O",
+    "levofloxacin": "C[C@H]1COc2c(N3CCN(C)CC3)c(F)cc3c(=O)c(C(O)=O)cn1c23",
+    "rifampicin": "C/C=C/c1c(O)c2c(c(O)c1C)C(=O)c1cc(/C=N/N3CC(C)N(C)C(C)C3)c(O)c(NC(=O)/C(C)=C/C=C/[C@@H](C)[C@H](O)[C@@H](C)[C@H](O)[C@H](C)[C@@H](OC(C)=O)[C@@H](C)/C=C\\C=C/C(C)(O)C(=O)O2)c1O",
+    "ketoconazole": "CC(=O)c1ccc(OC[C@H]2COC(Cn3ccnc3)(c3ccc(Cl)cc3Cl)O2)cc1",
+    "itraconazole": "CC(c1ncn(C2CCC(OC3CCC(n4ncc(N5CCN(c6ccc(OC[C@H]7COC(Cn8ccnc8)(c8ccc(Cl)cc8Cl)O7)cc6)CC5)n4)CC3)CC2)n1)OC",
+    "hydroxychloroquine": "CCN(CCO)CCCC(C)Nc1ccnc2cc(Cl)ccc12",
+    "chloroquine": "CCN(CC)CCCC(C)Nc1ccnc2cc(Cl)ccc12",
+    "lamotrigine": "Nc1nnc(-c2cccc(Cl)c2Cl)c(N)n1",
+    "valproic acid": "CCCC(CCC)C(O)=O",
+    "haloperidol": "OC1(c2ccc(Cl)cc2)CCN(CCCC(=O)c2ccc(F)cc2)CC1",
+    "risperidone": "Cc1nc2n(CC3CCN(CCc4noc5ccc(F)cc45)CC3)c(=O)cc(C)c2[nH]1",
+    "olanzapine": "Cc1cc2c(s1)Nc1ccccc1N=C2N1CCN(C)CC1",
+    "codeine": "COc1ccc2CC3N(C)CCC4=CC(O)C(Oc1c24)C3",
+    "glucose": "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O",
+    "morphine": "Oc1ccc2CC3N(C)CCC4=CC(O)C(Oc1c24)C3",
+    "oxazepam": "OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+    "torasemide": "CC(NC(=O)NS(=O)(=O)c1ccccc1C)c1ccccn1",
 }
 
 
@@ -227,6 +265,77 @@ def _scaffold_split(
         return assignments
 
 
+# ---------------------------------------------------------------------------
+# PK-DB measurement type mapping
+# ---------------------------------------------------------------------------
+
+# Measurement types relevant to PK modeling
+_PK_MEASUREMENT_TYPES: dict[str, str] = {
+    "cmax": "cmax",
+    "c_max": "cmax",
+    "auc": "auc",
+    "auc_inf": "auc",
+    "auc_0-inf": "auc",
+    "auc_0-t": "auc",
+    "thalf": "t_half",
+    "t_half": "t_half",
+    "t1/2": "t_half",
+    "half-life": "t_half",
+    "tmax": "tmax",
+    "t_max": "tmax",
+    "cl": "clearance",
+    "cl/f": "clearance",
+    "clearance": "clearance",
+    "vd": "vd",
+    "vdss": "vd",
+    "vd/f": "vd",
+    "volume_of_distribution": "vd",
+    "bioavailability": "bioavailability",
+    "f": "bioavailability",
+    "concentration": "concentration",
+    "cumulative amount": "cumulative_amount",
+    "amount": "amount",
+    "recovery": "recovery",
+    "ae": "amount_excreted",
+    "fe": "fraction_excreted",
+    "protein_binding": "protein_binding",
+    "fu": "fup",
+    "excretion rate": "excretion_rate",
+}
+
+# Demographic/non-PK types to skip
+_SKIP_MEASUREMENT_TYPES = frozenset(
+    {
+        "abstinence",
+        "sex",
+        "medication",
+        "consumption",
+        "species",
+        "healthy",
+        "age",
+        "weight",
+        "ethnicity",
+        "overnight fast",
+        "smoking",
+        "oral contraceptives",
+        "height",
+        "fasting",
+        "alcohol",
+        "bmi",
+        "disease",
+        "fasting (duration)",
+        "smoking amount (cigarettes)",
+        "obesity index",
+        # Lab values / biomarkers (not drug PK)
+        "hba1c",
+        "gfr",
+        "renin activity",
+        "retention ratio",
+        "estimated clearance",
+    }
+)
+
+
 # ===========================================================================
 # ClinicalPKDataset
 # ===========================================================================
@@ -251,47 +360,94 @@ class ClinicalPKDataset:
     # -- Construction helpers -----------------------------------------------
 
     @classmethod
-    def from_pkdb(cls, loader: PKDBLoader) -> ClinicalPKDataset:
-        """Build dataset from PK-DB study data.
+    def from_pkdb(
+        cls,
+        loader: PKDBLoader,
+        drug_list: list[str] | None = None,
+    ) -> ClinicalPKDataset:
+        """Build dataset from PK-DB group and individual PK data.
 
-        Iterates over all studies and extracts PK output records.
+        Uses the publicly accessible ``/pkdata/groups/`` and
+        ``/pkdata/individuals/`` endpoints instead of the auth-gated
+        ``/pkdata/`` endpoint.
+
+        Parameters
+        ----------
+        loader:
+            Configured PKDBLoader instance.
+        drug_list:
+            Optional list of drug names to query. If ``None``, fetches
+            all available data (no substance filter).
         """
         dataset = cls()
-        studies = loader.list_studies()
-        logger.info("Processing %d PK-DB studies", len(studies))
 
-        for study in studies:
-            study_name = study.get("name", study.get("sid", "unknown"))
-            pk_data = loader.get_pk_data(study_name)
-            for record in pk_data:
-                compound = record.get("substance", record.get("drug", ""))
-                value = record.get("value")
-                unit = record.get("unit", "")
-                param = record.get("measurement_type", record.get("pktype", ""))
+        substances = drug_list or [None]  # None = no filter (all data)
 
-                if value is None:
-                    continue
+        for substance in substances:
+            label = substance or "all"
+            logger.info("PK-DB groups: fetching %s", label)
+            try:
+                groups = loader.get_pkdata_groups(substance=substance)
+            except Exception:
+                logger.exception("PK-DB groups failed for %s", label)
+                groups = []
+            dataset._parse_pkdata_records(groups, source_tag="pkdb_group")
 
-                try:
-                    value = float(value)
-                except (TypeError, ValueError):
-                    continue
+            logger.info("PK-DB individuals: fetching %s", label)
+            try:
+                individuals = loader.get_pkdata_individuals(substance=substance)
+            except Exception:
+                logger.exception("PK-DB individuals failed for %s", label)
+                individuals = []
+            dataset._parse_pkdata_records(individuals, source_tag="pkdb_individual")
 
-                smiles = lookup_smiles(compound)
-                dataset.records.append(
-                    {
-                        "compound": compound,
-                        "smiles": smiles,
-                        "source": "pkdb",
-                        "parameter": param,
-                        "value": value,
-                        "unit": unit,
-                        "original_value": value,
-                        "original_unit": unit,
-                    }
-                )
-
+        logger.info("PK-DB total: %d records", len(dataset.records))
         return dataset
+
+    def _parse_pkdata_records(
+        self, records: list[dict[str, Any]], source_tag: str = "pkdb"
+    ) -> None:
+        """Parse raw PK-DB group/individual records into standardized format."""
+        for rec in records:
+            compound = rec.get("substance", rec.get("drug", ""))
+            if not compound:
+                continue
+
+            param = rec.get("measurement_type", rec.get("pktype", ""))
+            if not param:
+                continue
+
+            param_lower = param.lower().strip()
+
+            # Skip known non-PK measurement types
+            if param_lower in _SKIP_MEASUREMENT_TYPES:
+                continue
+
+            # Try several value fields
+            raw_value = rec.get("value") or rec.get("mean") or rec.get("median")
+            if raw_value is None:
+                continue
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+
+            unit = rec.get("unit", "")
+            normalized_param = _PK_MEASUREMENT_TYPES.get(param_lower, param_lower)
+
+            smiles = lookup_smiles(compound)
+            self.records.append(
+                {
+                    "compound": compound,
+                    "smiles": smiles,
+                    "source": source_tag,
+                    "parameter": normalized_param,
+                    "value": value,
+                    "unit": unit,
+                    "original_value": value,
+                    "original_unit": unit,
+                }
+            )
 
     @classmethod
     def from_fda(cls, extractor: FDALabelExtractor) -> ClinicalPKDataset:
@@ -345,6 +501,169 @@ class ClinicalPKDataset:
                         }
                     )
 
+        return dataset
+
+    @classmethod
+    def from_openfda(
+        cls,
+        extractor: OpenFDAExtractor,
+        drug_list: list[str] | None = None,
+    ) -> ClinicalPKDataset:
+        """Build dataset from OpenFDA drug label API (api.fda.gov).
+
+        Complementary to :meth:`from_fda` (DailyMed). OpenFDA often returns
+        different labels and additional formulations.
+
+        Parameters
+        ----------
+        extractor:
+            Configured OpenFDAExtractor instance.
+        drug_list:
+            List of drug names to query. Required.
+        """
+        dataset = cls()
+        if not drug_list:
+            return dataset
+
+        for drug in drug_list:
+            try:
+                result = extractor.get_pk_for_drug(drug)
+            except Exception:
+                logger.exception("OpenFDA: Error processing %s", drug)
+                continue
+
+            if not result.get("found"):
+                logger.debug("OpenFDA: No PK data for %s", drug)
+                continue
+
+            smiles = lookup_smiles(drug)
+            for param_name, matches in result.get("params", {}).items():
+                for match in matches:
+                    dataset.records.append(
+                        {
+                            "compound": drug,
+                            "smiles": smiles,
+                            "source": "openfda",
+                            "parameter": param_name,
+                            "value": match["value"],
+                            "unit": match["unit"],
+                            "original_value": match["value"],
+                            "original_unit": match["unit"],
+                        }
+                    )
+
+        logger.info("OpenFDA: %d records from %d drugs", len(dataset.records), len(drug_list))
+        return dataset
+
+    @classmethod
+    def from_pkdb_timecourses(
+        cls,
+        loader: PKDBLoader,
+        drug_list: list[str] | None = None,
+    ) -> ClinicalPKDataset:
+        """Build dataset from PK-DB concentration-time curves.
+
+        Extracts derived PK parameters (Cmax, Tmax, AUC) from C(t) curves
+        and also stores the raw timecourse data as JSON in a ``timecourse``
+        field for downstream use (e.g. Level 3 curve fitting).
+
+        Parameters
+        ----------
+        loader:
+            Configured PKDBLoader instance.
+        drug_list:
+            List of drug names to query.
+        """
+        dataset = cls()
+        if not drug_list:
+            return dataset
+
+        for drug in drug_list:
+            try:
+                curves = loader.get_timecourses_for_substance(drug)
+            except Exception:
+                logger.exception("PK-DB timecourse failed for %s", drug)
+                continue
+
+            if not curves:
+                continue
+
+            smiles = lookup_smiles(drug)
+            for curve in curves:
+                timepoints = curve.get("timepoints", [])
+                if len(timepoints) < 2:
+                    continue
+
+                # Derive Cmax and Tmax from the curve
+                cmax_tp = max(timepoints, key=lambda tp: tp["conc"])
+                cmax = cmax_tp["conc"]
+                tmax = cmax_tp["time_h"]
+                conc_unit = cmax_tp.get("conc_unit", "mg/L")
+
+                # Trapezoidal AUC
+                auc = 0.0
+                for i in range(len(timepoints) - 1):
+                    dt = timepoints[i + 1]["time_h"] - timepoints[i]["time_h"]
+                    avg_c = (timepoints[i]["conc"] + timepoints[i + 1]["conc"]) / 2.0
+                    auc += dt * avg_c
+
+                dose = curve.get("dose")
+                route = curve.get("route", "")
+                study = curve.get("study", "")
+
+                base_meta = {
+                    "compound": drug,
+                    "smiles": smiles,
+                    "source": "pkdb_timecourse",
+                    "study": study,
+                    "route": route,
+                    "dose": dose,
+                    "dose_unit": curve.get("dose_unit", "mg"),
+                    "n_timepoints": len(timepoints),
+                }
+
+                # Cmax record
+                dataset.records.append(
+                    {
+                        **base_meta,
+                        "parameter": "cmax",
+                        "value": cmax,
+                        "unit": conc_unit,
+                        "original_value": cmax,
+                        "original_unit": conc_unit,
+                    }
+                )
+
+                # Tmax record
+                dataset.records.append(
+                    {
+                        **base_meta,
+                        "parameter": "tmax",
+                        "value": tmax,
+                        "unit": "h",
+                        "original_value": tmax,
+                        "original_unit": "h",
+                    }
+                )
+
+                # AUC record (trapezoidal)
+                auc_unit = f"{conc_unit}*h" if conc_unit else "mg/L*h"
+                dataset.records.append(
+                    {
+                        **base_meta,
+                        "parameter": "auc",
+                        "value": auc,
+                        "unit": auc_unit,
+                        "original_value": auc,
+                        "original_unit": auc_unit,
+                    }
+                )
+
+        logger.info(
+            "PK-DB timecourses: %d records from %d drugs",
+            len(dataset.records),
+            len(drug_list),
+        )
         return dataset
 
     # -- Harmonization ------------------------------------------------------
@@ -572,7 +891,10 @@ def run_clinical_data_pipeline(
     output_dir: Path | str | None = None,
     use_pkdb: bool = True,
     use_fda: bool = True,
+    use_openfda: bool = True,
+    use_timecourses: bool = True,
     use_tdc: bool = True,
+    discover_all: bool = False,
     drug_list: list[str] | None = None,
     tdc_endpoints: list[str] | None = None,
     seed: int = 42,
@@ -580,8 +902,11 @@ def run_clinical_data_pipeline(
     """Run the full clinical data collection and harmonization pipeline.
 
     Steps:
-        1. Collect PK params (+ timecourses) from PK-DB
+        1. Collect PK params from PK-DB groups/individuals
+        1b. Collect C(t) timecourse-derived params from PK-DB
+        1c. (Optional) Discover all PK-DB data without substance filter
         2. Collect PK params from FDA DailyMed labels
+        2b. Collect PK params from OpenFDA (api.fda.gov)
         3. Collect ADME benchmark data from TDC
         4. Merge all sources
         5. Standardize units
@@ -594,14 +919,21 @@ def run_clinical_data_pipeline(
     output_dir:
         Where to save the final dataset. Defaults to ``data/ml/clinical/``.
     use_pkdb:
-        Whether to query PK-DB.
+        Whether to query PK-DB groups/individuals.
     use_fda:
         Whether to query FDA DailyMed labels.
+    use_openfda:
+        Whether to query OpenFDA (api.fda.gov) labels.
+    use_timecourses:
+        Whether to extract PK params from PK-DB C(t) curves.
     use_tdc:
         Whether to load TDC ADME datasets.
+    discover_all:
+        If True, also fetch PK-DB groups/individuals with no substance
+        filter to discover drugs beyond the drug_list.
     drug_list:
         List of drug names to collect from PK-DB and FDA.
-        If ``None``, uses the PK-DB substances available.
+        If ``None``, uses the default ~53-drug list.
     tdc_endpoints:
         Which TDC endpoints to load. Defaults to all supported.
     seed:
@@ -612,35 +944,98 @@ def run_clinical_data_pipeline(
     ClinicalPKDataset
         Harmonized, QC-flagged, split dataset.
     """
-    from omega_pbpk.ml.data.loaders import FDALabelExtractor, PKDBLoader, TDCLoader
+    from omega_pbpk.ml.data.loaders import (
+        FDALabelExtractor,
+        OpenFDAExtractor,
+        PKDBLoader,
+        TDCLoader,
+    )
 
     out = Path(output_dir or _DEFAULT_OUTPUT_DIR)
     out.mkdir(parents=True, exist_ok=True)
 
     combined = ClinicalPKDataset()
 
-    # Default drug list: PK-DB's 10 substances
+    # Default drug list: all benchmark + additional drugs (~49)
     if drug_list is None:
         drug_list = [
             "acetaminophen",
+            "amoxicillin",
+            "atenolol",
+            "atorvastatin",
             "caffeine",
-            "codeine",
+            "carbamazepine",
+            "amphetamine",
             "diazepam",
-            "glucose",
+            "digoxin",
+            "fluconazole",
+            "fluoxetine",
+            "furosemide",
+            "gabapentin",
+            "ibuprofen",
+            "metformin",
+            "metoprolol",
             "midazolam",
+            "nifedipine",
+            "omeprazole",
+            "phenytoin",
+            "propranolol",
+            "theophylline",
+            "verapamil",
+            "warfarin",
+            "simvastatin",
+            "lisinopril",
+            "amlodipine",
+            "losartan",
+            "sertraline",
+            "alprazolam",
+            "lorazepam",
+            "clonazepam",
+            "cyclosporine",
+            "tacrolimus",
+            "clarithromycin",
+            "erythromycin",
+            "ciprofloxacin",
+            "levofloxacin",
+            "rifampicin",
+            "ketoconazole",
+            "itraconazole",
+            "hydroxychloroquine",
+            "chloroquine",
+            "lamotrigine",
+            "valproic acid",
+            "haloperidol",
+            "risperidone",
+            "olanzapine",
+            "codeine",
             "morphine",
             "oxazepam",
-            "simvastatin",
             "torasemide",
+            "glucose",
+            "aspirin",
         ]
 
-    # --- Step 1: PK-DB ---
+    # --- Step 1: PK-DB summary params ---
+    pkdb = PKDBLoader() if (use_pkdb or use_timecourses or discover_all) else None
     if use_pkdb:
-        logger.info("=== Step 1: Collecting from PK-DB ===")
-        pkdb = PKDBLoader()
-        pkdb_dataset = ClinicalPKDataset.from_pkdb(pkdb)
+        logger.info("=== Step 1: Collecting from PK-DB (groups + individuals) ===")
+        pkdb_dataset = ClinicalPKDataset.from_pkdb(pkdb, drug_list=drug_list)
         logger.info("PK-DB: %d records", len(pkdb_dataset.records))
         combined = combined.merge(pkdb_dataset)
+
+    # --- Step 1b: PK-DB timecourses ---
+    if use_timecourses:
+        logger.info("=== Step 1b: Collecting PK-DB timecourses ===")
+        tc_dataset = ClinicalPKDataset.from_pkdb_timecourses(pkdb, drug_list=drug_list)
+        logger.info("PK-DB timecourses: %d records", len(tc_dataset.records))
+        combined = combined.merge(tc_dataset)
+
+    # --- Step 1c: PK-DB discovery (unfiltered) ---
+    if discover_all:
+        logger.info("=== Step 1c: Discovering all PK-DB data (no filter) ===")
+        discover_dataset = ClinicalPKDataset.from_pkdb(pkdb, drug_list=None)
+        logger.info("PK-DB discovery: %d records", len(discover_dataset.records))
+        combined = combined.merge(discover_dataset)
 
     # --- Step 2: FDA DailyMed ---
     if use_fda:
@@ -680,6 +1075,14 @@ def run_clinical_data_pipeline(
                 logger.exception("FDA: Error processing %s", drug)
                 continue
         logger.info("Combined after FDA: %d records", len(combined.records))
+
+    # --- Step 2b: OpenFDA (api.fda.gov) ---
+    if use_openfda:
+        logger.info("=== Step 2b: Collecting from OpenFDA ===")
+        openfda = OpenFDAExtractor()
+        openfda_dataset = ClinicalPKDataset.from_openfda(openfda, drug_list=drug_list)
+        logger.info("OpenFDA: %d records", len(openfda_dataset.records))
+        combined = combined.merge(openfda_dataset)
 
     # --- Step 3: TDC ---
     if use_tdc:

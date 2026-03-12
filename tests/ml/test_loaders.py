@@ -22,6 +22,7 @@ from omega_pbpk.ml.data.datasets import (  # noqa: E402
 from omega_pbpk.ml.data.loaders import (  # noqa: E402
     _SUPPORTED_TDC_ENDPOINTS,
     FDALabelExtractor,
+    OpenFDAExtractor,
     PKDBLoader,
     TDCLoader,
 )
@@ -596,3 +597,349 @@ class TestPKDBTimecourses:
         }
         curves = pkdb_loader.get_timecourses_for_substance("drug")
         assert len(curves) == 2
+
+
+# ===========================================================================
+# PK-DB pagination format tests
+# ===========================================================================
+
+
+class TestPKDBPagination:
+    """Test _get_all_pages with the PK-DB data.data nested format."""
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_nested_data_format(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        """PK-DB returns {data: {count, data: [...]}, current_page, last_page, ...}."""
+        mock_get.return_value = {
+            "current_page": 1,
+            "last_page": 1,
+            "next_page_url": None,
+            "prev_page_url": None,
+            "data": {
+                "count": 2,
+                "data": [
+                    {"substance": "caffeine", "measurement_type": "clearance", "mean": 5.0},
+                    {"substance": "caffeine", "measurement_type": "concentration", "mean": 3.0},
+                ],
+            },
+        }
+        results = pkdb_loader._get_all_pages("pkdata/groups/")
+        assert len(results) == 2
+        assert results[0]["substance"] == "caffeine"
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_nested_data_multi_page(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        """Multi-page with next_page_url."""
+        mock_get.side_effect = [
+            {
+                "current_page": 1,
+                "last_page": 2,
+                "next_page_url": "https://pk-db.com/api/v1/pkdata/groups/?page=2",
+                "data": {"count": 3, "data": [{"id": 1}, {"id": 2}]},
+            },
+            {
+                "current_page": 2,
+                "last_page": 2,
+                "next_page_url": None,
+                "data": {"count": 3, "data": [{"id": 3}]},
+            },
+        ]
+        results = pkdb_loader._get_all_pages("pkdata/groups/")
+        assert len(results) == 3
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_nested_data_empty(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        mock_get.return_value = {
+            "current_page": 1,
+            "last_page": 1,
+            "next_page_url": None,
+            "data": {"count": 0, "data": []},
+        }
+        results = pkdb_loader._get_all_pages("pkdata/groups/")
+        assert results == []
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_legacy_format_still_works(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        """Legacy {results, next} format should still work."""
+        mock_get.return_value = {
+            "count": 1,
+            "next": None,
+            "results": [{"sid": "S001"}],
+        }
+        results = pkdb_loader._get_all_pages("studies/")
+        assert len(results) == 1
+
+
+# ===========================================================================
+# PKDBLoader bulk endpoint tests
+# ===========================================================================
+
+
+class TestPKDBBulkEndpoints:
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_get_pkdata_groups(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        mock_get.return_value = {
+            "current_page": 1,
+            "last_page": 1,
+            "next_page_url": None,
+            "data": {
+                "count": 1,
+                "data": [{"substance": "caffeine", "measurement_type": "clearance", "mean": 5.0}],
+            },
+        }
+        results = pkdb_loader.get_pkdata_groups(substance="caffeine")
+        assert len(results) == 1
+        mock_get.assert_called_once()
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_get_pkdata_individuals(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        mock_get.return_value = {
+            "current_page": 1,
+            "last_page": 1,
+            "next_page_url": None,
+            "data": {"count": 0, "data": []},
+        }
+        results = pkdb_loader.get_pkdata_individuals(substance="caffeine")
+        assert results == []
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_get_pkdata_groups_no_filter(
+        self, mock_get: MagicMock, pkdb_loader: PKDBLoader
+    ) -> None:
+        """No substance filter should still work."""
+        mock_get.return_value = {
+            "current_page": 1,
+            "last_page": 1,
+            "next_page_url": None,
+            "data": {"count": 2, "data": [{"id": 1}, {"id": 2}]},
+        }
+        results = pkdb_loader.get_pkdata_groups(substance=None)
+        assert len(results) == 2
+
+
+# ===========================================================================
+# OpenFDAExtractor tests
+# ===========================================================================
+
+
+@pytest.fixture()
+def openfda_extractor(tmp_cache: Path) -> OpenFDAExtractor:
+    return OpenFDAExtractor(cache_dir=tmp_cache / "openfda", rate_limit=0.0)
+
+
+class TestOpenFDAExtractor:
+    def test_extract_pk_params_cmax(self) -> None:
+        text = "The Cmax was 250 ng/mL following oral administration."
+        result = OpenFDAExtractor.extract_pk_params(text)
+        assert "cmax" in result
+        assert result["cmax"][0]["value"] == 250.0
+
+    def test_extract_pk_params_half_life_natural(self) -> None:
+        """Should match natural language like 'half-life of 6 hours'."""
+        text = "The elimination half-life of metformin is approximately 6.2 hours."
+        result = OpenFDAExtractor.extract_pk_params(text)
+        assert "t_half" in result
+        assert result["t_half"][0]["value"] == 6.2
+
+    def test_extract_pk_params_bioavailability(self) -> None:
+        text = "The absolute bioavailability is about 90%."
+        result = OpenFDAExtractor.extract_pk_params(text)
+        assert "bioavailability" in result
+        assert result["bioavailability"][0]["value"] == 90.0
+
+    def test_extract_pk_params_protein_binding(self) -> None:
+        text = "Clonazepam is approximately 85% bound to plasma proteins."
+        result = OpenFDAExtractor.extract_pk_params(text)
+        assert "protein_binding" in result
+        assert result["protein_binding"][0]["value"] == 85.0
+
+    def test_extract_pk_params_protein_binding_alt(self) -> None:
+        text = "The plasma protein binding of nifedipine is high (92%)."
+        result = OpenFDAExtractor.extract_pk_params(text)
+        assert "protein_binding" in result
+        assert result["protein_binding"][0]["value"] == 92.0
+
+    def test_extract_pk_params_tmax(self) -> None:
+        text = "Time to peak concentration is 1.5 hours after dosing."
+        result = OpenFDAExtractor.extract_pk_params(text)
+        assert "tmax" in result
+        assert result["tmax"][0]["value"] == 1.5
+
+    def test_extract_pk_params_clearance(self) -> None:
+        text = "The apparent clearance is 25.5 L/hr."
+        result = OpenFDAExtractor.extract_pk_params(text)
+        assert "clearance" in result
+        assert result["clearance"][0]["value"] == 25.5
+
+    def test_extract_pk_params_empty(self) -> None:
+        result = OpenFDAExtractor.extract_pk_params("No pharmacokinetic data.")
+        assert result == {}
+
+    @patch("omega_pbpk.ml.data.loaders.OpenFDAExtractor._get")
+    def test_get_pk_for_drug(
+        self, mock_get: MagicMock, openfda_extractor: OpenFDAExtractor
+    ) -> None:
+        mock_get.return_value = {
+            "results": [
+                {
+                    "pharmacokinetics": ["The half-life is 6 hours. Clearance is 10 L/h."],
+                    "clinical_pharmacology": [],
+                }
+            ]
+        }
+        result = openfda_extractor.get_pk_for_drug("caffeine")
+        assert result["found"] is True
+        assert "t_half" in result["params"]
+        assert "clearance" in result["params"]
+
+    @patch("omega_pbpk.ml.data.loaders.OpenFDAExtractor._get")
+    def test_get_pk_for_drug_not_found(
+        self, mock_get: MagicMock, openfda_extractor: OpenFDAExtractor
+    ) -> None:
+        mock_get.return_value = {"results": []}
+        result = openfda_extractor.get_pk_for_drug("nonexistent")
+        assert result["found"] is False
+
+
+# ===========================================================================
+# ClinicalPKDataset new classmethod tests
+# ===========================================================================
+
+
+class TestClinicalPKDatasetFromMethods:
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_from_pkdb_with_drug_list(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        """from_pkdb should parse group/individual records."""
+        mock_get.return_value = {
+            "current_page": 1,
+            "last_page": 1,
+            "next_page_url": None,
+            "data": {
+                "count": 2,
+                "data": [
+                    {
+                        "substance": "caffeine",
+                        "measurement_type": "clearance",
+                        "mean": 5.2,
+                        "unit": "L/h",
+                    },
+                    {
+                        "substance": "caffeine",
+                        "measurement_type": "concentration",
+                        "mean": 3.0,
+                        "unit": "mg/L",
+                    },
+                ],
+            },
+        }
+        ds = ClinicalPKDataset.from_pkdb(pkdb_loader, drug_list=["caffeine"])
+        assert len(ds.records) >= 2
+        params = {r["parameter"] for r in ds.records}
+        assert "clearance" in params
+        assert "concentration" in params
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_from_pkdb_skips_demographics(
+        self, mock_get: MagicMock, pkdb_loader: PKDBLoader
+    ) -> None:
+        """Demographics (age, sex, etc.) should be skipped."""
+        mock_get.return_value = {
+            "current_page": 1,
+            "last_page": 1,
+            "next_page_url": None,
+            "data": {
+                "count": 3,
+                "data": [
+                    {"substance": "caffeine", "measurement_type": "sex", "value": 1.0, "unit": ""},
+                    {
+                        "substance": "caffeine",
+                        "measurement_type": "age",
+                        "mean": 35,
+                        "unit": "year",
+                    },
+                    {
+                        "substance": "caffeine",
+                        "measurement_type": "clearance",
+                        "mean": 5.0,
+                        "unit": "L/h",
+                    },
+                ],
+            },
+        }
+        ds = ClinicalPKDataset.from_pkdb(pkdb_loader, drug_list=["caffeine"])
+        # Only clearance should be kept (sex and age skipped)
+        pk_params = [r["parameter"] for r in ds.records]
+        assert "sex" not in pk_params
+        assert "age" not in pk_params
+        assert any(p == "clearance" for p in pk_params)
+
+    def test_from_openfda(self) -> None:
+        """from_openfda with empty drug list returns empty dataset."""
+        extractor = MagicMock(spec=OpenFDAExtractor)
+        ds = ClinicalPKDataset.from_openfda(extractor, drug_list=[])
+        assert len(ds.records) == 0
+
+    def test_from_openfda_with_data(self) -> None:
+        extractor = MagicMock(spec=OpenFDAExtractor)
+        extractor.get_pk_for_drug.return_value = {
+            "drug": "caffeine",
+            "found": True,
+            "pk_text": "half-life 5h",
+            "params": {"t_half": [{"value": 5.0, "unit": "h"}]},
+        }
+        ds = ClinicalPKDataset.from_openfda(extractor, drug_list=["caffeine"])
+        assert len(ds.records) == 1
+        assert ds.records[0]["parameter"] == "t_half"
+        assert ds.records[0]["source"] == "openfda"
+        assert ds.records[0]["smiles"] is not None  # caffeine is in BUILTIN_SMILES
+
+    @patch("omega_pbpk.ml.data.loaders.PKDBLoader._get")
+    def test_from_pkdb_timecourses(self, mock_get: MagicMock, pkdb_loader: PKDBLoader) -> None:
+        """from_pkdb_timecourses should derive Cmax, Tmax, AUC from curves."""
+        mock_get.return_value = {
+            "count": 3,
+            "next": None,
+            "results": [
+                {
+                    "substance": "caffeine",
+                    "study": "S1",
+                    "group": "G1",
+                    "route": "oral",
+                    "dose": 100.0,
+                    "dose_unit": "mg",
+                    "time": 0.0,
+                    "value": 0.0,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
+                {
+                    "substance": "caffeine",
+                    "study": "S1",
+                    "group": "G1",
+                    "time": 1.0,
+                    "value": 10.0,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
+                {
+                    "substance": "caffeine",
+                    "study": "S1",
+                    "group": "G1",
+                    "time": 4.0,
+                    "value": 2.0,
+                    "unit": "mg/L",
+                    "time_unit": "h",
+                },
+            ],
+        }
+        ds = ClinicalPKDataset.from_pkdb_timecourses(pkdb_loader, drug_list=["caffeine"])
+        assert len(ds.records) == 3  # cmax, tmax, auc
+        params = {r["parameter"] for r in ds.records}
+        assert params == {"cmax", "tmax", "auc"}
+
+        cmax_rec = next(r for r in ds.records if r["parameter"] == "cmax")
+        assert cmax_rec["value"] == 10.0
+        assert cmax_rec["source"] == "pkdb_timecourse"
+
+        tmax_rec = next(r for r in ds.records if r["parameter"] == "tmax")
+        assert tmax_rec["value"] == 1.0
