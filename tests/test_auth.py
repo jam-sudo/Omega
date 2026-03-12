@@ -8,6 +8,9 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 
+pytest.importorskip("passlib")
+pytest.importorskip("jose")
+
 # omega_pbpk.api.__init__ re-exports `app`, shadowing the submodule name,
 # so we must retrieve the actual module via sys.modules.
 import omega_pbpk.api.app  # noqa: F401 — ensure submodule is in sys.modules
