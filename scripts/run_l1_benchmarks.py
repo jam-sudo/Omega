@@ -241,9 +241,9 @@ def main():
     aafe_val_cmax = compute_aafe(val_cmax_fe)
     aafe_val_auc = compute_aafe(val_auc_fe)
 
-    print(f"\n--- DEV SET (20 drugs) ---")
+    print("\n--- DEV SET (20 drugs) ---")
     print(f"  Cmax AAFE: {aafe_dev_cmax:.2f}, AUC AAFE: {aafe_dev_auc:.2f}")
-    print(f"\n--- VALIDATION SET (5 drugs) ---")
+    print("\n--- VALIDATION SET (5 drugs) ---")
     print(f"  Cmax AAFE: {aafe_val_cmax:.2f}, AUC AAFE: {aafe_val_auc:.2f}")
 
     print("\n--- EXIT CRITERIA CHECK (all 25 drugs) ---")

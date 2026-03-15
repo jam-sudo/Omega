@@ -37,8 +37,7 @@ PARAM_NAMES = ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
 def load_transfer_model():
     """Load pre-trained Transfer MLP."""
     import torch
-
-    from train_l2_transfer import TransferMLP, inverse_transform, smiles_to_fingerprint
+    from train_l2_transfer import TransferMLP
 
     ckpt = torch.load(
         str(repo_root / "models" / "level2" / "transfer_model.pt"),
@@ -54,7 +53,6 @@ def load_transfer_model():
 def predict_params(model, stats, smiles: str) -> dict[str, float] | None:
     """Predict 6 PK params from SMILES using Transfer MLP."""
     import torch
-
     from train_l2_transfer import inverse_transform, smiles_to_fingerprint
 
     fp = smiles_to_fingerprint(smiles)
