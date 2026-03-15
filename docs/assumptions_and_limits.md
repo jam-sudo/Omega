@@ -2,7 +2,7 @@
 
 ## Model structure
 
-- 34-state ODE with 15 organs in closed-loop arterial-venous circulation.
+- 35-state ODE with 15 organs in closed-loop arterial-venous circulation.
 - 11 perfusion-limited organs (instantaneous tissue-blood equilibrium within each organ).
 - 4 permeability-limited organs (adipose, muscle, bone, skin) with PS barrier.
 - ACAT 8-segment GI absorption with segment-specific transit rates and ka fractions.
@@ -34,7 +34,7 @@
 
 - ODE solved by `solve_ivp(method='LSODA')` with `rtol=1e-8, atol=1e-10, max_step=0.1h`.
 - Negative numerical states are clipped to zero **after** integration (never inside RHS).
-- Mass balance verified for IV bolus: dose = sum(all 34 states) ± 0.5%.
+- Mass balance verified for IV bolus: dose = sum(all 35 states) ± 0.5%.
 
 ## Not yet covered
 

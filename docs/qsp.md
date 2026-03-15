@@ -13,7 +13,7 @@ Omega now supports an optional QSP plugin layer on top of PBPK + PD.
 - `posthoc` (default): solve PBPK first, then solve QSP on the same output time grid using interpolated concentration signal.
 - `coupled`: solve PBPK and QSP together as one ODE state vector with `solve_ivp(..., method="BDF")`.
 
-The coupled mode is intentionally optional and currently implemented as a minimal state augmentation shortcut in `physio_sim.pbpk.solver.simulate`.
+The coupled mode is intentionally optional and currently implemented as a minimal state augmentation shortcut in `omega_pbpk.pbpk.solver.simulate`.
 
 ## Extension pattern
 

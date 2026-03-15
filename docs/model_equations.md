@@ -12,7 +12,7 @@
 
 For each compartment `x`, concentration is `C_x = A_x / V_x`.
 
-## State Vector (34 states)
+## State Vector (35 states)
 
 | Index | State | Description |
 |-------|-------|-------------|
@@ -38,7 +38,7 @@ For each compartment `x`, concentration is `C_x = A_x / V_x`.
 | 32 | metabolized_gut | Cumulative gut wall metabolism sink |
 | 33 | excreted_fecal | Cumulative fecal excretion sink |
 
-Mass balance (IV): `dose = sum(all 34 states)` at all times.
+Mass balance (IV): `dose = sum(all 35 states)` at all times.
 
 ## Dosing
 

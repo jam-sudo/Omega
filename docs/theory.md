@@ -2,7 +2,7 @@
 
 ## State vector and units
 
-State vector `y` has 34 states in mg:
+State vector `y` has 35 states in mg:
 
 ```
 [venous_blood, arterial_blood, lung,

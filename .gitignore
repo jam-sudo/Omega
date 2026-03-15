@@ -31,3 +31,4 @@ ai/logs/*
 !ai/logs/.gitkeep
 ai/codex_last_message.txt
 models/**/*.pt
+.obsidian/

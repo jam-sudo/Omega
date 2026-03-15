@@ -51,7 +51,7 @@ YAML / SMILES
 
                  ┌──────────────────────────┐
                  │  experimental/           │
-                 │  physio_sim/ (QSP)       │
+                 │  omega_pbpk/ (QSP)       │
                  └──────────────────────────┘
                  (격리된 QSP 프로토타입)
 ```
@@ -69,7 +69,7 @@ YAML / SMILES
 | `core/` | 35-state ODE 엔진 (물리 모델) | `body.py`, `organ.py`, `heuristics.py` |
 | `surrogate/` | ML 서러게이트 모델 | `__init__.py` (PKSurrogate), `data_generator.py` |
 | `validation/` | 파라미터 가드 & 벤치마크 | `_param_guard.py`, `benchmarks.py` |
-| `experimental/` | 격리된 QSP/physio 프로토타입 코드 | `physio_sim/` |
+| `experimental/` | 격리된 QSP/physio 프로토타입 코드 | `omega_pbpk/` |
 
 ---
 

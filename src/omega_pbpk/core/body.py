@@ -220,7 +220,7 @@ class DDIInhibitor:
 
 
 class WholeBodyPBPK:
-    """34-state ODE-based whole-body PBPK model.
+    """35-state ODE-based whole-body PBPK model.
 
     Usage:
         model = WholeBodyPBPK(drug, body_weight=70.0)
@@ -427,7 +427,7 @@ class WholeBodyPBPK:
         self.inhibitors.append(inhibitor)
 
     def _rhs(self, t: float, y: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
-        """Right-hand side of the 34-state ODE system.
+        """Right-hand side of the 35-state ODE system.
 
         This is the heart of the PBPK model. All pharmacokinetics emerge from
         these differential equations.

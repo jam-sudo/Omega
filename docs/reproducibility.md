@@ -14,7 +14,7 @@ Use `--deterministic` to force reproducible solver and stochastic behavior:
 ## CLI examples
 
 ```bash
-python -m physio_sim.cli simulate \
+python -m omega simulate \
   --compound examples/compound_caffeine.yaml \
   --subject examples/subject_default.yaml \
   --dose-mg 100 --route oral --t-end-h 24 \
@@ -22,7 +22,7 @@ python -m physio_sim.cli simulate \
 ```
 
 ```bash
-python -m physio_sim.cli benchmark \
+python -m omega benchmark \
   --suite benchmarks --out outputs/benchmarks --deterministic --seed 0
 ```
 

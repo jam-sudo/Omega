@@ -2,7 +2,7 @@
 
 ## Abstract draft
 
-We present Omega PBPK, a 34-state ODE whole-body pharmacokinetic simulation platform
+We present Omega PBPK, a 35-state ODE whole-body pharmacokinetic simulation platform
 implementing 15-organ perfusion- and permeability-limited tissue distribution, ACAT
 8-segment absorption, dual-inlet hepatic disposition with IVIVE-scaled clearance,
 drug-drug interaction modeling (competitive, MBI, induction), and QSP/PD coupling
@@ -13,7 +13,7 @@ preclinical-to-clinical PK prediction.
 
 ## Methods template
 
-1. Model structure: 34-state ODE, 15 organs, closed-loop circulation
+1. Model structure: 35-state ODE, 15 organs, closed-loop circulation
 2. Tissue distribution: 11 perfusion-limited + 4 permeability-limited organs
 3. Absorption: ACAT 8-segment model with Peff-based ka
 4. Hepatic clearance: well-stirred model with IVIVE scaling

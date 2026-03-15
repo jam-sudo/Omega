@@ -5,7 +5,7 @@ Enable an academic-style report from a simulation run with `--academic-report`.
 ## CLI usage
 
 ```bash
-python -m physio_sim.cli simulate \
+python -m omega simulate \
   --compound examples/compound_caffeine.yaml \
   --subject examples/subject_default.yaml \
   --dose-mg 100 --route oral --t-end-h 24 \
