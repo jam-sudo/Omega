@@ -69,7 +69,7 @@ def run_benchmark() -> dict:
                     smiles=smiles,
                     dose_mg=dose_mg,
                     route="oral",
-                    duration_h=120.0,
+                    duration_h=24.0,
                 )
             )
             latency_ms = (time.perf_counter() - t0) * 1000.0

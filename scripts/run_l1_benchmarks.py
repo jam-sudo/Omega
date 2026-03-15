@@ -129,7 +129,7 @@ def main():
                     smiles=smiles,
                     dose_mg=dose_mg,
                     route="oral",
-                    duration_h=120.0,
+                    duration_h=24.0,
                 )
             )
 
