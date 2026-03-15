@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Run L1 benchmarks on all 20 benchmark drugs using ML evaluation pipeline.
+"""Run L1 benchmarks on all 25 benchmark drugs using ML evaluation pipeline.
 
 Uses SMILES → EnsembleADMEPredictor → Drug → WholeBodyPBPK → PK metrics.
 Reports AAFE for Cmax/AUC, %2-fold accuracy per drug.
 Compares against L1 exit criteria: AAFE<3.0, ≤2-fold for ≥70% of 20+ drugs.
+Reports 20-drug dev set and 5-drug validation set AAFEs separately.
 """
 
 import json
@@ -16,7 +17,8 @@ repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 
 
-# All 20 benchmark drugs with SMILES and observed PK from CSV datasets
+# All 25 benchmark drugs with SMILES and observed PK from CSV datasets
+# First 20 = dev set (used for tuning), last 5 = validation set (holdout)
 BENCHMARK_DRUGS = {
     "caffeine": {"smiles": "Cn1c(=O)c2c(ncn2C)n(C)c1=O", "dose_mg": 100},
     "metoprolol": {"smiles": "COCCc1ccc(OCC(O)CNC(C)C)cc1", "dose_mg": 100},
@@ -44,6 +46,12 @@ BENCHMARK_DRUGS = {
     "phenytoin": {"smiles": "O=C1NC(=O)C(c2ccccc2)(c2ccccc2)N1", "dose_mg": 300},
     "theophylline": {"smiles": "Cn1c(=O)c2[nH]cnc2n(C)c1=O", "dose_mg": 300},
     "verapamil": {"smiles": "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC", "dose_mg": 80},
+    # --- Validation set (5 drugs, not used for tuning) ---
+    "atenolol": {"smiles": "CC(C)NCC(O)COc1ccc(CC(N)=O)cc1", "dose_mg": 50, "set": "validation"},
+    "fluconazole": {"smiles": "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F", "dose_mg": 200, "set": "validation"},
+    "furosemide": {"smiles": "NS(=O)(=O)c1cc(C(=O)O)c(NCc2ccco2)cc1Cl", "dose_mg": 40, "set": "validation"},
+    "gabapentin": {"smiles": "OC(=O)CC1(CN)CCCCC1", "dose_mg": 300, "set": "validation"},
+    "metformin": {"smiles": "CN(C)C(=N)NC(=N)N", "dose_mg": 500, "set": "validation"},
 }
 
 
@@ -86,6 +94,10 @@ def main():
     all_results = []
     cmax_fold_errors = []
     auc_fold_errors = []
+    dev_cmax_fe = []
+    dev_auc_fe = []
+    val_cmax_fe = []
+    val_auc_fe = []
 
     print("=" * 80)
     print("L1 BENCHMARK: SMILES → OmegaPipeline.simulate() → PK Metrics")
@@ -162,6 +174,13 @@ def main():
                 fe_auc = compute_fold_error(pred_auc, obs_auc)
                 cmax_fold_errors.append(fe_cmax)
                 auc_fold_errors.append(fe_auc)
+                is_val = info.get("set") == "validation"
+                if is_val:
+                    val_cmax_fe.append(fe_cmax)
+                    val_auc_fe.append(fe_auc)
+                else:
+                    dev_cmax_fe.append(fe_cmax)
+                    dev_auc_fe.append(fe_auc)
                 print(f"  Observed:  Cmax={obs_cmax:.4f} mg/L, AUC={obs_auc:.4f} mg*h/L")
                 print(f"  Fold-error: Cmax={fe_cmax:.2f}x, AUC={fe_auc:.2f}x")
                 within_2fold = fe_cmax <= 2.0 and fe_auc <= 2.0
@@ -208,7 +227,18 @@ def main():
         f"AUC:  AAFE={aafe_auc:.2f}, within 2-fold={pct_2fold_auc:.0f}% ({sum(1 for fe in valid_auc if fe <= 2.0)}/{len(valid_auc)})"
     )
 
-    print("\n--- EXIT CRITERIA CHECK ---")
+    # Dev vs Validation split
+    aafe_dev_cmax = compute_aafe(dev_cmax_fe)
+    aafe_dev_auc = compute_aafe(dev_auc_fe)
+    aafe_val_cmax = compute_aafe(val_cmax_fe)
+    aafe_val_auc = compute_aafe(val_auc_fe)
+
+    print(f"\n--- DEV SET (20 drugs) ---")
+    print(f"  Cmax AAFE: {aafe_dev_cmax:.2f}, AUC AAFE: {aafe_dev_auc:.2f}")
+    print(f"\n--- VALIDATION SET (5 drugs) ---")
+    print(f"  Cmax AAFE: {aafe_val_cmax:.2f}, AUC AAFE: {aafe_val_auc:.2f}")
+
+    print("\n--- EXIT CRITERIA CHECK (all 25 drugs) ---")
     print(
         f"  AAFE < 3.0:  Cmax={'PASS' if aafe_cmax < 3.0 else 'FAIL'} ({aafe_cmax:.2f}), AUC={'PASS' if aafe_auc < 3.0 else 'FAIL'} ({aafe_auc:.2f})"
     )
