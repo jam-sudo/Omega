@@ -211,6 +211,10 @@ class SimulationRequest:
     species: str = "human"
     subject_age_years: float | None = None
     subject_weight_kg: float | None = None
+    cyp2d6_phenotype: str | None = None  # UM/EM/IM/PM
+    cyp2c9_genotype: str | None = None  # *1/*1, *1/*3, etc.
+    cyp2c19_phenotype: str | None = None  # UM/EM/IM/PM
+    egfr_ml_min: float | None = None  # eGFR for renal adjustment
 
 
 @dataclass
@@ -556,6 +560,44 @@ class OmegaPipeline:
             confidence=confidence,
             warnings=warnings_list,
         )
+
+    def fit_individual(
+        self, request: SimulationRequest, observations: list[tuple[float, float]]
+    ) -> dict:
+        """Fit individual PK parameters from sparse C(t) observations."""
+        from omega_pbpk.ml.models.foundation.individual_estimation import (
+            fit_individual as _fit_individual,
+        )
+
+        # Get population simulation
+        pop_result = self.simulate(request)
+        adme = pop_result.adme_properties
+
+        # Compute population CL via well-stirred model
+        fup = adme.get("fup", 0.1)
+        clint_3a4 = adme.get("clint_3a4", 10.0)
+        ivive_factor = 40.0 * 45.0 * 1800.0 / 1e6 / 60.0
+        clint_L_h = clint_3a4 * ivive_factor
+        q_h = 90.0
+        cl_pop = (
+            (q_h * fup * clint_L_h) / (q_h + fup * clint_L_h)
+            if clint_L_h > 0
+            else 5.0
+        )
+
+        # Approximate Vd from Cmax
+        vd_pop = max(request.dose_mg / max(pop_result.cmax_mg_L, 1e-6) * 0.8, 3.0)
+
+        fit = _fit_individual(
+            observations=observations,
+            dose_mg=request.dose_mg,
+            base_cl=cl_pop,
+            base_vd=vd_pop,
+        )
+        fit["simulation"] = pop_result
+        fit["cl_pop"] = cl_pop
+        fit["vd_pop"] = vd_pop
+        return fit
 
     def _predict_adme(self, smiles: str, warnings_list: list) -> dict:
         if self._adme_predictor is not None:
