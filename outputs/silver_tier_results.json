@@ -1,0 +1,365 @@
+{
+  "benchmark": "silver_tier_thalf",
+  "dataset": "/home/jam/Omega/data/ml/clinical/openfda_validation.csv",
+  "summary": {
+    "n_drugs_total": 39,
+    "n_drugs_valid": 39,
+    "n_within_2fold": 18,
+    "pct_within_2fold": 46.2,
+    "AAFE": 2.865,
+    "total_time_s": 21.2
+  },
+  "per_drug": [
+    {
+      "drug_name": "acetaminophen",
+      "smiles": "CC(=O)Nc1ccc(O)cc1",
+      "obs_thalf_h": 2.9,
+      "pred_thalf_h": 3.627,
+      "fold_error": 1.251,
+      "within_2fold": true,
+      "elapsed_s": 1.87
+    },
+    {
+      "drug_name": "alprazolam",
+      "smiles": "Cc1nnc2n1-c1ccc(Cl)cc1C(=NC2)c1ccccc1",
+      "obs_thalf_h": 11.2,
+      "pred_thalf_h": 39.259,
+      "fold_error": 3.505,
+      "within_2fold": false,
+      "elapsed_s": 0.48
+    },
+    {
+      "drug_name": "amlodipine",
+      "smiles": "CCOC(=O)C1=C(COCCN)NC(C)=C(C(=O)OC)C1c1ccccc1Cl",
+      "obs_thalf_h": 30.0,
+      "pred_thalf_h": 11.193,
+      "fold_error": 2.68,
+      "within_2fold": false,
+      "elapsed_s": 0.47
+    },
+    {
+      "drug_name": "amoxicillin",
+      "smiles": "CC1(C)SC2C(NC(=O)C(N)c3ccc(O)cc3)C(=O)N2C1C(=O)O",
+      "obs_thalf_h": 61.3,
+      "pred_thalf_h": 1.939,
+      "fold_error": 31.612,
+      "within_2fold": false,
+      "elapsed_s": 0.76
+    },
+    {
+      "drug_name": "atenolol",
+      "smiles": "CC(C)NCC(O)COc1ccc(CC(N)=O)cc1",
+      "obs_thalf_h": 6.0,
+      "pred_thalf_h": 6.327,
+      "fold_error": 1.054,
+      "within_2fold": true,
+      "elapsed_s": 0.26
+    },
+    {
+      "drug_name": "atorvastatin",
+      "smiles": "CC(C)c1n(CC[C@@H](O)C[C@@H](O)CC(=O)O)c(-c2ccccc2)c(-c2ccc(F)cc2)c1C(=O)Nc1ccccc1",
+      "obs_thalf_h": 14.0,
+      "pred_thalf_h": 4.001,
+      "fold_error": 3.499,
+      "within_2fold": false,
+      "elapsed_s": 0.31
+    },
+    {
+      "drug_name": "carbamazepine",
+      "smiles": "NC(=O)N1c2ccccc2C=Cc2ccccc21",
+      "obs_thalf_h": 25.0,
+      "pred_thalf_h": 70.718,
+      "fold_error": 2.829,
+      "within_2fold": false,
+      "elapsed_s": 0.54
+    },
+    {
+      "drug_name": "ciprofloxacin",
+      "smiles": "O=C(O)c1cn(C2CC2)c2cc(N3CCNCC3)c(F)cc2c1=O",
+      "obs_thalf_h": 4.0,
+      "pred_thalf_h": 6.25,
+      "fold_error": 1.563,
+      "within_2fold": true,
+      "elapsed_s": 0.35
+    },
+    {
+      "drug_name": "clarithromycin",
+      "smiles": "CCC1OC(=O)C(C)C(OC2CC(C)(OC)C(O)C(C)O2)C(C)C(OC2OC(C)CC(N(C)C)C2O)C(C)(OC)CC(C)C(=O)C(C)C(O)C1(C)O",
+      "obs_thalf_h": 3.0,
+      "pred_thalf_h": 4.49,
+      "fold_error": 1.497,
+      "within_2fold": true,
+      "elapsed_s": 0.47
+    },
+    {
+      "drug_name": "cyclosporine",
+      "smiles": "CCC1NC(=O)C(C(O)C(C)CC=CC)N(C)C(=O)C(C(C)C)N(C)C(=O)C(CC(C)C)N(C)C(=O)C(CC(C)C)N(C)C(=O)C(C)NC(=O)C(C)NC(=O)C(CC(C)C)N(C)C(=O)C(C(C)C)NC(=O)C(CC(C)C)N(C)C(=O)CN(C)C1=O",
+      "obs_thalf_h": 8.4,
+      "pred_thalf_h": 7.035,
+      "fold_error": 1.194,
+      "within_2fold": true,
+      "elapsed_s": 0.49
+    },
+    {
+      "drug_name": "diazepam",
+      "smiles": "CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21",
+      "obs_thalf_h": 1.0,
+      "pred_thalf_h": 83.576,
+      "fold_error": 83.576,
+      "within_2fold": false,
+      "elapsed_s": 0.29
+    },
+    {
+      "drug_name": "digoxin",
+      "smiles": "C[C@@H]1O[C@@H](O[C@@H]2C[C@H](O)[C@@H](O[C@@H]3C[C@H](O)[C@@H](O[C@@H]4C[C@H](O)[C@@H](OC5CC(CO)=CC(=O)O5)C(C)O4)C(C)O3)C(C)O2)C[C@H](O)[C@H]1O",
+      "obs_thalf_h": 1.5,
+      "pred_thalf_h": 4.067,
+      "fold_error": 2.711,
+      "within_2fold": false,
+      "elapsed_s": 0.37
+    },
+    {
+      "drug_name": "ezetimibe",
+      "smiles": "O=C1[C@@H](CC[C@@H](c2ccc(F)cc2)c2ccc(O)cc2)N1c1ccc(F)cc1",
+      "obs_thalf_h": 22.0,
+      "pred_thalf_h": 13.041,
+      "fold_error": 1.687,
+      "within_2fold": true,
+      "elapsed_s": 0.66
+    },
+    {
+      "drug_name": "fluconazole",
+      "smiles": "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F",
+      "obs_thalf_h": 30.0,
+      "pred_thalf_h": 10.386,
+      "fold_error": 2.888,
+      "within_2fold": false,
+      "elapsed_s": 0.46
+    },
+    {
+      "drug_name": "fluoxetine",
+      "smiles": "CNCCC(Oc1ccc(C(F)(F)F)cc1)c1ccccc1",
+      "obs_thalf_h": 1.0,
+      "pred_thalf_h": 3.869,
+      "fold_error": 3.869,
+      "within_2fold": false,
+      "elapsed_s": 0.44
+    },
+    {
+      "drug_name": "furosemide",
+      "smiles": "NS(=O)(=O)c1cc(C(=O)O)c(NCc2ccco2)cc1Cl",
+      "obs_thalf_h": 2.0,
+      "pred_thalf_h": 5.381,
+      "fold_error": 2.69,
+      "within_2fold": false,
+      "elapsed_s": 0.55
+    },
+    {
+      "drug_name": "gabapentin",
+      "smiles": "NCC1(CC(=O)O)CCCCC1",
+      "obs_thalf_h": 5.0,
+      "pred_thalf_h": 7.057,
+      "fold_error": 1.411,
+      "within_2fold": true,
+      "elapsed_s": 0.33
+    },
+    {
+      "drug_name": "hydroxychloroquine",
+      "smiles": "CCN(CCO)CCCC(C)Nc1ccnc2cc(Cl)ccc12",
+      "obs_thalf_h": 40.0,
+      "pred_thalf_h": 32.459,
+      "fold_error": 1.232,
+      "within_2fold": true,
+      "elapsed_s": 0.65
+    },
+    {
+      "drug_name": "ibuprofen",
+      "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+      "obs_thalf_h": 1.8,
+      "pred_thalf_h": 30.012,
+      "fold_error": 16.673,
+      "within_2fold": false,
+      "elapsed_s": 0.45
+    },
+    {
+      "drug_name": "itraconazole",
+      "smiles": "CC(c1ncn(c1)-c1ccc(N2CCN(c3ccc(OCC4COC(Cn5ccnc5)(c5ccc(Cl)cc5Cl)O4)cc3)CC2)cc1)OC",
+      "obs_thalf_h": 16.0,
+      "pred_thalf_h": 9.362,
+      "fold_error": 1.709,
+      "within_2fold": true,
+      "elapsed_s": 0.51
+    },
+    {
+      "drug_name": "lamotrigine",
+      "smiles": "Nc1nnc(-c2cccc(Cl)c2Cl)c(N)n1",
+      "obs_thalf_h": 31.2,
+      "pred_thalf_h": 98.033,
+      "fold_error": 3.142,
+      "within_2fold": false,
+      "elapsed_s": 0.75
+    },
+    {
+      "drug_name": "levofloxacin",
+      "smiles": "CC1COc2c(N3CCN(C)CC3)c(F)cc3c(=O)c(C(=O)O)cn1c23",
+      "obs_thalf_h": 6.0,
+      "pred_thalf_h": 12.368,
+      "fold_error": 2.061,
+      "within_2fold": false,
+      "elapsed_s": 0.71
+    },
+    {
+      "drug_name": "lisinopril",
+      "smiles": "N[C@@H](CCc1ccccc1)C(=O)N1C[C@@H](C(=O)O)C[C@H]1C(=O)O",
+      "obs_thalf_h": 12.0,
+      "pred_thalf_h": 2.298,
+      "fold_error": 5.221,
+      "within_2fold": false,
+      "elapsed_s": 0.55
+    },
+    {
+      "drug_name": "lorazepam",
+      "smiles": "OC1N=C(c2ccccc2Cl)c2cc(Cl)ccc2NC1=O",
+      "obs_thalf_h": 12.0,
+      "pred_thalf_h": 70.997,
+      "fold_error": 5.916,
+      "within_2fold": false,
+      "elapsed_s": 0.33
+    },
+    {
+      "drug_name": "losartan",
+      "smiles": "CCCCc1nc(Cl)c(CO)n1Cc1ccc(-c2ccccc2-c2nnn[nH]2)cc1",
+      "obs_thalf_h": 2.0,
+      "pred_thalf_h": 3.975,
+      "fold_error": 1.988,
+      "within_2fold": true,
+      "elapsed_s": 0.49
+    },
+    {
+      "drug_name": "metformin",
+      "smiles": "CN(C)C(=N)NC(=N)N",
+      "obs_thalf_h": 6.2,
+      "pred_thalf_h": 6.244,
+      "fold_error": 1.007,
+      "within_2fold": true,
+      "elapsed_s": 0.56
+    },
+    {
+      "drug_name": "metoprolol",
+      "smiles": "COCCc1ccc(OCC(O)CNC(C)C)cc1",
+      "obs_thalf_h": 3.0,
+      "pred_thalf_h": 4.402,
+      "fold_error": 1.467,
+      "within_2fold": true,
+      "elapsed_s": 0.45
+    },
+    {
+      "drug_name": "morphine",
+      "smiles": "Oc1ccc2CC3N(C)CCC4=CC(O)C(c1c24)O3",
+      "obs_thalf_h": 2.0,
+      "pred_thalf_h": 7.518,
+      "fold_error": 3.759,
+      "within_2fold": false,
+      "elapsed_s": 0.6
+    },
+    {
+      "drug_name": "olanzapine",
+      "smiles": "Cc1cc2c(s1)Nc1ccccc1N2C1=NCCN1C",
+      "obs_thalf_h": 21.0,
+      "pred_thalf_h": 14.16,
+      "fold_error": 1.483,
+      "within_2fold": true,
+      "elapsed_s": 0.71
+    },
+    {
+      "drug_name": "oxazepam",
+      "smiles": "OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+      "obs_thalf_h": 8.2,
+      "pred_thalf_h": 39.696,
+      "fold_error": 4.841,
+      "within_2fold": false,
+      "elapsed_s": 0.66
+    },
+    {
+      "drug_name": "phenytoin",
+      "smiles": "O=C1NC(=O)C(c2ccccc2)(c2ccccc2)N1",
+      "obs_thalf_h": 10.0,
+      "pred_thalf_h": 11.357,
+      "fold_error": 1.136,
+      "within_2fold": true,
+      "elapsed_s": 0.64
+    },
+    {
+      "drug_name": "propranolol",
+      "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+      "obs_thalf_h": 10.0,
+      "pred_thalf_h": 3.533,
+      "fold_error": 2.83,
+      "within_2fold": false,
+      "elapsed_s": 0.47
+    },
+    {
+      "drug_name": "risperidone",
+      "smiles": "Cc1nc2n(CC3CCN(CCc4noc5cc(F)ccc45)CC3)c(=O)c3ccccc3c2[nH]1",
+      "obs_thalf_h": 3.0,
+      "pred_thalf_h": 68.553,
+      "fold_error": 22.851,
+      "within_2fold": false,
+      "elapsed_s": 0.21
+    },
+    {
+      "drug_name": "sertraline",
+      "smiles": "CNC1CCC(c2ccc(Cl)c(Cl)c2)c2ccccc21",
+      "obs_thalf_h": 26.0,
+      "pred_thalf_h": 16.047,
+      "fold_error": 1.62,
+      "within_2fold": true,
+      "elapsed_s": 0.59
+    },
+    {
+      "drug_name": "sitagliptin",
+      "smiles": "N#Cc1cc(F)c(F)cc1CC(N)CC(=O)N1CCn2c(nnc2C(F)(F)F)C1",
+      "obs_thalf_h": 12.4,
+      "pred_thalf_h": 19.374,
+      "fold_error": 1.562,
+      "within_2fold": true,
+      "elapsed_s": 0.3
+    },
+    {
+      "drug_name": "tacrolimus",
+      "smiles": "COC1CC(=O)C=C(C)/C=C(\\C)C[C@@H](CC(=O)[C@H](CC(C=C1OC)=O)O[C@@H]1O[C@@H](C)[C@@H](O)[C@H](OC)C1)[C@@H]1C[C@@H](O)C(\\C=C\\C=C(/C)[C@@H](OC)C(=O)[C@@H](C)[C@@H](O)C(\\C)=C\\[C@@H](CC=O)C(=O)O1)=O",
+      "obs_thalf_h": 25.0,
+      "pred_thalf_h": 7.693,
+      "fold_error": 3.25,
+      "within_2fold": false,
+      "elapsed_s": 0.66
+    },
+    {
+      "drug_name": "theophylline",
+      "smiles": "Cn1c(=O)c2[nH]cnc2n(C)c1=O",
+      "obs_thalf_h": 8.0,
+      "pred_thalf_h": 6.416,
+      "fold_error": 1.247,
+      "within_2fold": true,
+      "elapsed_s": 0.48
+    },
+    {
+      "drug_name": "verapamil",
+      "smiles": "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC",
+      "obs_thalf_h": 4.5,
+      "pred_thalf_h": 4.156,
+      "fold_error": 1.083,
+      "within_2fold": true,
+      "elapsed_s": 0.51
+    },
+    {
+      "drug_name": "warfarin",
+      "smiles": "CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O",
+      "obs_thalf_h": 20.0,
+      "pred_thalf_h": 167.941,
+      "fold_error": 8.397,
+      "within_2fold": false,
+      "elapsed_s": 0.84
+    }
+  ]
+}
