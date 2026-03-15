@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 interface Props {
   value: string;
@@ -6,8 +7,18 @@ interface Props {
   showPreview?: boolean;
 }
 
+const EXAMPLES = [
+  { name: "Caffeine", smiles: "Cn1c(=O)c2c(ncn2C)n(C)c1=O" },
+  { name: "Ibuprofen", smiles: "CC(C)Cc1ccc(C(C)C(=O)O)cc1" },
+  { name: "Acetaminophen", smiles: "CC(=O)Nc1ccc(O)cc1" },
+  { name: "Metoprolol", smiles: "COCCc1ccc(OCC(O)CNC(C)C)cc1" },
+  { name: "Warfarin", smiles: "CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O" },
+  { name: "Diazepam", smiles: "CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21" },
+];
+
 export default function SmilesInput({ value, onChange, showPreview = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [showExamples, setShowExamples] = useState(false);
 
   useEffect(() => {
     if (!showPreview || !canvasRef.current) return;
@@ -15,7 +26,6 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Clear canvas
     ctx.fillStyle = "#141414";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -48,41 +58,78 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
           try {
             drawer.draw(tree, canvas, "dark");
           } catch {
-            // Invalid SMILES — canvas stays cleared
+            // Invalid SMILES
           }
         });
       } catch {
-        // smiles-drawer import failed — skip preview
+        // smiles-drawer import failed
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [value, showPreview]);
 
   return (
     <div className="flex items-start gap-4">
-      <div className="flex-1">
+      <div className="flex-1 relative">
         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
           SMILES
         </label>
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O"
-          className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-blue-500"
-          spellCheck={false}
-          autoComplete="off"
-        />
+        <div className="flex gap-1">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Enter SMILES or select an example →"
+            className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <div className="relative">
+            <button
+              onClick={() => setShowExamples(!showExamples)}
+              className="h-full px-2 rounded-md border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5 transition-colors"
+              title="Example drugs"
+            >
+              <ChevronDown size={14} />
+            </button>
+            {showExamples && (
+              <div className="absolute right-0 top-full mt-1 w-52 rounded-lg border border-[var(--border)] bg-[#1a1a1a] shadow-xl z-50 py-1">
+                {EXAMPLES.map((ex) => (
+                  <button
+                    key={ex.name}
+                    onClick={() => {
+                      onChange(ex.smiles);
+                      setShowExamples(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/5 transition-colors flex justify-between items-center"
+                  >
+                    <span className="text-[var(--text)]">{ex.name}</span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-mono truncate max-w-[80px]">
+                      {ex.smiles}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       {showPreview && (
-        <canvas
-          ref={canvasRef}
-          width={200}
-          height={150}
-          className="rounded-md border border-[var(--border)] flex-shrink-0"
-          style={{ background: "#141414" }}
-        />
+        <div className="shrink-0">
+          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+            Structure
+          </label>
+          <canvas
+            ref={canvasRef}
+            width={200}
+            height={150}
+            className="rounded-md border border-[var(--border)]"
+            style={{ background: "#141414" }}
+          />
+        </div>
       )}
     </div>
   );

@@ -153,17 +153,31 @@ export default function Predict() {
         <div className="space-y-6">
           {/* Warnings */}
           {data.warnings.length > 0 && (
-            <WarningBadge warnings={data.warnings} riskLevel={data.overall_risk_level} />
+            <div className="animate-fade-in">
+              <WarningBadge warnings={data.warnings} riskLevel={data.overall_risk_level} />
+            </div>
           )}
 
           {/* PK Cards */}
-          {cards && <PKCards cards={cards} confidence={data.confidence} />}
+          {cards && (
+            <div className="animate-fade-in animate-fade-in-delay-1">
+              <PKCards cards={cards} confidence={data.confidence} />
+            </div>
+          )}
 
           {/* PK Curve */}
-          {datasets && <PKCurve datasets={datasets} />}
+          {datasets && (
+            <div className="animate-fade-in animate-fade-in-delay-2">
+              <PKCurve datasets={datasets} />
+            </div>
+          )}
 
           {/* ADME Table */}
-          {data.adme && <ADMETable adme={data.adme} />}
+          {data.adme && (
+            <div className="animate-fade-in animate-fade-in-delay-3">
+              <ADMETable adme={data.adme} />
+            </div>
+          )}
         </div>
       )}
     </PageShell>
