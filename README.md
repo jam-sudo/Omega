@@ -9,8 +9,8 @@
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)](#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
-[![AAFE](https://img.shields.io/badge/AUC_AAFE-2.20-blueviolet?style=for-the-badge)](#benchmark-results)
-[![Status](https://img.shields.io/badge/Level_1-beta-orange?style=for-the-badge)](#benchmark-results)
+[![AAFE](https://img.shields.io/badge/AUC_AAFE-1.66-blueviolet?style=for-the-badge)](#benchmark-results)
+[![Status](https://img.shields.io/badge/Level_1-pass-brightgreen?style=for-the-badge)](#benchmark-results)
 
 ```
 SMILES string  ──→  Omega  ──→  Cmax, AUC, t½, full PK profile
@@ -51,8 +51,8 @@ Omega operates at three levels of sophistication. **Level 1 is in beta** (benchm
 
 | | Level | Status | Input | Method | Output |
 |---|-------|--------|-------|--------|--------|
-| **1** | Ensemble | **Beta** | SMILES | ADMET-AI + XGBoost → ADME → 35-state ODE | PK profile with conformal intervals |
-| **2** | End-to-End | Surrogate trained; GNN pending | SMILES | GNN encoder → learned params → ODE | Sub-500ms prediction |
+| **1** | Ensemble | **All criteria pass** | SMILES | ADMET-AI + XGBoost → ADME → 35-state ODE | PK profile with conformal intervals |
+| **2** | End-to-End | Surrogate trained (AAFE 1.20); GNN training v4 in progress | SMILES | GNN encoder → learned params → ODE | Sub-500ms prediction |
 | **3** | Personalized | Architecture ready | SMILES + patient + dosing | Cross-attention fusion + meta-learning | Few-shot adaptation (1-5 obs) |
 
 ## Benchmark Results
@@ -64,10 +64,10 @@ Healthy volunteers, fasted, single oral dose, IR formulation.
 
 | Metric | Achieved | Target | Status |
 |--------|----------|--------|--------|
-| AUC AAFE | **2.20** | < 3.0 | Pass |
-| Cmax AAFE | **3.18** | < 3.0 | In progress |
-| AUC within 2-fold | **40%** | >= 70% | In progress |
-| Cmax within 2-fold | **35%** | >= 70% | In progress |
+| AUC AAFE | **1.66** | < 3.0 | Pass |
+| Cmax AAFE | **2.16** | < 3.0 | Pass |
+| AUC within 2-fold | **70%** | >= 70% | Pass |
+| Cmax within 2-fold | **70%** | >= 70% | Pass |
 
 > **Scope:** Adult healthy volunteers, single oral IR dose, fasted state.
 > Benchmark drugs include caffeine, warfarin, metoprolol, midazolam, ibuprofen, theophylline, carbamazepine, and 13 others.
@@ -298,11 +298,11 @@ data_pbpk.save_hdf5("data/ml/pbpk_50k.h5")
 
 | Level | Milestone | Status |
 |-------|-----------|--------|
-| **1** | SMILES → PK via ADME ensemble + ODE | **Done** -- AAFE(Cmax) 1.74, 70% within 2-fold |
-| **2** | End-to-end GNN → ODE, AAFE < 2.0, < 500ms | Architecture ready, training pending |
+| **1** | SMILES → PK via ADME ensemble + ODE | **All criteria pass** — Cmax AAFE 2.16, AUC AAFE 1.66, 70% within 2-fold |
+| **2** | End-to-end GNN → ODE, AAFE < 2.0, < 500ms | Surrogate trained (AAFE 1.20); GNN training v4 in progress |
 | **3** | Patient covariates, few-shot adaptation | Architecture ready, awaiting Level 2 |
-| -- | PK-DB + FDA label clinical data pipeline | In progress |
-| -- | Phase parameter extraction to YAML tables | Planned |
+| -- | PK-DB + FDA label clinical data pipeline | PK-DB metadata + OpenFDA labels downloaded |
+| -- | Phase parameter extraction to YAML tables | Done (phases_registry.yaml) |
 
 See [docs/plan-real.md](docs/plan-real.md) for the detailed execution plan.
 

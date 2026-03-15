@@ -161,7 +161,10 @@ class ADMETAIPredictor(MLADMEPredictor):
         # Conformal intervals: use ADMET-AI intervals if available, else +/-50%
         fup_lo, fup_hi = self._get_interval(raw, "PPBR", fup, transform_fup=True)
         clint_lo, clint_hi = self._get_interval(
-            raw, "Clearance_Hepatocyte", clint_3a4, scale_factor=CYP3A4_FRACTION / HEPATOCYTE_TO_PMOL_CYP3A4
+            raw,
+            "Clearance_Hepatocyte",
+            clint_3a4,
+            scale_factor=CYP3A4_FRACTION / HEPATOCYTE_TO_PMOL_CYP3A4,
         )
         peff_lo, peff_hi = self._get_interval(raw, "Caco2_Wang", peff, scale_factor=100.0)
         rbp_lo = max(0.5, rbp * 0.5)

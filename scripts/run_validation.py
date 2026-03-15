@@ -31,6 +31,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 # Scaffold split helper
 # ---------------------------------------------------------------------------
 
+
 def scaffold_split(smiles_list: list[str], test_frac: float = 0.20, seed: int = 42):
     """Scaffold-based train/test split. Returns (train_indices, test_indices)."""
     try:
@@ -39,6 +40,7 @@ def scaffold_split(smiles_list: list[str], test_frac: float = 0.20, seed: int = 
     except ImportError:
         logger.warning("RDKit not available; falling back to random split")
         import random
+
         rng = random.Random(seed)
         idx = list(range(len(smiles_list)))
         rng.shuffle(idx)
@@ -76,10 +78,11 @@ def scaffold_split(smiles_list: list[str], test_frac: float = 0.20, seed: int = 
 # T8: Confidence calibration
 # ---------------------------------------------------------------------------
 
+
 def run_t8(verbose: bool = False) -> dict:
     """Run confidence calibration on scaffold holdout from adme_reference.csv."""
-    from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
     from omega_pbpk.ml.evaluation.metrics import calibrate_uncertainty
+    from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
 
     data_path = REPO_ROOT / "data" / "adme_reference.csv"
     rows: list[dict] = []
@@ -107,10 +110,16 @@ def run_t8(verbose: bool = False) -> dict:
     # Scaffold split — use 20% as calibration holdout
     train_idx, test_idx = scaffold_split(smiles_list, test_frac=0.20)
     holdout_rows = [valid_rows[i] for i in test_idx]
-    logger.info("Holdout set: %d compounds (%.0f%%)", len(holdout_rows), 100 * len(holdout_rows) / len(valid_rows))
+    logger.info(
+        "Holdout set: %d compounds (%.0f%%)",
+        len(holdout_rows),
+        100 * len(holdout_rows) / len(valid_rows),
+    )
 
     # Write holdout to a temp file that calibrate_uncertainty can read
-    import tempfile, os
+    import os
+    import tempfile
+
     tmp_path = Path(tempfile.mktemp(suffix=".csv"))
     fieldnames = list(holdout_rows[0].keys())
     with open(tmp_path, "w", newline="") as f:
@@ -134,10 +143,11 @@ def run_t8(verbose: bool = False) -> dict:
             os.unlink(tmp_path)
 
 
-def _check_confidence_monotonicity(predictor, holdout_rows: list[dict], verbose: bool = False) -> dict:
+def _check_confidence_monotonicity(
+    predictor, holdout_rows: list[dict], verbose: bool = False
+) -> dict:
     """Check that high-confidence predictions have lower AAFE than low-confidence ones."""
     import math
-    from omega_pbpk.ml.models.adme.xgboost_adme import _name_to_smiles
 
     groups: dict[str, list[float]] = {"high": [], "medium": [], "low": []}
     # Use fup as the test property (most entries have ground truth)
@@ -201,6 +211,7 @@ def _check_confidence_monotonicity(predictor, holdout_rows: list[dict], verbose:
 # T9: Tier 2 structural analog validation
 # ---------------------------------------------------------------------------
 
+
 def run_t9(verbose: bool = False) -> dict:
     """Run Tier 2 structural analog validation."""
     from omega_pbpk.ml.evaluation.novel_validator import NovelMoleculeValidator
@@ -222,6 +233,7 @@ def run_t9(verbose: bool = False) -> dict:
 # T10: Tier 3 de novo validation
 # ---------------------------------------------------------------------------
 
+
 def run_t10(n_molecules: int = 1000, verbose: bool = False) -> dict:
     """Run Tier 3 de novo molecule validation."""
     from omega_pbpk.ml.evaluation.novel_validator import NovelMoleculeValidator
@@ -235,7 +247,7 @@ def run_t10(n_molecules: int = 1000, verbose: bool = False) -> dict:
         # Print a sample of failures
         failures = [d for d in result.details if d.get("status") != "PASS"]
         if failures:
-            print(f"\nSample failures (first 10):")
+            print("\nSample failures (first 10):")
             for d in failures[:10]:
                 print(f"  {d}")
 
@@ -246,6 +258,7 @@ def run_t10(n_molecules: int = 1000, verbose: bool = False) -> dict:
 # Entrypoint
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(description="Run validation tasks T8/T9/T10")
     parser.add_argument("--t8", action="store_true", help="Run T8 confidence calibration")
@@ -253,14 +266,16 @@ def main():
     parser.add_argument("--t10", action="store_true", help="Run T10 de novo validation")
     parser.add_argument("--all", action="store_true", help="Run all tasks")
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("--n-molecules", type=int, default=1000, help="De novo molecule count (T10)")
+    parser.add_argument(
+        "--n-molecules", type=int, default=1000, help="De novo molecule count (T10)"
+    )
     args = parser.parse_args()
 
-    if not (args.t8 or args.t9 or args.t10 or getattr(args, "all")):
+    if not (args.t8 or args.t9 or args.t10 or args.all):
         parser.print_help()
         sys.exit(1)
 
-    run_all = getattr(args, "all")
+    run_all = args.all
 
     if args.t8 or run_all:
         print("\n" + "=" * 60)
