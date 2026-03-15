@@ -24,7 +24,7 @@ properties before committing to synthesis and in vitro assays.
 Commercial tools (Simcyp, GastroPlus, PK-Sim) require measured clearance, solubility,
 permeability, and protein binding as inputs. Without those, they cannot run.
 
-### 2. Differentiable Pipeline and Inverse Design
+### 2. Differentiable Pipeline and Inverse Design (Research)
 
 The GNN encoder, parameter head, and differentiable ODE surrogate form a fully
 differentiable pipeline from molecular graph to PK profile. This enables:
@@ -33,8 +33,10 @@ differentiable pipeline from molecular graph to PK profile. This enables:
 - **Inverse mode:** Given a target PK profile, backpropagate gradients into molecular
   feature space to identify structural modifications that achieve it.
 
-No commercial PBPK tool supports gradient-based inverse design. This is a capability
-that does not exist in the current landscape.
+*Note:* The differentiable pipeline is implemented but the GNN could not be trained
+to beat the XGBoost+ODE ensemble (distillation ceiling). The code is preserved for
+future research when more training data becomes available. The production pipeline
+uses XGBoost (non-differentiable) + ODE.
 
 ### 3. Sub-Second Speed, API-First
 
@@ -90,15 +92,16 @@ Honesty about where Omega stands today:
 
 - **Regulatory acceptance:** None. Commercial tools have decades of regulatory track
   record. Omega would need prospective validation studies before regulatory use.
-- **Level 2 (GNN encoder) is in development.** The current production path uses
-  Level 1 (ADMET-AI + XGBoost ensemble) which meets AAFE < 3.0 but not the Level 2
-  target of AAFE < 2.0.
-- **Level 3 (few-shot adaptation) is architecture-complete but untrained.** Clinical
-  data pipeline exists but training has not begun.
-- **Benchmark coverage is limited.** Current validation uses ~20 drugs. Expanding to
-  50+ is needed for credible claims.
-- **Population variability modeling is not yet implemented.** Commercial tools handle
-  virtual populations natively.
+- **GNN end-to-end training was unsuccessful.** Distillation could not beat the
+  teacher (OmegaPipeline). The production path uses XGBoost + polynomial ensemble
+  with physics-informed corrections (GSE solubility floor, VDss calibration, hybrid
+  selectors), achieving Cmax AAFE 1.90 on 20 drugs.
+- **Level 3 (patient-specific) is a prototype.** Allometric scaling and Bayesian
+  individual fitting are implemented and tested, but not validated on real patient data.
+- **Benchmark coverage:** 25 drugs Gold tier (Cmax/AUC), 39 drugs Silver tier (t_half),
+  151 compounds Bronze tier (ADME properties), 5 temporal holdout drugs.
+- **ADMET-AI is disabled** in the production pipeline due to tissue partitioning
+  instabilities. XGBoost + polynomial fallback provides the ADME predictions.
 
 ## Potential Future Capabilities
 
@@ -113,6 +116,6 @@ Honesty about where Omega stands today:
 
 | Level | Criteria | Status |
 |-------|---------|--------|
-| 1 | SMILES to PK profile. ADME AAFE < 3.0. PK within 2-fold for 70%+ of 20+ drugs. | Partially met |
-| 2 | Sub-500ms prediction. AAFE < 2.0. Physically meaningful predicted parameters. | In development |
-| 3 | Patient covariates. Few-shot (< 5 obs). Generalizes to novel compounds. | Planned |
+| 1 | SMILES to PK profile. ADME AAFE < 3.0. PK within 2-fold for 70%+ of 20+ drugs. | **Pass** (Cmax 1.90, AUC 1.66, 70% 2-fold) |
+| 2 | Sub-500ms prediction. AAFE < 2.0. Physically meaningful predicted parameters. | **Pass** (73ms, AAFE 1.90) |
+| 3 | Patient covariates. Few-shot (< 5 obs). Generalizes to novel compounds. | **Prototype** (allometric + Bayesian) |

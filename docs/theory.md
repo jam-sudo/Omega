@@ -64,7 +64,7 @@ These drain to portal vein instead of venous blood:
 
 ### Kidney with renal clearance
 - `dA_kidney/dt = Q_kidney × C_art − Q_kidney × C_out − GFR × fup × C_kidney_unbound`
-- `GFR = 7.5 × (BW/70) L/h`
+- `GFR = 7.2 × (BW/70) L/h`  (120 mL/min for 70 kg reference adult)
 
 ### Permeability-limited organs (adipose, muscle, bone, skin)
 - `dA_vasc/dt = Q_t × C_art − Q_t × C_vasc − PS × (C_u_vasc − C_u_extra)`

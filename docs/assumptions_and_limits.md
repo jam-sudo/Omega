@@ -15,7 +15,7 @@
 - Cardiac output scales linearly with BW in ODE (population generator uses BW^0.75).
 - Well-stirred hepatic clearance model — assumes rapid equilibrium within liver.
 - IVIVE: 40 pmol CYP/mg protein (MPPGL), 45 mg protein/g liver, 1800 g liver weight.
-- GFR-based renal clearance only (no active secretion/reabsorption).
+- Renal clearance: GFR-based filtration with heuristic active secretion (OCT2/OAT for hydrophilic compounds with TPSA > 74 A^2). No tubular reabsorption modeling.
 - Drug-drug interactions use static inhibitor concentrations (no time-varying [I]).
 
 ## Heuristic components
@@ -39,8 +39,13 @@
 ## Not yet covered
 
 - Time-varying inhibitor PK for DDI
-- Active renal secretion/reabsorption
-- Multi-zonal liver metabolism and transporter effects
-- Mechanistic Kp prediction (Rodgers & Rowland, Poulin & Theil)
+- Tubular reabsorption modeling
+- Multi-zonal liver metabolism and transporter effects (P-gp, OATP1B1)
 - Regulatory V&V package
-- Validated GNN ADME prediction (scaffold only)
+- Nonlinear (saturable) metabolism (Michaelis-Menten kinetics)
+
+## Implemented but not in production pipeline
+
+- GNN molecular encoder (training unsuccessful — distillation ceiling)
+- Cross-attention foundation model (Level 3 neural architecture, awaiting clinical data)
+- Reptile meta-learning for few-shot adaptation (code ready, no training data)

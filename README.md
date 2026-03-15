@@ -17,7 +17,7 @@
 ```
 SMILES string  ──→  Omega  ──→  Cmax, AUC, t½, full PK profile
                      ⚡
-          ADMET-AI + XGBoost + 35-state ODE
+          XGBoost + polynomial ADME + 35-state ODE
 ```
 
 </div>
@@ -53,7 +53,7 @@ Omega operates at three levels of sophistication:
 
 | | Level | Status | Input | Method | Output |
 |---|-------|--------|-------|--------|--------|
-| **1** | Ensemble | **All exit criteria pass** | SMILES | ADMET-AI + XGBoost → ADME → 35-state ODE | PK profile with conformal intervals |
+| **1** | Ensemble | **All exit criteria pass** | SMILES | XGBoost + polynomial → ADME → 35-state ODE | PK profile with conformal intervals |
 | **2** | End-to-End | **All exit criteria pass** | SMILES | Ensemble + GSE solubility floor + hybrid selectors | 73ms/drug, AAFE 1.90 |
 | **3** | Personalized | **Prototype working** | SMILES + patient | Allometric scaling + Bayesian individual fitting | Weight/genotype-adjusted PK |
 
@@ -318,17 +318,19 @@ src/omega_pbpk/
 
 ## Training Data
 
-The ML pipeline uses multi-fidelity training data:
+The production pipeline uses pre-trained XGBoost models and polynomial regression. The following data sources were used:
 
-| Source | Fidelity | Samples | Speed |
-|--------|----------|---------|-------|
-| 1-compartment analytical | Low | 100K | ~22K/sec |
-| 35-state ODE engine | Medium | 50K | ~10/sec |
-| PK-DB clinical data | High | ~1K drugs | API cached |
-| TDC ADME benchmarks | -- | 906-9,982 per endpoint | pip cached |
+| Source | Purpose | Samples |
+|--------|---------|---------|
+| TDC PPBR_AZ | XGBoost fup training | 1,614 compounds |
+| TDC Clearance_Hepatocyte_AZ | XGBoost CLint training | 1,213 compounds |
+| TDC VDss_Lombardo | XGBoost VDss training | 1,130 compounds |
+| adme_reference.csv | XGBoost RBP training + calibration | 153 compounds |
+| ZINC drug-like | GNN label generation (research) | 21,811 compounds |
+| OpenFDA labels | Silver-tier validation (t_half) | 43 drugs |
 
 <details>
-<summary>Generate training data</summary>
+<summary>Generate synthetic ODE training data (for research)</summary>
 
 ```python
 from omega_pbpk.ml.data.synthetic import generate_1cpt_data, generate_pbpk_data

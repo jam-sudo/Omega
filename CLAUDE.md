@@ -1,6 +1,7 @@
 # Omega PBPK — Project Instructions
 
-> **Execution plan:** `docs/plan-real.md` | **Progress tracker:** `memory/MEMORY.md`
+> **Execution plan:** `docs/superpowers/specs/2026-03-15-omega-next-phase-design.md` | **Progress tracker:** `memory/MEMORY.md`
+> **Legacy plan:** `docs/plan-real.md` (Phase 1-5 complete)
 > **Memory path:** `~/.claude/projects/-home-jam-Omega/memory/`
 > **Auto-loaded every conversation. Source of truth for all sessions.**
 
@@ -78,11 +79,11 @@ Details + cross-review protocol: `.claude/commands/team.md`
 
 ## Exit Criteria
 
-| Level | Criteria |
-|-------|---------|
-| **1** | `omega predict <SMILES>` → PK profile. ADME AAFE<3.0. PK ≤2-fold for ≥70% of 20+ drugs |
-| **2** | SMILES→PK <500ms. AAFE<2.0. Predicted params are physically meaningful |
-| **3** | Patient covariates. Few-shot (<5 obs). Generalizes to novel compounds |
+| Level | Criteria | Status |
+|-------|---------|--------|
+| **1** | `omega predict <SMILES>` → PK profile. ADME AAFE<3.0. PK ≤2-fold for ≥70% of 20+ drugs | **PASS** (1.90, 70%) |
+| **2** | SMILES→PK <500ms. AAFE<2.0. Predicted params physically meaningful | **PASS** (73ms, 1.90) |
+| **3** | Patient covariates. Few-shot (<5 obs). Generalizes to novel compounds | **Prototype** |
 
 ## Tech Stack
 
