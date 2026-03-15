@@ -1,14 +1,32 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
+import {
+  LayoutDashboard,
+  FlaskConical,
+  GitCompareArrows,
+  Pill,
+  AlertTriangle,
+  Users,
+  FileText,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const NAV_ITEMS = [
-  { path: "/", label: "Dashboard", icon: "\u{1F3E0}" },
-  { path: "/predict", label: "Predict", icon: "\u{1F52C}" },
-  { path: "/compare", label: "Compare", icon: "\u2696\uFE0F" },
-  { path: "/dose-optimize", label: "Dose Opt", icon: "\u{1F48A}" },
-  { path: "/ddi", label: "DDI", icon: "\u26A0\uFE0F" },
-  { path: "/population", label: "PopPK", icon: "\u{1F465}" },
-  { path: "/reports", label: "Reports", icon: "\u{1F4C4}" },
+interface NavItem {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/predict", label: "Predict", icon: FlaskConical },
+  { path: "/compare", label: "Compare", icon: GitCompareArrows },
+  { path: "/dose-optimize", label: "Dose Opt", icon: Pill },
+  { path: "/ddi", label: "DDI", icon: AlertTriangle },
+  { path: "/population", label: "PopPK", icon: Users },
+  { path: "/reports", label: "Reports", icon: FileText },
 ];
 
 export default function Sidebar() {
@@ -16,39 +34,51 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`h-screen sticky top-0 flex flex-col border-r transition-all duration-200 ${
+      className={`h-screen sticky top-0 flex flex-col border-r transition-all duration-200 shrink-0 ${
         collapsed ? "w-[60px]" : "w-[240px]"
       }`}
       style={{ background: "var(--surface)" }}
     >
-      <div className="p-4 font-bold text-lg flex items-center gap-2">
-        <span className="text-xl">{"\u03A9"}</span>
-        {!collapsed && <span>Omega PBPK</span>}
+      {/* Logo */}
+      <div className="h-14 flex items-center gap-2.5 px-4 border-b border-[var(--border)]">
+        <span className="text-blue-400 font-bold text-xl tracking-tight">Ω</span>
+        {!collapsed && (
+          <span className="font-semibold text-sm text-[var(--text)]">Omega PBPK</span>
+        )}
       </div>
-      <nav className="flex-1 flex flex-col gap-1 px-2">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive
-                  ? "bg-blue-500/10 text-blue-400"
-                  : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
-              }`
-            }
-          >
-            <span>{item.icon}</span>
-            {!collapsed && <span>{item.label}</span>}
-          </NavLink>
-        ))}
+
+      {/* Navigation */}
+      <nav className="flex-1 flex flex-col gap-0.5 px-2 py-3">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === "/"}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                  isActive
+                    ? "bg-blue-500/10 text-blue-400 font-medium"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
+                }`
+              }
+              title={collapsed ? item.label : undefined}
+            >
+              <Icon size={18} strokeWidth={1.75} />
+              {!collapsed && <span>{item.label}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
+
+      {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="p-3 text-[var(--text-muted)] hover:text-[var(--text)] text-xs"
+        className="h-10 flex items-center justify-center gap-2 border-t border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors text-xs"
       >
-        {collapsed ? "\u2192" : "\u2190 Collapse"}
+        {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        {!collapsed && <span>Collapse</span>}
       </button>
     </aside>
   );
