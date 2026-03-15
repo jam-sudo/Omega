@@ -32,3 +32,12 @@ ai/logs/*
 ai/codex_last_message.txt
 models/**/*.pt
 .obsidian/
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.spl
+*.synctex.gz
