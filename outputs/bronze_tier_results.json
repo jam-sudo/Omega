@@ -1,0 +1,41 @@
+{
+  "tier": "bronze",
+  "description": "ADME property prediction accuracy on 153 reference compounds",
+  "predictor": "EnsembleADMEPredictor(admet_ai=False)",
+  "n_compounds": 153,
+  "n_success": 151,
+  "n_fail": 2,
+  "elapsed_s": 1.1,
+  "properties": {
+    "logP": {
+      "csv_column": "logP",
+      "aafe": 1.544,
+      "pct_within_2fold": 82.4,
+      "n": 131
+    },
+    "fup": {
+      "csv_column": "fup",
+      "aafe": 2.101,
+      "pct_within_2fold": 58.3,
+      "n": 151
+    },
+    "rbp": {
+      "csv_column": "rbp",
+      "aafe": 1.092,
+      "pct_within_2fold": 98.0,
+      "n": 151
+    },
+    "clint_3a4": {
+      "csv_column": "clint_3a4_uL_min_pmol",
+      "aafe": 3.251,
+      "pct_within_2fold": 33.8,
+      "n": 151
+    },
+    "peff": {
+      "csv_column": "peff_cm_s",
+      "aafe": 1.456,
+      "pct_within_2fold": 86.1,
+      "n": 151
+    }
+  }
+}

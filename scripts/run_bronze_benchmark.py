@@ -55,7 +55,7 @@ PROPERTIES = [
     ("fup", "fup"),
     ("rbp", "rbp"),
     ("clint_3a4_uL_min_pmol", "clint_3a4"),
-    ("peff_cm_s", "peff"),
+    ("peff_cm_s", "peff"),  # NOTE: pred.peff is in 1e-4 cm/s units; converted below
 ]
 
 
@@ -110,6 +110,10 @@ def main() -> None:
             pred_val = getattr(pred, attr, None)
             if pred_val is None or pred_val <= 0:
                 continue
+
+            # peff is stored in units of 1e-4 cm/s; reference CSV is in cm/s
+            if attr == "peff":
+                pred_val = pred_val * 1e-4
 
             fe = compute_fold_error(pred_val, obs)
             fold_errors[csv_col].append(fe)

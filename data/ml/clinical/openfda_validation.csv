@@ -2,7 +2,7 @@ drug_name,smiles,smiles_source,has_cmax,has_auc,has_thalf,has_F,cmax_raw,auc_raw
 acetaminophen,CC(=O)Nc1ccc(O)cc1,adme_reference,0,0,1,0,,,2.9,
 alprazolam,Cc1nnc2n1-c1ccc(Cl)cc1C(=NC2)c1ccccc1,adme_reference,0,0,1,1,,,11.2,100.0
 amlodipine,CCOC(=O)C1=C(COCCN)NC(C)=C(C(=O)OC)C1c1ccccc1Cl,adme_reference,0,0,1,0,,,30.0,
-amoxicillin,CC1(C)SC2C(NC(=O)C(N)c3ccc(O)cc3)C(=O)N2C1C(=O)O,adme_reference,0,1,1,0,,35.4,61.3,
+amoxicillin,CC1(C)SC2C(NC(=O)C(N)c3ccc(O)cc3)C(=O)N2C1C(=O)O,adme_reference,0,1,1,0,,35.4,1.02,
 atenolol,CC(C)NCC(O)COc1ccc(CC(N)=O)cc1,adme_reference,0,0,1,0,,,6.0,
 atorvastatin,CC(C)c1n(CC[C@@H](O)C[C@@H](O)CC(=O)O)c(-c2ccccc2)c(-c2ccc(F)cc2)c1C(=O)Nc1ccccc1,adme_reference,0,0,1,1,,,14.0,14.0
 carbamazepine,NC(=O)N1c2ccccc2C=Cc2ccccc21,adme_reference,0,0,1,1,,,25.0,89.0
@@ -11,7 +11,7 @@ clarithromycin,CCC1OC(=O)C(C)C(OC2CC(C)(OC)C(O)C(C)O2)C(C)C(OC2OC(C)CC(N(C)C)C2O
 clonazepam,O=C1CN=C(c2ccccc2Cl)c2cc([N+](=O)[O-])ccc2N1,adme_reference,0,0,0,1,,,,90.0
 codeine,COc1ccc2CC3N(C)CCC4=CC(O)C(c1c24)O3,adme_reference,0,0,0,0,,,,
 cyclosporine,CCC1NC(=O)C(C(O)C(C)CC=CC)N(C)C(=O)C(C(C)C)N(C)C(=O)C(CC(C)C)N(C)C(=O)C(CC(C)C)N(C)C(=O)C(C)NC(=O)C(C)NC(=O)C(CC(C)C)N(C)C(=O)C(C(C)C)NC(=O)C(CC(C)C)N(C)C(=O)CN(C)C1=O,adme_reference,0,0,1,1,,,8.4,43.0
-diazepam,CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21,adme_reference,0,0,1,0,,,1.0,
+diazepam,CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21,adme_reference,0,0,1,0,,,43.0,
 digoxin,C[C@@H]1O[C@@H](O[C@@H]2C[C@H](O)[C@@H](O[C@@H]3C[C@H](O)[C@@H](O[C@@H]4C[C@H](O)[C@@H](OC5CC(CO)=CC(=O)O5)C(C)O4)C(C)O3)C(C)O2)C[C@H](O)[C@H]1O,adme_reference,0,0,1,1,,,1.5,70.0
 ezetimibe,O=C1[C@@H](CC[C@@H](c2ccc(F)cc2)c2ccc(O)cc2)N1c1ccc(F)cc1,known_smiles,0,0,1,0,,,22.0,
 fluconazole,OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F,adme_reference,1,0,1,0,6.72,,30.0,

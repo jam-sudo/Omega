@@ -12,7 +12,7 @@ propranolol,t_half,10.0,hours,entially. The apparent plasma half-life is about 1
 propranolol,vd,4.0,L,ntially bound to albumin. The volume of distribution of propranolol is approximately 4 liters/kg. Propranolol crosses the b
 propranolol,bioavailability,90.0,%,"tended-Release Capsules, USP, bioavailability has not been investigated. Distribution Approximately 90% of circulating propranolol is"
 amoxicillin,auc,35.4,mcg·hr/mL,et of amoxicillin produces an AUC 0-∞ of 35.4 ± 8.1 mcg•hr/mL and a C max o
-amoxicillin,t_half,61.3,hours,Metabolism and Excretion: The half-life of amoxicillin is 61.3 minutes. Approximately 60% of an oral
+amoxicillin,t_half,1.02,hours,Metabolism and Excretion: The half-life of amoxicillin is 61.3 minutes (corrected: 61.3 min = 1.02 h)
 amoxicillin,protein_binding,20.0,%,"amoxicillin is approximately 20% protein-bound. Following a 1 gram dose, and"
 alprazolam,t_half,11.2,hours,plasma elimination half-life (T 1/2 ) of alprazolam is approximately 11.2 hours (range: 6.3 to 26.9 hours) in
 alprazolam,bioavailability,100.0,%,"imately 90%, and the relative bioavailability compared to alprazolam is about 100%. The bioavailability and phar"
@@ -85,7 +85,7 @@ lorazepam,protein_binding,85.0,%,"s, lorazepam is approximately 85% bound to pla
 warfarin,t_half,20.0,hours,"week; however, the effective half-life ranges from 20 to 60 hours, with a mean of about 40 hour"
 warfarin,vd,0.14,L/kg,Distribution Warfarin shows a volume of distribution of about 0.14 L/kg. Approximately 99% of the
 furosemide,t_half,2.0,hours,fer among doses. The terminal half-life of furosemide is approximately 2 hours. Significantly more furosemid
-diazepam,t_half,1.0,hours,"tial distribution phase has a half-life of approximately 1 hour, although it may range up to"
+diazepam,t_half,43.0,hours,"terminal elimination t1/2 20-100h (mean ~43h); original extraction pulled distribution phase t1/2 (1h)"
 cyclosporine,t_half,8.4,hours,"lly biphasic, with a terminal half-life of approximately 8.4 hours (range 5 to 18 hours). Follow"
 cyclosporine,vd,3.49,L/kg,is session resulted in a mean volume of distribution (Vdss) of 3.49 L/kg and systemic clearance (CL
 cyclosporine,clearance,0.369,L/h,ution (Vdss) of 3.49 L/kg and systemic clearance (CL) of 0.369 L/hr/kg. This systemic CL (0.369 L/hr
