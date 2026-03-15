@@ -15,7 +15,7 @@ export default function Compare() {
   const [submitted, setSubmitted] = useState(false);
 
   const queries = useQueries({
-    queries: inputs.map((inp, idx) => ({
+    queries: inputs.map((inp, _idx) => ({
       queryKey: ["predict", inp.smiles, inp.dose, "oral"] as const,
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         api.predict({ smiles: inp.smiles, dose_mg: inp.dose, route: "oral" }, signal),
@@ -82,7 +82,7 @@ export default function Compare() {
                     <td className="px-4 py-2 text-[var(--text-muted)]">{row.label}</td>
                     {results.map((r, idx) => (
                       <td key={idx} className="px-4 py-2 text-right tabular-nums font-medium">
-                        {formatNum((r as Record<string, number>)[row.key])}
+                        {formatNum((r as unknown as Record<string, number>)[row.key])}
                       </td>
                     ))}
                   </tr>
