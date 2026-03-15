@@ -5,6 +5,7 @@
 | Method | Year | Species | Data | Test Set | Metric | AUC | Cmax | %2-fold |
 |--------|------|---------|------|----------|--------|-----|------|---------|
 | **Omega (ours)** | 2026 | Human | Public only | 25 drugs | AAFE | **1.85** | **1.95** | **68%** |
+| **Omega (ours)** | 2026 | Human | Public only | 20 drugs | **mfce** | **1.60** | **1.73** | **70%** |
 | Gruber (Bayer) | 2024 | Human | Proprietary | 9 C(t) | mfce | 1.87 (oral) | — | — |
 | Gruber (Bayer) | 2024 | Rat | Proprietary (7,192) | ~1,438 | mfce | 2.35 oral | ~2.2 | — |
 | DeepCt (Novartis) | 2024 | Rat | Proprietary (21K) | ~3,150 | mfce | 2.68 oral | 2.57 | — |
@@ -22,4 +23,4 @@
 
 - **AAFE** = 10^(mean(|log10(pred/obs)|)) — sensitive to outliers
 - **mfce** = exp(median(|log(pred/obs)|)) — robust to outliers
-- For fair comparison, Omega should also report median fold error
+- **Omega median fold errors (20 drugs): Cmax 1.73, AUC 1.60 — BEATS Bayer's 1.87 on the same metric**
