@@ -62,6 +62,7 @@ class SMILESToPKModel(nn.Module):
         surrogate_n_output: int = N_TIMEPOINTS,
         surrogate_hidden: int = 256,
         dt_h: float = DT_H,
+        hidden_dims: tuple[int, ...] = (128, 256, 256),
     ) -> None:
         super().__init__()
 
@@ -69,7 +70,7 @@ class SMILESToPKModel(nn.Module):
         self.embedding_dim = embedding_dim
 
         # Sub-modules
-        self.encoder = MolecularEncoder(embedding_dim=embedding_dim)
+        self.encoder = MolecularEncoder(embedding_dim=embedding_dim, hidden_dims=hidden_dims)
         self.param_head = PKParameterHead(embedding_dim=embedding_dim)
         self.surrogate = DifferentiableODESurrogate(
             n_input=6,
@@ -314,11 +315,24 @@ class SMILESToPKModel(nn.Module):
         Loaded SMILESToPKModel in eval mode.
         """
         checkpoint = torch.load(str(path), map_location=device, weights_only=False)
+
+        # Infer hidden_dims from state_dict if not stored in checkpoint
+        hidden_dims = checkpoint.get("hidden_dims")
+        if hidden_dims is None:
+            state = checkpoint["model_state_dict"]
+            hidden_dims = []
+            i = 0
+            while f"encoder.bn_layers.{i}.weight" in state:
+                hidden_dims.append(state[f"encoder.bn_layers.{i}.weight"].shape[0])
+                i += 1
+            hidden_dims = tuple(hidden_dims) if hidden_dims else (128, 256, 256)
+
         model = cls(
             embedding_dim=checkpoint["embedding_dim"],
             surrogate_n_output=checkpoint["surrogate_n_output"],
             surrogate_hidden=checkpoint["surrogate_hidden"],
             dt_h=checkpoint["dt_h"],
+            hidden_dims=hidden_dims,
         )
         model.load_state_dict(checkpoint["model_state_dict"])
         model.eval()

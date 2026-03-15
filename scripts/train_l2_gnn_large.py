@@ -56,6 +56,7 @@ ZINC_CACHE = Path("data/ml/zinc_drug_like.smi")
 LABELS_CACHE = Path("data/ml/gnn_labels_large.csv")
 SURROGATE_PATH = Path("models/pbpk_surrogate/6param/surrogate_model.pt")
 CHECKPOINT_PATH = Path("models/level2/final.pt")
+STAGE_CHECKPOINT_PATH = Path("models/level2/stage_checkpoint.pt")
 
 PARAM_NAMES = ["logP", "fup", "clint_L_h", "mw", "rbp", "peff"]
 # For v2 training: MW is computed from RDKit, not predicted
@@ -258,11 +259,6 @@ def generate_labels_batch(
     from rdkit import Chem
     from rdkit.Chem import Descriptors
 
-    from omega_pbpk.ml.models.adme.admet_ai_wrapper import (
-        CLINT_2D6_NON_SUBSTRATE,
-        CLINT_2D6_SUBSTRATE,
-        HEPATOCYTE_TO_PMOL_CYP3A4,
-    )
     from omega_pbpk.ml.models.adme.xgboost_adme import XGBoostRBPPredictor
     from omega_pbpk.ml.models.adme.xgboost_fup import XGBoostFupPredictor
 
@@ -328,7 +324,9 @@ def generate_labels_batch(
                     row = df.iloc[i].to_dict()
                     mol = Chem.MolFromSmiles(smi)
                     mw = float(Descriptors.MolWt(mol))
-                    logp = float(row.get("Lipophilicity", 2.0))
+                    logp = float(
+                        row.get("Lipophilicity_AstraZeneca", row.get("Lipophilicity", 2.0))
+                    )
                     ppbr = float(row.get("PPBR_AZ", row.get("PPBR", 80.0)))
                     fup_admet = max(0.001, min(1.0, 1.0 - ppbr / 100.0))
 
@@ -342,13 +340,28 @@ def generate_labels_batch(
                         fup = fup_admet
                     fup = max(0.001, min(1.0, fup))
 
+                    # IVIVE matching L1 pipeline: CYP-level CLint → hepatic CL (L/h)
+                    # 1. Convert hepatocyte CLint to per-pmol CYP3A4
+                    #    CYP3A4 per 10^6 cells = MPPGL(40) × CYP3A4_ABUND(137) / HPGL(120)
+                    #    = 5480/120 = 45.67 pmol per 10^6 cells
+                    CYP3A4_PER_MILLION = 5480.0 / 120.0  # 45.67
                     clint_hep = float(
                         row.get("Clearance_Hepatocyte_AZ", row.get("Clearance_Hepatocyte", 10.0))
                     )
-                    clint_3a4 = max(0.01, clint_hep / HEPATOCYTE_TO_PMOL_CYP3A4)
-                    cyp2d6 = float(row.get("CYP2D6_Substrate", 0.5))
-                    clint_2d6 = CLINT_2D6_SUBSTRATE if cyp2d6 >= 0.5 else CLINT_2D6_NON_SUBSTRATE
-                    clint_L_h = (clint_3a4 + clint_2d6) * IVIVE_FACTOR
+                    clint_hep = max(clint_hep, 0.1)
+                    clint_3a4 = max(0.01, clint_hep / CYP3A4_PER_MILLION)
+                    # 2. CYP2D6 binary (match L1: use CarbonMangels key)
+                    cyp2d6 = row.get(
+                        "CYP2D6_Substrate_CarbonMangels", row.get("CYP2D6_Substrate", None)
+                    )
+                    if cyp2d6 is not None:
+                        clint_2d6 = 5.0 if float(cyp2d6) > 0.5 else 0.5
+                    else:
+                        clint_2d6 = 0.5  # default = non-substrate (same as L1)
+                    # 3. L1-compatible IVIVE: same factor as inference pipeline
+                    L1_IVIVE = 40.0 * 45.0 * 1800.0 / 1e6 / 60.0  # 0.054
+                    clint_L_h = (clint_3a4 + clint_2d6) * L1_IVIVE
+                    clint_L_h = max(clint_L_h, 0.001)
                     if clint_L_h <= 0:
                         n_fail += 1
                         continue
@@ -361,8 +374,12 @@ def generate_labels_batch(
                     else:
                         rbp = 1.0
 
-                    caco2 = float(row.get("Caco2_Wang", 0.03))
-                    peff = max(0.01, caco2 * 100.0)
+                    # Caco2_Wang → Peff using same correlation as L1 ensemble
+                    # log(Peff_human) = 0.6836 × Caco2_Wang - 0.5579
+                    caco2_log = float(row.get("Caco2_Wang", -5.0))
+                    log_peff = 0.6836 * caco2_log - 0.5579
+                    peff_cm_s = 10.0**log_peff
+                    peff = max(0.01, min(100.0, peff_cm_s * 1e4))  # ×10^-4 cm/s
 
                     writer.writerow(
                         {
@@ -597,6 +614,7 @@ def train_supervised(
     n_epochs: int = 300,
     warmup_epochs: int = 20,
     patience: int = 0,
+    resume_checkpoint: dict | None = None,
 ) -> tuple[nn.Module, nn.Module, float]:
     """Train GNN encoder + param_head supervised.
 
@@ -605,6 +623,8 @@ def train_supervised(
     patience : int
         Early stopping patience (0 = disabled). Stops if val loss doesn't
         improve for this many epochs after warmup.
+    resume_checkpoint : dict | None
+        If provided, resume from this checkpoint (encoder/param_head state + epoch).
     """
     from omega_pbpk.ml.models.foundation.gnn_encoder import MolecularEncoder
     from omega_pbpk.ml.models.foundation.param_head import PKParameterHead
@@ -612,6 +632,13 @@ def train_supervised(
     hidden_dims = tuple([hidden_dim] * n_layers)
     encoder = MolecularEncoder(hidden_dims=hidden_dims, embedding_dim=hidden_dim).to(device)
     param_head = PKParameterHead(embedding_dim=hidden_dim).to(device)
+
+    start_epoch = 0
+    if resume_checkpoint and resume_checkpoint.get("stage") == "supervised":
+        encoder.load_state_dict(resume_checkpoint["encoder_state_dict"])
+        param_head.load_state_dict(resume_checkpoint["param_head_state_dict"])
+        start_epoch = resume_checkpoint["epoch"] + 1
+        logger.info("Resuming supervised training from epoch %d", start_epoch)
 
     all_params = list(encoder.parameters()) + list(param_head.parameters())
     optimizer = torch.optim.AdamW(all_params, lr=lr, weight_decay=1e-4)
@@ -622,7 +649,11 @@ def train_supervised(
     best_head_state = None
     epochs_no_improve = 0
 
-    for epoch in range(n_epochs):
+    # Fast-forward scheduler if resuming
+    for _ in range(start_epoch):
+        scheduler.step()
+
+    for epoch in range(start_epoch, n_epochs):
         encoder.train()
         param_head.train()
         train_loss = 0.0
@@ -665,6 +696,15 @@ def train_supervised(
             best_enc_state = {k: v.cpu().clone() for k, v in encoder.state_dict().items()}
             best_head_state = {k: v.cpu().clone() for k, v in param_head.state_dict().items()}
             epochs_no_improve = 0
+            # Save intermediate checkpoint on every improvement
+            save_stage_checkpoint(
+                encoder,
+                param_head,
+                "supervised",
+                epoch,
+                best_val,
+                {"hidden_dim": hidden_dim, "n_layers": n_layers, "lr": lr},
+            )
         else:
             epochs_no_improve += 1
 
@@ -725,6 +765,7 @@ def finetune_surrogate(
     lr: float = 5e-5,
     patience: int = 0,
     param_loss_weight: float = 0.3,
+    resume_epoch: int = 0,
 ) -> tuple[nn.Module, nn.Module, float]:
     """Fine-tune GNN+param_head through frozen surrogate (curve + param loss).
 
@@ -756,7 +797,11 @@ def finetune_surrogate(
     best_head_state = None
     epochs_no_improve = 0
 
-    for epoch in range(n_epochs):
+    # Fast-forward scheduler if resuming
+    for _ in range(resume_epoch):
+        scheduler.step()
+
+    for epoch in range(resume_epoch, n_epochs):
         encoder.train()
         param_head.train()
         train_loss = 0.0
@@ -811,6 +856,15 @@ def finetune_surrogate(
             best_enc_state = {k: v.cpu().clone() for k, v in encoder.state_dict().items()}
             best_head_state = {k: v.cpu().clone() for k, v in param_head.state_dict().items()}
             epochs_no_improve = 0
+            # Save intermediate checkpoint on every improvement
+            save_stage_checkpoint(
+                encoder,
+                param_head,
+                "finetune",
+                epoch,
+                best_val,
+                {"lr": lr, "param_loss_weight": param_loss_weight},
+            )
         else:
             epochs_no_improve += 1
 
@@ -891,6 +945,30 @@ def optuna_sweep(
 # ---------------------------------------------------------------------------
 
 
+def save_stage_checkpoint(
+    encoder: nn.Module,
+    param_head: nn.Module,
+    stage: str,
+    epoch: int,
+    best_val: float,
+    hp: dict,
+) -> None:
+    """Save intermediate checkpoint so training can resume after crashes."""
+    STAGE_CHECKPOINT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "encoder_state_dict": encoder.state_dict(),
+            "param_head_state_dict": param_head.state_dict(),
+            "stage": stage,
+            "epoch": epoch,
+            "best_val": best_val,
+            "hp": hp,
+        },
+        str(STAGE_CHECKPOINT_PATH),
+    )
+    logger.info("Stage checkpoint saved (%s epoch %d, val=%.4f)", stage, epoch, best_val)
+
+
 def save_checkpoint(
     encoder: nn.Module,
     param_head: nn.Module,
@@ -966,6 +1044,11 @@ def main() -> None:
     parser.add_argument("--optuna", action="store_true", help="Run Optuna sweep first")
     parser.add_argument("--optuna-trials", type=int, default=20)
     parser.add_argument("--device", default="auto")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from stage checkpoint (models/level2/stage_checkpoint.pt)",
+    )
     args = parser.parse_args()
 
     device = torch.device(
@@ -1070,32 +1153,73 @@ def main() -> None:
         logger.info("Best HPs from Optuna: %s", hp)
 
     # -----------------------------------------------------------------------
+    # Step 4b: Check for resume checkpoint
+    # -----------------------------------------------------------------------
+    resume_ck = None
+    if args.resume and STAGE_CHECKPOINT_PATH.exists():
+        resume_ck = torch.load(str(STAGE_CHECKPOINT_PATH), map_location="cpu", weights_only=False)
+        logger.info(
+            "Found stage checkpoint: stage=%s, epoch=%d, val=%.4f",
+            resume_ck["stage"],
+            resume_ck["epoch"],
+            resume_ck["best_val"],
+        )
+        # Use HP from checkpoint if available
+        if "hp" in resume_ck and resume_ck["hp"]:
+            for k, v in resume_ck["hp"].items():
+                if k in hp:
+                    hp[k] = v
+
+    # -----------------------------------------------------------------------
     # Step 5: Full supervised training
     # -----------------------------------------------------------------------
-    logger.info(
-        "=== Supervised training: %d epochs, batch=%d, lr=%.2e, hidden=%d, layers=%d ===",
-        args.epochs,
-        args.batch_size,
-        hp["lr"],
-        hp["hidden_dim"],
-        hp["n_layers"],
-    )
-    encoder, param_head, sup_val = train_supervised(
-        train_loader,
-        val_loader,
-        device=device,
-        hidden_dim=hp["hidden_dim"],
-        n_layers=hp["n_layers"],
-        lr=hp["lr"],
-        n_epochs=args.epochs,
-        warmup_epochs=args.warmup,
-        patience=args.patience,
-    )
+    skip_supervised = resume_ck and resume_ck["stage"] == "finetune"
+
+    if skip_supervised:
+        logger.info("Resuming from finetune stage — skipping supervised training")
+        from omega_pbpk.ml.models.foundation.gnn_encoder import MolecularEncoder
+        from omega_pbpk.ml.models.foundation.param_head import PKParameterHead
+
+        hidden_dims = tuple([hp["hidden_dim"]] * hp["n_layers"])
+        encoder = MolecularEncoder(hidden_dims=hidden_dims, embedding_dim=hp["hidden_dim"]).to(
+            device
+        )
+        param_head = PKParameterHead(embedding_dim=hp["hidden_dim"]).to(device)
+        encoder.load_state_dict(resume_ck["encoder_state_dict"])
+        param_head.load_state_dict(resume_ck["param_head_state_dict"])
+        sup_val = resume_ck["best_val"]
+    else:
+        logger.info(
+            "=== Supervised training: %d epochs, batch=%d, lr=%.2e, hidden=%d, layers=%d ===",
+            args.epochs,
+            args.batch_size,
+            hp["lr"],
+            hp["hidden_dim"],
+            hp["n_layers"],
+        )
+        encoder, param_head, sup_val = train_supervised(
+            train_loader,
+            val_loader,
+            device=device,
+            hidden_dim=hp["hidden_dim"],
+            n_layers=hp["n_layers"],
+            lr=hp["lr"],
+            n_epochs=args.epochs,
+            warmup_epochs=args.warmup,
+            patience=args.patience,
+            resume_checkpoint=resume_ck
+            if (resume_ck and resume_ck["stage"] == "supervised")
+            else None,
+        )
     logger.info("Supervised val loss: %.4f", sup_val)
 
     # -----------------------------------------------------------------------
     # Step 6: Surrogate fine-tuning
     # -----------------------------------------------------------------------
+    finetune_resume_epoch = 0
+    if resume_ck and resume_ck["stage"] == "finetune":
+        finetune_resume_epoch = resume_ck["epoch"] + 1
+
     if SURROGATE_PATH.exists():
         logger.info("=== Surrogate fine-tuning: %d epochs ===", args.finetune_epochs)
         encoder, param_head, ft_val = finetune_surrogate(
@@ -1108,6 +1232,7 @@ def main() -> None:
             lr=hp["lr"] * 0.1,
             patience=max(args.patience // 2, 20) if args.patience > 0 else 0,
             param_loss_weight=args.param_loss_weight,
+            resume_epoch=finetune_resume_epoch,
         )
         final_val = ft_val
         logger.info("Finetune val loss: %.6f", ft_val)
@@ -1121,6 +1246,10 @@ def main() -> None:
     save_checkpoint(
         encoder, param_head, n_compounds=len(train_ds) + len(val_ds), val_loss=final_val
     )
+    # Clean up intermediate checkpoint after successful completion
+    if STAGE_CHECKPOINT_PATH.exists():
+        STAGE_CHECKPOINT_PATH.unlink()
+        logger.info("Removed stage checkpoint (training completed successfully)")
     logger.info("=== Training complete ===")
 
 

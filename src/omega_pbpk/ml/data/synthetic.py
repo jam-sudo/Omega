@@ -37,7 +37,7 @@ DT_H = 0.1
 PBPK_PARAM_RANGES: dict[str, tuple[float, float]] = {
     "logP": (-2.0, 7.0),
     "fup": (0.005, 1.0),
-    "clint_L_h": (0.0001, 10.0),  # Realistic after IVIVE: ~0.0005-5 L/h
+    "clint_L_h": (0.1, 100.0),  # Hepatocyte IVIVE: 0.1-100 L/h (capped at ~Q_H)
     "mw": (100.0, 900.0),
     "rbp": (0.3, 3.0),
     "peff": (0.01, 10.0),  # Realistic: ~0.1-5 × 10⁻⁴ cm/s

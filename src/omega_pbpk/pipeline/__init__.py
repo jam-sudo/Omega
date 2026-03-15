@@ -241,10 +241,13 @@ class OmegaPipeline:
         try:
             from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
 
-            # Disable ADMET-AI: its fup/logP predictions change Kp/Vd
+            # ADMET-AI disabled: its fup/logP predictions change Kp/Vd
             # unpredictably, breaking warfarin/metformin/losartan.
             # XGBoost CLint (reference-anchored) + XGBoost fup + polynomial
             # logP give the best benchmark results.
+            # Trade-off: polynomial logS under-predicts solubility for
+            # lipophilic drugs (fluoxetine/verapamil 10-15x Cmax error),
+            # but ADMET-AI logS breaks other drugs (phenytoin/carbamazepine).
             self._adme_predictor = EnsembleADMEPredictor(admet_ai=False)
             logger.info("OmegaPipeline: using Ensemble ADME predictor (XGBoost primary).")
         except Exception as exc:
@@ -319,6 +322,10 @@ class OmegaPipeline:
 
             _F_result = predict_bioavailability(drug, dose_mg=request.dose_mg)
             _F = max(_F_result.F_total, 0.01)
+            logger.debug(
+                "Selector: CLh=%.2f CL_r=%.2f F=%.4f(fa=%.3f fg=%.3f fh=%.3f) fup=%.4f",
+                _cl_h, _cl_r, _F, _F_result.fa, _F_result.fg, _F_result.fh, _fup,
+            )
 
             if _cl_r < 5.0 and request.route == "oral":
                 _bw = request.subject_weight_kg or 70.0
@@ -724,6 +731,15 @@ class OmegaPipeline:
         # Derive solubility in mg/mL from logS (log mol/L)
         logS = float(adme.get("logS", -3.0))
         mw = float(adme.get("mw", 300.0))
+
+        # GSE floor: General Solubility Equation (Yalkowsky & Valvani 1980)
+        # prevents polynomial predictor from under-predicting solubility for
+        # lipophilic drugs. Without this, drugs like fluoxetine (logP=4.4) get
+        # dose_number >70 and fa <2%, causing 10-15x Cmax under-prediction.
+        # GSE: logS ≈ 0.5 - 0.01*(MP-25) - logP. Without MP, use simplified:
+        logS_gse = 0.5 - logP
+        logS = max(logS, logS_gse)
+
         sol_mol_L = 10.0**logS
         sol_mg_mL = sol_mol_L * mw  # mg/mL = mol/L * g/mol * 1000 mL/L / 1000 mg/g
 

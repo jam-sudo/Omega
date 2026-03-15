@@ -98,19 +98,26 @@ def compute_aafe(fold_errors):
     return float(10.0 ** np.mean(np.log10(valid)))
 
 
-def eval_l2(model_path: str, device: str = "cpu"):
-    """Evaluate L2 GNN model."""
-    from omega_pbpk.ml.models.foundation.inference import MLPKPredictor
-
+def eval_l2(model_path: str, device: str = "cpu", hybrid: bool = False):
+    """Evaluate L2 model (GNN or hybrid L1+surrogate)."""
     print("=" * 80)
-    print(f"L2 EVALUATION: GNN model = {model_path}")
-    print(f"Device: {device}")
-    print("=" * 80)
+    if hybrid:
+        from omega_pbpk.ml.models.foundation.inference import HybridPKPredictor
 
-    predictor = MLPKPredictor(model_path=model_path, device=device)
-    if predictor.model is None:
-        print("ERROR: Model not loaded. Check path.")
-        return None
+        print("L2 EVALUATION: Hybrid (L1 ADME + Surrogate ODE)")
+        print(f"Device: {device}")
+        print("=" * 80)
+        predictor = HybridPKPredictor(device=device)
+    else:
+        from omega_pbpk.ml.models.foundation.inference import MLPKPredictor
+
+        print(f"L2 EVALUATION: GNN model = {model_path}")
+        print(f"Device: {device}")
+        print("=" * 80)
+        predictor = MLPKPredictor(model_path=model_path, device=device)
+        if predictor.model is None:
+            print("ERROR: Model not loaded. Check path.")
+            return None
 
     results = []
     cmax_fes, auc_fes = [], []
@@ -276,5 +283,10 @@ if __name__ == "__main__":
         default="cuda" if torch.cuda.is_available() else "cpu",
         help="Device (cpu/cuda)",
     )
+    parser.add_argument(
+        "--hybrid",
+        action="store_true",
+        help="Use hybrid mode: L1 ADME ensemble + surrogate ODE",
+    )
     args = parser.parse_args()
-    eval_l2(args.model, args.device)
+    eval_l2(args.model, args.device, hybrid=args.hybrid)

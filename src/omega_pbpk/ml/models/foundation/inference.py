@@ -337,4 +337,145 @@ class MLPKPredictor:
         return results
 
 
-__all__ = ["MLPKPredictor"]
+class HybridPKPredictor:
+    """Hybrid predictor: L1 ADME ensemble for params + surrogate ODE for speed.
+
+    Combines the accuracy of L1's ADME predictions with the speed of the
+    neural ODE surrogate, bypassing the GNN entirely.
+
+    Pipeline:
+    1. EnsembleADMEPredictor -> ADME properties (logP, fup, clint, mw, rbp, peff)
+    2. IVIVE scaling: clint (µL/min/pmol) -> clint_L_h (L/h)
+    3. DifferentiableODESurrogate -> C(t) curve (241 timepoints)
+    4. PK metric extraction from surrogate curve
+    5. Optionally: real ODE for comparison
+    """
+
+    SURROGATE_PARAM_ORDER = ("logP", "fup", "clint_L_h", "mw", "rbp", "peff")
+
+    def __init__(
+        self,
+        surrogate_path: str | Path = "models/pbpk_surrogate/6param/surrogate_model.pt",
+        device: str = "cpu",
+        dose_mg: float = 100.0,
+        route: str = "oral",
+        body_weight: float = 70.0,
+        t_end_h: float = 24.0,
+        use_real_ode: bool = False,
+    ) -> None:
+        self.device = device
+        self.dose_mg = dose_mg
+        self.route = route
+        self.body_weight = body_weight
+        self.t_end_h = t_end_h
+        self.use_real_ode = use_real_ode
+
+        # Load L1 ADME ensemble
+        from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
+
+        self.adme = EnsembleADMEPredictor()
+
+        # Load surrogate
+        from omega_pbpk.ml.models.surrogate.differentiable_ode import load_surrogate
+
+        self.surrogate = load_surrogate(Path(surrogate_path))
+        logger.info("HybridPKPredictor ready: L1 ADME + surrogate ODE")
+
+    def predict(
+        self,
+        smiles: str,
+        dose_mg: float | None = None,
+        route: str | None = None,
+        body_weight: float | None = None,
+        t_end_h: float | None = None,
+    ) -> dict[str, Any]:
+        """Predict PK profile using L1 ADME + surrogate ODE."""
+        import numpy as np
+
+        dose = dose_mg or self.dose_mg
+        rt = route or self.route
+        bw = body_weight or self.body_weight
+        t_end = t_end_h or self.t_end_h
+        warnings_list: list[str] = []
+
+        # 1. L1 ADME prediction
+        adme = self.adme.predict(smiles)
+
+        # 2. IVIVE: clint (µL/min/pmol) -> clint_L_h (L/h)
+        clint_3a4 = adme.clint_3a4
+        clint_2d6 = adme.clint_2d6
+        ivive_factor = 40.0 * 45.0 * 1800.0 / 1e6 / 60.0  # = 3.6
+        clint_L_h = (clint_3a4 + clint_2d6) * ivive_factor
+
+        params_dict = {
+            "logP": adme.logP,
+            "fup": adme.fup,
+            "clint_L_h": clint_L_h,
+            "mw": adme.mw,
+            "rbp": adme.rbp,
+            "peff": adme.peff,
+            "clint_3a4": clint_3a4,
+            "clint_2d6": clint_2d6,
+        }
+
+        # 3. Surrogate inference — dose scaling
+        # Surrogate was trained at 10mg oral, 70kg. Scale linearly by dose.
+        dose_scale = dose / 10.0
+        surr_input = np.array(
+            [params_dict[k] for k in self.SURROGATE_PARAM_ORDER], dtype=np.float64
+        )
+        surr_curve = self.surrogate.predict(surr_input) * dose_scale
+
+        # 4. Extract PK from surrogate curve
+        dt_h = 0.1
+        time_h = np.arange(len(surr_curve)) * dt_h
+        cmax = float(np.max(surr_curve))
+        tmax = float(time_h[np.argmax(surr_curve)])
+        auc = float(np.trapz(surr_curve, time_h))
+
+        # Half-life from terminal slope
+        t_half = float("inf")
+        if cmax > 0:
+            post_peak = surr_curve[np.argmax(surr_curve) :]
+            above_thresh = post_peak > cmax * 0.1
+            if above_thresh.sum() > 2:
+                log_conc = np.log(np.clip(post_peak[above_thresh], 1e-15, None))
+                t_pts = time_h[np.argmax(surr_curve) :][above_thresh]
+                if len(t_pts) > 2:
+                    slope = np.polyfit(t_pts, log_conc, 1)[0]
+                    if slope < 0:
+                        t_half = 0.693 / abs(slope)
+
+        pk_profile = {
+            "Cmax_mg_L": cmax,
+            "AUC_mg_h_L": auc,
+            "Tmax_h": tmax,
+            "half_life_h": t_half,
+            "source": "surrogate",
+        }
+
+        result = {
+            "params": params_dict,
+            "pk_profile": pk_profile,
+            "surrogate_curve": surr_curve,
+            "simulation_result": None,
+            "warnings": warnings_list,
+            "confidence": adme.confidence,
+        }
+
+        # 5. Optionally run real ODE for comparison
+        if self.use_real_ode:
+            try:
+                drug = MLPKPredictor._params_to_drug(None, params_dict, smiles, dose, rt)
+                sim_result = MLPKPredictor._run_real_ode(None, drug, dose, rt, bw, t_end)
+                ode_pk = sim_result.pk_summary()
+                result["ode_pk_profile"] = ode_pk
+                result["simulation_result"] = sim_result
+                result["drug"] = drug
+            except Exception as e:
+                warnings_list.append(f"Real ODE failed: {e}")
+
+        return result
+
+
+__all__ = ["MLPKPredictor", "HybridPKPredictor"]
