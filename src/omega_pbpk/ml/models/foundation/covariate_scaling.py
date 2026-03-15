@@ -11,10 +11,10 @@ REF_WEIGHT_KG = 70.0
 # CYP genotype activity factors relative to extensive metabolizer (EM = 1.0)
 CYP_FACTORS: dict[str, dict[str, float]] = {
     "CYP2D6": {
-        "UM": 1.5,   # ultra-rapid metabolizer
-        "EM": 1.0,   # extensive (normal)
-        "IM": 0.5,   # intermediate
-        "PM": 0.1,   # poor metabolizer
+        "UM": 1.5,  # ultra-rapid metabolizer
+        "EM": 1.0,  # extensive (normal)
+        "IM": 0.5,  # intermediate
+        "PM": 0.1,  # poor metabolizer
     },
     "CYP2C9": {
         "*1/*1": 1.0,

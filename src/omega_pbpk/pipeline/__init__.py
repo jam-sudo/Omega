@@ -328,7 +328,13 @@ class OmegaPipeline:
             _F = max(_F_result.F_total, 0.01)
             logger.debug(
                 "Selector: CLh=%.2f CL_r=%.2f F=%.4f(fa=%.3f fg=%.3f fh=%.3f) fup=%.4f",
-                _cl_h, _cl_r, _F, _F_result.fa, _F_result.fg, _F_result.fh, _fup,
+                _cl_h,
+                _cl_r,
+                _F,
+                _F_result.fa,
+                _F_result.fg,
+                _F_result.fh,
+                _fup,
             )
 
             if _cl_r < 5.0 and request.route == "oral":
@@ -579,11 +585,7 @@ class OmegaPipeline:
         ivive_factor = 40.0 * 45.0 * 1800.0 / 1e6 / 60.0
         clint_L_h = clint_3a4 * ivive_factor
         q_h = 90.0
-        cl_pop = (
-            (q_h * fup * clint_L_h) / (q_h + fup * clint_L_h)
-            if clint_L_h > 0
-            else 5.0
-        )
+        cl_pop = (q_h * fup * clint_L_h) / (q_h + fup * clint_L_h) if clint_L_h > 0 else 5.0
 
         # Approximate Vd from Cmax
         vd_pop = max(request.dose_mg / max(pop_result.cmax_mg_L, 1e-6) * 0.8, 3.0)

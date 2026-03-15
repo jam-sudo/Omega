@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -38,15 +39,17 @@ except OSError:
     except OSError:
         pass  # fall back to default
 
-plt.rcParams.update({
-    "font.size": 12,
-    "axes.titlesize": 14,
-    "axes.labelsize": 12,
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "savefig.pad_inches": 0.15,
-})
+plt.rcParams.update(
+    {
+        "font.size": 12,
+        "axes.titlesize": 14,
+        "axes.labelsize": 12,
+        "figure.dpi": 300,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "savefig.pad_inches": 0.15,
+    }
+)
 
 # Professional color palette
 C_TEAL = "#2b8c8c"
@@ -103,8 +106,7 @@ def fig1_pred_vs_obs_cmax(data: dict):
 
     # labels
     for n, px, ox in zip(names, pred, obs):
-        ax.annotate(n, (ox, px), fontsize=7, alpha=0.8,
-                    xytext=(4, 4), textcoords="offset points")
+        ax.annotate(n, (ox, px), fontsize=7, alpha=0.8, xytext=(4, 4), textcoords="offset points")
 
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -118,9 +120,16 @@ def fig1_pred_vs_obs_cmax(data: dict):
 
     aafe = data.get("aafe_cmax", 1.90)
     pct = data.get("pct_2fold_cmax", 70.0)
-    ax.text(0.97, 0.05, f"AAFE = {aafe:.2f}\n{pct:.0f}% within 2-fold",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=10,
-            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=C_GREY, alpha=0.9))
+    ax.text(
+        0.97,
+        0.05,
+        f"AAFE = {aafe:.2f}\n{pct:.0f}% within 2-fold",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=10,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=C_GREY, alpha=0.9),
+    )
 
     _save(fig, "fig1_pred_vs_obs_cmax")
 
@@ -152,8 +161,7 @@ def fig2_pred_vs_obs_auc(data: dict):
     ax.scatter(obs, pred, s=60, c=C_BLUE, edgecolors="white", linewidths=0.5, zorder=5)
 
     for n, px, ox in zip(names, pred, obs):
-        ax.annotate(n, (ox, px), fontsize=7, alpha=0.8,
-                    xytext=(4, 4), textcoords="offset points")
+        ax.annotate(n, (ox, px), fontsize=7, alpha=0.8, xytext=(4, 4), textcoords="offset points")
 
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -167,9 +175,16 @@ def fig2_pred_vs_obs_auc(data: dict):
 
     aafe = data.get("aafe_auc", 1.66)
     pct = data.get("pct_2fold_auc", 70.0)
-    ax.text(0.97, 0.05, f"AAFE = {aafe:.2f}\n{pct:.0f}% within 2-fold",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=10,
-            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=C_GREY, alpha=0.9))
+    ax.text(
+        0.97,
+        0.05,
+        f"AAFE = {aafe:.2f}\n{pct:.0f}% within 2-fold",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=10,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=C_GREY, alpha=0.9),
+    )
 
     _save(fig, "fig2_pred_vs_obs_auc")
 
@@ -203,6 +218,7 @@ def fig3_fold_error_bars(data: dict):
 
     # legend patches
     from matplotlib.patches import Patch
+
     legend_elements = [
         Patch(facecolor=C_GREEN, label="<= 2-fold"),
         Patch(facecolor=C_YELLOW, label="2-3 fold"),
@@ -241,14 +257,18 @@ def fig4_silver_thalf(data: dict):
     ax.fill_between(span, span / 2, span * 2, alpha=0.07, color=C_YELLOW)
 
     # color by within_2fold
-    within = np.array([d.get("within_2fold", False) for d in drugs
-                       if d.get("pred_thalf_h") and d.get("obs_thalf_h")])
+    within = np.array(
+        [
+            d.get("within_2fold", False)
+            for d in drugs
+            if d.get("pred_thalf_h") and d.get("obs_thalf_h")
+        ]
+    )
     c = [C_TEAL if w else C_RED for w in within]
     ax.scatter(obs, pred, s=50, c=c, edgecolors="white", linewidths=0.5, zorder=5)
 
     for n, px, ox in zip(names, pred, obs):
-        ax.annotate(n, (ox, px), fontsize=6, alpha=0.7,
-                    xytext=(3, 3), textcoords="offset points")
+        ax.annotate(n, (ox, px), fontsize=6, alpha=0.7, xytext=(3, 3), textcoords="offset points")
 
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -263,9 +283,16 @@ def fig4_silver_thalf(data: dict):
     summary = data.get("summary", {})
     aafe = summary.get("AAFE", 2.42)
     pct = summary.get("pct_within_2fold", 51.3)
-    ax.text(0.97, 0.05, f"AAFE = {aafe:.2f}\n{pct:.0f}% within 2-fold",
-            transform=ax.transAxes, ha="right", va="bottom", fontsize=10,
-            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=C_GREY, alpha=0.9))
+    ax.text(
+        0.97,
+        0.05,
+        f"AAFE = {aafe:.2f}\n{pct:.0f}% within 2-fold",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=10,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=C_GREY, alpha=0.9),
+    )
 
     _save(fig, "fig4_silver_thalf")
 
@@ -294,11 +321,25 @@ def fig5_bronze_adme(data: dict):
 
     # value labels on bars
     for bar, aafe, pct in zip(bars, aafes, pcts):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
-                f"{aafe:.2f}", ha="center", va="bottom", fontsize=10, fontweight="bold")
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() / 2,
-                f"{pct:.0f}%\n2-fold", ha="center", va="center", fontsize=8,
-                color="white", fontweight="bold")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.05,
+            f"{aafe:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold",
+        )
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() / 2,
+            f"{pct:.0f}%\n2-fold",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color="white",
+            fontweight="bold",
+        )
 
     ax.axhline(y=2.0, color=C_GREY, linestyle="--", lw=1.2, label="AAFE = 2.0 target")
     ax.set_xticks(x)
@@ -309,6 +350,7 @@ def fig5_bronze_adme(data: dict):
     ax.set_ylim(0, max(aafes) * 1.3)
 
     from matplotlib.patches import Patch
+
     legend_elements = [
         Patch(facecolor=C_GREEN, label="AAFE <= 2"),
         Patch(facecolor=C_YELLOW, label="AAFE 2-3"),
@@ -344,9 +386,13 @@ def fig6_multi_tier_summary(gold, silver, bronze, temporal):
     # Bronze: individual ADME properties
     if bronze:
         props = bronze.get("properties", {})
-        for prop, display in [("logP", "Bronze\nlogP"), ("fup", "Bronze\nfup"),
-                               ("rbp", "Bronze\nRBP"), ("peff", "Bronze\nPeff"),
-                               ("clint_3a4", "Bronze\nCLint")]:
+        for prop, display in [
+            ("logP", "Bronze\nlogP"),
+            ("fup", "Bronze\nfup"),
+            ("rbp", "Bronze\nRBP"),
+            ("peff", "Bronze\nPeff"),
+            ("clint_3a4", "Bronze\nCLint"),
+        ]:
             info = props.get(prop, {})
             tiers.append(display)
             metrics.append(info.get("aafe", None))
@@ -385,16 +431,25 @@ def fig6_multi_tier_summary(gold, silver, bronze, temporal):
     bars = ax.bar(x, vals, color=tier_colors, edgecolor="white", linewidth=0.8, width=0.65)
 
     for bar, val in zip(bars, vals):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.05,
-                f"{val:.2f}", ha="center", va="bottom", fontsize=10, fontweight="bold")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.05,
+            f"{val:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold",
+        )
 
     ax.axhline(y=2.0, color=C_RED, linestyle="--", lw=1.2, alpha=0.7)
     ax.axhline(y=3.0, color=C_RED, linestyle=":", lw=1.0, alpha=0.5)
 
-    ax.text(len(tier_labels) - 0.5, 2.05, "AAFE = 2.0", fontsize=8,
-            color=C_RED, ha="right", alpha=0.8)
-    ax.text(len(tier_labels) - 0.5, 3.05, "AAFE = 3.0", fontsize=8,
-            color=C_RED, ha="right", alpha=0.6)
+    ax.text(
+        len(tier_labels) - 0.5, 2.05, "AAFE = 2.0", fontsize=8, color=C_RED, ha="right", alpha=0.8
+    )
+    ax.text(
+        len(tier_labels) - 0.5, 3.05, "AAFE = 3.0", fontsize=8, color=C_RED, ha="right", alpha=0.6
+    )
 
     ax.set_xticks(x)
     ax.set_xticklabels(tier_labels, fontsize=9)
@@ -403,6 +458,7 @@ def fig6_multi_tier_summary(gold, silver, bronze, temporal):
     ax.set_ylim(0, max(vals) * 1.25)
 
     from matplotlib.patches import Patch
+
     legend_elements = [
         Patch(facecolor="#1976d2", label="Gold (Cmax/AUC, 20 drugs)"),
         Patch(facecolor="#78909c", label="Silver (t1/2, 39 drugs)"),

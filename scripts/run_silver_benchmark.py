@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Silver-tier validation: compare predicted t_half against OpenFDA values."""
+
 from __future__ import annotations
 
 import csv

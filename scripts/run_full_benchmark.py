@@ -78,13 +78,15 @@ def run_benchmark() -> dict:
             pred_auc = sim_result.auc0t_mg_h_L
             pred_thalf = sim_result.t_half_h
 
-            entry.update({
-                "success": True,
-                "pred_cmax": pred_cmax,
-                "pred_auc": pred_auc,
-                "pred_thalf": pred_thalf,
-                "latency_ms": round(latency_ms, 1),
-            })
+            entry.update(
+                {
+                    "success": True,
+                    "pred_cmax": pred_cmax,
+                    "pred_auc": pred_auc,
+                    "pred_thalf": pred_thalf,
+                    "latency_ms": round(latency_ms, 1),
+                }
+            )
 
             print(
                 f"  Predicted: Cmax={pred_cmax:.4f} mg/L, AUC={pred_auc:.4f} mg*h/L, "
@@ -98,15 +100,15 @@ def run_benchmark() -> dict:
                 fe_auc = compute_fold_error(pred_auc, obs_auc)
                 cmax_fold_errors.append(fe_cmax)
                 auc_fold_errors.append(fe_auc)
-                entry.update({
-                    "obs_cmax": obs_cmax,
-                    "obs_auc": obs_auc,
-                    "fe_cmax": round(fe_cmax, 4) if not np.isnan(fe_cmax) else None,
-                    "fe_auc": round(fe_auc, 4) if not np.isnan(fe_auc) else None,
-                })
-                print(
-                    f"  Observed:  Cmax={obs_cmax:.4f} mg/L, AUC={obs_auc:.4f} mg*h/L"
+                entry.update(
+                    {
+                        "obs_cmax": obs_cmax,
+                        "obs_auc": obs_auc,
+                        "fe_cmax": round(fe_cmax, 4) if not np.isnan(fe_cmax) else None,
+                        "fe_auc": round(fe_auc, 4) if not np.isnan(fe_auc) else None,
+                    }
                 )
+                print(f"  Observed:  Cmax={obs_cmax:.4f} mg/L, AUC={obs_auc:.4f} mg*h/L")
                 print(f"  Fold-error: Cmax={fe_cmax:.2f}x, AUC={fe_auc:.2f}x")
 
             n_success += 1
@@ -122,12 +124,8 @@ def run_benchmark() -> dict:
     valid_auc = [fe for fe in auc_fold_errors if not np.isnan(fe)]
     aafe_cmax = compute_aafe(cmax_fold_errors)
     aafe_auc = compute_aafe(auc_fold_errors)
-    pct_2fold_cmax = (
-        sum(1 for fe in valid_cmax if fe <= 2.0) / max(len(valid_cmax), 1) * 100
-    )
-    pct_2fold_auc = (
-        sum(1 for fe in valid_auc if fe <= 2.0) / max(len(valid_auc), 1) * 100
-    )
+    pct_2fold_cmax = sum(1 for fe in valid_cmax if fe <= 2.0) / max(len(valid_cmax), 1) * 100
+    pct_2fold_auc = sum(1 for fe in valid_auc if fe <= 2.0) / max(len(valid_auc), 1) * 100
 
     result = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -193,9 +191,7 @@ def print_summary(result: dict, regressions: list[str] | None = None) -> None:
 
     # Count >3-fold Cmax errors
     gt3_cmax = sum(
-        1
-        for d in result["per_drug"]
-        if d.get("fe_cmax") is not None and d["fe_cmax"] > 3.0
+        1 for d in result["per_drug"] if d.get("fe_cmax") is not None and d["fe_cmax"] > 3.0
     )
     print(f">3-fold Cmax errors: {gt3_cmax}")
 

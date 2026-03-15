@@ -17,9 +17,7 @@ KNOWN_MECHANISMS: dict[str, dict[str, str]] = {
     },
     "ibuprofen": {
         "category": "protein_binding",
-        "detail": (
-            "99% protein bound (fup~0.01), small fup errors cause large PK errors"
-        ),
+        "detail": ("99% protein bound (fup~0.01), small fup errors cause large PK errors"),
     },
     "phenytoin": {
         "category": "metabolism",

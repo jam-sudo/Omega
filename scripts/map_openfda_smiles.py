@@ -79,8 +79,13 @@ def lookup_pubchem(drug_name: str) -> str | None:
                     smiles = props[0].get("CanonicalSMILES", "")
                     if smiles:
                         return smiles
-        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError,
-                TimeoutError, OSError) as e:
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            json.JSONDecodeError,
+            TimeoutError,
+            OSError,
+        ) as e:
             print(f"  PubChem lookup failed for '{name}': {e}")
             continue
     return None
@@ -179,9 +184,17 @@ def main():
     # Write output CSV
     OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
-        "drug_name", "smiles", "smiles_source",
-        "has_cmax", "has_auc", "has_thalf", "has_F",
-        "cmax_raw", "auc_raw", "thalf_h", "bioavailability",
+        "drug_name",
+        "smiles",
+        "smiles_source",
+        "has_cmax",
+        "has_auc",
+        "has_thalf",
+        "has_F",
+        "cmax_raw",
+        "auc_raw",
+        "thalf_h",
+        "bioavailability",
     ]
     with open(OUTPUT_CSV, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -192,7 +205,11 @@ def main():
 
     # Summary
     gold = sum(1 for r in output_rows if r["smiles"] and r["has_cmax"] and r["has_auc"])
-    silver = sum(1 for r in output_rows if r["smiles"] and r["has_thalf"] and not (r["has_cmax"] and r["has_auc"]))
+    silver = sum(
+        1
+        for r in output_rows
+        if r["smiles"] and r["has_thalf"] and not (r["has_cmax"] and r["has_auc"])
+    )
     has_smiles = sum(1 for r in output_rows if r["smiles"])
 
     print("=== Summary ===")

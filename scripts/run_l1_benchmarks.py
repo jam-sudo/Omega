@@ -48,8 +48,16 @@ BENCHMARK_DRUGS = {
     "verapamil": {"smiles": "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC", "dose_mg": 80},
     # --- Validation set (5 drugs, not used for tuning) ---
     "atenolol": {"smiles": "CC(C)NCC(O)COc1ccc(CC(N)=O)cc1", "dose_mg": 50, "set": "validation"},
-    "fluconazole": {"smiles": "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F", "dose_mg": 200, "set": "validation"},
-    "furosemide": {"smiles": "NS(=O)(=O)c1cc(C(=O)O)c(NCc2ccco2)cc1Cl", "dose_mg": 40, "set": "validation"},
+    "fluconazole": {
+        "smiles": "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F",
+        "dose_mg": 200,
+        "set": "validation",
+    },
+    "furosemide": {
+        "smiles": "NS(=O)(=O)c1cc(C(=O)O)c(NCc2ccco2)cc1Cl",
+        "dose_mg": 40,
+        "set": "validation",
+    },
     "gabapentin": {"smiles": "OC(=O)CC1(CN)CCCCC1", "dose_mg": 300, "set": "validation"},
     "metformin": {"smiles": "CN(C)C(=N)NC(=N)N", "dose_mg": 500, "set": "validation"},
 }

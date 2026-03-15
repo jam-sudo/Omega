@@ -25,6 +25,7 @@ from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor  # noqa: E4
 # Metrics
 # ---------------------------------------------------------------------------
 
+
 def compute_fold_error(pred: float, obs: float) -> float:
     if abs(pred) < 1e-12 or abs(obs) < 1e-12:
         return float("nan")
@@ -90,7 +91,7 @@ def main() -> None:
         try:
             pred = predictor.predict(smiles)
         except Exception as e:
-            print(f"  [{i+1}/{len(rows)}] FAIL {name}: {e}")
+            print(f"  [{i + 1}/{len(rows)}] FAIL {name}: {e}")
             n_fail += 1
             continue
 
@@ -120,7 +121,7 @@ def main() -> None:
 
         if (i + 1) % 25 == 0 or (i + 1) == len(rows):
             elapsed = time.time() - t0
-            print(f"  [{i+1}/{len(rows)}] {elapsed:.1f}s elapsed")
+            print(f"  [{i + 1}/{len(rows)}] {elapsed:.1f}s elapsed")
 
     elapsed = time.time() - t0
     print(f"\nPredictions complete: {n_success} ok, {n_fail} failed, {elapsed:.1f}s total\n")
