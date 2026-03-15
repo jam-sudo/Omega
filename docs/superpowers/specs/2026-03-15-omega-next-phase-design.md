@@ -164,7 +164,9 @@ Existing Neural L3 code preserved for future activation when real patient data i
 | 5.5 Demo | warfarin: 70kg→40kg→100kg, CYP2C9 *1/*3 → show PK change |
 | 5.6 Neural L3 preservation | Keep existing code, add note in module docstring about activation path |
 
-**Exit criteria:** `pipeline.simulate(request, covariates={"weight_kg": 40})` produces weight-adjusted PK. 1-drug demo with ≥3 covariate scenarios.
+**Exit criteria:** `SimulationRequest(smiles=..., subject_weight_kg=40)` produces weight-adjusted PK. `pipeline.fit_individual(request, observations=[(1.0, 0.5), (4.0, 0.3)])` returns fitted PK. 1-drug demo with ≥3 covariate scenarios.
+
+**Note:** Gold-tier validation uses 25 drugs with time-resolved C(t) curves + 3 drugs with summary PK values (Cmax/AUC from FDA labels). These are different fidelity levels — report separately if results diverge.
 
 ---
 
@@ -275,6 +277,8 @@ Genotype-to-CL scaling factors for allometric module (WS5.2). Based on FDA pharm
 | CYP2C19 | PM | 0.2 | Sim 2006 |
 
 **Application:** `CL_ind = CL_pop × (W/70)^0.75 × CYP_factor`. The CYP factor applies only to the fraction of clearance mediated by that enzyme. For drugs with mixed CYP metabolism: `CL_ind = CL_pop × (fm_3A4 × factor_3A4 + fm_2D6 × factor_2D6 + (1-fm_3A4-fm_2D6))`.
+
+**fm data source:** ADMET-AI does not predict fm per isoform. Initial approach: use ADMET-AI CYP substrate probability as a proxy (e.g., `CYP2D6_Substrate_CarbonMangels > 0.5` → fm_2D6 = 0.3, else 0.0). CYP3A4 is assumed dominant for remaining hepatic clearance (fm_3A4 = 1.0 - fm_2D6). Simplification acceptable for v1; refine in WS5.1 design doc if needed.
 
 ---
 
