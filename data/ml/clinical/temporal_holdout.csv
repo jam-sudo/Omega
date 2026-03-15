@@ -1,0 +1,6 @@
+drug_name,smiles,dose_mg,route,obs_cmax_mg_L,obs_auc_mg_h_L,obs_thalf_h,source
+adagrasib,CN1CCCC1COC2=NC3=C(CCN(C3)C4=CC=CC5=C4C(=CC=C5)Cl)C(=N2)N6CCN(C(C6)CC#N)C(=O)C(=C)F,600,oral,,,23,FDA label
+futibatinib,COC1=CC(=CC(=C1)C#CC2=NN(C3=NC=NC(=C23)N)C4CCN(C4)C(=O)C=C)OC,20,oral,,,14,FDA label
+capivasertib,C1CN(CCC1(C(=O)NC(CCO)C2=CC=C(C=C2)Cl)N)C3=NC=NC4=C3C=CN4,400,oral,,,8,FDA label
+elacestrant,CCNCCC1=CC=C(C=C1)CN(CC)C2=C(C=CC(=C2)OC)C3CCC4=C(C3)C=CC(=C4)O,345,oral,,,38,FDA label
+pirtobrutinib,CC(C(F)(F)F)N1C(=C(C(=N1)C2=CC=C(C=C2)CNC(=O)C3=C(C=CC(=C3)F)OC)C(=O)N)N,200,oral,,,19,FDA label
