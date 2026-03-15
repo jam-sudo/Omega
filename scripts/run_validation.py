@@ -281,19 +281,19 @@ def main():
         print("\n" + "=" * 60)
         print("T8: CONFIDENCE CALIBRATION")
         print("=" * 60)
-        t8_result = run_t8(verbose=args.verbose)
+        run_t8(verbose=args.verbose)
 
     if args.t9 or run_all:
         print("\n" + "=" * 60)
         print("T9: TIER 2 STRUCTURAL ANALOG VALIDATION")
         print("=" * 60)
-        t9_result = run_t9(verbose=args.verbose)
+        run_t9(verbose=args.verbose)
 
     if args.t10 or run_all:
         print("\n" + "=" * 60)
         print(f"T10: TIER 3 DE NOVO VALIDATION (n={args.n_molecules})")
         print("=" * 60)
-        t10_result = run_t10(n_molecules=args.n_molecules, verbose=args.verbose)
+        run_t10(n_molecules=args.n_molecules, verbose=args.verbose)
 
 
 if __name__ == "__main__":

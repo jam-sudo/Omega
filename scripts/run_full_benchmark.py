@@ -23,14 +23,14 @@ repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 sys.path.insert(0, str(repo_root / "scripts"))
 
-from run_l1_benchmarks import (
+from run_l1_benchmarks import (  # noqa: E402
     BENCHMARK_DRUGS,
     compute_aafe,
     compute_fold_error,
     load_observed_pk,
 )
 
-from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
+from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest  # noqa: E402
 
 
 def run_benchmark() -> dict:
