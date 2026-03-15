@@ -53,8 +53,7 @@ Omega operates at three levels of sophistication:
 
 | | Level | Status | Input | Method | Output |
 |---|-------|--------|-------|--------|--------|
-| **1** | Ensemble | **All exit criteria pass** | SMILES | XGBoost + polynomial → ADME → 35-state ODE | PK profile with conformal intervals |
-| **2** | End-to-End | **All exit criteria pass** | SMILES | Ensemble + GSE solubility floor + hybrid selectors | 73ms/drug, AAFE 1.90 |
+| **1-2** | Ensemble Pipeline | **All exit criteria pass** | SMILES | XGBoost + polynomial + GSE + hybrid selectors → 35-state ODE | PK profile, 73ms, AAFE 1.90 |
 | **3** | Personalized | **Prototype working** | SMILES + patient | Allometric scaling + Bayesian individual fitting | Weight/genotype-adjusted PK |
 
 ## Benchmark Results
@@ -156,7 +155,7 @@ print(f"Cmax: {result.cmax_mg_L:.2f} mg/L, t½: {result.t_half_h:.1f} h")
 ```python
 from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
 
-predictor = EnsembleADMEPredictor()
+predictor = EnsembleADMEPredictor(admet_ai=False)  # production config
 adme = predictor.predict("Cn1cnc2c1c(=O)n(C)c(=O)n2C")  # caffeine
 print(f"logP: {adme.logP:.2f}, fup: {adme.fup:.3f}, CLint: {adme.clint_3a4:.4f}")
 ```
@@ -189,8 +188,8 @@ print(f"Individual CL scale: {fit['cl_scale']:.2f}, Vd scale: {fit['vd_scale']:.
 # SMILES → full PK profile (Level 1)
 omega predict --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --dose 100 --model ensemble
 
-# ADME properties only
-omega predict --smiles "CC(=O)Oc1ccccc1C(=O)O" --model admet-ai
+# ADME properties only (XGBoost ensemble)
+omega predict --smiles "CC(=O)Oc1ccccc1C(=O)O" --model ensemble
 
 # Population simulation
 omega population --compound compounds/warfarin.yaml --n-subjects 100
@@ -245,11 +244,12 @@ Level 3 (Personalized) — PROTOTYPE WORKING:
 
 ## Features
 
-### ML Pipeline (Level 1 — shipped)
-- **ADMET-AI integration** — pretrained Chemprop v2 D-MPNN (#1 on TDC ADMET leaderboard)
-- **XGBoost ensemble** — fup, CLint, VDss, RBP predictors with Morgan fingerprints
-- **Berezhkovskiy Kp correction** — fup-aware tissue partitioning (Kp = Kp_uu x fup)
-- **Conformal prediction** — calibrated uncertainty intervals (90% coverage target)
+### ML Pipeline (Level 1-2 — shipped)
+- **XGBoost ensemble** — fup, CLint, VDss, RBP predictors with 2048-bit Morgan fingerprints (production primary)
+- **Polynomial ridge fallback** — logP, logS with GSE solubility floor
+- **ADMET-AI integration** — pretrained Chemprop D-MPNN available but disabled in production (causes tissue partitioning instabilities for some drugs)
+- **Berezhkovskiy Kp correction** — fup-aware tissue partitioning with XGBoost VDss calibration
+- **Conformal prediction** — uncertainty intervals (fup/rbp/peff well-calibrated; clint under-calibrated)
 - **IVIVE pipeline** — allometric scaling (alpha=0.3, beta=0.9) + well-stirred hepatic clearance
 
 ### Level 3 — Patient-Specific (prototype working)

@@ -2,7 +2,7 @@
 
 ## Test suite
 
-383 unit/integration/E2E tests across 26 test files:
+48,000+ unit/integration/E2E tests (as of March 2026). Key test modules:
 
 | Test file | Count | Coverage |
 |-----------|-------|----------|

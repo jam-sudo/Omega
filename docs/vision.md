@@ -83,7 +83,7 @@ source but lacks ML integration. Omega is open source with ML as a first-class c
 | ML-integrated pipeline | No | Partial | No | Yes |
 | Open source | No | No | Yes | Yes |
 | Regulatory acceptance | Yes | Yes | Yes | Not yet |
-| Population PBPK | Yes | Yes | Yes | Level 3 (planned) |
+| Population PBPK | Yes | Yes | Yes | Prototype (allometric + Bayesian) |
 | API/CLI native | No | No | Partial | Yes |
 
 ## Current Limitations
