@@ -93,7 +93,7 @@ Existing Neural L3 code preserved for future activation when real patient data i
 | Task | Details |
 |------|---------|
 | 1.1 SMILES mapping | Map 43 OpenFDA drug names → canonical SMILES via PubChem + adme_reference.csv cross-reference |
-| 1.2 Unit normalization | Convert OpenFDA values (nM, µM·hr, ng/mL, etc.) → mg/L and mg·h/L using MW. Semi-automated with manual verification |
+| 1.2 Unit normalization | Convert OpenFDA values → mg/L and mg·h/L using MW. **Manual curation required** for Gold drugs — see Appendix A. For Silver (t_half in hours), no conversion needed. Value selection policy: prefer fasted, single-dose, healthy volunteer, IR formulation. When multiple values exist, use geometric mean |
 | 1.3 Pipeline execution | Run OmegaPipeline on all mapped drugs |
 | 1.4 Gold report | 28 drugs: Cmax AAFE, AUC AAFE, %2-fold. Dev set (20) vs Validation set (8) separately |
 | 1.5 Silver report | ~40 drugs: t_half AAFE, %2-fold |
@@ -112,14 +112,16 @@ Existing Neural L3 code preserved for future activation when real patient data i
 | 2.2 Priority fixes | Fix by frequency. Drug-agnostic corrections only (no drug-specific hacks) |
 | 2.3 ADMET-AI exploration | Per-drug ADMET-AI on/off analysis — find which drugs benefit from ADMET-AI predictions |
 | 2.4 Regression testing | Every fix → `run_full_benchmark.py` → before/after diff |
-| 2.5 Transporter flagging | Flag known P-gp/OATP substrates, apply literature-based correction factors |
+| 2.5 Transporter flagging | Flag known P-gp/OATP substrates using `data/transporter_reference.csv` + ADMET-AI `Pgp_Broccatelli` predictions. For flagged drugs, apply fa correction factor (×0.3-0.5 for strong P-gp substrates). Integration: add `transporter_flag` field to Drug, apply correction in `_predict_adme()`. **Mini-design required before implementation** |
 
 **Constraints:**
 - No global parameter changes without full regression pass
 - Drug-agnostic corrections only (must improve ≥2 drugs without regressing any)
 - Track all changes in `outputs/fix_log.json`
 
-**Exit criteria:** ≤5 drugs with >3-fold Cmax error in 25-drug benchmark. Regression test green.
+**Fallback:** If drug-agnostic corrections cannot reduce >3-fold errors to ≤5, reclassify mechanistic outliers (P-gp substrates, saturable metabolism) as "expected limitations" with documented root causes. Report both "all drugs" and "excluding known-mechanism outliers" AAFE.
+
+**Exit criteria:** ≤5 drugs with >3-fold Cmax error in 25-drug benchmark, OR all >3-fold errors have documented mechanistic root causes. Regression test green.
 
 ### WS3: Validation Framework (2-3 days, parallel with WS1)
 
@@ -129,8 +131,8 @@ Existing Neural L3 code preserved for future activation when real patient data i
 |------|---------|
 | 3.1 T8 Confidence calibration | Run `run_validation.py` T8 on scaffold holdout. Target: 90% CI coverage ≥ 88%, confidence monotonic |
 | 3.2 T9 Structural analogs | SAR consistency, monotonicity, plausibility bounds |
-| 3.3 T10 De novo | 1000 novel SMILES, physical plausibility checks (mass balance, positive concentrations, monotonic terminal) |
-| 3.4 Temporal holdout | Curate 5-10 post-2023 FDA-approved small molecules with published PK. Run OmegaPipeline blind. Report fold-errors |
+| 3.3 T10 De novo | 1000 novel SMILES, physical plausibility checks (mass balance, positive concentrations, monotonic terminal). Note: ~22min at 1.3s/drug ADMET-AI latency; run with `admet_ai=False` for speed, or batch |
+| 3.4 Temporal holdout | Curate 5-10 post-2023 FDA-approved small molecules with published PK. Candidates: lenacapavir (2022), futibatinib (2022), adagrasib (2022), elacestrant (2023), capivasertib (2023). Run OmegaPipeline blind. Report fold-errors |
 | 3.5 Comprehensive report | `outputs/validation_report.md` — all 4 sub-tiers |
 
 **Exit criteria:** T8/T9/T10/temporal holdout all executed and reported. Calibration coverage ≥ 88%.
@@ -156,9 +158,9 @@ Existing Neural L3 code preserved for future activation when real patient data i
 | Task | Details |
 |------|---------|
 | 5.1 Design doc | `docs/l3_pragmatic_design.md` — architecture, equations, validation plan |
-| 5.2 Allometric module | `src/omega_pbpk/ml/models/foundation/covariate_scaling.py` — weight/age/sex/genotype → parameter corrections |
+| 5.2 Allometric module | `src/omega_pbpk/ml/models/foundation/covariate_scaling.py` — weight/age/sex/genotype → parameter corrections. See Appendix B for genotype factor table |
 | 5.3 Bayesian fitting | `src/omega_pbpk/ml/models/foundation/individual_estimation.py` — scipy.optimize on sparse C(t) observations |
-| 5.4 Pipeline integration | `OmegaPipeline.simulate(request, covariates=..., observations=...)` — optional covariate/observation arguments |
+| 5.4 Pipeline integration | Extend `SimulationRequest` dataclass with optional fields: `cyp2d6_phenotype`, `cyp2c9_genotype`, `cyp2c19_phenotype`, `egfr_ml_min`. Existing `subject_weight_kg` and `age_years` fields are already present. Add new method `OmegaPipeline.fit_individual(request, observations)` for Bayesian fitting (keeps `simulate()` API unchanged) |
 | 5.5 Demo | warfarin: 70kg→40kg→100kg, CYP2C9 *1/*3 → show PK change |
 | 5.6 Neural L3 preservation | Keep existing code, add note in module docstring about activation path |
 
@@ -230,3 +232,56 @@ Total: ~14-17 working days if serialized. ~10-12 days with parallelism.
 - **IV route** — currently oral-only validation
 - **TDC leaderboard** — after validation is comprehensive
 - **Publication** — after multi-metric validation + comparison to Bayer 2024
+
+---
+
+## Appendix A: Gold Drug Unit Normalization
+
+Manual curation for the 3 new Gold-tier drugs from OpenFDA:
+
+| Drug | OpenFDA Cmax | Unit | MW | → mg/L | OpenFDA AUC | Unit | → mg·h/L | Dose | Source context |
+|------|-------------|------|----|--------|-------------|------|----------|------|----------------|
+| ciprofloxacin | TBD | TBD | 331.3 | TBD | TBD | TBD | TBD | 500mg oral | FDA label |
+| itraconazole | TBD | TBD | 705.6 | TBD | TBD | TBD | TBD | 200mg oral | FDA label |
+| sitagliptin | 950 | nM | 407.3 | 0.387 | 8.52 | µM·hr | 3.47 | 100mg oral | FDA label |
+
+**Conversion formulas:**
+- nM → mg/L: `value × MW / 1e6`
+- µM·hr → mg·h/L: `value × MW / 1e3`
+- ng/mL → mg/L: `value / 1e3`
+- µg/mL → mg/L: `value` (same unit)
+
+---
+
+## Appendix B: CYP Genotype Scaling Factors
+
+Genotype-to-CL scaling factors for allometric module (WS5.2). Based on FDA pharmacogenomic guidance and published meta-analyses.
+
+| Enzyme | Phenotype | Factor (×CL) | Reference |
+|--------|-----------|-------------|-----------|
+| CYP2D6 | Ultra-rapid (UM) | 1.5 | Kirchheiner 2004 |
+| CYP2D6 | Extensive (EM) | 1.0 | (reference) |
+| CYP2D6 | Intermediate (IM) | 0.5 | Kirchheiner 2004 |
+| CYP2D6 | Poor (PM) | 0.1 | Kirchheiner 2004 |
+| CYP2C9 | *1/*1 | 1.0 | (reference) |
+| CYP2C9 | *1/*2 | 0.8 | Rettie 2000 |
+| CYP2C9 | *1/*3 | 0.6 | Rettie 2000 |
+| CYP2C9 | *2/*2 | 0.5 | Rettie 2000 |
+| CYP2C9 | *2/*3 | 0.35 | Rettie 2000 |
+| CYP2C9 | *3/*3 | 0.1 | Rettie 2000 |
+| CYP2C19 | UM | 1.5 | Sim 2006 |
+| CYP2C19 | EM | 1.0 | (reference) |
+| CYP2C19 | IM | 0.6 | Sim 2006 |
+| CYP2C19 | PM | 0.2 | Sim 2006 |
+
+**Application:** `CL_ind = CL_pop × (W/70)^0.75 × CYP_factor`. The CYP factor applies only to the fraction of clearance mediated by that enzyme. For drugs with mixed CYP metabolism: `CL_ind = CL_pop × (fm_3A4 × factor_3A4 + fm_2D6 × factor_2D6 + (1-fm_3A4-fm_2D6))`.
+
+---
+
+## Appendix C: WS3↔WS2 Dependency Note
+
+WS3 T8 (confidence calibration) may reveal that confidence labels are not monotonic, which could inform WS2 parameter fixes. The sequencing diagram shows WS3 parallel with WS1, but T8 results should be shared with WS2 as they become available. Specifically:
+- If T8 reveals fup predictions have poor coverage → WS2 should prioritize protein binding fixes
+- If T8 reveals clint predictions are well-calibrated → WS2 can deprioritize metabolism fixes
+
+This is an information dependency, not a blocking dependency. WS2 can start without T8 results but should incorporate them when available.
