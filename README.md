@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 [![AAFE](https://img.shields.io/badge/Cmax_AAFE-1.90-blueviolet?style=for-the-badge)](#benchmark-results)
-[![Status](https://img.shields.io/badge/Level_2-pass-brightgreen?style=for-the-badge)](#benchmark-results)
+[![Status](https://img.shields.io/badge/pipeline-pass-brightgreen?style=for-the-badge)](#benchmark-results)
 [![Drugs](https://img.shields.io/badge/validated-39_drugs-blue?style=for-the-badge)](#multi-tier-validation)
 [![Speed](https://img.shields.io/badge/speed-73ms-orange?style=for-the-badge)](#benchmark-results)
 
@@ -49,7 +49,7 @@ Traditional PBPK tools demand hours of manual parameterization by expert pharmac
 
 ## How It Works
 
-Omega operates at three levels of sophistication:
+Omega operates at two levels:
 
 | | Level | Status | Input | Method | Output |
 |---|-------|--------|-------|--------|--------|
@@ -136,7 +136,7 @@ pip install -e "."
 
 ## Quick Start
 
-### SMILES to PK profile (Level 1)
+### SMILES to PK profile
 
 ```python
 from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
@@ -205,7 +205,7 @@ omega report --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --name "Caffeine" --dose 100 
 
 | Command | Description |
 |---------|-------------|
-| `omega predict` | SMILES → PK profile (`--model`: ensemble / admet-ai / legacy) |
+| `omega predict` | SMILES → PK profile (`--model`: ensemble / legacy) |
 | `omega simulate` | Run PBPK simulation from a compound YAML file |
 | `omega multidose` | Multi-dose steady-state simulation |
 | `omega optimize` | Therapeutic window dose optimization |
@@ -373,7 +373,7 @@ ruff format src/                    # Format
 ### Benchmarking & Validation
 
 ```bash
-python scripts/run_full_benchmark.py                    # Gold-tier: 20 drugs, Cmax/AUC AAFE
+python scripts/run_full_benchmark.py                    # Gold-tier: 25 drugs, Cmax/AUC AAFE
 python scripts/run_full_benchmark.py --previous prev.json  # ...with regression detection
 python scripts/run_silver_benchmark.py                  # Silver-tier: 39 drugs, t_half
 python scripts/run_bronze_benchmark.py                  # Bronze-tier: 151 compounds, ADME

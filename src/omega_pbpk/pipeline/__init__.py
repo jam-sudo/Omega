@@ -291,6 +291,35 @@ class OmegaPipeline:
         adme_props = self._predict_adme(request.smiles, warnings_list)
         drug = self._build_drug(request.smiles, adme_props, warnings_list)
 
+        # Apply CYP genotype scaling to drug clearance if specified
+        if request.cyp2d6_phenotype or request.cyp2c9_genotype or request.cyp2c19_phenotype:
+            try:
+                from omega_pbpk.ml.models.foundation.covariate_scaling import (
+                    cyp_genotype_factor,
+                )
+
+                genotype_cl_factor = 1.0
+                if request.cyp2d6_phenotype:
+                    genotype_cl_factor *= cyp_genotype_factor("CYP2D6", request.cyp2d6_phenotype)
+                if request.cyp2c9_genotype:
+                    genotype_cl_factor *= cyp_genotype_factor("CYP2C9", request.cyp2c9_genotype)
+                if request.cyp2c19_phenotype:
+                    genotype_cl_factor *= cyp_genotype_factor("CYP2C19", request.cyp2c19_phenotype)
+                if genotype_cl_factor != 1.0:
+                    # Drug is a frozen dataclass; rebuild with scaled clearance
+                    import dataclasses
+
+                    scaled_clint_h = drug.clint_scaled_L_per_h * genotype_cl_factor
+                    scaled_clint_gut = drug.gut_clint_scaled_L_per_h * genotype_cl_factor
+                    drug = dataclasses.replace(
+                        drug,
+                        clint_hepatic_L_per_h=scaled_clint_h,
+                        clint_gut_L_per_h=scaled_clint_gut,
+                    )
+                    logger.info("CYP genotype scaling: CL *= %.2f", genotype_cl_factor)
+            except ImportError as exc:
+                logger.debug("Covariate scaling unavailable: %s", exc)
+
         time_h, cp = self._run_simulation(drug, request, warnings_list)
         cmax = float(np.max(cp))
         tmax = float(time_h[np.argmax(cp)])
