@@ -228,6 +228,9 @@ class SimulationResult:
     adme_properties: dict[str, Any]
     confidence: str
     warnings: list[str]
+    cmax_ci90: tuple[float, float] | None = None
+    auc_ci90: tuple[float, float] | None = None
+    thalf_ci90: tuple[float, float] | None = None
 
 
 class OmegaPipeline:
@@ -584,6 +587,44 @@ class OmegaPipeline:
             ):
                 t_half = t_half_analytical
         confidence = adme_props.get("confidence", "low")
+
+        # Compute conformal UQ intervals from ADME parameter bounds
+        _cmax_ci = None
+        _auc_ci = None
+        _thalf_ci = None
+        try:
+            from omega_pbpk.uncertainty.conformal_uq import (
+                ParameterBounds,
+                propagate_conformal_intervals,
+            )
+
+            _bounds = ParameterBounds(
+                fup_lo=float(adme_props.get("fup_lo", adme_props.get("fup", 0.1) * 0.5)),
+                fup_hi=float(adme_props.get("fup_hi", adme_props.get("fup", 0.1) * 2.0)),
+                clint_lo=float(
+                    adme_props.get("clint_3a4_lo", adme_props.get("clint_3a4", 5.0) * 0.3)
+                ),
+                clint_hi=float(
+                    adme_props.get("clint_3a4_hi", adme_props.get("clint_3a4", 5.0) * 3.0)
+                ),
+                peff_lo=float(adme_props.get("peff_lo", adme_props.get("peff", 1.0) * 0.5)),
+                peff_hi=float(adme_props.get("peff_hi", adme_props.get("peff", 1.0) * 2.0)),
+                rbp_lo=float(adme_props.get("rbp_lo", adme_props.get("rbp", 0.55) * 0.8)),
+                rbp_hi=float(adme_props.get("rbp_hi", adme_props.get("rbp", 0.55) * 1.2)),
+            )
+            _uq = propagate_conformal_intervals(
+                drug_name="",
+                dose_mg=request.dose_mg,
+                route=request.route,
+                bounds=_bounds,
+                n_samples=200,
+            )
+            _cmax_ci = (_uq.cmax_p5, _uq.cmax_p95)
+            _auc_ci = (_uq.auc_p5, _uq.auc_p95)
+            _thalf_ci = (_uq.t_half_p5, _uq.t_half_p95)
+        except Exception as exc:
+            logger.debug("UQ computation failed: %s", exc)
+
         return SimulationResult(
             time_h=time_h,
             cp_mg_L=cp,
@@ -594,6 +635,9 @@ class OmegaPipeline:
             adme_properties=adme_props,
             confidence=confidence,
             warnings=warnings_list,
+            cmax_ci90=_cmax_ci,
+            auc_ci90=_auc_ci,
+            thalf_ci90=_thalf_ci,
         )
 
     def fit_individual(
@@ -773,6 +817,37 @@ class OmegaPipeline:
         # substrates like amoxicillin: predicted 0.1, actual F~90%).
         # Floor of 0.5 × 10^-4 cm/s ≈ moderate absorption (~50% F_oral).
         peff = max(peff, 0.5)
+
+        # P-gp efflux correction: reduce effective permeability for known
+        # P-gp substrates. P-gp pumps drug back into gut lumen, reducing
+        # net absorption. Effect: peff_eff = peff × (1 - pgp_efflux_fraction).
+        # Literature: P-gp reduces fa by 30-70% for substrates like digoxin,
+        # verapamil, fexofenadine (Varma et al., Mol Pharm 2012).
+        pgp_substrate = False
+        try:
+            from omega_pbpk.ml.models.adme.transporter_lookup import (
+                get_transporter_flags,
+                is_pgp_substrate,
+            )
+
+            pgp_substrate = is_pgp_substrate(smiles=smiles)
+            if pgp_substrate:
+                flags = get_transporter_flags(smiles=smiles)
+                pgp_inhibitor = bool(flags and flags.get("pgp_inhibitor", 0))
+                if pgp_inhibitor:
+                    # Drug is both P-gp substrate AND inhibitor — self-inhibition
+                    # means net efflux is minimal (e.g., verapamil, cyclosporine).
+                    warnings_list.append(
+                        "P-gp substrate+inhibitor: no efflux correction (self-inhibiting)"
+                    )
+                else:
+                    peff *= 0.5  # 50% reduction for pure P-gp substrates
+                    warnings_list.append("P-gp substrate: peff reduced by 50% for efflux")
+                    logger.info("P-gp efflux correction applied: peff *= 0.5")
+        except ImportError:
+            pass
+        adme["pgp_substrate"] = pgp_substrate
+
         herg = float(adme.get("herg_ic50_uM", 100.0))
         if herg < 1.0:
             warnings_list.append(f"hERG IC50 = {herg:.2f} uM -- potential cardiac safety concern")
