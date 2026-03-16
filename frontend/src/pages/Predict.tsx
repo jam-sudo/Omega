@@ -14,6 +14,7 @@ import { findReference } from "../lib/referenceMatch";
 import type { CardData } from "../components/charts/PKCards";
 import type { Dataset } from "../components/charts/PKCurve";
 import type { PredictRequest } from "../api/types";
+import type { ReferenceData } from "../data/referenceData";
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-[var(--border)] ${className}`} />;
@@ -73,7 +74,14 @@ export default function Predict() {
     }
   }, [data, dose, route]);
 
-  const ref = data ? findReference(data.smiles) : null;
+  const [ref, setRef] = useState<ReferenceData | null>(null);
+  useEffect(() => {
+    if (data?.smiles) {
+      findReference(data.smiles).then(setRef);
+    } else {
+      setRef(null);
+    }
+  }, [data?.smiles]);
 
   function foldError(pred: number, obs: number | undefined): number | undefined {
     if (obs == null || obs === 0) return undefined;
@@ -222,7 +230,11 @@ export default function Predict() {
           {/* ADME Table */}
           {data.adme && (
             <div className="animate-fade-in animate-fade-in-delay-3">
-              <ADMETable adme={data.adme} />
+              <ADMETable adme={data.adme} reference={ref?.pk_params ? {
+                cmax_mg_L: ref.pk_params.cmax_mg_L,
+                auc_mg_h_L: ref.pk_params.auc_mg_h_L,
+                thalf_h: ref.pk_params.thalf_h,
+              } as Record<string, number | string> : undefined} />
             </div>
           )}
         </div>

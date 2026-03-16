@@ -70,6 +70,7 @@ export default function PKCards({ cards, confidence }: Props) {
                         : "bg-red-500/15 text-red-400"
                   }`}
                 >
+                  {c.foldError <= 2 ? "\u2713 " : c.foldError <= 3 ? "~ " : "\u2717 "}
                   {formatNum(c.foldError)}x
                 </span>
               </div>

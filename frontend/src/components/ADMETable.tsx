@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle, Info } from "lucide-react";
 
 interface Props {
   adme: Record<string, number | string>;
+  reference?: Record<string, number | string>;
 }
 
 interface PropertyDef {
@@ -62,7 +63,7 @@ function RangeBar({ value, range, status }: { value: number; range: [number, num
   );
 }
 
-export default function ADMETable({ adme }: Props) {
+export default function ADMETable({ adme, reference }: Props) {
   const categories = [...new Set(PROPERTIES.map((p) => p.category))];
 
   return (
@@ -110,6 +111,11 @@ export default function ADMETable({ adme }: Props) {
                     <span className="text-sm font-medium tabular-nums text-[var(--text)] w-16 text-right">
                       {typeof val === "number" ? formatNum(val) : val}
                     </span>
+                    {reference && reference[prop.key] != null && (
+                      <span className="text-xs text-orange-400/80 tabular-nums w-16 text-right">
+                        {formatNum(Number(reference[prop.key]))}
+                      </span>
+                    )}
                     <span className="text-xs tabular-nums text-[var(--text-muted)] w-24 text-right">
                       {typeof lo === "number" && typeof hi === "number"
                         ? `${formatNum(lo)} – ${formatNum(hi)}`
