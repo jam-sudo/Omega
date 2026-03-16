@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
 import {
-  AreaChart,
   Area,
   XAxis,
   YAxis,
@@ -8,6 +7,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Scatter,
+  ErrorBar,
+  ComposedChart,
 } from "recharts";
 import { exportCSV, formatNum } from "../../lib/utils";
 
@@ -16,6 +18,8 @@ interface Dataset {
   conc: number[];
   label: string;
   color: string;
+  sd?: number[];
+  isReference?: boolean;
 }
 
 interface Props {
@@ -59,18 +63,38 @@ function CustomTooltip({
 export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
   const [logScale, setLogScale] = useState(false);
 
+  const lineDatasets = useMemo(
+    () => datasets.filter((ds) => !ds.isReference),
+    [datasets],
+  );
+  const refDatasets = useMemo(
+    () => datasets.filter((ds) => ds.isReference),
+    [datasets],
+  );
+
   const chartData = useMemo(() => {
-    if (datasets.length === 0) return [];
-    const primary = datasets[0];
+    if (lineDatasets.length === 0) return [];
+    const primary = lineDatasets[0];
     return primary.time.map((t, i) => {
       const point: Record<string, number> = { time: t };
-      for (const ds of datasets) {
+      for (const ds of lineDatasets) {
         const val = ds.conc[i] ?? 0;
         point[ds.label] = logScale ? Math.max(val, 1e-6) : val;
       }
       return point;
     });
-  }, [datasets, logScale]);
+  }, [lineDatasets, logScale]);
+
+  const refChartData = useMemo(() => {
+    return refDatasets.map((ds) =>
+      ds.time.map((t, i) => ({
+        time: t,
+        conc: logScale ? Math.max(ds.conc[i] ?? 0, 1e-6) : (ds.conc[i] ?? 0),
+        sdUpper: ds.sd?.[i] ?? 0,
+        sdLower: ds.sd?.[i] ?? 0,
+      })),
+    );
+  }, [refDatasets, logScale]);
 
   const handleExportCSV = useCallback(() => {
     if (datasets.length === 0) return;
@@ -88,7 +112,8 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
 
   if (datasets.length === 0) return null;
 
-  const isSingle = datasets.length === 1;
+  const hasReference = refDatasets.length > 0;
+  const isSingle = lineDatasets.length === 1 && !hasReference;
 
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -132,12 +157,12 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
       </div>
 
       <ResponsiveContainer width="100%" height={340}>
-        <AreaChart
+        <ComposedChart
           data={chartData}
           margin={{ top: 5, right: 20, bottom: 25, left: 15 }}
         >
           <defs>
-            {datasets.map((ds) => (
+            {lineDatasets.map((ds) => (
               <linearGradient
                 key={`grad-${ds.label}`}
                 id={`gradient-${ds.label.replace(/\s/g, "-")}`}
@@ -162,6 +187,8 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
             tick={{ fontSize: 11, fill: "#737373" }}
             tickLine={false}
             axisLine={false}
+            type="number"
+            domain={["dataMin", "dataMax"]}
             label={{
               value: "Time (h)",
               position: "insideBottom",
@@ -223,7 +250,7 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
               }}
             />
           )}
-          {datasets.map((ds) => (
+          {lineDatasets.map((ds) => (
             <Area
               key={ds.label}
               type="monotone"
@@ -241,16 +268,55 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
               animationEasing="ease-out"
             />
           ))}
-        </AreaChart>
+          {refDatasets.map((ds, idx) => (
+            <Scatter
+              key={ds.label}
+              name={ds.label}
+              data={refChartData[idx]}
+              fill={ds.color}
+              dataKey="conc"
+              shape={(props: { cx: number; cy: number }) => (
+                <circle
+                  cx={props.cx}
+                  cy={props.cy}
+                  r={3.5}
+                  fill={ds.color}
+                  stroke={ds.color}
+                  strokeWidth={1}
+                  fillOpacity={0.8}
+                />
+              )}
+            >
+              {ds.sd && (
+                <ErrorBar
+                  dataKey="sdUpper"
+                  width={3}
+                  strokeWidth={1}
+                  stroke={ds.color}
+                  direction="y"
+                />
+              )}
+            </Scatter>
+          ))}
+        </ComposedChart>
       </ResponsiveContainer>
 
       {/* Legend for multi-dataset */}
-      {datasets.length > 1 && (
+      {(lineDatasets.length > 1 || hasReference) && (
         <div className="flex items-center gap-4 mt-3 ml-16">
-          {datasets.map((ds) => (
+          {lineDatasets.map((ds) => (
             <div key={ds.label} className="flex items-center gap-1.5 text-xs">
               <span
                 className="w-3 h-0.5 rounded-full inline-block"
+                style={{ background: ds.color }}
+              />
+              <span className="text-[var(--text-muted)]">{ds.label}</span>
+            </div>
+          ))}
+          {refDatasets.map((ds) => (
+            <div key={ds.label} className="flex items-center gap-1.5 text-xs">
+              <span
+                className="w-2 h-2 rounded-full inline-block"
                 style={{ background: ds.color }}
               />
               <span className="text-[var(--text-muted)]">{ds.label}</span>

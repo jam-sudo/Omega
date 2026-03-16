@@ -10,6 +10,7 @@ import WarningBadge from "../components/WarningBadge";
 import ErrorAlert from "../components/ErrorAlert";
 import { api } from "../api/client";
 import { addToHistory } from "../lib/history";
+import { findReference } from "../lib/referenceMatch";
 import type { CardData } from "../components/charts/PKCards";
 import type { Dataset } from "../components/charts/PKCurve";
 import type { PredictRequest } from "../api/types";
@@ -72,17 +73,48 @@ export default function Predict() {
     }
   }, [data, dose, route]);
 
+  const ref = data ? findReference(data.smiles) : null;
+
+  function foldError(pred: number, obs: number | undefined): number | undefined {
+    if (obs == null || obs === 0) return undefined;
+    return Math.max(pred / obs, obs / pred);
+  }
+
   const cards: CardData[] | null = data
     ? [
-        { label: "Cmax", value: data.cmax_mg_L, unit: "mg/L", p5: data.cmax_p5, p95: data.cmax_p95 },
+        {
+          label: "Cmax", value: data.cmax_mg_L, unit: "mg/L",
+          p5: data.cmax_p5, p95: data.cmax_p95,
+          reference: ref?.pk_params?.cmax_mg_L,
+          foldError: foldError(data.cmax_mg_L, ref?.pk_params?.cmax_mg_L),
+        },
         { label: "Tmax", value: data.tmax_h, unit: "h" },
-        { label: "AUC\u2080\u208B\u209C", value: data.auc0t_mg_h_L, unit: "mg\u00B7h/L", p5: data.auc_p5, p95: data.auc_p95 },
-        { label: "t\u00BD", value: data.t_half_h, unit: "h" },
+        {
+          label: "AUC\u2080\u208B\u209C", value: data.auc0t_mg_h_L, unit: "mg\u00B7h/L",
+          p5: data.auc_p5, p95: data.auc_p95,
+          reference: ref?.pk_params?.auc_mg_h_L,
+          foldError: foldError(data.auc0t_mg_h_L, ref?.pk_params?.auc_mg_h_L),
+        },
+        {
+          label: "t\u00BD", value: data.t_half_h, unit: "h",
+          reference: ref?.pk_params?.thalf_h,
+          foldError: foldError(data.t_half_h, ref?.pk_params?.thalf_h),
+        },
       ]
     : null;
 
   const datasets: Dataset[] | null = data
-    ? [{ time: data.time_h, conc: data.cp_mg_L, label: data.drug_name || "Compound", color: "#3b82f6" }]
+    ? [
+        { time: data.time_h, conc: data.cp_mg_L, label: data.drug_name || "Compound", color: "#3b82f6" },
+        ...(ref?.ct_curve ? [{
+          time: ref.ct_curve.time_h,
+          conc: ref.ct_curve.conc_mg_L,
+          sd: ref.ct_curve.sd_mg_L,
+          label: `Reference (${ref.source})`,
+          color: "#f97316",
+          isReference: true,
+        }] : []),
+      ]
     : null;
 
   return (
@@ -155,6 +187,21 @@ export default function Predict() {
           {data.warnings.length > 0 && (
             <div className="animate-fade-in">
               <WarningBadge warnings={data.warnings} riskLevel={data.overall_risk_level} />
+            </div>
+          )}
+
+          {/* Reference info banner */}
+          {ref && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-orange-500/10 border border-orange-500/20 text-sm text-orange-300 animate-fade-in">
+              <span className="shrink-0">&#128202;</span>
+              <span>
+                Reference data available: <strong>{ref.name}</strong> ({ref.tier} tier, {ref.source})
+              </span>
+            </div>
+          )}
+          {data && !ref && (
+            <div className="px-3 py-2 rounded-md bg-gray-500/10 border border-gray-500/20 text-sm text-gray-400 animate-fade-in">
+              No reference data available for this compound.
             </div>
           )}
 

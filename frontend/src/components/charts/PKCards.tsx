@@ -8,6 +8,8 @@ interface CardData {
   unit: string;
   p5?: number;
   p95?: number;
+  reference?: number;
+  foldError?: number;
 }
 
 interface Props {
@@ -52,6 +54,24 @@ export default function PKCards({ cards, confidence }: Props) {
             {c.p5 != null && c.p95 != null && (
               <div className="text-xs text-[var(--text-muted)] mt-1.5 tabular-nums">
                 90% CI: {formatNum(c.p5)} – {formatNum(c.p95)}
+              </div>
+            )}
+            {c.reference != null && c.foldError != null && (
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className="text-xs text-[var(--text-muted)] tabular-nums">
+                  Ref: {formatNum(c.reference)}
+                </span>
+                <span
+                  className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                    c.foldError <= 2
+                      ? "bg-green-500/15 text-green-400"
+                      : c.foldError <= 3
+                        ? "bg-yellow-500/15 text-yellow-400"
+                        : "bg-red-500/15 text-red-400"
+                  }`}
+                >
+                  {formatNum(c.foldError)}x
+                </span>
               </div>
             )}
             {confidence && (
