@@ -200,16 +200,8 @@ export default function Predict() {
 
           {/* Reference info banner */}
           {ref && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-orange-500/10 border border-orange-500/20 text-sm text-orange-300 animate-fade-in">
-              <span className="shrink-0">&#128202;</span>
-              <span>
-                Reference data available: <strong>{ref.name}</strong> ({ref.tier} tier, {ref.source})
-              </span>
-            </div>
-          )}
-          {data && !ref && (
-            <div className="px-3 py-2 rounded-md bg-gray-500/10 border border-gray-500/20 text-sm text-gray-400 animate-fade-in">
-              No reference data available for this compound.
+            <div className="px-3 py-2 border-l-2 border-orange-500 text-sm text-[var(--text-muted)] animate-fade-in">
+              Reference data available: <strong className="text-[var(--text)]">{ref.name}</strong> ({ref.tier} tier, {ref.source})
             </div>
           )}
 

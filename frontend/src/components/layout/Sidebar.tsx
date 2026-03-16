@@ -41,9 +41,9 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="h-14 flex items-center gap-2.5 px-4 border-b border-[var(--border)]">
-        <span className="text-blue-400 font-bold text-xl tracking-tight">Ω</span>
+        <span className="text-[#fafafa] font-light text-xl">Ω</span>
         {!collapsed && (
-          <span className="font-semibold text-sm text-[var(--text)]">Omega PBPK</span>
+          <span className="font-light text-sm text-[var(--text)]">Omega PBPK</span>
         )}
       </div>
 
@@ -59,8 +59,8 @@ export default function Sidebar() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
-                    ? "bg-blue-500/10 text-blue-400 font-medium"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
+                    ? "bg-white/[0.04] text-[#fafafa] font-medium border-l-2 border-[#3b82f6]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/[0.04]"
                 }`
               }
               title={collapsed ? item.label : undefined}

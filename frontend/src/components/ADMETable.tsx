@@ -1,5 +1,4 @@
 import { formatNum } from "../lib/utils";
-import { AlertTriangle, CheckCircle, Info } from "lucide-react";
 
 interface Props {
   adme: Record<string, number | string>;
@@ -22,9 +21,9 @@ const PROPERTIES: PropertyDef[] = [
   { key: "logS", label: "logS", unit: "log mol/L", range: [-7, 0], warnLow: -5, category: "physicochemical" },
   { key: "fup", label: "Fraction Unbound", unit: "", range: [0, 1], warnLow: 0.01, category: "absorption" },
   { key: "rbp", label: "Blood:Plasma Ratio", unit: "", range: [0.5, 3], category: "absorption" },
-  { key: "peff", label: "Permeability", unit: "×10⁻⁴ cm/s", range: [0, 10], warnLow: 0.5, category: "absorption" },
-  { key: "clint_3a4", label: "CLint CYP3A4", unit: "µL/min/pmol", range: [0, 50], warnHigh: 20, category: "metabolism" },
-  { key: "herg_ic50_uM", label: "hERG IC50", unit: "µM", range: [0, 100], warnLow: 10, category: "safety" },
+  { key: "peff", label: "Permeability", unit: "\u00d710\u207b\u2074 cm/s", range: [0, 10], warnLow: 0.5, category: "absorption" },
+  { key: "clint_3a4", label: "CLint CYP3A4", unit: "\u00b5L/min/pmol", range: [0, 50], warnHigh: 20, category: "metabolism" },
+  { key: "herg_ic50_uM", label: "hERG IC50", unit: "\u00b5M", range: [0, 100], warnLow: 10, category: "safety" },
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -40,21 +39,13 @@ function getStatus(val: number, prop: PropertyDef): "ok" | "warn" | "neutral" {
   return "ok";
 }
 
-function StatusIcon({ status }: { status: "ok" | "warn" | "neutral" }) {
-  if (status === "warn")
-    return <AlertTriangle size={14} className="text-yellow-400 shrink-0" />;
-  if (status === "ok")
-    return <CheckCircle size={14} className="text-green-400/60 shrink-0" />;
-  return <Info size={14} className="text-[var(--text-muted)] shrink-0" />;
-}
-
 function RangeBar({ value, range, status }: { value: number; range: [number, number]; status: "ok" | "warn" | "neutral" }) {
   const [lo, hi] = range;
   const pct = Math.max(0, Math.min(100, ((value - lo) / (hi - lo)) * 100));
   const barColor = status === "warn" ? "bg-yellow-400" : "bg-blue-400";
 
   return (
-    <div className="w-20 h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+    <div className="w-20 h-[2px] rounded-full bg-[var(--border)] overflow-hidden">
       <div
         className={`h-full rounded-full transition-all ${barColor}`}
         style={{ width: `${pct}%` }}
@@ -97,9 +88,11 @@ export default function ADMETable({ adme, reference }: Props) {
                   key={prop.key}
                   className="flex items-center gap-3 px-4 py-2 border-t border-[var(--border)] hover:bg-white/[0.02] transition-colors"
                 >
-                  <StatusIcon status={status} />
+                  {/* Warning indicator: text color instead of icon */}
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm text-[var(--text)]">{prop.label}</span>
+                    <span className={`text-sm ${status === "warn" ? "text-[#eab308]" : "text-[var(--text)]"}`}>
+                      {prop.label}
+                    </span>
                     {prop.unit && (
                       <span className="text-[var(--text-muted)] text-xs ml-1">({prop.unit})</span>
                     )}
@@ -118,7 +111,7 @@ export default function ADMETable({ adme, reference }: Props) {
                     )}
                     <span className="text-xs tabular-nums text-[var(--text-muted)] w-24 text-right">
                       {typeof lo === "number" && typeof hi === "number"
-                        ? `${formatNum(lo)} – ${formatNum(hi)}`
+                        ? `${formatNum(lo)} \u2013 ${formatNum(hi)}`
                         : ""}
                     </span>
                   </div>

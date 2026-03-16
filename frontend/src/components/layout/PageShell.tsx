@@ -12,7 +12,7 @@ export default function PageShell({ title, children }: Props) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-6">{title}</h1>
+      <h1 className="text-2xl font-light mb-6" style={{ letterSpacing: "-0.5px" }}>{title}</h1>
       {children}
     </div>
   );

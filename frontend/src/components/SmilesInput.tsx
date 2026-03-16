@@ -103,7 +103,7 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Enter SMILES or select an example →"
-            className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-mono text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:outline-none focus:ring-1 focus:ring-white/20"
             spellCheck={false}
             autoComplete="off"
           />
@@ -116,7 +116,7 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
               <ChevronDown size={14} />
             </button>
             {showExamples && (
-              <div className="absolute right-0 top-full mt-1 w-52 rounded-lg border border-[var(--border)] bg-[#1a1a1a] shadow-xl z-50 py-1">
+              <div className="absolute right-0 top-full mt-1 w-52 rounded-lg border border-[var(--border)] bg-[#18181b] shadow-xl z-50 py-1">
                 {EXAMPLES.map((ex) => (
                   <button
                     key={ex.name}
@@ -138,7 +138,7 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
         </div>
       </div>
       {showPreview && value.trim() && (
-        <div className="rounded-lg border border-[var(--border)] overflow-hidden" style={{ background: "#141414" }}>
+        <div className="rounded-lg border border-[var(--border)] overflow-hidden" style={{ background: "#18181b" }}>
           <svg
             ref={svgRef}
             className="w-full"

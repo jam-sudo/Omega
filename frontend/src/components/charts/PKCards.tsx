@@ -1,6 +1,4 @@
-import { TrendingUp, Clock, BarChart3, Timer } from "lucide-react";
-import { formatNum, confidenceColor } from "../../lib/utils";
-import type { LucideIcon } from "lucide-react";
+import { formatNum } from "../../lib/utils";
 
 interface CardData {
   label: string;
@@ -19,76 +17,70 @@ interface Props {
 
 export type { CardData };
 
-const CARD_ICONS: Record<string, LucideIcon> = {
-  Cmax: TrendingUp,
-  Tmax: Clock,
-  "t\u00BD": Timer,
+const CARD_ACCENTS: Record<string, string> = {
+  Cmax: "#3b82f6",
+  Tmax: "#06b6d4",
+  "t\u00BD": "#f59e0b",
 };
 
-export default function PKCards({ cards, confidence }: Props) {
+const AUC_ACCENT = "#8b5cf6";
+
+function rangePercent(value: number, p5?: number, p95?: number): number {
+  if (p5 == null || p95 == null || p95 === p5) return 50;
+  return Math.max(5, Math.min(95, ((value - p5) / (p95 - p5)) * 100));
+}
+
+function foldErrorColor(fe: number): string {
+  if (fe <= 2) return "text-green-400";
+  if (fe <= 3) return "text-yellow-400";
+  return "text-red-400";
+}
+
+export default function PKCards({ cards }: Props) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((c) => {
-        const Icon = CARD_ICONS[c.label] || BarChart3;
+        const accent = CARD_ACCENTS[c.label] || AUC_ACCENT;
+        const barPct = rangePercent(c.value, c.p5, c.p95);
+
         return (
           <div
             key={c.label}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 hover:border-blue-500/20 transition-colors group"
+            className="bg-[#18181b] border border-[#27272a] rounded-lg p-4"
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
-                {c.label}
+            <div className="text-[10px] text-[#71717a] uppercase tracking-[1.5px] font-medium">
+              {c.label}
+            </div>
+            <div className="flex items-baseline gap-1.5 mt-1.5">
+              <span className="text-[32px] font-light text-[#fafafa] tabular-nums tracking-tight font-mono">
+                {formatNum(c.value)}
               </span>
-              <Icon
-                size={15}
-                className="text-[var(--text-muted)] group-hover:text-blue-400 transition-colors"
-                strokeWidth={1.75}
+              <span className="text-xs text-[#52525b]">{c.unit}</span>
+            </div>
+            {/* Range bar */}
+            <div className="w-full h-[3px] bg-[#27272a] rounded-full mt-3 overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${barPct}%`, background: accent }}
               />
             </div>
-            <div className="text-2xl font-semibold text-[var(--text)] tabular-nums">
-              {formatNum(c.value)}
-              <span className="text-sm font-normal text-[var(--text-muted)] ml-1">
-                {c.unit}
-              </span>
-            </div>
-            {c.p5 != null && c.p95 != null && (
-              <div className="text-xs text-[var(--text-muted)] mt-1.5 tabular-nums">
-                90% CI: {formatNum(c.p5)} – {formatNum(c.p95)}
-              </div>
-            )}
+            {/* Reference */}
             {c.reference != null && c.foldError != null && (
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <span className="text-xs text-[var(--text-muted)] tabular-nums">
-                  Ref: {formatNum(c.reference)}
+              <div className="flex justify-between mt-1.5">
+                <span className="text-[10px] text-[#52525b]">
+                  ref {formatNum(c.reference)}
                 </span>
-                <span
-                  className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                    c.foldError <= 2
-                      ? "bg-green-500/15 text-green-400"
-                      : c.foldError <= 3
-                        ? "bg-yellow-500/15 text-yellow-400"
-                        : "bg-red-500/15 text-red-400"
-                  }`}
-                >
-                  {c.foldError <= 2 ? "\u2713 " : c.foldError <= 3 ? "~ " : "\u2717 "}
-                  {formatNum(c.foldError)}x
+                <span className={`text-[10px] ${foldErrorColor(c.foldError)}`}>
+                  {formatNum(c.foldError)}&times;
                 </span>
               </div>
             )}
-            {confidence && (
-              <div className="mt-2.5 h-1 rounded-full bg-[var(--border)] overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width:
-                      confidence === "high"
-                        ? "100%"
-                        : confidence === "medium"
-                          ? "60%"
-                          : "30%",
-                    backgroundColor: confidenceColor(confidence),
-                  }}
-                />
+            {/* CI range (no ref) */}
+            {c.reference == null && c.p5 != null && c.p95 != null && (
+              <div className="mt-1.5">
+                <span className="text-[10px] text-[#52525b] tabular-nums">
+                  90% CI: {formatNum(c.p5)} – {formatNum(c.p95)}
+                </span>
               </div>
             )}
           </div>
