@@ -107,7 +107,7 @@ def run_benchmark(tiers_filter: list[str] | None = None) -> dict:
         t_start = time.perf_counter()
         try:
             req = SimulationRequest(smiles=smiles, dose_mg=dose_mg, route=route, duration_h=24.0)
-            result = pipeline.predict(req)
+            result = pipeline.simulate(req)
             latency_ms = (time.perf_counter() - t_start) * 1000.0
             n_success += 1
         except Exception as e:

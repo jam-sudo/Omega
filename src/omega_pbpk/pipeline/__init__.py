@@ -238,6 +238,8 @@ class OmegaPipeline:
         self._adme_predictor = None
         self._clint_predictor = None
         self._vdss_predictor = None
+        self._correction_model_cmax = None
+        self._correction_model_auc = None
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
@@ -285,6 +287,26 @@ class OmegaPipeline:
         except (ImportError, Exception) as exc:
             logger.info("OmegaPipeline: XGBoost VDss not available: %s", exc)
             self._vdss_predictor = None
+
+        # Load residual correction model if available
+        try:
+            from pathlib import Path as _Path
+
+            from omega_pbpk.ml.models.correction.residual_model import (
+                ResidualCorrectionModel,
+            )
+
+            model_dir = _Path(__file__).resolve().parents[2] / "models" / "correction"
+            cmax_path = model_dir / "ridge_cmax.json"
+            if cmax_path.exists():
+                self._correction_model_cmax = ResidualCorrectionModel.load(cmax_path)
+                logger.info("OmegaPipeline: Ridge Cmax correction model loaded.")
+            auc_path = model_dir / "ridge_auc.json"
+            if auc_path.exists():
+                self._correction_model_auc = ResidualCorrectionModel.load(auc_path)
+                logger.info("OmegaPipeline: Ridge AUC correction model loaded.")
+        except Exception as exc:
+            logger.debug("Correction model not available: %s", exc)
 
         self._initialized = True
 
@@ -587,6 +609,44 @@ class OmegaPipeline:
             ):
                 t_half = t_half_analytical
         confidence = adme_props.get("confidence", "low")
+
+        # Apply residual correction model (Ridge on log-residuals)
+        correction_applied = False
+        if self._correction_model_cmax is not None:
+            try:
+                from omega_pbpk.ml.models.adme.transporter_lookup import (
+                    is_pgp_substrate,
+                )
+
+                _logP = float(adme_props.get("logP", 2.0))
+                _mw = float(adme_props.get("mw", 300.0))
+                _fup = float(adme_props.get("fup", 0.1))
+                _peff = float(adme_props.get("peff", 1.0))
+                _pgp = 1 if is_pgp_substrate(smiles=request.smiles) else 0
+
+                feat = np.array(
+                    [
+                        [
+                            _logP,
+                            np.log10(max(_mw, 1.0)),
+                            _fup,
+                            np.log10(max(request.dose_mg, 0.1)),
+                            _pgp,
+                            np.log10(max(_peff, 1e-6)),
+                        ]
+                    ]
+                )
+                cmax_corr = self._correction_model_cmax.predict(feat)[0]
+                cmax = cmax / float(np.exp(cmax_corr))
+                correction_applied = True
+                logger.debug("Cmax correction: factor=%.3f", np.exp(-cmax_corr))
+
+                if self._correction_model_auc is not None:
+                    auc_corr = self._correction_model_auc.predict(feat)[0]
+                    auc = auc / float(np.exp(auc_corr))
+            except Exception as exc:
+                logger.debug("Correction model failed: %s", exc)
+        adme_props["correction_applied"] = correction_applied
 
         # Compute conformal UQ intervals from ADME parameter bounds
         _cmax_ci = None
