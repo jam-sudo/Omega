@@ -5,7 +5,7 @@ clinical data (CSV), computes accuracy metrics (AUC/Cmax relative error,
 Tmax absolute error, RMSE), and produces per-drug overlay plots and a
 summary report.
 
-Adapted for the v0.7 34-state WholeBodyPBPK engine.
+Adapted for the 35-state WholeBodyPBPK engine.
 """
 
 from __future__ import annotations

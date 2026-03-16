@@ -1,6 +1,6 @@
 """Neural surrogate model for fast PBPK PK prediction.
 
-Pure numpy/scipy MLP that approximates the 34-state ODE solver.
+Pure numpy/scipy MLP that approximates the 35-state ODE solver.
 Maps drug compound parameters → PK summary (Cmax, AUC, Tmax, t½)
 in ~0.1ms vs ~500ms for the mechanistic model.
 

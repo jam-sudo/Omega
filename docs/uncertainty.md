@@ -21,7 +21,7 @@ stats = pop.summary_stats(subjects)
 |-----------|-----------|-----|
 | Body weight | 70 kg | 0.15 |
 | Cardiac output | 390 L/h (× BW^0.75 scaling) | 0.10 |
-| GFR | 7.5 L/h (× BW^0.75 scaling) | 0.15 |
+| GFR | 7.5 L/h (125 mL/min, × BW^0.75 scaling) | 0.15 |
 | Liver weight | 1800 g (× BW scaling) | 0.15 |
 | MPPGL | 40 pmol/mg | 0.30 |
 | Organ volumes | ICRP reference × BW scaling | organ-specific |
