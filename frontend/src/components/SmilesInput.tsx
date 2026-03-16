@@ -26,8 +26,18 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // High-DPI: scale canvas buffer for sharp rendering on retina displays
+    const CSS_W = 240;
+    const CSS_H = 180;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = CSS_W * dpr;
+    canvas.height = CSS_H * dpr;
+    canvas.style.width = `${CSS_W}px`;
+    canvas.style.height = `${CSS_H}px`;
+    ctx.scale(dpr, dpr);
+
     ctx.fillStyle = "#141414";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, CSS_W, CSS_H);
 
     if (!value.trim()) return;
 
@@ -39,15 +49,23 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
         if (cancelled) return;
 
         const drawer = new SmilesDrawer.Drawer({
-          width: 200,
-          height: 150,
+          width: CSS_W,
+          height: CSS_H,
+          bondThickness: 1.5,
+          fontSizeLarge: 11,
+          fontSizeSmall: 7,
+          padding: 20,
           themes: {
             dark: {
-              C: "#fafafa",
-              O: "#ef4444",
-              N: "#3b82f6",
-              S: "#eab308",
-              H: "#a3a3a3",
+              C: "#e4e4e7",
+              O: "#f87171",
+              N: "#60a5fa",
+              S: "#facc15",
+              F: "#34d399",
+              Cl: "#34d399",
+              Br: "#a78bfa",
+              P: "#fb923c",
+              H: "#71717a",
               BACKGROUND: "#141414",
             },
           },
@@ -124,10 +142,8 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
           </label>
           <canvas
             ref={canvasRef}
-            width={200}
-            height={150}
-            className="rounded-md border border-[var(--border)]"
-            style={{ background: "#141414" }}
+            className="rounded-lg border border-[var(--border)]"
+            style={{ background: "#141414", width: 240, height: 180 }}
           />
         </div>
       )}
