@@ -146,7 +146,7 @@ export default function Predict() {
               value={dose}
               onChange={(e) => setDose(e.target.value)}
               min={0}
-              className="w-28 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-28 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm tabular-nums text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-white/20"
             />
           </div>
 
@@ -154,21 +154,31 @@ export default function Predict() {
             <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
               Route
             </label>
-            <select
-              value={route}
-              onChange={(e) => setRoute(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="oral">Oral</option>
-              <option value="iv">IV Bolus</option>
-              <option value="iv_infusion">IV Infusion</option>
-            </select>
+            <div className="flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-0.5">
+              {[
+                { value: "oral", label: "Oral" },
+                { value: "iv", label: "IV" },
+                { value: "iv_infusion", label: "Infusion" },
+              ].map((r) => (
+                <button
+                  key={r.value}
+                  onClick={() => setRoute(r.value)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+                    route === r.value
+                      ? "bg-white/[0.08] text-[var(--text)] font-medium"
+                      : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button
             onClick={handlePredict}
             disabled={!smiles.trim() || isFetching}
-            className="px-5 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-5 py-2 rounded-lg bg-white/[0.08] border border-[var(--border)] text-[var(--text)] text-sm font-medium hover:bg-white/[0.12] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           >
             {isFetching ? "Predicting..." : "Predict"}
           </button>
