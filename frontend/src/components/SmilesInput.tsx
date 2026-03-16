@@ -27,8 +27,8 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
     if (!ctx) return;
 
     // High-DPI: scale canvas buffer for sharp rendering on retina displays
-    const CSS_W = 240;
-    const CSS_H = 180;
+    const CSS_W = canvas.clientWidth || 600;
+    const CSS_H = 220;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = CSS_W * dpr;
     canvas.height = CSS_H * dpr;
@@ -90,8 +90,8 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
   }, [value, showPreview]);
 
   return (
-    <div className="flex items-start gap-4">
-      <div className="flex-1 relative">
+    <div className="space-y-3">
+      <div className="relative">
         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
           SMILES
         </label>
@@ -135,15 +135,15 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
           </div>
         </div>
       </div>
-      {showPreview && (
-        <div className="shrink-0">
+      {showPreview && value.trim() && (
+        <div>
           <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
             Structure
           </label>
           <canvas
             ref={canvasRef}
-            className="rounded-lg border border-[var(--border)]"
-            style={{ background: "#141414", width: 240, height: 180 }}
+            className="rounded-lg border border-[var(--border)] w-full"
+            style={{ background: "#141414", height: 220 }}
           />
         </div>
       )}
