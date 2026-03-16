@@ -77,7 +77,7 @@ export default function Predict() {
   const [ref, setRef] = useState<ReferenceData | null>(null);
   useEffect(() => {
     if (data?.smiles) {
-      findReference(data.smiles).then(setRef);
+      findReference(data.smiles, data.drug_name).then(setRef);
     } else {
       setRef(null);
     }
