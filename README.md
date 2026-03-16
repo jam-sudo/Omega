@@ -72,7 +72,7 @@ SMILES-only predictions — no manual parameterization, no compound-specific tun
 
 > Healthy volunteers, single oral IR dose, fasted state. 20 drugs including caffeine, warfarin, metoprolol, midazolam, ibuprofen, theophylline, carbamazepine, and 13 others.
 >
-> Run `python scripts/run_full_benchmark.py` to reproduce.
+> Run `python scripts/run_full_benchmark.py` to reproduce (runs 25 drugs: 20 development + 5 validation).
 
 ### Multi-Tier Validation
 
@@ -160,7 +160,7 @@ adme = predictor.predict("Cn1cnc2c1c(=O)n(C)c(=O)n2C")  # caffeine
 print(f"logP: {adme.logP:.2f}, fup: {adme.fup:.3f}, CLint: {adme.clint_3a4:.4f}")
 ```
 
-### Patient-Specific Prediction (Level 3)
+### Patient-Specific Prediction
 
 ```python
 from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
@@ -185,7 +185,7 @@ print(f"Individual CL scale: {fit['cl_scale']:.2f}, Vd scale: {fit['vd_scale']:.
 ### CLI
 
 ```bash
-# SMILES → full PK profile (Level 1)
+# SMILES → full PK profile
 omega predict --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --dose 100 --model ensemble
 
 # ADME properties only (XGBoost ensemble)
@@ -350,8 +350,7 @@ data_pbpk.save_hdf5("data/ml/pbpk_50k.h5")
 
 | Level | Milestone | Status |
 |-------|-----------|--------|
-| **1** | SMILES → PK via ADME ensemble + ODE | **Pass** — Cmax AAFE 1.90, AUC AAFE 1.66, 70% within 2-fold |
-| **2** | AAFE < 2.0, < 500ms, regression testing | **Pass** — 73ms, automated benchmark with regression detection |
+| **1-2** | SMILES → PK via ADME ensemble + ODE (AAFE < 2.0, < 500ms) | **Pass** — Cmax 1.90, AUC 1.66, 73ms, 70% 2-fold |
 | **3** | Patient covariates, few-shot adaptation | **Prototype** — allometric scaling + Bayesian individual fitting |
 | -- | Multi-tier validation (Gold/Silver/Bronze/Temporal) | **Done** — 20 drugs PK, 39 drugs t_half, 151 compounds ADME, 5 temporal |
 | -- | Clinical data pipeline (PK-DB + OpenFDA) | **Done** — 118 PK params from 43 drugs, SMILES mapped |
