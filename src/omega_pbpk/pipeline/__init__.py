@@ -240,6 +240,7 @@ class OmegaPipeline:
         self._vdss_predictor = None
         self._correction_model_cmax = None
         self._correction_model_auc = None
+        self._direct_cmax = None
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
@@ -307,6 +308,19 @@ class OmegaPipeline:
                 logger.info("OmegaPipeline: Ridge AUC correction model loaded.")
         except Exception as exc:
             logger.debug("Correction model not available: %s", exc)
+
+        # Load direct Cmax predictor for ensemble
+        try:
+            from omega_pbpk.ml.models.direct_pk.xgboost_cmax import (
+                DirectCmaxPredictor,
+            )
+
+            predictor = DirectCmaxPredictor()
+            if predictor._model is not None:
+                self._direct_cmax = predictor
+                logger.info("OmegaPipeline: Direct Cmax predictor loaded.")
+        except Exception as exc:
+            logger.debug("Direct Cmax predictor not available: %s", exc)
 
         self._initialized = True
 
@@ -647,6 +661,37 @@ class OmegaPipeline:
             except Exception as exc:
                 logger.debug("Correction model failed: %s", exc)
         adme_props["correction_applied"] = correction_applied
+
+        # Ensemble PBPK + Direct ML prediction
+        if self._direct_cmax is not None:
+            try:
+                from omega_pbpk.ml.applicability import check_applicability
+                from omega_pbpk.ml.models.direct_pk.ensemble_pk import (
+                    ensemble_cmax,
+                )
+
+                cmax_ml = self._direct_cmax.predict(request.smiles, request.dose_mg)
+                app = check_applicability(request.smiles)
+                ens_conf = app.confidence if app.confidence != "high" else confidence
+                cmax_ens = ensemble_cmax(cmax, cmax_ml, ens_conf)
+
+                logger.debug(
+                    "Ensemble: PBPK=%.4f ML=%.4f conf=%s → %.4f",
+                    cmax,
+                    cmax_ml,
+                    ens_conf,
+                    cmax_ens,
+                )
+
+                # Only update Cmax — keep C(t) curve and AUC from PBPK
+                # (scaling curve to match ensemble Cmax breaks AUC)
+                cmax = cmax_ens
+
+                adme_props["cmax_ml"] = cmax_ml
+                adme_props["ensemble_confidence"] = ens_conf
+                adme_props["applicability_flags"] = app.flags
+            except Exception as exc:
+                logger.debug("Ensemble prediction failed: %s", exc)
 
         # Compute conformal UQ intervals from ADME parameter bounds
         _cmax_ci = None
