@@ -88,6 +88,8 @@ export default function Predict() {
     return Math.max(pred / obs, obs / pred);
   }
 
+  const refLabel = ref?.tier === "platinum" ? "PK-DB" : ref?.tier === "gold" || ref?.tier === "silver" ? "FDA" : "ref";
+
   const cards: CardData[] | null = data
     ? [
         {
@@ -95,6 +97,7 @@ export default function Predict() {
           p5: data.cmax_p5, p95: data.cmax_p95,
           reference: ref?.pk_params?.cmax_mg_L,
           foldError: foldError(data.cmax_mg_L, ref?.pk_params?.cmax_mg_L),
+          referenceLabel: refLabel,
         },
         { label: "Tmax", value: data.tmax_h, unit: "h" },
         {
@@ -102,11 +105,13 @@ export default function Predict() {
           p5: data.auc_p5, p95: data.auc_p95,
           reference: ref?.pk_params?.auc_mg_h_L,
           foldError: foldError(data.auc0t_mg_h_L, ref?.pk_params?.auc_mg_h_L),
+          referenceLabel: refLabel,
         },
         {
           label: "t\u00BD", value: data.t_half_h, unit: "h",
           reference: ref?.pk_params?.thalf_h,
           foldError: foldError(data.t_half_h, ref?.pk_params?.thalf_h),
+          referenceLabel: refLabel,
         },
       ]
     : null;
@@ -201,7 +206,7 @@ export default function Predict() {
           {/* Reference info banner */}
           {ref && (
             <div className="px-3 py-2 border-l-2 border-orange-500 text-sm text-[var(--text-muted)] animate-fade-in">
-              Reference data available: <strong className="text-[var(--text)]">{ref.name}</strong> ({ref.tier} tier, {ref.source})
+              {ref.tier === "platinum" ? "PK-DB clinical data" : "FDA reference"}: <strong className="text-[var(--text)]">{ref.name}</strong> — {ref.source}
             </div>
           )}
 

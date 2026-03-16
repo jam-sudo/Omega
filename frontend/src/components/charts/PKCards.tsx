@@ -8,6 +8,7 @@ interface CardData {
   p95?: number;
   reference?: number;
   foldError?: number;
+  referenceLabel?: string;
 }
 
 interface Props {
@@ -68,7 +69,7 @@ export default function PKCards({ cards }: Props) {
             {c.reference != null && c.foldError != null && (
               <div className="flex justify-between mt-1.5">
                 <span className="text-[10px] text-[#52525b]">
-                  ref {formatNum(c.reference)}
+                  {c.referenceLabel || "ref"} {formatNum(c.reference)}
                 </span>
                 <span className={`text-[10px] ${foldErrorColor(c.foldError)}`}>
                   {formatNum(c.foldError)}&times;
