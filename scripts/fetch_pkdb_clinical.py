@@ -138,7 +138,7 @@ def fetch_url(url: str, use_cache: bool = True, is_tsv: bool = False) -> str | N
 
     try:
         resp = requests.get(
-            url, timeout=30, headers={"Accept": "text/plain" if is_tsv else "application/json"}
+            url, timeout=15, headers={"Accept": "text/plain" if is_tsv else "application/json"}
         )
         if resp.status_code != 200:
             log(f"  HTTP {resp.status_code} for {url}")
@@ -772,7 +772,7 @@ def main():
         print(
             f"{drug:<20} {len(tcs):>12} "
             f"{best.get('route', '?'):<10} "
-            f"{best.get('n_subjects', '?'):>8} "
+            f"{str(best.get('n_subjects') or '?'):>8} "
             f"{len(best.get('timepoints', [])):>12}"
         )
 
