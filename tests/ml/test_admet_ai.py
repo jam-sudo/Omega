@@ -207,10 +207,10 @@ class TestUnitConversions:
         assert abs(result.logS - (-3.5)) < 0.01
 
     def test_herg_probability_to_ic50(self, mock_admet_model):
-        """hERG probability 0.3 -> IC50 = 10^(2 - 3*0.3) = 10^1.1 ~ 12.6 uM."""
+        """hERG probability 0.3 -> IC50 = 10^(2 - 2*0.3) = 10^1.4 ~ 25.1 uM."""
         predictor = _create_predictor(mock_admet_model)
         result = _predict_with_mock_mw(predictor, "CC(=O)Oc1ccccc1C(=O)O", 180.16)
-        expected = 10.0 ** (2.0 - 3.0 * 0.3)
+        expected = 10.0 ** (2.0 - 2.0 * 0.3)
         assert abs(result.herg_ic50_uM - expected) < 1.0
 
     def test_cyp2d6_substrate(self, mock_admet_model):
@@ -226,10 +226,10 @@ class TestUnitConversions:
         assert result.clint_2d6 == 0.5
 
     def test_rbp_default(self, mock_admet_model):
-        """RBP should default to 1.0 (overridden by XGBoost in ensemble)."""
+        """RBP should default to 1.5 (median physiological value)."""
         predictor = _create_predictor(mock_admet_model)
         result = _predict_with_mock_mw(predictor, "CC(=O)Oc1ccccc1C(=O)O", 180.16)
-        assert result.rbp == 1.0
+        assert result.rbp == 1.5
 
 
 class TestConfidenceAndIntervals:

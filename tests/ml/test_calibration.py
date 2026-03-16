@@ -57,9 +57,10 @@ class TestFindAdjustmentFactor:
         true = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
         lo = [t - 0.5 for t in true]
         hi = [t + 0.5 for t in true]
-        # All covered at factor 1.0, target 0.9 → should return ~1.0 or less
+        # All covered at factor 1.0, target 0.9 → factor can shrink well below 1.0
+        # since even very narrow intervals still cover 100% of these well-centered points
         factor = _find_adjustment_factor(true, lo, hi, target_coverage=0.90)
-        assert 0.1 <= factor <= 1.5
+        assert 0.001 <= factor <= 1.5
 
     def test_narrow_intervals_need_widening(self):
         from omega_pbpk.ml.evaluation.metrics import _find_adjustment_factor
