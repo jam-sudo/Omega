@@ -17,47 +17,39 @@ const EXAMPLES = [
 ];
 
 export default function SmilesInput({ value, onChange, showPreview = true }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [showExamples, setShowExamples] = useState(false);
+  const [svgError, setSvgError] = useState(false);
 
   useEffect(() => {
-    if (!showPreview || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // High-DPI: scale canvas buffer for sharp rendering on retina displays
-    const CSS_W = canvas.clientWidth || 600;
-    const CSS_H = 220;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = CSS_W * dpr;
-    canvas.height = CSS_H * dpr;
-    canvas.style.width = `${CSS_W}px`;
-    canvas.style.height = `${CSS_H}px`;
-    ctx.scale(dpr, dpr);
-
-    ctx.fillStyle = "#141414";
-    ctx.fillRect(0, 0, CSS_W, CSS_H);
-
-    if (!value.trim()) return;
+    if (!showPreview || !svgRef.current || !value.trim()) {
+      if (svgRef.current) svgRef.current.innerHTML = "";
+      setSvgError(false);
+      return;
+    }
 
     let cancelled = false;
 
     (async () => {
       try {
         const SmilesDrawer = (await import("smiles-drawer")).default;
-        if (cancelled) return;
+        if (cancelled || !svgRef.current) return;
 
-        const drawer = new SmilesDrawer.Drawer({
-          width: CSS_W,
-          height: CSS_H,
-          bondThickness: 1.5,
-          fontSizeLarge: 11,
-          fontSizeSmall: 7,
-          padding: 20,
+        const svg = svgRef.current;
+        const w = svg.clientWidth || 600;
+        const h = 220;
+
+        const drawer = new SmilesDrawer.SvgDrawer({
+          width: w,
+          height: h,
+          bondThickness: 1.2,
+          fontSizeLarge: 12,
+          fontSizeSmall: 8,
+          padding: 30,
+          compactDrawing: false,
           themes: {
             dark: {
-              C: "#e4e4e7",
+              C: "#d4d4d8",
               O: "#f87171",
               N: "#60a5fa",
               S: "#facc15",
@@ -66,21 +58,33 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
               Br: "#a78bfa",
               P: "#fb923c",
               H: "#71717a",
-              BACKGROUND: "#141414",
+              BACKGROUND: "transparent",
             },
           },
         });
 
-        SmilesDrawer.parse(value, (tree: unknown) => {
-          if (cancelled) return;
-          try {
-            drawer.draw(tree, canvas, "dark");
-          } catch {
-            // Invalid SMILES
-          }
-        });
+        SmilesDrawer.parse(
+          value,
+          (tree: unknown) => {
+            if (cancelled || !svgRef.current) return;
+            try {
+              drawer.draw(tree, svg, "dark");
+              setSvgError(false);
+            } catch {
+              svg.innerHTML = "";
+              setSvgError(true);
+            }
+          },
+          () => {
+            // Parse error
+            if (!cancelled && svgRef.current) {
+              svgRef.current.innerHTML = "";
+              setSvgError(true);
+            }
+          },
+        );
       } catch {
-        // smiles-drawer import failed
+        setSvgError(true);
       }
     })();
 
@@ -92,9 +96,7 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
   return (
     <div className="space-y-3">
       <div className="relative">
-        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-          SMILES
-        </label>
+        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">SMILES</label>
         <div className="flex gap-1">
           <input
             type="text"
@@ -136,15 +138,17 @@ export default function SmilesInput({ value, onChange, showPreview = true }: Pro
         </div>
       </div>
       {showPreview && value.trim() && (
-        <div>
-          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-            Structure
-          </label>
-          <canvas
-            ref={canvasRef}
-            className="rounded-lg border border-[var(--border)] w-full"
-            style={{ background: "#141414", height: 220 }}
+        <div className="rounded-lg border border-[var(--border)] overflow-hidden" style={{ background: "#141414" }}>
+          <svg
+            ref={svgRef}
+            className="w-full"
+            style={{ height: 220, display: svgError ? "none" : "block" }}
           />
+          {svgError && (
+            <div className="flex items-center justify-center h-[220px] text-sm text-[var(--text-muted)]">
+              Invalid SMILES — cannot render structure
+            </div>
+          )}
         </div>
       )}
     </div>
