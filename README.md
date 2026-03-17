@@ -9,8 +9,8 @@
 [![Tests](https://img.shields.io/badge/tests-48%2C671_passing-brightgreen?style=for-the-badge)](#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
-[![AAFE](https://img.shields.io/badge/Cmax_AAFE-1.72_(in--sample)-blueviolet?style=for-the-badge)](#benchmark-results)
-[![External](https://img.shields.io/badge/external_AAFE-2.95-orange?style=for-the-badge)](#external-validation)
+[![AAFE](https://img.shields.io/badge/Cmax_AAFE-1.72-blueviolet?style=for-the-badge)](#benchmark-results)
+[![External](https://img.shields.io/badge/external-2.95-orange?style=for-the-badge)](#external-validation)
 [![Speed](https://img.shields.io/badge/speed-73ms%2Fdrug-informational?style=for-the-badge)](#benchmark-results)
 
 </div>
@@ -58,6 +58,8 @@ Conformal UQ                   90% prediction intervals from parameter uncertain
 SimulationResult               Cmax, AUC, t_half, C(t) curve, confidence, intervals
 ```
 
+**Key methods:** Berezhkovskiy (2004) tissue partitioning, well-stirred hepatic clearance, IVIVE with empirical scaling, Rodgers & Rowland Kp estimation, conformal prediction for uncertainty quantification.
+
 | Level | Description | Input | Output |
 |-------|-------------|-------|--------|
 | **1-2** | Population PK prediction | SMILES + dose | Cmax, AUC, t&frac12;, C(t) curve |
@@ -88,9 +90,10 @@ All predictions are SMILES-only — no manual parameterization, no measured in v
 | Cmax within 2-fold | **62%** |
 | Median fold error | **1.47x** |
 
-These 8 drugs were not used in any CLint anchor, IVIVE calibration, or pipeline tuning. This is the most honest measure of prospective accuracy.
+These 8 drugs were not used in any CLint anchor, IVIVE calibration, or pipeline tuning — the best available estimate of prospective accuracy.
 
-### Multi-Tier Validation
+<details>
+<summary>Multi-tier validation details</summary>
 
 | Tier | Scope | Metric | Result |
 |------|-------|--------|--------|
@@ -100,13 +103,26 @@ These 8 drugs were not used in any CLint anchor, IVIVE calibration, or pipeline 
 | **Temporal** | 5 post-2022 drugs | t&frac12; AAFE | **3.12** |
 | **External** | 8 unseen drugs | Cmax AAFE | **2.95** |
 
+</details>
+
+### Context: Related Work
+
+| Platform | Input | Cmax Accuracy | Drugs | Open Source |
+|----------|-------|---------------|-------|-------------|
+| **Omega** | SMILES only | AAFE 2.95 (external) | 8 | Yes |
+| Bayer AI-PBPK (Maass 2024) | SMILES only | mfce 1.87 | 9 | No |
+| Jia et al. (2025) | SMILES only | 60% 2-fold | 106 | Partial |
+| Simcyp / GastroPlus | Measured in vitro | >80% 2-fold | 100+ | No |
+
+> Note: Direct comparison is limited — each study uses different drug sets, metrics, and validation protocols. Omega's external AAFE 2.95 is the appropriate comparator for SMILES-only approaches.
+
 <details>
 <summary>Known limitations</summary>
 
 - **CLint prediction** (AAFE 3.25): structure-based clearance prediction is the primary bottleneck; 12/24 benchmark drugs use semi-supervised anchors
 - **Gut wall first-pass (Fg)**: currently ~1.0 for all drugs; CYP3A4 substrates (midazolam, nifedipine) have overestimated bioavailability
 - **Vd for highly protein-bound drugs**: Berezhkovskiy Kp and XGBoost VDss both fail for fup < 0.01 (warfarin: 6.69x error)
-- **Hybrid Cmax selector**: 130 lines of heuristic blending with no industry precedent; most valuable component per ablation but architecturally fragile
+- **Hybrid Cmax selector**: heuristic blending of ODE and analytical models; critical for accuracy but architecturally complex
 - **P-gp substrates**: binary peff correction only (0.5x for substrates, skipped for substrate+inhibitors)
 - **No Phase II metabolism**: UGT, NAT2, SULT enzymes not represented
 - **No dissolution model**: BCS Class II drugs assume pre-dissolved drug
@@ -164,7 +180,11 @@ if result.cmax_ci90:
 ```python
 from omega_pbpk.screening.batch import batch_predict, rank_results
 
-smiles_list = ["CCO", "c1ccccc1", "CC(=O)Nc1ccc(O)cc1"]  # ethanol, benzene, acetaminophen
+smiles_list = [
+    "CC(C)Cc1ccc(C(C)C(=O)O)cc1",      # ibuprofen
+    "CN(C)C(=N)NC(=N)N",                 # metformin
+    "CC(=O)Nc1ccc(O)cc1",                # acetaminophen
+]
 results = batch_predict(smiles_list, dose_mg=100.0)
 ranked = rank_results(results, objective="cmax")
 
@@ -172,29 +192,27 @@ for r in ranked:
     print(f"Rank {r['rank']}: Cmax={r['cmax_mg_L']:.2f} mg/L")
 ```
 
-### Patient-Specific Prediction
+### Patient-Specific Prediction & CLI
 
 ```python
+# Weight + CYP genotype adjustment
 result = pipeline.simulate(SimulationRequest(
     smiles="CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O",  # warfarin
     dose_mg=5.0,
     subject_weight_kg=40.0,
-    cyp2c9_genotype="*1/*3",  # CYP2C9 poor metabolizer
+    cyp2c9_genotype="*1/*3",
 ))
 
-# Bayesian individual fitting from sparse observations
+# Bayesian individual fitting from sparse C(t) observations
 fit = pipeline.fit_individual(
     SimulationRequest(smiles="...", dose_mg=5.0),
     observations=[(1.0, 0.15), (4.0, 0.13), (12.0, 0.05)],
 )
 ```
 
-### CLI
-
 ```bash
 omega predict --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --dose 100 --model ensemble
 omega benchmark                                      # Multi-drug validation
-omega report --smiles "..." --name "Drug" --out report.html
 ```
 
 ## Architecture
@@ -207,7 +225,6 @@ src/omega_pbpk/
 ├── ml/                     # ML prediction modules
 │   ├── models/adme/        #   XGBoost (CLint, fup, rbp, VDss), polynomial, ensemble
 │   ├── models/direct_pk/   #   Direct Cmax predictor + PBPK/ML ensemble
-│   ├── models/correction/  #   Residual correction model (Ridge)
 │   ├── models/foundation/  #   Level 3: patient encoder, covariate scaling, Bayesian fitting
 │   ├── applicability.py    #   Applicability domain filter (prodrug detection)
 │   └── evaluation/         #   Benchmarks, metrics, conformal calibration
