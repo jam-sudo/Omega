@@ -104,29 +104,33 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
     );
   }, [refDatasets, logScale]);
 
-  // Wheel zoom: scroll up = zoom in, scroll down = zoom out
-  // Shift+scroll = Y axis only, plain scroll = X axis only
+  // Wheel zoom on axis areas only:
+  // - Scroll on X axis area (bottom) = zoom X
+  // - Scroll on Y axis area (left) = zoom Y
+  // Mouse position determines which axis to zoom
   useEffect(() => {
     const el = chartRef.current;
     if (!el) return;
 
     const handler = (e: WheelEvent) => {
-      e.preventDefault();
-      const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85; // scroll down = zoom out
-      const isYAxis = e.shiftKey;
+      const rect = el.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
 
-      if (isYAxis) {
-        // Y-axis zoom
-        const curY = yDomain || [0, fullRange.yMax * 1.1];
-        const yCenter = (curY[0] + curY[1]) / 2;
-        const yHalf = ((curY[1] - curY[0]) / 2) * zoomFactor;
-        const newYMin = Math.max(0, yCenter - yHalf);
-        const newYMax = Math.min(fullRange.yMax * 3, yCenter + yHalf);
-        if (newYMax - newYMin > fullRange.yMax * 0.01) {
-          setYDomain([newYMin, newYMax]);
-        }
-      } else {
-        // X-axis zoom
+      // Chart area margins (approximate: left=50, bottom=50, right=20, top=10)
+      const chartLeft = 50;
+      const chartBottom = rect.height - 50;
+      const chartRight = rect.width - 20;
+
+      const onXAxis = mouseY > chartBottom && mouseX > chartLeft && mouseX < chartRight;
+      const onYAxis = mouseX < chartLeft && mouseY > 10 && mouseY < chartBottom;
+
+      if (!onXAxis && !onYAxis) return;
+
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 1.08 : 0.93; // gentler zoom
+
+      if (onXAxis) {
         const curX = xDomain || [fullRange.xMin, fullRange.xMax];
         const xCenter = (curX[0] + curX[1]) / 2;
         const xHalf = ((curX[1] - curX[0]) / 2) * zoomFactor;
@@ -134,6 +138,15 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
         const newXMax = Math.min(fullRange.xMax, xCenter + xHalf);
         if (newXMax - newXMin > (fullRange.xMax - fullRange.xMin) * 0.02) {
           setXDomain([newXMin, newXMax]);
+        }
+      } else if (onYAxis) {
+        const curY = yDomain || [0, fullRange.yMax * 1.1];
+        const yCenter = (curY[0] + curY[1]) / 2;
+        const yHalf = ((curY[1] - curY[0]) / 2) * zoomFactor;
+        const newYMin = Math.max(0, yCenter - yHalf);
+        const newYMax = Math.min(fullRange.yMax * 3, yCenter + yHalf);
+        if (newYMax - newYMin > fullRange.yMax * 0.01) {
+          setYDomain([newYMin, newYMax]);
         }
       }
     };
@@ -226,7 +239,7 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
 
       {/* Zoom hint */}
       <div className="text-[10px] text-[#3f3f46] mb-2 ml-12">
-        Scroll to zoom X axis · Shift+scroll for Y axis · Double-click to reset
+        Scroll on axis labels to zoom · Double-click to reset
       </div>
 
       <ResponsiveContainer width="100%" height={340}>
