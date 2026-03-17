@@ -62,7 +62,12 @@ Two teammates must NOT edit the same file. Break work so each teammate owns diff
 
 ## Current Priorities (update as needed)
 
-1. L2 GNN training (v4 in progress — tmux `l2train`, checkpoint: models/level2/stage_checkpoint.pt)
-2. L1 exit criteria MET (Cmax AAFE 2.16, AUC 1.66, %2-fold 70%)
-3. Clinical data pipeline (PK-DB metadata + OpenFDA labels downloaded, PK-DB auth blocker OPEN)
-4. Documentation cleanup
+**Active: Plan v7 — Scientific Rigor & Structural Fixes**
+See: `docs/superpowers/plans/2026-03-17-omega-v7-scientific-rigor.md`
+
+1. **Phase 0: Diagnostic Sprint** — 4 teammates (data-engineer, domain-scientist, ml-engineer, ci-auditor)
+   - Ablation study, measured-ADME ablation, bootstrap CI, Sobol GSA, ER-stratified, data audit
+   - NO CODE CHANGES — scripts only
+2. **Phase 1-2: Stats + Integration** — connect pKa predictor, salt form, error cancellation monitor
+3. **Phase 3-4: Structural fixes + mechanistic extensions** — gut wall Fg, fuinc, P-gp ACAT, OATP
+4. **Phase 5: Validation expansion + paper** — N=50+ gold tier, paper rewrite with CI/ablation/stratification

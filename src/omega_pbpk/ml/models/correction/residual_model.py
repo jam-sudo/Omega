@@ -14,6 +14,11 @@ Features (6):
     5: log10(peff) (permeability)
 
 Ridge regularization (alpha=1.0) prevents overfitting on ~100 training drugs.
+
+NOTE (2026-03-17): This model is NOT loaded or used in OmegaPipeline.simulate().
+Phase 0 ablation (NO_RIDGE) showed zero effect on benchmark results, confirming
+the Ridge correction is dead code in the production pipeline. Retained for
+potential future use and training/evaluation scripts.
 """
 
 from __future__ import annotations

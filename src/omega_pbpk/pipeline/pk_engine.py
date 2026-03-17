@@ -1,12 +1,46 @@
 """Analytical 1-compartment PK prediction engine.
 
-Provides clean analytical PK predictions from ADME properties,
-replacing the hybrid Cmax selector approach in the main pipeline.
+Provides clean analytical PK predictions from ADME properties.
+
+NOTE (2026-03-17): This module is NOT used by OmegaPipeline.simulate().
+The pipeline performs its own inline analytical Cmax calculation in
+pipeline/__init__.py (hybrid Cmax selector). Both this module and the
+inline code use VDss as the volume term. For a true 1-compartment model
+VDss == Vc, so this is correct. However, when VDss is predicted from a
+multi-compartment perspective (XGBoost or Berezhkovskiy Kp), it may
+over-estimate central volume for highly distributed lipophilic drugs,
+leading to under-predicted Cmax. The pipeline mitigates this via the
+adaptive ODE/analytical blending and VDss correction heuristics.
 """
 
 import math
 
 import numpy as np
+
+
+def estimate_vc(vd_ss: float, body_weight: float = 70.0) -> float:
+    """Estimate central compartment volume (Vc) from VDss.
+
+    For highly distributed drugs (VDss >> plasma volume), Vc is much
+    smaller than VDss. Using VDss in a 1-compartment Cmax formula
+    over-estimates volume and under-predicts Cmax.
+
+    Heuristic: Vc = max(blood_volume, VDss * 0.5) capped so that
+    Vc is at least blood volume (~5L for 70kg) but no larger than VDss.
+    For typical drugs (VDss 10-50L), this gives Vc ~ 5-25L.
+    For very low VDss drugs (<10L), Vc ~ VDss (single compartment).
+
+    Args:
+        vd_ss: Steady-state volume of distribution in L
+        body_weight: Body weight in kg (default 70)
+
+    Returns:
+        Estimated central volume in L
+    """
+    blood_volume = 0.07 * body_weight  # ~5L for 70kg
+    # For low-Vd drugs, Vc ≈ VDss; for high-Vd, Vc is bounded below by blood volume
+    vc = max(blood_volume, min(vd_ss, vd_ss * 0.5))
+    return vc
 
 
 def predict_pk_analytical(
@@ -17,6 +51,8 @@ def predict_pk_analytical(
     ka_h: float,
     duration_h: float = 24.0,
     n_points: int = 241,
+    use_vc: bool = False,
+    body_weight: float = 70.0,
 ) -> dict:
     """Analytical 1-compartment oral PK prediction.
 
@@ -26,11 +62,15 @@ def predict_pk_analytical(
     Args:
         dose_mg: Oral dose in mg
         cl_L_h: Total clearance (hepatic + renal) in L/h
-        vd_L: Volume of distribution in L
+        vd_L: Volume of distribution (VDss) in L
         f_oral: Oral bioavailability (0-1)
         ka_h: Absorption rate constant (1/h)
         duration_h: Simulation duration
         n_points: Number of timepoints
+        use_vc: If True, estimate Vc from VDss for Cmax calculation.
+            This avoids under-predicting Cmax for lipophilic drugs where
+            VDss >> Vc. AUC and t_half still use VDss (correct for 1-cpt).
+        body_weight: Body weight in kg (default 70), used for Vc estimation
 
     Returns:
         dict with keys: time_h, cp_mg_L, cmax_mg_L, tmax_h, auc_mg_h_L, t_half_h
@@ -48,7 +88,10 @@ def predict_pk_analytical(
             "t_half_h": 4.0,
         }
 
-    ke = cl_L_h / vd_L  # elimination rate constant (1/h)
+    # For Cmax, optionally use Vc (central volume) instead of VDss.
+    # AUC and t_half use VDss via ke = CL / VDss (pharmacologically correct).
+    vd_for_cmax = estimate_vc(vd_L, body_weight) if use_vc else vd_L
+    ke = cl_L_h / vd_L  # elimination rate constant (1/h) — always from VDss
 
     # Guard: if ka ≈ ke (within 1%), nudge ka to avoid division by zero
     if abs(ka_h - ke) / max(ke, 1e-10) < 0.01:
@@ -64,8 +107,10 @@ def predict_pk_analytical(
         tmax = 0.5
 
     # Concentration-time profile
+    # Use vd_for_cmax for concentration (Vc-based when use_vc=True),
+    # but ke still uses VDss (pharmacologically correct for elimination).
     t = np.linspace(0, duration_h, n_points)
-    coeff = (f_oral * dose_mg / vd_L) * (ka_h / (ka_h - ke))
+    coeff = (f_oral * dose_mg / vd_for_cmax) * (ka_h / (ka_h - ke))
     cp = coeff * (np.exp(-ke * t) - np.exp(-ka_h * t))
     cp = np.maximum(cp, 0.0)  # no negative concentrations
 

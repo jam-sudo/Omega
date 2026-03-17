@@ -33,6 +33,26 @@ from run_l1_benchmarks import (  # noqa: E402
 from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest  # noqa: E402
 
 
+def bootstrap_aafe_ci(
+    fold_errors: list[float], n_boot: int = 10000, seed: int = 42
+) -> tuple[float, float]:
+    """Compute 95% bootstrap confidence interval for AAFE.
+
+    Resamples the log10 fold-errors with replacement and computes the
+    AAFE (10^mean(|log10(FE)|)) for each bootstrap replicate.
+
+    Returns:
+        (ci95_lo, ci95_hi) as floats.
+    """
+    log_fe = np.log10(np.array(fold_errors))
+    rng = np.random.default_rng(seed)
+    n = len(log_fe)
+    boot_aafes = [
+        float(10 ** np.mean(np.abs(log_fe[rng.integers(0, n, n)]))) for _ in range(n_boot)
+    ]
+    return float(np.percentile(boot_aafes, 2.5)), float(np.percentile(boot_aafes, 97.5))
+
+
 def run_benchmark() -> dict:
     """Run the full benchmark and return structured results."""
     pipeline = OmegaPipeline()
@@ -127,12 +147,20 @@ def run_benchmark() -> dict:
     pct_2fold_cmax = sum(1 for fe in valid_cmax if fe <= 2.0) / max(len(valid_cmax), 1) * 100
     pct_2fold_auc = sum(1 for fe in valid_auc if fe <= 2.0) / max(len(valid_auc), 1) * 100
 
+    # Bootstrap 95% CI for AAFE
+    ci_cmax = bootstrap_aafe_ci(valid_cmax) if len(valid_cmax) >= 3 else (None, None)
+    ci_auc = bootstrap_aafe_ci(valid_auc) if len(valid_auc) >= 3 else (None, None)
+
     result = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "n_drugs": len(BENCHMARK_DRUGS),
         "n_success": n_success,
         "aafe_cmax": round(aafe_cmax, 4) if not np.isnan(aafe_cmax) else None,
         "aafe_auc": round(aafe_auc, 4) if not np.isnan(aafe_auc) else None,
+        "aafe_cmax_ci95_lo": round(ci_cmax[0], 4) if ci_cmax[0] is not None else None,
+        "aafe_cmax_ci95_hi": round(ci_cmax[1], 4) if ci_cmax[1] is not None else None,
+        "aafe_auc_ci95_lo": round(ci_auc[0], 4) if ci_auc[0] is not None else None,
+        "aafe_auc_ci95_hi": round(ci_auc[1], 4) if ci_auc[1] is not None else None,
         "pct_2fold_cmax": round(pct_2fold_cmax, 2),
         "pct_2fold_auc": round(pct_2fold_auc, 2),
         "per_drug": per_drug_results,
@@ -184,8 +212,14 @@ def print_summary(result: dict, regressions: list[str] | None = None) -> None:
     print("BENCHMARK SUMMARY")
     print("=" * 80)
     print(f"Drugs: {result['n_success']}/{result['n_drugs']} succeeded")
-    print(f"Cmax AAFE: {result['aafe_cmax']}")
-    print(f"AUC  AAFE: {result['aafe_auc']}")
+    cmax_ci_lo = result.get("aafe_cmax_ci95_lo")
+    cmax_ci_hi = result.get("aafe_cmax_ci95_hi")
+    auc_ci_lo = result.get("aafe_auc_ci95_lo")
+    auc_ci_hi = result.get("aafe_auc_ci95_hi")
+    cmax_ci_str = f"  [{cmax_ci_lo:.2f}, {cmax_ci_hi:.2f}]" if cmax_ci_lo else ""
+    auc_ci_str = f"  [{auc_ci_lo:.2f}, {auc_ci_hi:.2f}]" if auc_ci_lo else ""
+    print(f"Cmax AAFE: {result['aafe_cmax']}{cmax_ci_str}")
+    print(f"AUC  AAFE: {result['aafe_auc']}{auc_ci_str}")
     print(f"Cmax %2-fold: {result['pct_2fold_cmax']:.0f}%")
     print(f"AUC  %2-fold: {result['pct_2fold_auc']:.0f}%")
 
