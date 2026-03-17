@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   Area,
   XAxis,
@@ -10,7 +10,6 @@ import {
   Scatter,
   ErrorBar,
   ComposedChart,
-  Brush,
 } from "recharts";
 import { exportCSV, formatNum } from "../../lib/utils";
 
@@ -61,15 +60,25 @@ function CustomTooltip({
 export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
   const [logScale, setLogScale] = useState(false);
 
-  // Zoom state: user drags on chart to select X range
-  const [zoomLeft, setZoomLeft] = useState<number | null>(null);
-  const [zoomRight, setZoomRight] = useState<number | null>(null);
   const [xDomain, setXDomain] = useState<[number, number] | null>(null);
   const [yDomain, setYDomain] = useState<[number, number] | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const lineDatasets = useMemo(() => datasets.filter((ds) => !ds.isReference), [datasets]);
   const refDatasets = useMemo(() => datasets.filter((ds) => ds.isReference), [datasets]);
+
+  // Full data range (for zoom limits)
+  const fullRange = useMemo(() => {
+    let xMin = Infinity, xMax = -Infinity, yMax = 0;
+    for (const ds of [...lineDatasets, ...refDatasets]) {
+      for (let i = 0; i < ds.time.length; i++) {
+        xMin = Math.min(xMin, ds.time[i]);
+        xMax = Math.max(xMax, ds.time[i]);
+        yMax = Math.max(yMax, ds.conc[i] ?? 0);
+      }
+    }
+    return { xMin: xMin === Infinity ? 0 : xMin, xMax: xMax === -Infinity ? 24 : xMax, yMax: yMax || 1 };
+  }, [lineDatasets, refDatasets]);
 
   const chartData = useMemo(() => {
     if (lineDatasets.length === 0) return [];
@@ -95,56 +104,43 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
     );
   }, [refDatasets, logScale]);
 
-  // Compute Y domain when X is zoomed
-  useMemo(() => {
-    if (!xDomain) {
-      setYDomain(null);
-      return;
-    }
-    const [xMin, xMax] = xDomain;
-    let yMax = 0;
-    for (const ds of lineDatasets) {
-      for (let i = 0; i < ds.time.length; i++) {
-        if (ds.time[i] >= xMin && ds.time[i] <= xMax) {
-          yMax = Math.max(yMax, ds.conc[i] ?? 0);
+  // Wheel zoom: scroll up = zoom in, scroll down = zoom out
+  // Shift+scroll = Y axis only, plain scroll = X axis only
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 1.15 : 0.85; // scroll down = zoom out
+      const isYAxis = e.shiftKey;
+
+      if (isYAxis) {
+        // Y-axis zoom
+        const curY = yDomain || [0, fullRange.yMax * 1.1];
+        const yCenter = (curY[0] + curY[1]) / 2;
+        const yHalf = ((curY[1] - curY[0]) / 2) * zoomFactor;
+        const newYMin = Math.max(0, yCenter - yHalf);
+        const newYMax = Math.min(fullRange.yMax * 3, yCenter + yHalf);
+        if (newYMax - newYMin > fullRange.yMax * 0.01) {
+          setYDomain([newYMin, newYMax]);
+        }
+      } else {
+        // X-axis zoom
+        const curX = xDomain || [fullRange.xMin, fullRange.xMax];
+        const xCenter = (curX[0] + curX[1]) / 2;
+        const xHalf = ((curX[1] - curX[0]) / 2) * zoomFactor;
+        const newXMin = Math.max(fullRange.xMin, xCenter - xHalf);
+        const newXMax = Math.min(fullRange.xMax, xCenter + xHalf);
+        if (newXMax - newXMin > (fullRange.xMax - fullRange.xMin) * 0.02) {
+          setXDomain([newXMin, newXMax]);
         }
       }
-    }
-    for (const ds of refDatasets) {
-      for (let i = 0; i < ds.time.length; i++) {
-        if (ds.time[i] >= xMin && ds.time[i] <= xMax) {
-          yMax = Math.max(yMax, (ds.conc[i] ?? 0) + (ds.sd?.[i] ?? 0));
-        }
-      }
-    }
-    if (yMax > 0) {
-      setYDomain([0, yMax * 1.1]);
-    }
-  }, [xDomain, lineDatasets, refDatasets]);
+    };
 
-  const handleMouseDown = useCallback(
-    (e: { activeLabel?: string | number }) => {
-      if (e?.activeLabel != null) setZoomLeft(Number(e.activeLabel));
-    },
-    [],
-  );
-
-  const handleMouseMove = useCallback(
-    (e: { activeLabel?: string | number }) => {
-      if (zoomLeft != null && e?.activeLabel != null) setZoomRight(Number(e.activeLabel));
-    },
-    [zoomLeft],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    if (zoomLeft != null && zoomRight != null && zoomLeft !== zoomRight) {
-      const left = Math.min(zoomLeft, zoomRight);
-      const right = Math.max(zoomLeft, zoomRight);
-      setXDomain([left, right]);
-    }
-    setZoomLeft(null);
-    setZoomRight(null);
-  }, [zoomLeft, zoomRight]);
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, [xDomain, yDomain, fullRange]);
 
   const handleReset = useCallback(() => {
     setXDomain(null);
@@ -229,19 +225,14 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
       </div>
 
       {/* Zoom hint */}
-      {!isZoomed && (
-        <div className="text-[10px] text-[var(--text-dim)] mb-2 ml-12">
-          Drag on chart to zoom · Double-click to reset
-        </div>
-      )}
+      <div className="text-[10px] text-[#3f3f46] mb-2 ml-12">
+        Scroll to zoom X axis · Shift+scroll for Y axis · Double-click to reset
+      </div>
 
       <ResponsiveContainer width="100%" height={340}>
         <ComposedChart
           data={chartData}
           margin={{ top: 5, right: 20, bottom: 25, left: 15 }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
           onDoubleClick={handleReset}
         >
           <defs>
@@ -304,14 +295,6 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
             }}
           />
 
-          {/* Zoom selection overlay */}
-          {zoomLeft != null && zoomRight != null && (
-            <ReferenceLine x={zoomLeft} stroke="rgba(255,255,255,0.2)" strokeDasharray="2 2" />
-          )}
-          {zoomLeft != null && zoomRight != null && (
-            <ReferenceLine x={zoomRight} stroke="rgba(255,255,255,0.2)" strokeDasharray="2 2" />
-          )}
-
           {mecLine != null && (
             <ReferenceLine
               y={mecLine} stroke="#22c55e" strokeDasharray="6 3" strokeWidth={1.5}
@@ -363,25 +346,6 @@ export default function PKCurve({ datasets, mecLine, mtcLine }: Props) {
             </Scatter>
           ))}
 
-          {/* Bottom brush for panning when zoomed */}
-          {isZoomed && (
-            <Brush
-              dataKey="time"
-              height={20}
-              stroke="rgba(255,255,255,0.1)"
-              fill="#18181b"
-              travellerWidth={8}
-              onChange={(range) => {
-                if (range.startIndex != null && range.endIndex != null && chartData.length > 0) {
-                  const start = chartData[range.startIndex]?.time;
-                  const end = chartData[range.endIndex]?.time;
-                  if (start != null && end != null) {
-                    setXDomain([start, end]);
-                  }
-                }
-              }}
-            />
-          )}
         </ComposedChart>
       </ResponsiveContainer>
 
