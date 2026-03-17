@@ -22,6 +22,19 @@ from omega_pbpk.uncertainty import DistributionSpec, monte_carlo_propagation
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Phase 2+3a feature flags — toggle structural fixes independently
+# ---------------------------------------------------------------------------
+_USE_PREDICTED_PKA = (
+    False  # Phase 2.1: use pKa predictor instead of [7.0] (disabled: needs validation)
+)
+_USE_SALT_CORRECTION = (
+    False  # Phase 2.2: salt-form solubility enhancement (disabled: needs validation)
+)
+_ENABLE_GUT_WALL_FIX = (
+    False  # Phase 3a.1: drug-specific gut_clint_multiplier (disabled: needs fm calibration)
+)
+
 
 @dataclass(frozen=True)
 class CandidateReport:
@@ -964,6 +977,22 @@ class OmegaPipeline:
         sol_mol_L = 10.0**logS
         sol_mg_mL = sol_mol_L * mw  # mg/mL = mol/L * g/mol * 1000 mL/L / 1000 mg/g
 
+        # --- Phase 3a.1: Drug-specific gut_clint_multiplier ---
+        gut_clint_mult = 1.0
+        if _ENABLE_GUT_WALL_FIX:
+            # Scale gut wall CLint by CYP3A4 contribution.
+            # Literature: enterocyte CYP3A4 ~50% of hepatic for CYP3A4 substrates.
+            # fm_CYP3A4 is approximated from clint_3a4 / total_clint.
+            total_cl = clint_3a4 + clint_2d6
+            fm_cyp3a4 = clint_3a4 / total_cl if total_cl > 0 else 0.0
+            gut_clint_mult = max(1.0, 50.0 * fm_cyp3a4)
+            if gut_clint_mult > 1.0:
+                logger.debug(
+                    "Gut wall CYP3A4 multiplier: %.1f (fm_3A4=%.2f)",
+                    gut_clint_mult,
+                    fm_cyp3a4,
+                )
+
         # Compute Berezhkovskiy-corrected Kp values (R&R + fup scaling).
         # Use RDKit Crippen logP for Kp calculations — it's more reliable than
         # ML-predicted logP for partition coefficients (e.g. fluoxetine:
@@ -1023,6 +1052,70 @@ class OmegaPipeline:
         except Exception as exc:
             logger.debug("Berezhkovskiy Kp failed: %s", exc)
 
+        # --- Phase 2.1: Predicted pKa and drug type ---
+        # Uses RDKit-detected compound_type as molecule_type for pKa predictor.
+        # Overrides the hardcoded pka_est with a structure-specific prediction.
+        pka_val = pka_est if pka_est is not None else 7.0
+        drug_type = compound_type  # "neutral", "acid", "base", "zwitterion"
+        if _USE_PREDICTED_PKA:
+            try:
+                from omega_pbpk.prediction.pka_predictor import predict_pka
+
+                # Map compound_type to valid molecule_type for pKa predictor
+                _pka_mol_type = (
+                    compound_type
+                    if compound_type in ("acid", "base", "neutral", "amphoteric")
+                    else "neutral"
+                )
+                if _pka_mol_type == "zwitterion":
+                    _pka_mol_type = "amphoteric"
+                pka_result = predict_pka(smiles, molecule_type=_pka_mol_type)
+                if pka_result and pka_result.pka_predicted is not None:
+                    pka_val = pka_result.pka_predicted
+                    drug_type = pka_result.molecule_type
+                    logger.debug(
+                        "pKa predicted: %.2f (%s, group=%s)",
+                        pka_val,
+                        drug_type,
+                        pka_result.detected_group,
+                    )
+            except Exception as exc:
+                logger.debug("pKa prediction failed: %s", exc)
+
+        # --- Phase 2.2: Salt-form solubility correction ---
+        # Only apply when solubility is actually limiting absorption (low solubility).
+        # For drugs with adequate solubility, salt form doesn't change oral PK.
+        if _USE_SALT_CORRECTION and drug_type in ("acid", "base") and sol_mg_mL < 1.0:
+            try:
+                from omega_pbpk.prediction.salt_form_prediction import (
+                    salt_solubility_enhancement,
+                )
+
+                # Intrinsic solubility in mg/L = sol_mg_mL * 1000
+                intrinsic_sol_mg_L = sol_mg_mL * 1000.0
+                salt_result = salt_solubility_enhancement(
+                    pka_drug=pka_val,
+                    pka_counterion=14.0 if drug_type == "acid" else -7.0,
+                    intrinsic_solubility_mg_L=intrinsic_sol_mg_L,
+                    ph=6.5,  # gut pH for dissolution
+                    drug_type=drug_type,
+                )
+                enhancement = salt_result.get("enhancement_fold", 1.0)
+                # Cap enhancement: theoretical salt solubility can be 1000x+
+                # but practical enhancement is limited by dissolution kinetics,
+                # common-ion effect, and in vivo supersaturation.
+                # Literature: Serajuddin (2007) reports typical 2-10x for salts.
+                enhancement = min(enhancement, 10.0)
+                if enhancement > 1.0:
+                    sol_mg_mL *= enhancement
+                    logger.debug(
+                        "Salt-form correction: %.1fx solubility enhancement (%s)",
+                        enhancement,
+                        drug_type,
+                    )
+            except Exception as exc:
+                logger.debug("Salt-form correction failed: %s", exc)
+
         # Estimate renal clearance from physicochemical properties.
         # Hydrophilic drugs (low logP) are filtered and actively secreted
         # by the kidney. Without this, renally-cleared drugs (metformin,
@@ -1069,6 +1162,9 @@ class OmegaPipeline:
                 name=f"compound_{smiles[:8]}",
                 mw=mw,
                 logP=logP,
+                pka=[pka_val],
+                drug_type=drug_type,
+                compound_type=compound_type,
                 fup=fup,
                 rbp=min(float(adme.get("rbp", 0.55)), 1.5),  # Cap: most drugs have RBP 0.5-1.2
                 clint_hepatic_L_per_h=clint_L_per_h,
@@ -1076,6 +1172,7 @@ class OmegaPipeline:
                 peff=peff,
                 solubility_mg_mL=max(sol_mg_mL, 0.001),
                 kp=kp_dict,
+                gut_clint_multiplier=gut_clint_mult,
             )
         else:
             # Legacy path: CYP-attributed units (µL/min/pmol CYP)
@@ -1087,13 +1184,18 @@ class OmegaPipeline:
                 name=f"compound_{smiles[:8]}",
                 mw=mw,
                 logP=logP,
+                pka=[pka_val],
+                drug_type=drug_type,
+                compound_type=compound_type,
                 fup=fup,
                 rbp=min(float(adme.get("rbp", 0.55)), 1.5),  # Cap: most drugs have RBP 0.5-1.2
                 clint=clint_dict,
+                fm={"CYP3A4": clint_3a4 / max(clint_3a4 + clint_2d6, 0.01)},
                 clr_L_per_h=cl_renal,
                 peff=peff,
                 solubility_mg_mL=max(sol_mg_mL, 0.001),
                 kp=kp_dict,
+                gut_clint_multiplier=gut_clint_mult,
             )
 
     def _analytical_oral(self, drug, request, adme_props, warnings_list):

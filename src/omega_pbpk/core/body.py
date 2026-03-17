@@ -62,6 +62,11 @@ from omega_pbpk.drugs.drug import Drug
 
 logger = logging.getLogger(__name__)
 
+# Phase 3a.2 feature flag: use villous blood flow (~6% CO) for Fg calculation
+# instead of full mesenteric/intestinal flow (~15% CO). Villous flow is the
+# physiologically correct flow for the well-stirred gut wall model (Yang 2007).
+_USE_VILLOUS_FLOW = False
+
 N_STATES = 35
 
 # State indices
@@ -328,8 +333,16 @@ class WholeBodyPBPK:
         """Gut wall first-pass fraction escaping (Fg) using Qgut model (Yang 2007).
 
         Fg = Qgut / (Qgut + fup × CLint_gut)
+
+        When _USE_VILLOUS_FLOW is enabled, uses villous blood flow (~6% CO,
+        ~23 L/h for 70kg) instead of full intestinal flow (~15% CO, ~58 L/h).
+        Villous flow is the physiologically correct perfusion for the enterocyte
+        well-stirred model.
         """
-        q_gut = self.organs["gut_wall"].blood_flow_L_per_h
+        if _USE_VILLOUS_FLOW:
+            q_gut = 0.06 * self.cardiac_output  # villous flow ~6% CO
+        else:
+            q_gut = self.organs["gut_wall"].blood_flow_L_per_h
         cl_gut = self.drug.gut_clint_scaled_L_per_h
         if cl_gut <= 0:
             return 1.0
