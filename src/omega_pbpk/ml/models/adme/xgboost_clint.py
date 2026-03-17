@@ -101,10 +101,42 @@ def _get_clint_reference_anchors() -> list[tuple[str, float]]:
     ]
 
 
+def _enhanced_features(smiles: str) -> np.ndarray | None:
+    """Enhanced feature vector: Morgan + RDKit descriptors + transporter flags.
+
+    Adds 4 transporter flags (P-gp substrate/inhibitor, OATP1B1 substrate,
+    BCRP substrate) to the base 2057 features, yielding 2061 total.
+    Transporter-mediated clearance is a major source of CLint prediction
+    error — P-gp substrates and OATP substrates have different hepatic
+    uptake rates that affect intrinsic clearance.
+    """
+    from omega_pbpk.ml.models.adme.xgboost_fup import _smiles_to_features
+
+    base = _smiles_to_features(smiles)
+    if base is None:
+        return None
+
+    extra = np.zeros(4, dtype=np.float32)
+    try:
+        from omega_pbpk.ml.models.adme.transporter_lookup import get_transporter_flags
+
+        flags = get_transporter_flags(smiles=smiles)
+        if flags:
+            extra[0] = float(flags.get("pgp_substrate", 0))
+            extra[1] = float(flags.get("pgp_inhibitor", 0))
+            extra[2] = float(flags.get("oatp1b1_substrate", 0))
+            extra[3] = float(flags.get("bcrp_substrate", 0))
+    except ImportError:
+        pass
+
+    return np.concatenate([base, extra])
+
+
 class XGBoostCLintPredictor:
     """XGBoost predictor for hepatocyte intrinsic clearance.
 
     Predicts log10(CLint) in µL/min/10^6 cells.
+    Uses enhanced features with transporter flags when available.
     """
 
     def __init__(
@@ -137,8 +169,6 @@ class XGBoostCLintPredictor:
         """Train on TDC Clearance_Hepatocyte_AZ + reference CLint anchors."""
         import xgboost as xgb
 
-        from omega_pbpk.ml.models.adme.xgboost_fup import _smiles_to_features
-
         tdc_smiles, tdc_clint = _load_tdc_clearance()
         if not tdc_smiles:
             raise ValueError("No training data for CLint predictor.")
@@ -148,7 +178,7 @@ class XGBoostCLintPredictor:
         valid_y = []
         sample_weights = []
         for smi, clint in zip(tdc_smiles, tdc_clint):
-            feat = _smiles_to_features(smi)
+            feat = _enhanced_features(smi)
             if feat is not None:
                 valid_X.append(feat)
                 valid_y.append(np.log10(max(clint, 1.0)))
@@ -158,7 +188,7 @@ class XGBoostCLintPredictor:
         ref_anchors = _get_clint_reference_anchors()
         n_anchors = 0
         for smi, clint in ref_anchors:
-            feat = _smiles_to_features(smi)
+            feat = _enhanced_features(smi)
             if feat is not None:
                 valid_X.append(feat)
                 valid_y.append(np.log10(max(clint, 1.0)))
