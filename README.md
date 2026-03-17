@@ -1,110 +1,116 @@
 <div align="center">
 
-# &Omega; Omega PBPK
+# &Omega; Omega
 
-### From molecule to pharmacokinetics in one line of code
+### Toward a Digital General Human
 
-**Give it a SMILES string. Get back Cmax, AUC, t&frac12;, and a full PK profile.**
+**Structure-based pharmacokinetic prediction using hybrid mechanistic-ML modeling**
 
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)](#development)
+[![Tests](https://img.shields.io/badge/tests-48%2C671_passing-brightgreen?style=for-the-badge)](#development)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
-[![AAFE](https://img.shields.io/badge/Cmax_AAFE-1.90-blueviolet?style=for-the-badge)](#benchmark-results)
-[![Status](https://img.shields.io/badge/pipeline-pass-brightgreen?style=for-the-badge)](#benchmark-results)
-[![Drugs](https://img.shields.io/badge/validated-39_drugs-blue?style=for-the-badge)](#multi-tier-validation)
-[![Speed](https://img.shields.io/badge/speed-73ms-orange?style=for-the-badge)](#benchmark-results)
-
-```
-SMILES string  ──→  Omega  ──→  Cmax, AUC, t½, full PK profile
-                     ⚡
-          XGBoost + polynomial ADME + 35-state ODE
-```
+[![AAFE](https://img.shields.io/badge/Cmax_AAFE-1.72_(in--sample)-blueviolet?style=for-the-badge)](#benchmark-results)
+[![External](https://img.shields.io/badge/external_AAFE-2.95-orange?style=for-the-badge)](#external-validation)
+[![Speed](https://img.shields.io/badge/speed-73ms%2Fdrug-informational?style=for-the-badge)](#benchmark-results)
 
 </div>
 
 ---
 
-Traditional PBPK tools demand hours of manual parameterization by expert pharmacokineticists. Omega replaces that with a single function call — a hybrid neural-mechanistic engine that learns drug behavior directly from molecular structure, then validates through a 35-state whole-body ODE.
+## Vision
 
-**No manual parameters. No lookup tables. Just chemistry in, pharmacokinetics out.**
+Omega's long-term goal is a **full digital general human** — a computational model of human physiology capable of simulating any molecule's absorption, distribution, metabolism, and excretion (ADME), predicting therapeutic outcomes, and personalizing dosing.
+
+**Current stage:** Whole-body PBPK prediction from molecular structure (SMILES).
+
+**Roadmap:** PK &rarr; PK/PD &rarr; Systems Pharmacology &rarr; Digital Twin &rarr; Digital General Human
 
 > [!CAUTION]
 > **Research use only.** Not validated for clinical decision-making or regulatory submissions.
-
-## Table of Contents
-
-- [How It Works](#how-it-works)
-- [Benchmark Results](#benchmark-results)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [CLI Reference](#cli-reference)
-- [Architecture](#architecture)
-- [Features](#features)
-- [Module Map](#module-map)
-- [Training Data](#training-data)
-- [Roadmap](#roadmap)
-- [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
+> In-sample benchmark metrics reflect tuning; external validation (AAFE 2.95) better represents prospective accuracy.
 
 ## How It Works
 
-Omega operates at two levels:
+Omega predicts plasma pharmacokinetics directly from a SMILES string, without requiring measured in vitro data. The pipeline combines ML-predicted ADME properties with a mechanistic 35-state PBPK ODE:
 
-| | Level | Status | Input | Method | Output |
-|---|-------|--------|-------|--------|--------|
-| **1-2** | Ensemble Pipeline | **All exit criteria pass** | SMILES | XGBoost + polynomial + GSE + hybrid selectors → 35-state ODE | PK profile, 73ms, AAFE 1.90 |
-| **3** | Personalized | **Prototype working** | SMILES + patient | Allometric scaling + Bayesian individual fitting | Weight/genotype-adjusted PK |
+```
+SMILES
+  |
+  v
+EnsembleADMEPredictor          XGBoost CLint/fup/rbp/VDss + polynomial logP/logS
+  |
+  v
+Drug Object Construction       IVIVE scaling, Berezhkovskiy Kp, renal CL, P-gp correction
+  |
+  v
+35-state ODE Simulation        Whole-body PBPK (15 organs, 8-segment ACAT GI)
+  |
+  v
+Hybrid Cmax Selector           Adaptive-weight blend of ODE + analytical 1-compartment
+  |
+  v
+PBPK/ML Ensemble               Confidence-weighted blend with direct XGBoost Cmax
+  |
+  v
+Conformal UQ                   90% prediction intervals from parameter uncertainty
+  |
+  v
+SimulationResult               Cmax, AUC, t_half, C(t) curve, confidence, intervals
+```
+
+| Level | Description | Input | Output |
+|-------|-------------|-------|--------|
+| **1-2** | Population PK prediction | SMILES + dose | Cmax, AUC, t&frac12;, C(t) curve |
+| **3** | Patient-specific PK | SMILES + dose + covariates | Individualized PK |
 
 ## Benchmark Results
 
-SMILES-only predictions — no manual parameterization, no compound-specific tuning, no lookup tables.
+All predictions are SMILES-only — no manual parameterization, no measured in vitro data.
 
-**Gold Tier: PK Accuracy (20 drugs, Cmax + AUC)**
+### Gold Tier (24 drugs, Cmax + AUC)
 
-| Metric | Achieved | Target | Status |
-|--------|----------|--------|--------|
-| Cmax AAFE | **1.90** | < 2.0 | Pass |
-| AUC AAFE | **1.66** | < 2.0 | Pass |
-| Cmax within 2-fold | **70%** | >= 70% | Pass |
-| AUC within 2-fold | **70%** | >= 70% | Pass |
-| Speed (warm) | **73ms** | < 500ms | Pass |
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Cmax AAFE | **1.72** | 12/24 drugs have CLint anchors (semi-supervised) |
+| Cmax within 2-fold | **79%** | |
+| AUC AAFE | **1.96** | |
+| Speed (warm) | **73 ms/drug** | |
 
-> Healthy volunteers, single oral IR dose, fasted state. 20 drugs including caffeine, warfarin, metoprolol, midazolam, ibuprofen, theophylline, carbamazepine, and 13 others.
+> Healthy volunteers, single oral IR dose, fasted state. Benchmark CSVs are synthetic (1-compartment generated); warfarin replaced with PK-DB clinical data (2026-03-17).
 >
-> Run `python scripts/run_full_benchmark.py` to reproduce (runs 25 drugs: 20 development + 5 validation).
+> Run `python scripts/run_full_benchmark.py` to reproduce.
+
+### External Validation (8 drugs, never used in calibration)
+
+| Metric | Value |
+|--------|-------|
+| Cmax AAFE | **2.95** |
+| Cmax within 2-fold | **62%** |
+| Median fold error | **1.47x** |
+
+These 8 drugs were not used in any CLint anchor, IVIVE calibration, or pipeline tuning. This is the most honest measure of prospective accuracy.
 
 ### Multi-Tier Validation
 
-Omega is validated at multiple levels of fidelity across different data sources:
-
-| Tier | Scope | Key Metric | Result |
-|------|-------|------------|--------|
-| **Gold** | 20 drugs (Cmax + AUC from C(t) curves) | Cmax AAFE | **1.90** |
-| **Silver** | 39 drugs (t_half from FDA labels) | t_half AAFE | **2.42** |
-| **Bronze** | 151 compounds (ADME properties) | logP AAFE / fup AAFE / peff AAFE | **1.54 / 2.10 / 1.46** |
-| **Temporal** | 5 post-2022 drugs (truly unseen) | t_half AAFE, 3/5 within 2-fold | **3.12** |
-
-<details>
-<summary>Bronze-tier ADME property breakdown</summary>
-
-| Property | AAFE | % within 2-fold | n |
-|----------|------|-----------------|---|
-| logP | 1.54 | 82% | 131 |
-| fup | 2.10 | 58% | 151 |
-| rbp | 1.09 | 98% | 151 |
-| peff | 1.46 | 86% | 151 |
-| clint | 3.25 | 34% | 151 |
-
-</details>
+| Tier | Scope | Metric | Result |
+|------|-------|--------|--------|
+| **Gold** | 24 drugs (Cmax + AUC) | Cmax AAFE | **1.72** |
+| **Silver** | 39 drugs (t&frac12; from FDA labels) | t&frac12; AAFE | **2.42** |
+| **Bronze** | 151 compounds (ADME properties) | logP / fup / peff / clint AAFE | 1.54 / 2.10 / 1.46 / 3.25 |
+| **Temporal** | 5 post-2022 drugs | t&frac12; AAFE | **3.12** |
+| **External** | 8 unseen drugs | Cmax AAFE | **2.95** |
 
 <details>
 <summary>Known limitations</summary>
 
-- **P-gp substrates** (verapamil, digoxin): efflux transport not yet modeled, Cmax under-predicted
-- **Highly protein-bound drugs** (ibuprofen, fup < 0.01): small fup prediction errors amplify PK errors
-- **Nonlinear metabolism** (phenytoin): saturable CYP2C9 kinetics not captured by linear model
-- **clint prediction** (AAFE 3.25): structure-based clearance prediction is an active research challenge
+- **CLint prediction** (AAFE 3.25): structure-based clearance prediction is the primary bottleneck; 12/24 benchmark drugs use semi-supervised anchors
+- **Gut wall first-pass (Fg)**: currently ~1.0 for all drugs; CYP3A4 substrates (midazolam, nifedipine) have overestimated bioavailability
+- **Vd for highly protein-bound drugs**: Berezhkovskiy Kp and XGBoost VDss both fail for fup < 0.01 (warfarin: 6.69x error)
+- **Hybrid Cmax selector**: 130 lines of heuristic blending with no industry precedent; most valuable component per ablation but architecturally fragile
+- **P-gp substrates**: binary peff correction only (0.5x for substrates, skipped for substrate+inhibitors)
+- **No Phase II metabolism**: UGT, NAT2, SULT enzymes not represented
+- **No dissolution model**: BCS Class II drugs assume pre-dissolved drug
+- **Benchmark data quality**: all CSVs are synthetic (1-compartment model, 20% constant SD)
 
 </details>
 
@@ -113,30 +119,25 @@ Omega is validated at multiple levels of fidelity across different data sources:
 ```bash
 git clone https://github.com/jam-sudo/Omega.git
 cd Omega
-pip install -e ".[ml-new]"    # Core + ML (admet-ai, xgboost, chemprop, torchdiffeq, etc.)
-pip install rdkit torch        # PyTorch and RDKit (installed separately for platform compatibility)
+pip install -e ".[ml-new]"
+pip install rdkit torch
 ```
 
 <details>
 <summary>Optional extras</summary>
 
 ```bash
-pip install -e ".[dev]"      # Development tools (pytest, ruff, mypy)
-pip install -e ".[api]"      # REST API (FastAPI, uvicorn)
+pip install -e ".[dev]"      # Development tools (pytest, ruff)
+pip install -e ".[api]"      # REST API (FastAPI)
 pip install -e ".[viz]"      # Visualization (matplotlib)
-```
-
-Base install without ML (ODE engine only):
-
-```bash
-pip install -e "."
+pip install -e "."           # Base install (ODE engine only)
 ```
 
 </details>
 
 ## Quick Start
 
-### SMILES to PK profile
+### Population PK Prediction
 
 ```python
 from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
@@ -147,251 +148,129 @@ result = pipeline.simulate(SimulationRequest(
     dose_mg=100.0,
     route="oral",
 ))
-print(f"Cmax: {result.cmax_mg_L:.2f} mg/L, t½: {result.t_half_h:.1f} h")
+
+print(f"Cmax: {result.cmax_mg_L:.2f} mg/L")
+print(f"AUC:  {result.auc0t_mg_h_L:.2f} mg*h/L")
+print(f"t1/2: {result.t_half_h:.1f} h")
+
+# 90% prediction intervals
+if result.cmax_ci90:
+    lo, hi = result.cmax_ci90
+    print(f"Cmax 90% CI: [{lo:.2f}, {hi:.2f}] mg/L")
 ```
 
-### ADME property prediction
+### Batch Screening
 
 ```python
-from omega_pbpk.ml.models.adme.ensemble import EnsembleADMEPredictor
+from omega_pbpk.screening.batch import batch_predict, rank_results
 
-predictor = EnsembleADMEPredictor(admet_ai=False)  # production config
-adme = predictor.predict("Cn1cnc2c1c(=O)n(C)c(=O)n2C")  # caffeine
-print(f"logP: {adme.logP:.2f}, fup: {adme.fup:.3f}, CLint: {adme.clint_3a4:.4f}")
+smiles_list = ["CCO", "c1ccccc1", "CC(=O)Nc1ccc(O)cc1"]  # ethanol, benzene, acetaminophen
+results = batch_predict(smiles_list, dose_mg=100.0)
+ranked = rank_results(results, objective="cmax")
+
+for r in ranked:
+    print(f"Rank {r['rank']}: Cmax={r['cmax_mg_L']:.2f} mg/L")
 ```
 
 ### Patient-Specific Prediction
 
 ```python
-from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
-
-pipeline = OmegaPipeline()
-
-# Weight-adjusted simulation
 result = pipeline.simulate(SimulationRequest(
     smiles="CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O",  # warfarin
     dose_mg=5.0,
-    subject_weight_kg=40.0,  # lighter patient → higher Cmax
+    subject_weight_kg=40.0,
+    cyp2c9_genotype="*1/*3",  # CYP2C9 poor metabolizer
 ))
 
-# Few-shot individual fitting (1-5 observed concentrations)
+# Bayesian individual fitting from sparse observations
 fit = pipeline.fit_individual(
-    SimulationRequest(smiles="CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O", dose_mg=5.0),
-    observations=[(1.0, 0.15), (4.0, 0.13), (12.0, 0.05)],  # (time_h, conc_mg_L)
+    SimulationRequest(smiles="...", dose_mg=5.0),
+    observations=[(1.0, 0.15), (4.0, 0.13), (12.0, 0.05)],
 )
-print(f"Individual CL scale: {fit['cl_scale']:.2f}, Vd scale: {fit['vd_scale']:.2f}")
 ```
 
 ### CLI
 
 ```bash
-# SMILES → full PK profile
 omega predict --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --dose 100 --model ensemble
-
-# ADME properties only (XGBoost ensemble)
-omega predict --smiles "CC(=O)Oc1ccccc1C(=O)O" --model ensemble
-
-# Population simulation
-omega population --compound compounds/warfarin.yaml --n-subjects 100
-
-# Multi-drug benchmark
-omega benchmark
-
-# HTML report
-omega report --smiles "Cn1cnc2c1c(=O)n(C)c(=O)n2C" --name "Caffeine" --dose 100 --out report.html
+omega benchmark                                      # Multi-drug validation
+omega report --smiles "..." --name "Drug" --out report.html
 ```
-
-## CLI Reference
-
-| Command | Description |
-|---------|-------------|
-| `omega predict` | SMILES → PK profile (`--model`: ensemble / legacy) |
-| `omega simulate` | Run PBPK simulation from a compound YAML file |
-| `omega multidose` | Multi-dose steady-state simulation |
-| `omega optimize` | Therapeutic window dose optimization |
-| `omega safety` | Off-target safety panel (11 FDA targets + 5 CYP inhibition) |
-| `omega pgx` | Pharmacogenomics analysis (CYP allele database) |
-| `omega pgx-sim` | PGx-stratified PBPK: PM/IM/NM/UM profiles |
-| `omega calibrate` | Bayesian MCMC parameter calibration |
-| `omega benchmark` | Multi-drug benchmark validation suite |
-| `omega sensitivity` | Local sensitivity analysis |
-| `omega validate` | Mass balance and physiological sanity checks |
-| `omega surrogate` | Train or use the neural surrogate model |
-| `omega uncertainty` | Monte Carlo uncertainty propagation |
-| `omega evaluate` | Integrated drug candidate evaluation |
-| `omega population` | Population PK with NHANES-based virtual subjects |
-| `omega report` | Generate HTML regulatory report |
 
 ## Architecture
 
 ```
-Level 1-2 (Ensemble Pipeline) — SHIPPED, ALL EXIT CRITERIA PASS:
-  SMILES → XGBoost (Morgan FP) → fup, RBP, CLint, VDss
-         → Polynomial + GSE solubility floor → logP, logS
-         → Berezhkovskiy Kp + XGBoost VDss correction → Drug
-         → 35-state ODE → hybrid Cmax/t½ selector → PK profile
-         Speed: 73ms/drug (warm), AAFE 1.90 Cmax / 1.66 AUC
-
-Level 3 (Personalized) — PROTOTYPE WORKING:
-  Level 1-2 output → population PK parameters
-  Patient covariates → allometric scaling (CL, Vd)
-                     → CYP genotype factors (2D6, 2C9, 2C19)
-  Sparse observations → Bayesian fitting (scipy L-BFGS-B)
-                       → individual CL/Vd → patient-specific PK
-```
-
-**Level 1-2:** Hybrid ensemble (XGBoost + polynomial + heuristic corrections). **Level 3:** Allometric + Bayesian individual estimation.
-
-## Features
-
-### ML Pipeline (Level 1-2 — shipped)
-- **XGBoost ensemble** — fup, CLint, VDss, RBP predictors with 2048-bit Morgan fingerprints (production primary)
-- **Polynomial ridge fallback** — logP, logS with GSE solubility floor
-- **ADMET-AI integration** — pretrained Chemprop D-MPNN available but disabled in production (causes tissue partitioning instabilities for some drugs)
-- **Berezhkovskiy Kp correction** — fup-aware tissue partitioning with XGBoost VDss calibration
-- **Conformal prediction** — uncertainty intervals (fup/rbp/peff well-calibrated; clint under-calibrated)
-- **IVIVE pipeline** — allometric scaling (alpha=0.3, beta=0.9) + well-stirred hepatic clearance
-
-### Level 3 — Patient-Specific (prototype working)
-- **Allometric covariate scaling** — CL x (W/70)^0.75, Vd x (W/70)^1.0
-- **CYP genotype factors** — CYP2D6 (UM/EM/IM/PM), CYP2C9 (6 diplotypes), CYP2C19
-- **Bayesian individual estimation** — scipy L-BFGS-B fitting from 1-5 C(t) observations
-- **SimulationRequest integration** — `subject_weight_kg`, `cyp2c9_genotype`, etc.
-
-### Neural Architecture (research, not in production pipeline)
-- **GNN molecular encoder** — 3-layer MPNN, 256-dim, with edge features
-- **Differentiable ODE surrogate** — MLP approximation of 35-state ODE (AAFE 1.20)
-- **Cross-attention fusion** — molecular x patient x dosing context
-- **Reptile meta-learning** — few-shot adaptation (code ready, awaiting clinical data)
-
-### Mechanistic Engine
-- 35-state whole-body PBPK ODE (LSODA, rtol=1e-8, atol=1e-10)
-- 15 organs, 4 permeability-limited tissues, 8-segment ACAT GI model
-- Rodgers & Rowland tissue partitioning
-- Well-stirred hepatic clearance with gut-wall first-pass
-- Population PK with NHANES-based virtual subjects
-- Pediatric CYP ontogeny scaling (CYP3A4/2D6/1A2)
-- DDI risk assessment (FDA 2020 static mechanistic model)
-- NCA, allometric scaling, IVIVE, pharmacogenomics
-- Bayesian MCMC parameter calibration
-- Multi-species support (human, rat, mouse, dog)
-
-### Clinical Data Pipeline
-- **PK-DB connector** — REST API client for pk-db.com (~800 clinical PK studies)
-- **FDA label extractor** — DailyMed API with regex PK parameter extraction
-- **TDC data loader** — 6 ADME benchmark datasets (906-9,982 compounds each)
-- **Data harmonization** — unified format, unit standardization, scaffold splitting
-
-## Module Map
-
-```
 src/omega_pbpk/
-├── ml/                     # ML prediction pipeline
-│   ├── data/               #   Data loading, synthetic generation, harmonization
-│   │   ├── synthetic.py    #     ODE + 1-cpt training data generators
-│   │   ├── loaders.py      #     PK-DB, FDA label, TDC data loaders
-│   │   └── datasets.py     #     ClinicalPKDataset harmonization
-│   ├── features/           #   Molecular featurization
-│   │   └── graphs.py       #     SMILES → PyG graph (atom + bond features)
-│   ├── models/             #   Model architectures
-│   │   ├── adme/           #     Level 1: ADMET-AI wrapper, XGBoost, ensemble
-│   │   ├── surrogate/      #     Differentiable ODE surrogate for training
-│   │   └── foundation/     #     Level 2-3: GNN encoder, param head, foundation model
-│   ├── training/           #   Training infrastructure
-│   │   ├── trainer.py      #     PKTrainer with early stopping, checkpointing
-│   │   ├── curriculum.py   #     Multi-fidelity curriculum (1-cpt → ODE → clinical)
-│   │   ├── losses.py       #     Physics-informed loss (5 components)
-│   │   └── few_shot.py     #     Reptile meta-learning
-│   └── evaluation/         #   Benchmarking and metrics
-│       ├── benchmarks.py   #     ADME + PK fold-error benchmarks
-│       └── metrics.py      #     Conformal calibration, AAFE, coverage
+├── pipeline/               # OmegaPipeline: SMILES → PK
+│   ├── __init__.py         #   Main pipeline (simulate, fit_individual)
+│   └── pk_engine.py        #   Analytical 1-compartment PK engine
+├── ml/                     # ML prediction modules
+│   ├── models/adme/        #   XGBoost (CLint, fup, rbp, VDss), polynomial, ensemble
+│   ├── models/direct_pk/   #   Direct Cmax predictor + PBPK/ML ensemble
+│   ├── models/correction/  #   Residual correction model (Ridge)
+│   ├── models/foundation/  #   Level 3: patient encoder, covariate scaling, Bayesian fitting
+│   ├── applicability.py    #   Applicability domain filter (prodrug detection)
+│   └── evaluation/         #   Benchmarks, metrics, conformal calibration
+├── screening/              # Batch screening engine (batch_predict, rank_results)
+├── uncertainty/            # Conformal UQ (LHS parameter sampling)
 ├── core/                   # 35-state ODE engine (body.py, organ.py)
-├── drugs/                  # Drug dataclass
-├── pipeline/               # OmegaPipeline: SMILES → ADME → Drug → ODE → PK
-├── prediction/             # Legacy ADME predictor (polynomial ridge, fallback)
-├── clinical/               # NCA, DDI, allometry, IVIVE, PGx, ontogeny
-├── population/             # ICRP physiology, virtual population, PopulationSimulator
-├── surrogate/              # Legacy neural surrogate (NumPy MLP)
-├── api/                    # FastAPI REST endpoints
+├── prediction/             # Bioavailability prediction, legacy ADME
+├── clinical/               # NCA, DDI, allometry, IVIVE, pharmacogenomics
+├── population/             # Virtual population simulation
 └── cli.py                  # CLI (typer)
 ```
 
 ## Training Data
 
-The production pipeline uses pre-trained XGBoost models and polynomial regression. The following data sources were used:
-
 | Source | Purpose | Samples |
 |--------|---------|---------|
-| TDC PPBR_AZ | XGBoost fup training | 1,614 compounds |
-| TDC Clearance_Hepatocyte_AZ | XGBoost CLint training | 1,213 compounds |
-| TDC VDss_Lombardo | XGBoost VDss training | 1,130 compounds |
-| adme_reference.csv | XGBoost RBP training + calibration | 153 compounds |
-| ZINC drug-like | GNN label generation (research) | 21,811 compounds |
-| OpenFDA labels | Silver-tier validation (t_half) | 43 drugs |
-
-<details>
-<summary>Generate synthetic ODE training data (for research)</summary>
-
-```python
-from omega_pbpk.ml.data.synthetic import generate_1cpt_data, generate_pbpk_data
-
-# 1-compartment analytical — runs in seconds
-data_1cpt = generate_1cpt_data(n_samples=100_000)
-data_1cpt.save_hdf5("data/ml/1cpt_100k.h5")
-
-# 35-state PBPK ODE — ~80 min for 50K samples
-data_pbpk = generate_pbpk_data(n_samples=50_000, n_workers=4)
-data_pbpk.save_hdf5("data/ml/pbpk_50k.h5")
-```
-
-</details>
+| TDC PPBR_AZ | XGBoost fup | 1,614 |
+| TDC Clearance_Hepatocyte_AZ | XGBoost CLint (+18 clinical anchors) | 1,231 |
+| TDC VDss_Lombardo | XGBoost VDss | 1,130 |
+| adme_reference.csv | XGBoost RBP + Bronze calibration | 153 |
+| PK-DB timecourses | Platinum-tier C(t) validation | 16 drugs |
+| FDA label extraction | Gold/Silver-tier PK parameters | 296 drugs |
+| Reference database | Unified multi-tier validation | 285 drugs |
 
 ## Roadmap
 
-| Level | Milestone | Status |
+| Phase | Milestone | Status |
 |-------|-----------|--------|
-| **1-2** | SMILES → PK via ADME ensemble + ODE (AAFE < 2.0, < 500ms) | **Pass** — Cmax 1.90, AUC 1.66, 73ms, 70% 2-fold |
-| **3** | Patient covariates, few-shot adaptation | **Prototype** — allometric scaling + Bayesian individual fitting |
-| -- | Multi-tier validation (Gold/Silver/Bronze/Temporal) | **Done** — 20 drugs PK, 39 drugs t_half, 151 compounds ADME, 5 temporal |
-| -- | Clinical data pipeline (PK-DB + OpenFDA) | **Done** — 118 PK params from 43 drugs, SMILES mapped |
-| -- | Next: P-gp transporter correction | Planned |
-| -- | Next: Neural L3 with real clinical data | Planned |
-
-See [docs/superpowers/specs/2026-03-15-omega-next-phase-design.md](docs/superpowers/specs/2026-03-15-omega-next-phase-design.md) for the detailed plan.
+| **PK (current)** | SMILES &rarr; PK via hybrid mechanistic-ML | In-sample AAFE 1.72, external 2.95 |
+| **Rigor (v7)** | Bootstrap CI, ablation, error cancellation analysis | Active |
+| **Structural** | pKa integration, gut wall Fg, salt form, dissolution | Planned |
+| **PK/PD** | Efficacy/toxicity endpoints from PK profiles | Future |
+| **Digital Twin** | Patient-specific multi-organ physiological model | Future |
+| **Digital General Human** | Full computational human physiology | Long-term vision |
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v                    # Full test suite (~48K tests)
-pytest tests/ml/ -v                 # ML tests only
-ruff check src/                     # Lint
-ruff format src/                    # Format
+
+# Core test suite
+pytest tests/ -m "not slow and not benchmark" -q     # ~48K fast tests
+pytest tests/ml/test_accuracy_regression.py -v        # Accuracy regression guard
+
+# Benchmarking
+python scripts/run_full_benchmark.py                  # 24-drug Gold benchmark
+python scripts/run_expanded_benchmark.py              # 285-drug expanded
+python scripts/run_ablation.py                        # Ablation study (correction impact)
+
+# Quality
+ruff check . && ruff format --check .                 # Lint + format
 ```
 
-### Benchmarking & Validation
-
-```bash
-python scripts/run_full_benchmark.py                    # Gold-tier: 25 drugs, Cmax/AUC AAFE
-python scripts/run_full_benchmark.py --previous prev.json  # ...with regression detection
-python scripts/run_silver_benchmark.py                  # Silver-tier: 39 drugs, t_half
-python scripts/run_bronze_benchmark.py                  # Bronze-tier: 151 compounds, ADME
-python scripts/run_temporal_holdout.py                  # Temporal: 5 post-2022 drugs
-python scripts/analyze_failures.py                      # Classify >3-fold errors by mechanism
-python scripts/demo_l3_covariates.py                    # L3 demo: weight/genotype scenarios
-```
-
-Pre-commit hook runs `ruff format` and `ruff check` automatically on staged files.
+Pre-commit hook runs `ruff format` and `ruff check` automatically.
 
 ## Contributing
 
-1. Fork the repo and create a feature branch
+1. Fork and create a feature branch
 2. Install dev dependencies: `pip install -e ".[dev]"`
-3. Write tests first (TDD) — target 80%+ coverage
-4. Run `ruff format src/ && ruff check src/` before committing
-5. Open a PR against `main`
-
-Bug reports and feature requests: [GitHub Issues](https://github.com/jam-sudo/Omega/issues)
+3. Write tests first (TDD)
+4. Run `ruff format . && ruff check .` before committing
+5. Run accuracy regression test: `pytest tests/ml/test_accuracy_regression.py`
+6. Open a PR against `main`
 
 ## License
 
