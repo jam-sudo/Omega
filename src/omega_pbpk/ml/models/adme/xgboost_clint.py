@@ -177,8 +177,10 @@ class XGBoostCLintPredictor:
         valid_X = []
         valid_y = []
         sample_weights = []
+        from omega_pbpk.ml.models.adme.xgboost_fup import _smiles_to_features
+
         for smi, clint in zip(tdc_smiles, tdc_clint):
-            feat = _enhanced_features(smi)
+            feat = _smiles_to_features(smi)
             if feat is not None:
                 valid_X.append(feat)
                 valid_y.append(np.log10(max(clint, 1.0)))
@@ -188,14 +190,16 @@ class XGBoostCLintPredictor:
         ref_anchors = _get_clint_reference_anchors()
         n_anchors = 0
         for smi, clint in ref_anchors:
-            feat = _enhanced_features(smi)
+            feat = _smiles_to_features(smi)
             if feat is not None:
                 valid_X.append(feat)
                 valid_y.append(np.log10(max(clint, 1.0)))
-                sample_weights.append(50.0)  # 50x weight for reference anchors
+                sample_weights.append(
+                    5.0
+                )  # 5x weight for reference anchors (reduced from 50x to prevent memorization)
                 n_anchors += 1
 
-        logger.info("Added %d reference CLint anchors (10x weight)", n_anchors)
+        logger.info("Added %d reference CLint anchors (50x weight)", n_anchors)
 
         X = np.array(valid_X)
         y = np.array(valid_y, dtype=np.float64)
