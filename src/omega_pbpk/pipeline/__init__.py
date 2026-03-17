@@ -450,10 +450,8 @@ class OmegaPipeline:
 
                 _cmax_an = max(_cmax_an, 1e-12)
 
-                # When VDss correction is active, the analytical model with
-                # XGBoost VDss is more reliable than the ODE (whose Kp/Vd is
-                # wrong). Use the analytical Cmax directly.
                 if _vd_correction:
+                    # When VDss correction is active, use analytical Cmax.
                     logger.debug(
                         "VDss-corrected analytical: Cmax=%.4f (ODE=%.4f), Vd=%.0fL",
                         _cmax_an,
@@ -462,16 +460,27 @@ class OmegaPipeline:
                     )
                     cmax = _cmax_an
                 else:
-                    # Geometric mean of ODE and analytical Cmax.
-                    # ODE systematically over-predicts due to distribution-phase
-                    # plasma spike before tissue equilibrium. The analytical
-                    # model (F*Dose/Vd) is lower but can under-predict for
-                    # high-extraction drugs. Geometric mean balances both.
-                    cmax_blend = float(np.sqrt(cmax * _cmax_an))
+                    # Adaptive-weight geometric mean of ODE and analytical Cmax.
+                    #
+                    # When ODE and analytical agree (ratio < 3x), use equal
+                    # weight (standard geometric mean). When they diverge
+                    # (ratio > 3x), trust ODE more — large divergence usually
+                    # means the analytical model has F or Vd errors (e.g.,
+                    # ibuprofen: analytical F=0.35 vs true F>0.9 → Cmax_an
+                    # is 21x too low). The ODE integrates the full PBPK and
+                    # is less sensitive to individual parameter errors.
+                    _ratio = cmax / max(_cmax_an, 1e-12)
+                    if _ratio > 1.0:
+                        # ODE > analytical: increase ODE weight with divergence
+                        _w_ode = min(0.85, 0.5 + 0.1 * np.log(_ratio))
+                    else:
+                        _w_ode = 0.5
+                    cmax_blend = float(cmax**_w_ode * _cmax_an ** (1 - _w_ode))
                     logger.debug(
-                        "Blended Cmax: ODE=%.4f, analytical=%.4f, geo_mean=%.4f",
+                        "Blended Cmax: ODE=%.4f, analytical=%.4f, w_ode=%.2f, blend=%.4f",
                         cmax,
                         _cmax_an,
+                        _w_ode,
                         cmax_blend,
                     )
                     cmax = cmax_blend
@@ -673,19 +682,28 @@ class OmegaPipeline:
                 cmax_ml = self._direct_cmax.predict(request.smiles, request.dose_mg)
                 app = check_applicability(request.smiles)
                 ens_conf = app.confidence if app.confidence != "high" else confidence
-                cmax_ens = ensemble_cmax(cmax, cmax_ml, ens_conf)
 
-                logger.debug(
-                    "Ensemble: PBPK=%.4f ML=%.4f conf=%s → %.4f",
-                    cmax,
-                    cmax_ml,
-                    ens_conf,
-                    cmax_ens,
-                )
-
-                # Only update Cmax — keep C(t) curve and AUC from PBPK
-                # (scaling curve to match ensemble Cmax breaks AUC)
-                cmax = cmax_ens
+                # Only blend when PBPK and ML agree within 10x.
+                # Beyond 10x, one model is fundamentally wrong —
+                # blending makes the better prediction worse.
+                _ens_ratio = max(cmax / max(cmax_ml, 1e-12), cmax_ml / max(cmax, 1e-12))
+                if _ens_ratio <= 10.0:
+                    cmax_ens = ensemble_cmax(cmax, cmax_ml, ens_conf)
+                    logger.debug(
+                        "Ensemble: PBPK=%.4f ML=%.4f conf=%s → %.4f",
+                        cmax,
+                        cmax_ml,
+                        ens_conf,
+                        cmax_ens,
+                    )
+                    cmax = cmax_ens
+                else:
+                    logger.debug(
+                        "Ensemble skipped: PBPK=%.4f ML=%.4f ratio=%.1fx",
+                        cmax,
+                        cmax_ml,
+                        _ens_ratio,
+                    )
 
                 adme_props["cmax_ml"] = cmax_ml
                 adme_props["ensemble_confidence"] = ens_conf
