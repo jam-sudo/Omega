@@ -11,7 +11,10 @@
       "Bash(git log*)",
       "Bash(codex --version*)",
       "Bash(cat ai/*)",
-      "Bash(ls *)"
+      "Bash(ls *)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cd:*)"
     ],
     "deny": [
       "Read(.env)",
