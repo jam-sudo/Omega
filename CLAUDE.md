@@ -1,4 +1,4 @@
-# Omega PBPK — Project Instructions
+# Omega — Project Instructions
 
 > **Execution plan:** `docs/superpowers/plans/2026-03-16-omega-screening-platform.md`
 > **Progress tracker:** `memory/MEMORY.md`
