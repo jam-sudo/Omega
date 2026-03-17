@@ -28,7 +28,7 @@ IV bolus: `dose = sum(all 35 states)` verified within ± 0.5% at all time points
 Literature-derived clinical concentration–time profiles in `benchmarks/datasets/`:
 
 - `caffeine_oral_100mg.csv` — Arnaud (1993), Nehlig (2016)
-- `warfarin_oral_5mg.csv` — Holford (1986)
+- `warfarin_oral_10mg.csv` — PK-DB (replaced Holford 5mg data)
 - `metoprolol_oral_100mg.csv` — Regardh (1980)
 - `midazolam_oral_2mg.csv` — Greenblatt (1992), Thummel (1996)
 - `propranolol_oral_80mg.csv` — Walle (1985)

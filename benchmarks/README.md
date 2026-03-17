@@ -24,12 +24,9 @@ For each compound the benchmark:
 - **References**: Arnaud MJ. Pharmacol Ther. 1993;60(2):289-392; Nehlig A. Pharmacol Ther. 2016;163:79-92; FDA caffeine label.
 - **PK parameters used**: kel = 0.1386 h⁻¹, ka = 4.89 h⁻¹, V = 60 L, F = 1.0
 
-### Warfarin — 5 mg oral (S-warfarin, healthy adults)
-- **Cmax**: ~0.12–0.18 mg/L at Tmax ~2–4 h
-- **t½**: ~35–45 h (only the first 24 h are observed, so the profile shows rising and early plateau phases)
-- **AUC0-24h**: ~2.5–3.5 mg·h/L
-- **References**: Holford NHG. Clin Pharmacokinet. 1986;11(6):483-504; FDA warfarin label.
-- **PK parameters used**: kel = 0.01733 h⁻¹, ka = 1.506 h⁻¹, V = 31.6 L, F = 1.0
+### Warfarin — 10 mg oral (S-warfarin, healthy adults)
+- **Source**: PK-DB (replaced original Holford 5mg data due to corrupt Tmax=18h)
+- **References**: PK-DB database; FDA warfarin label.
 
 ### Metoprolol — 100 mg oral tartrate (healthy adults)
 - **Cmax**: ~0.04–0.08 mg/L at Tmax ~1.5–2.0 h
