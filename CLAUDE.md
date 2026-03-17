@@ -9,10 +9,13 @@
 
 ## Vision
 
-Omega is a **hybrid mechanistic-ML pharmacokinetic & pharmacodynamics prediction platform, aiming for a full digital human**.
-SMILES in → PK profile + uncertainty intervals out.
+Omega's ultimate goal is a **full digital general human** — a computational model of human physiology that can simulate any molecule's journey through the body, predict therapeutic outcomes, and personalize treatment.
+
+**Current stage:** PBPK (pharmacokinetic) prediction from molecular structure.
+**Roadmap:** PK → PK/PD → Systems Pharmacology → Digital Twin → Digital General Human.
+
+The current PBPK module is the foundation layer: SMILES in → PK profile + uncertainty intervals out.
 Architecture: ODE backbone (35-state PBPK) + ML ADME prediction + hybrid Cmax selector + PBPK/ML ensemble + conformal UQ.
-The ODE provides C(t) curve shape; analytical 1-cpt provides Cmax/AUC anchored to XGBoost Vd; hybrid selector blends both.
 
 ### Honest Performance (2026-03-17)
 - **In-sample (24 drugs):** Cmax AAFE 1.72, 79% 2-fold — 12/24 have CLint anchors (semi-supervised)
