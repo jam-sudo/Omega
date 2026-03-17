@@ -9,7 +9,7 @@
 
 ## Vision
 
-Omega is a **hybrid mechanistic-ML pharmacokinetic prediction platform**.
+Omega is a **hybrid mechanistic-ML pharmacokinetic & pharmacodynamics prediction platform, aiming for a full digital human**.
 SMILES in → PK profile + uncertainty intervals out.
 Architecture: ODE backbone (35-state PBPK) + ML ADME prediction + post-hoc correction + conformal UQ.
 The ODE engine provides the mechanistic backbone; ML corrects systematic biases and quantifies uncertainty.
