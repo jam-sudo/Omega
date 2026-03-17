@@ -1,7 +1,7 @@
 # Omega — Project Instructions
 
-> **Execution plan:** `docs/superpowers/plans/2026-03-16-omega-screening-platform.md`
 > **Progress tracker:** `memory/MEMORY.md`
+> **Plans archive:** `docs/superpowers/plans/`
 > **Memory path:** `~/.claude/projects/-home-jam-Omega/memory/`
 > **Auto-loaded every conversation. Source of truth for all sessions.**
 
@@ -15,7 +15,17 @@ Omega's ultimate goal is a **full digital general human** — a computational mo
 **Roadmap:** PK → PK/PD → Systems Pharmacology → Digital Twin → Digital General Human.
 
 The current PBPK module is the foundation layer: SMILES in → PK profile + uncertainty intervals out.
-Architecture: ODE backbone (35-state PBPK) + ML ADME prediction + hybrid Cmax selector + PBPK/ML ensemble + conformal UQ.
+
+### Pipeline Architecture
+```
+SMILES → EnsembleADMEPredictor (XGBoost CLint/fup/rbp/VDss + polynomial)
+       → _build_drug (IVIVE scaling + Berezhkovskiy Kp + renal CL + P-gp correction)
+       → 35-state ODE simulation → raw C(t) curve
+       → Hybrid Cmax selector (adaptive-weight blend of ODE + analytical 1-cpt)
+       → PBPK/ML ensemble (DirectCmaxPredictor, confidence-weighted)
+       → Conformal UQ (90% prediction intervals)
+       → SimulationResult
+```
 
 ### Honest Performance (2026-03-17)
 - **In-sample (24 drugs):** Cmax AAFE 1.72, 79% 2-fold — 12/24 have CLint anchors (semi-supervised)
@@ -30,7 +40,7 @@ All work is on `main` branch. Sequential development with automated benchmarks.
 1. Read `memory/MEMORY.md` for current status
 2. Run `python scripts/run_full_benchmark.py` to check baseline
 3. Work on highest-priority task
-4. Before ending: update `memory/MEMORY.md`, run benchmark to verify no regression
+4. Before ending: run benchmark + `pytest tests/ml/test_accuracy_regression.py -v`, update `memory/MEMORY.md`
 
 ### Team Structure
 `/team` creates an Agent Team (via `TeamCreate`) — task에 맞는 역할만 동적 선택 (1-4명).
@@ -112,11 +122,12 @@ Details + cross-review protocol: `.claude/commands/team.md`
 
 ```bash
 source .venv/bin/activate
-pytest tests/ -m "not slow and not benchmark" -q          # fast tests
-pytest tests/ -m benchmark -v --timeout=300               # benchmarks
+pytest tests/ -m "not slow and not benchmark" -q          # fast tests (~48K)
+pytest tests/ml/test_accuracy_regression.py -v             # accuracy regression (5 validation drugs)
+pytest tests/ -m benchmark -v --timeout=300               # full benchmarks
+python scripts/run_full_benchmark.py                      # 24-drug Cmax/AUC benchmark
 ruff check .                                              # lint
 ruff format --check .                                     # format check
-mypy src/omega_pbpk/core src/omega_pbpk/drugs src/omega_pbpk/config.py  # type check
 omega --help                                              # CLI smoke test
 ```
 
