@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 # Phase 3a.2 feature flag: use villous blood flow (~6% CO) for Fg calculation
 # instead of full mesenteric/intestinal flow (~15% CO). Villous flow is the
 # physiologically correct flow for the well-stirred gut wall model (Yang 2007).
-_USE_VILLOUS_FLOW = False
+_USE_VILLOUS_FLOW = False  # disabled (must be enabled together with ENABLE_GUT_WALL_FIX)
 
 N_STATES = 35
 
@@ -175,7 +175,9 @@ class SimulationResult:
         tmax = float(t[np.argmax(cp)])
         auc = float(np_trapz(cp, t))
 
-        # Terminal half-life from last 50% of profile
+        # Terminal half-life: linear regression of log(Cp) vs time over last 50%
+        # R² < 0.90 warns that profile may not have entered terminal phase
+        # (common when t_end_h < 2 × t½, e.g. warfarin t½ 40 h simulated to 24 h).
         n = len(t)
         start = max(n // 2, 1)
         cp_term = cp[start:]
@@ -188,6 +190,31 @@ class SimulationResult:
             coeffs = np.polyfit(t_fit, log_cp, 1)
             ke = -coeffs[0]
             half_life = 0.693 / max(ke, 1e-12) if ke > 0 else float("inf")
+            # Quality checks — two failure modes:
+            # (1) Poor log-linear fit: bi-exponential visible in window (R² < 0.90)
+            # (2) t½ >> simulation time: profile looks mono-exp but wrong phase
+            if ke > 0:
+                residuals = log_cp - np.polyval(coeffs, t_fit)
+                ss_res = float(np.sum(residuals**2))
+                ss_tot = float(np.sum((log_cp - float(np.mean(log_cp))) ** 2))
+                r2 = 1.0 - ss_res / max(ss_tot, 1e-30)
+                t_end = float(t[-1])
+                if r2 < 0.90:
+                    logger.warning(
+                        "Terminal t½ fit R²=%.3f < 0.90 at t_end=%.1f h "
+                        "(estimated t½=%.1f h). Profile may not have reached "
+                        "terminal phase — extend t_end_h for reliable t½.",
+                        r2,
+                        t_end,
+                        half_life,
+                    )
+                elif half_life > t_end:
+                    logger.warning(
+                        "Estimated t½ (%.1f h) exceeds simulation duration (%.1f h). "
+                        "Terminal phase not captured — extend t_end_h for accurate t½.",
+                        half_life,
+                        t_end,
+                    )
         else:
             half_life = float("inf")
 

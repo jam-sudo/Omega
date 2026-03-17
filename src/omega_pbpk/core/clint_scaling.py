@@ -12,7 +12,10 @@ Key references:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -335,6 +338,12 @@ def ivive_pipeline(
     # Validate inputs
     if clint_uL_per_min_per_mg <= 0:
         raise ValueError("clint_uL_per_min_per_mg must be positive.")
+    if fu_mic == 1.0:
+        logger.warning(
+            "ivive_pipeline: fu_mic=1.0 (default) — no nonspecific microsomal "
+            "binding correction applied. For lipophilic compounds (logP > 3), "
+            "fu_mic is typically 0.3–0.7; using 1.0 underestimates CLint."
+        )
     if not (0 < fu_plasma <= 1.0):
         raise ValueError("fu_plasma must be in (0, 1].")
     if not (0 < fu_mic <= 1.0):

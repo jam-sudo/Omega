@@ -35,6 +35,7 @@ _GROUP_PKA = {
     "sulfonamide": 10.5,
     "imidazole": 6.8,
     "pyridine": 5.2,
+    "enol_lactone": 5.0,
 }
 
 
@@ -75,6 +76,13 @@ def _detect_functional_group(smiles: str) -> tuple[str | None, float | None]:
     # Pyridine ring: n1cccc or c1ccnc patterns
     if "n1cccc" in s or "c1ccnc" in s or "c1ccccn1" in s or "c1ccncc1" in s:
         return "pyridine", _GROUP_PKA["pyridine"]
+
+    # Enol-lactone (e.g. 4-hydroxycoumarin, warfarin): aromatic OH + ring C=O
+    # Distinguished from phenol by the presence of a ring-closing C=O bond (cN=o pattern),
+    # which indicates a lactone or coumarin carbonyl that phenols lack.
+    if ("oc1" in s or "c1o" in s or "c(o)" in s) and any(ch.isdigit() for ch in s):
+        if any(f"c{d}=o" in s for d in "123456789"):
+            return "enol_lactone", _GROUP_PKA["enol_lactone"]
 
     # Phenol: aromatic C-OH (oc1 or c1o followed by ring closure)
     if ("oc1" in s or "c1o" in s) and ("c" in s):

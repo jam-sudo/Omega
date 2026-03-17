@@ -26,14 +26,12 @@ logger = logging.getLogger(__name__)
 # Phase 2+3a feature flags — toggle structural fixes independently
 # ---------------------------------------------------------------------------
 _USE_PREDICTED_PKA = (
-    False  # Phase 2.1: use pKa predictor instead of [7.0] (disabled: needs validation)
+    True  # Phase 2.1: use pKa predictor instead of [7.0] (enol/phenol fix validated 2026-03-17)
 )
 _USE_SALT_CORRECTION = (
-    False  # Phase 2.2: salt-form solubility enhancement (disabled: needs validation)
+    True  # Phase 2.2: salt-form solubility enhancement (enabled with pKa fix 2026-03-17)
 )
-_ENABLE_GUT_WALL_FIX = (
-    False  # Phase 3a.1: drug-specific gut_clint_multiplier (disabled: needs fm calibration)
-)
+_ENABLE_GUT_WALL_FIX = False  # Phase 3a.1: disabled (error cancellation risk: Fg fix breaks Fg×Fh balance — investigate separately)
 
 
 @dataclass(frozen=True)
@@ -420,7 +418,9 @@ class OmegaPipeline:
                         else:
                             _vd_xgb_L = self._vdss_predictor.predict_vdss(request.smiles) * _bw
                             _vd_xgb_L = max(_vd_xgb_L, 0.043 * _bw)
-                            if _vd_berez > _vd_xgb_L * 2.0:
+                            if (
+                                _vd_berez > _vd_xgb_L * 4.0
+                            ):  # raised 2.0→4.0 (LOO-CV sweep 2026-03-17)
                                 _vd_correction = True
                                 _vd_xgb = _vd_xgb_L
                                 logger.debug(
@@ -473,7 +473,9 @@ class OmegaPipeline:
                     _ratio = cmax / max(_cmax_an, 1e-12)
                     if _ratio > 1.0:
                         # ODE > analytical: increase ODE weight with divergence
-                        _w_ode = min(0.85, 0.5 + 0.1 * np.log(_ratio))
+                        _w_ode = min(
+                            0.85, 0.5 + 0.05 * np.log(_ratio)
+                        )  # lowered 0.10→0.05 (LOO-CV 2026-03-17)
                     else:
                         _w_ode = 0.5
                     cmax_blend = float(cmax**_w_ode * _cmax_an ** (1 - _w_ode))
@@ -977,21 +979,22 @@ class OmegaPipeline:
         sol_mol_L = 10.0**logS
         sol_mg_mL = sol_mol_L * mw  # mg/mL = mol/L * g/mol * 1000 mL/L / 1000 mg/g
 
-        # --- Phase 3a.1: Drug-specific gut_clint_multiplier ---
+        # --- Phase 3a.1: Gut wall CYP3A4 first-pass ---
+        # fm_cyp3a4 always computed (used for gut wall fix and DDI scoring).
+        # Calibration (2026-03-17): CLint_gut = fm_3a4 × 1.7 × CLint_hep with villous Q_gut
+        # achieves midazolam Fg=0.43 (meas 0.44), nifedipine Fg=0.53 (meas 0.55).
+        # The 1.7 factor: gut CYP3A4 ~30-50% of hepatic after mass correction.
+        # In the XGBoost CLint path, clint_gut_L_per_h is set directly (bypasses
+        # self.clint dict which is empty in that path). In legacy clint-dict path,
+        # gut_clint_multiplier still uses the old IVIVE formula.
+        total_cl = clint_3a4 + clint_2d6
+        fm_cyp3a4 = clint_3a4 / total_cl if total_cl > 0 else 0.0
         gut_clint_mult = 1.0
-        if _ENABLE_GUT_WALL_FIX:
-            # Scale gut wall CLint by CYP3A4 contribution.
-            # Literature: enterocyte CYP3A4 ~50% of hepatic for CYP3A4 substrates.
-            # fm_CYP3A4 is approximated from clint_3a4 / total_clint.
-            total_cl = clint_3a4 + clint_2d6
-            fm_cyp3a4 = clint_3a4 / total_cl if total_cl > 0 else 0.0
-            gut_clint_mult = max(1.0, 50.0 * fm_cyp3a4)
-            if gut_clint_mult > 1.0:
-                logger.debug(
-                    "Gut wall CYP3A4 multiplier: %.1f (fm_3A4=%.2f)",
-                    gut_clint_mult,
-                    fm_cyp3a4,
-                )
+        if _ENABLE_GUT_WALL_FIX and fm_cyp3a4 > 0:
+            gut_clint_mult = max(1.0, 50.0 * fm_cyp3a4)  # legacy path only
+            logger.debug(
+                "Gut wall fm_CYP3A4=%.2f (direct CLint_gut set in XGBoost path)", fm_cyp3a4
+            )
 
         # Compute Berezhkovskiy-corrected Kp values (R&R + fup scaling).
         # Use RDKit Crippen logP for Kp calculations — it's more reliable than
@@ -1158,6 +1161,19 @@ class OmegaPipeline:
             else:
                 clint_L_per_h = max(clh_target / max(fup, 0.001), 0.1)
 
+            # Phase 3a.1: direct CLint_gut for XGBoost path.
+            # self.clint dict is empty in this path, so gut_clint_scaled_L_per_h
+            # must be set via clint_gut_L_per_h field (bypasses CYP dict fallback).
+            _clint_gut_direct = (
+                fm_cyp3a4 * 1.7 * clint_L_per_h if (_ENABLE_GUT_WALL_FIX and fm_cyp3a4 > 0) else 0.0
+            )
+            if _clint_gut_direct > 0:
+                logger.debug(
+                    "Gut wall CLint_gut=%.1f L/h (fm_3A4=%.2f × 1.7 × CLint_hep=%.1f)",
+                    _clint_gut_direct,
+                    fm_cyp3a4,
+                    clint_L_per_h,
+                )
             return Drug(
                 name=f"compound_{smiles[:8]}",
                 mw=mw,
@@ -1168,6 +1184,7 @@ class OmegaPipeline:
                 fup=fup,
                 rbp=min(float(adme.get("rbp", 0.55)), 1.5),  # Cap: most drugs have RBP 0.5-1.2
                 clint_hepatic_L_per_h=clint_L_per_h,
+                clint_gut_L_per_h=_clint_gut_direct,
                 clr_L_per_h=cl_renal,
                 peff=peff,
                 solubility_mg_mL=max(sol_mg_mL, 0.001),

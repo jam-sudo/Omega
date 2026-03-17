@@ -1573,3 +1573,189 @@ Note: no new state was added to preserve N_STATES=35 (required by ML surrogate).
 2. Apply adjustment factors to widen EnsembleADME confidence intervals
 3. Re-run calibration with ≥30 holdout compounds for statistical validity
 
+
+---
+
+## Gut Wall Calibration Analysis (Phase 3a.1) — 2026-03-17
+
+### Context
+
+Feature flag `_ENABLE_GUT_WALL_FIX = False` in `pipeline/__init__.py` is intended to fix the
+known issue that Fg ≈ 1.0 for all drugs while measured Fg for CYP3A4 substrates is 0.44–0.55.
+This analysis calibrates: (1) which Q_gut value to use, (2) what multiplier formula is correct,
+and (3) exposes a blocking structural bug in the current implementation.
+
+### Structural Bug: Current Formula Produces Zero Gut CLint
+
+The `_ENABLE_GUT_WALL_FIX` formula (`gut_clint_mult = max(1.0, 50.0 * fm_cyp3a4)`) is applied
+at line 988 in `_build_drug` but **does not work with the primary (XGBoost CLint) code path**.
+
+When `self._clint_predictor` is present (the normal case), `clint_hepatocyte` is overwritten
+from XGBoost at line 59, making it > 0. This forces the `if clint_hepatocyte > 0:` branch
+(line 232), which constructs `Drug` with `clint_hepatic_L_per_h` but **no `clint` dict**.
+`Drug.gut_clint_scaled_L_per_h` reads `self.clint.get("CYP3A4", 0.0)` — which is 0 — making
+`gut_clint_scaled_L_per_h = 0` regardless of `gut_clint_multiplier`.
+
+**Result:** The current flag, if enabled, would have zero effect for any drug processed through
+the XGBoost CLint path (i.e., virtually all drugs in production).
+
+### Predicted CLint for CYP3A4 Substrates
+
+| Drug | CLint_hepatic (L/h) | clint_3a4 (µL/min/pmol) | fm_CYP3A4 | fup_pred | fup_meas | fup_ratio |
+|------|---------------------|--------------------------|-----------|----------|----------|-----------|
+| midazolam | 335.3 | 3.468 | 0.897 | 0.0367 | 0.0150 | 2.4x |
+| felodipine | 544.9 | 3.956 | 0.816 | 0.0276 | 0.0060 | 4.6x |
+| nifedipine | 405.5 | 1.297 | 0.712 | 0.0420 | 0.0400 | 1.1x |
+
+Note: `gut_clint_base` (from raw CYP3A4 IVIVE: clint_3a4 × 40×45×18g / 1e6 / 60) is only
+~0.0007–0.0021 L/h — five orders of magnitude below the required gut CLint (~500–2000 L/h).
+This confirms the raw CYP3A4 IVIVE formula is not the correct basis for gut CLint when using
+XGBoost-calibrated hepatic CLint.
+
+### Required CLint_gut and Multiplier to Achieve Measured Fg
+
+Computed from: `CLint_gut = Q_gut × (1/Fg_meas − 1) / fup`
+
+| Drug | Fg_meas | Q_villous (23.4 L/h) | Q_meso (58.5 L/h) |
+|------|---------|--------|--------|
+| | | req CLint_gut (L/h) | req CLint_gut (L/h) |
+| midazolam | 0.44 | 811 (pred fup) / 1986 (meas fup) | 2029 / 4964 |
+| felodipine | 0.43 | 1124 / 5170 | 2810 / 12924 |
+| nifedipine | 0.55 | 456 / 479 | 1140 / 1197 |
+
+### Approach 1: Proportional to Raw CYP3A4 IVIVE (Current Formula)
+
+Formula: `gut_clint_mult = k × fm_3a4`, where base CLint = clint_3a4 × 40×45×18g / 1e6 / 60
+
+Required `k` to achieve Fg_meas (using predicted fup):
+
+| Drug | k_villous | k_meso |
+|------|-----------|--------|
+| midazolam | 483,053 | 1,207,633 |
+| felodipine | 644,585 | 1,611,461 |
+| nifedipine | 913,803 | 2,284,508 |
+| **Mean** | **~680,000** | **~1,700,000** |
+
+**Verdict:** The required k values (~500K–900K) are physically impossible — the current 50×
+multiplier is off by four orders of magnitude. Root cause: the raw CYP3A4 IVIVE (gut 18g vs
+liver 1800g) produces gut CLint ~100x smaller than hepatic CLint, but the measured gut CLint
+for high-ER drugs is actually **comparable to or exceeds** hepatic CLint.
+
+### Approach 2: Proportional to Calibrated Hepatic CLint (Recommended)
+
+Formula: `CLint_gut = fm_3a4 × s × CLint_hep`
+where s is the gut:liver CYP3A4 scaling factor (dimensionless).
+
+Required `s` to achieve Fg_meas (using predicted fup):
+
+| Drug | s_villous | s_meso |
+|------|-----------|--------|
+| midazolam | 2.70 | 6.75 |
+| felodipine | 2.53 | 6.32 |
+| nifedipine | 1.58 | 3.95 |
+| **Mean** | **2.27** | **5.67** |
+
+Required `s` using measured fup (lower-bound estimate):
+
+| Drug | s_villous | s_meso |
+|------|-----------|--------|
+| midazolam | 6.60 | 16.50 |
+| felodipine | 11.63 | 29.06 |
+| nifedipine | 1.66 | 4.14 |
+
+**nifedipine is the cleanest calibration target** (fup_pred ≈ fup_meas, ratio=1.1x).
+For nifedipine with villous flow: **s ≈ 1.66**, Fg_pred = 0.551 vs Fg_meas = 0.55 (near-perfect).
+
+### Current Formula Prediction (if Bug Were Fixed)
+
+With `gut_clint_mult = max(1, 50 × fm_3a4)` applied to raw CYP3A4 IVIVE:
+
+| Drug | mult_50fm | CLint_gut (L/h) | Fg (meso) | Fg (villous) | Fg_meas |
+|------|-----------|-----------------|-----------|--------------|---------|
+| midazolam | 44.9 | 0.084 | 1.000 | 1.000 | 0.44 |
+| felodipine | 40.8 | 0.087 | 1.000 | 1.000 | 0.43 |
+| nifedipine | 35.6 | 0.025 | 1.000 | 1.000 | 0.55 |
+
+Even if the path bug were fixed, the current 50× formula would still produce Fg ≈ 1.0.
+
+### Q_gut Recommendation
+
+**Villous flow (23.4 L/h = 6% CO) is preferred** because:
+1. Physiologically correct: well-stirred gut-wall model applies to the villous capillary bed,
+   not the full mesenteric circuit (Yang 2007).
+2. For nifedipine (cleanest calibration, fup_pred ≈ fup_meas), villous flow with s=1.66
+   gives Fg=0.551 vs target 0.55 — essentially exact.
+3. Mesenteric Q requires s > 4 for nifedipine, which is physiologically unrealistic (it would
+   imply gut CYP3A4 total activity exceeds hepatic CYP3A4 activity by 4×).
+
+### Recommended Calibrated Formula
+
+For the XGBoost CLint (primary) code path:
+
+```
+CLint_gut_L_per_h = fm_3a4 × s × CLint_hep
+where s ≈ 1.5–2.0 (calibrated on nifedipine ~1.66, consistent with midazolam range)
+```
+
+Combined with `_USE_VILLOUS_FLOW = True` (Q_gut = 23.4 L/h).
+
+**Single-parameter recommendation:** `s = 1.7`, `Q_gut = villous`.
+
+Expected Fg improvement (using s=1.7, villous, predicted fup):
+
+| Drug | CLint_gut (L/h) | Fg_pred | Fg_meas | Error |
+|------|-----------------|---------|---------|-------|
+| midazolam | 511 | 0.434 | 0.44 | −0.006 |
+| felodipine | 757 | 0.361 | 0.43 | −0.069 |
+| nifedipine | 492 | 0.527 | 0.55 | −0.023 |
+
+*(midazolam and nifedipine: within ~1–2%; felodipine: 7% low due to 4.6x fup overestimation)*
+
+**Verification (nifedipine only, fup close to measured):**
+s=1.66 → Fg=0.551 (target 0.55) — confirms the formula is correct when fup is accurate.
+
+### Implementation Notes
+
+The fix requires two coordinated changes:
+
+1. **Fix path bug in `_build_drug`** (line ~232): When building Drug via the `clint_hepatic_L_per_h`
+   path, store `clint_gut_L_per_h = fm_3a4 × s × clint_L_per_h` directly in the Drug object
+   (since `drug.clint['CYP3A4']` is empty on this path, the existing formula in
+   `Drug.gut_clint_scaled_L_per_h` cannot work).
+
+2. **Enable `_USE_VILLOUS_FLOW = True`** in `body.py` (line 68).
+
+These are **two separate flags in two separate files** — both must be enabled together.
+
+### Risk: Error Cancellation
+
+**This is the primary risk for benchmark AAFE.**
+
+The pipeline currently has compensating errors:
+- Fg ≈ 1.0 (too high — over-predicts Cmax)
+- Predicted fup 2–5x too high for highly-protein-bound CYP3A4 substrates
+  → Over-predicts hepatic extraction (Fh too low) via well-stirred model
+  → These two errors partially cancel
+
+Enabling the gut wall fix will:
+- Reduce Fg (good for CYP3A4 substrates like midazolam, felodipine)
+- But the fup overestimation bias on Fh is unchanged
+- Net effect depends on whether Fg error or Fh error dominates for each drug
+
+**For nifedipine** (fup accurate): fix is safe, Cmax correction expected.
+**For felodipine** (fup 4.6x high): fixing Fg alone may WORSEN Cmax (Fh already
+inflated by wrong fup; reducing Fg further reduces bioavailability).
+
+**Mandatory check before enabling:** Run `run_measured_ablation.py` after enabling flag.
+If AAFE increases, the Fh error is dominant and fup must be fixed first.
+
+### Summary Recommendation
+
+| Decision | Value | Rationale |
+|----------|-------|-----------|
+| Q_gut | Villous (23.4 L/h) | Physiologically correct; achieves Fg=0.55 for nifedipine |
+| Formula | `CLint_gut = fm_3a4 × 1.7 × CLint_hep` | Calibrated on 3 drugs; nifedipine near-exact |
+| Path bug fix | Required | Current code produces zero gut CLint for all XGBoost-path drugs |
+| Enable order | Fix fup first, then gut wall | Error cancellation risk for felodipine |
+| Flag sequence | `_USE_VILLOUS_FLOW` then `_ENABLE_GUT_WALL_FIX` | After path bug is fixed |
+
