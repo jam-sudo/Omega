@@ -71,6 +71,7 @@ Details + cross-review protocol: `.claude/commands/team.md`
 16. **Phase 3a blocker is fm_CYP3A4 false positives, NOT Fh** — Polynomial clint_3a4 assigns fm_CYP3A4=0.887 to propranolol, 0.939 to ibuprofen. Fix: threshold guard `clint_3a4 > 2.0 µL/min/pmol` → AAFE 1.747, 83% 2-fold (diagnostic: 2026-03-18).
 17. **CLint_gut formula uses pre-inverted CLint** — `clint_L_per_h` is 22-223x larger than `CLh_target`; the 1.7× factor was calibrated for CLh_target. This is a known architectural bug, not a Phase 3a blocker. Fix in Phase 3b.
 18. **fup calibration for low-fup drugs WORSENS AAFE** — isotonic regression improved individual fup accuracy but degraded AAFE +0.088 (fluconazole/atenolol rely on XGBoost fup under-prediction via error cancellation). Do not apply global low-fup calibration.
+19. **CLint_gut K=1.7 is currently optimal — do NOT recalibrate to K=3.1** — Fitting K to Fg_lit data gives K_optimal=3.1 but AAFE worsens +0.094 (83%→79%). Root cause: pipeline fup_pred > fup_lit for CYP3A4 drugs (midazolam: 0.037 vs 0.024), so higher K is required to hit Fg_lit, but this over-corrects and breaks error cancellation. K recalibration requires fup fix first.
 
 ## Codebase Rules
 
