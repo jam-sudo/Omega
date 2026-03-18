@@ -31,7 +31,7 @@
 \address{[Affiliations TBD]}
 
 \begin{abstract}
-Predicting human pharmacokinetics from molecular structure alone remains a critical challenge in drug discovery, where poor PK properties account for ${\sim}40\%$ of clinical failures. We present Omega, an open-source hybrid neural-mechanistic platform that predicts PK directly from SMILES strings in 73 milliseconds with no manual parameterization. Omega combines ML-predicted ADME properties (XGBoost ensemble with conformal intervals) with a 35-state whole-body PBPK ODE engine, augmented by a hybrid $C_{\max}$ selector and physics-informed corrections. On a 24-drug core benchmark (oral, single-dose, healthy volunteers), Omega achieves $C_{\max}$ AAFE of 1.75 (95\% bootstrap CI: 1.48--2.13; 83\% within 2-fold). The Bayer hybrid GCN-PBPK model \cite{gruber2024hybrid} reports a median exposure fold error of 1.87 using proprietary training data; Omega achieves comparable accuracy using only publicly available data. Component ablation identifies the hybrid $C_{\max}$ selector as the dominant correction ($\Delta$+0.553 AAFE without it; 83\%$\to$46\% within 2-fold). A 50-drug expanded gold-tier benchmark yields $C_{\max}$ AAFE 3.40 [95\% CI: 2.42--4.94], providing an honest estimate of broader generalization. Temporal holdout on 15 post-2022 drugs yields AAFE 2.66 [1.74--4.35]. Error cancellation analysis reveals that 79\% of drugs show systematic compensation between ADME parameter errors (mean Cancellation Index = 0.303). Omega is freely available under the MIT license.
+Predicting human pharmacokinetics from molecular structure alone remains a critical challenge in drug discovery, where poor PK properties account for ${\sim}40\%$ of clinical failures. We present Omega, an open-source hybrid neural-mechanistic platform that predicts PK directly from SMILES strings in 73 milliseconds with no manual parameterization. Omega combines ML-predicted ADME properties (XGBoost ensemble with conformal intervals) with a 35-state whole-body PBPK ODE engine, augmented by a hybrid $C_{\max}$ selector and physics-informed corrections. On a 24-drug core benchmark (oral, single-dose, healthy volunteers), Omega achieves $C_{\max}$ AAFE of 1.75 (95\% bootstrap CI: 1.48--2.13; 83\% within 2-fold). The Bayer hybrid GCN-PBPK model \cite{gruber2024hybrid} reports a median exposure fold error of 1.87 using proprietary training data; Omega achieves comparable accuracy using only publicly available data. Component ablation identifies the hybrid $C_{\max}$ selector as the dominant correction ($\Delta$+0.194 AAFE without it; 83\%$\to$58\% within 2-fold). A 50-drug expanded gold-tier benchmark yields $C_{\max}$ AAFE 3.40 [95\% CI: 2.42--4.94], providing an honest estimate of broader generalization. Temporal holdout on 15 post-2022 drugs yields AAFE 2.66 [1.74--4.35]. Error cancellation analysis reveals that 79\% of drugs show systematic compensation between ADME parameter errors (mean Cancellation Index = 0.303). Omega is freely available under the MIT license.
 \end{abstract}
 
 \begin{keyword}
@@ -270,7 +270,7 @@ Four of 24 core benchmark drugs exceeded 2-fold $C_{\max}$ error (Fig.~\ref{fig:
 \subsection{Ablation Study}
 \label{sec:ablation}
 
-The hybrid $C_{\max}$ selector is the dominant component: removing it (NO\_HYBRID) increases AAFE from 1.747 to 2.346 ($\Delta$+0.553 AAFE; 83\%$\to$46\% 2-fold). The bare ODE without any corrections achieves AAFE 2.465 ($\Delta$+0.672). Ridge residual correction contributes exactly zero ($\Delta$=0.000, confirmed dead code). (Table~\ref{tab:ablation}; Fig.~\ref{fig:ablation}).
+The hybrid $C_{\max}$ selector is the dominant component: removing it (NO\_HYBRID) increases AAFE from 1.747 to 1.941 ($\Delta$+0.194 AAFE; 83\%$\to$58\% 2-fold). The bare ODE without any corrections achieves AAFE 2.039 ($\Delta$+0.292). Ridge residual correction contributes exactly zero ($\Delta$=0.000, confirmed dead code). (Table~\ref{tab:ablation}; Fig.~\ref{fig:ablation}).
 
 \begin{table}[H]
 \centering
@@ -283,12 +283,12 @@ Configuration & AAFE & 95\% CI & \%2-fold & $\Delta$ AAFE \\
 \midrule
 FULL & 1.747 & [1.48, 2.13] & 83\% & --- \\
 NO\_RIDGE & 1.747 & [1.48, 2.13] & 83\% & +0.000 \\
-NO\_PGP & 1.818 & [1.54, 2.21] & 79\% & +0.025 \\
-NO\_VDSS & 1.836 & [1.53, 2.25] & 75\% & +0.043 \\
-NO\_ENSEMBLE & 1.875 & [1.62, 2.21] & 67\% & +0.082 \\
-NO\_ENS\_RIDGE & 1.875 & [1.62, 2.21] & 67\% & +0.082 \\
-NO\_HYBRID & 2.346 & [1.87, 2.96] & 46\% & +0.553 \\
-BARE & 2.465 & [1.96, 3.09] & 42\% & +0.672 \\
+NO\_PGP & 1.776 & [1.49, 2.17] & 79\% & +0.029 \\
+NO\_VDSS & 1.783 & [1.48, 2.21] & 75\% & +0.036 \\
+NO\_ENSEMBLE & 1.857 & [1.60, 2.20] & 71\% & +0.110 \\
+NO\_ENS\_RIDGE & 1.857 & [1.60, 2.20] & 71\% & +0.110 \\
+NO\_HYBRID & 1.941 & [1.65, 2.30] & 58\% & +0.194 \\
+BARE & 2.039 & [1.72, 2.44] & 54\% & +0.292 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -296,7 +296,7 @@ BARE & 2.465 & [1.96, 3.09] & 42\% & +0.672 \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/fig_ablation.pdf}
-\caption{Ablation study: AAFE for 8 pipeline configurations. The hybrid $C_{\max}$ selector is the dominant component ($\Delta$+0.553 without it). Ridge correction contributes zero (NO\_RIDGE = FULL). Error bars indicate 95\% bootstrap CI.}
+\caption{Ablation study: AAFE for 8 pipeline configurations. The hybrid $C_{\max}$ selector is the dominant component ($\Delta$+0.194 without it). Ridge correction contributes zero (NO\_RIDGE = FULL). Error bars indicate 95\% bootstrap CI.}
 \label{fig:ablation}
 \end{figure}
 
@@ -379,7 +379,7 @@ Near-term priorities include transporter correction via ADMET-AI P-gp/OATP predi
 \section{Conclusion}
 \label{sec:conclusion}
 
-Omega demonstrates that open-source, public-data-only pharmacokinetic prediction can achieve accuracy comparable to proprietary models. By combining ML-predicted ADME properties with a mechanistic PBPK engine and physics-informed corrections, Omega achieves $C_{\max}$ AAFE 1.75 [95\% CI: 1.48--2.13] with 83\% of predictions within 2-fold on a 24-drug core benchmark in 73 milliseconds --- competitive with Bayer's proprietary hybrid model (median fold error 1.87, within Omega's CI) but fully reproducible and freely available. The hybrid $C_{\max}$ selector is the dominant correction ($\Delta$+0.553 without it), and error cancellation analysis reveals that 79\% of drugs benefit from compensating ADME errors (mean CI = 0.303). Omega is available at \url{https://github.com/jam-sudo/Omega} under the MIT license.
+Omega demonstrates that open-source, public-data-only pharmacokinetic prediction can achieve accuracy comparable to proprietary models. By combining ML-predicted ADME properties with a mechanistic PBPK engine and physics-informed corrections, Omega achieves $C_{\max}$ AAFE 1.75 [95\% CI: 1.48--2.13] with 83\% of predictions within 2-fold on a 24-drug core benchmark in 73 milliseconds --- competitive with Bayer's proprietary hybrid model (median fold error 1.87, within Omega's CI) but fully reproducible and freely available. The hybrid $C_{\max}$ selector is the dominant correction ($\Delta$+0.194 without it), and error cancellation analysis reveals that 79\% of drugs benefit from compensating ADME errors (mean CI = 0.303). Omega is available at \url{https://github.com/jam-sudo/Omega} under the MIT license.
 
 
 %% ============================================================

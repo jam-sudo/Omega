@@ -66,7 +66,7 @@ Details + cross-review protocol: `.claude/commands/team.md`
 11. **Ridge correction is dead code** — not loaded in pipeline, zero contribution confirmed by ablation
 12. **Gut CLint drives Cmax, not hepatic CLint** — Sobol: gut CLint ST=0.470, hepatic CLint ST=0.000 for Cmax. Hepatic CLint only affects AUC.
 13. **Ridge correction is confirmed dead code** — ablation study (Phase 0.1) shows NO_RIDGE = FULL with Δ=0.000 AAFE. The ridge model file exists in models/correction/ but is never loaded at inference. Keep for reproducibility only.
-14. **Hybrid Cmax selector is the dominant component** — ablation Δ+0.553 AAFE without it (83%→46% 2-fold). Don't remove or simplify it.
+14. **Hybrid Cmax selector is the dominant component** — ablation Δ+0.194 AAFE without it (83%→58% 2-fold) with Phase 3a.1 pipeline. (Old value Δ+0.553 was pre-Phase-3a.1; gut wall fix improved the raw ODE baseline, reducing hybrid's relative contribution.) Don't remove or simplify it.
 15. **Error cancellation is systematic** — 79% of drugs (CI < 0.5), mean CI = 0.303. Fixing individual ADME params without joint balance will worsen aggregate AAFE.
 16. **Phase 3a blocker is fm_CYP3A4 false positives, NOT Fh** — Polynomial clint_3a4 assigns fm_CYP3A4=0.887 to propranolol, 0.939 to ibuprofen. Fix: threshold guard `clint_3a4 > 2.0 µL/min/pmol` → AAFE 1.747, 83% 2-fold (diagnostic: 2026-03-18).
 17. **CLint_gut formula uses pre-inverted CLint** — `clint_L_per_h` is 22-223x larger than `CLh_target`; the 1.7× factor was calibrated for CLh_target. This is a known architectural bug, not a Phase 3a blocker. Fix in Phase 3b.

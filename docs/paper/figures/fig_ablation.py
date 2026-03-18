@@ -5,15 +5,15 @@ Publication-quality ablation figure for Omega PBPK paper.
 Shows the impact of each pipeline component by running the 8-config ablation
 and plotting a horizontal bar chart sorted by AAFE (worst to best).
 
-Ablation results (from scripts/run_ablation.py, 2026-03-17):
-  FULL:         AAFE 1.793  [1.52, 2.18]  %2-fold 83%
-  NO_ENSEMBLE:  AAFE 1.875  [1.62, 2.21]  %2-fold 67%
-  NO_RIDGE:     AAFE 1.793  [1.52, 2.18]  %2-fold 83%
-  NO_VDSS:      AAFE 1.836  [1.53, 2.25]  %2-fold 75%   (XGBoost VDss predictor)
-  NO_ENS_RIDGE: AAFE 1.875  [1.62, 2.21]  %2-fold 67%
-  NO_HYBRID:    AAFE 2.346  [1.87, 2.96]  %2-fold 46%
-  NO_PGP:       AAFE 1.818  [1.54, 2.21]  %2-fold 79%
-  BARE:         AAFE 2.465  [1.96, 3.09]  %2-fold 42%
+Ablation results (from scripts/run_ablation.py, 2026-03-18, with Phase 3a.1 gut-wall fix):
+  FULL:         AAFE 1.747  [1.48, 2.13]  %2-fold 83%
+  NO_ENSEMBLE:  AAFE 1.857  [1.60, 2.20]  %2-fold 71%
+  NO_RIDGE:     AAFE 1.747  [1.48, 2.13]  %2-fold 83%
+  NO_VDSS:      AAFE 1.783  [1.48, 2.21]  %2-fold 75%   (XGBoost VDss predictor)
+  NO_ENS_RIDGE: AAFE 1.857  [1.60, 2.20]  %2-fold 71%
+  NO_HYBRID:    AAFE 1.941  [1.65, 2.30]  %2-fold 58%
+  NO_PGP:       AAFE 1.776  [1.49, 2.17]  %2-fold 79%
+  BARE:         AAFE 2.039  [1.72, 2.44]  %2-fold 54%
 
 Output:
   fig_ablation.pdf
@@ -33,14 +33,14 @@ import numpy as np
 
 # (internal_name, display_label, aafe, ci_lo, ci_hi, pct_2fold)
 configs_raw = [
-    ("BARE", "Raw ODE (no corrections)", 2.465, 1.96, 3.09, 42),
-    ("NO_HYBRID", "No hybrid Cmax selector", 2.346, 1.87, 2.96, 46),
-    ("NO_ENS_RIDGE", "No ensemble + no ridge", 1.875, 1.62, 2.21, 67),
-    ("NO_ENSEMBLE", "No PBPK/ML ensemble", 1.875, 1.62, 2.21, 67),
-    ("NO_VDSS", "No XGBoost VDss predictor", 1.836, 1.53, 2.25, 75),
-    ("NO_PGP", "No P-gp correction", 1.818, 1.54, 2.21, 79),
-    ("NO_RIDGE", "No ridge correction", 1.793, 1.52, 2.18, 83),
-    ("FULL", "Full pipeline (baseline)", 1.793, 1.52, 2.18, 83),
+    ("BARE", "Raw ODE (no corrections)", 2.039, 1.72, 2.44, 54),
+    ("NO_HYBRID", "No hybrid Cmax selector", 1.941, 1.65, 2.30, 58),
+    ("NO_ENS_RIDGE", "No ensemble + no ridge", 1.857, 1.60, 2.20, 71),
+    ("NO_ENSEMBLE", "No PBPK/ML ensemble", 1.857, 1.60, 2.20, 71),
+    ("NO_VDSS", "No XGBoost VDss predictor", 1.783, 1.48, 2.21, 75),
+    ("NO_PGP", "No P-gp correction", 1.776, 1.49, 2.17, 79),
+    ("NO_RIDGE", "No ridge correction", 1.747, 1.48, 2.13, 83),
+    ("FULL", "Full pipeline (baseline)", 1.747, 1.48, 2.13, 83),
 ]
 
 # Sort worst-to-best so the chart reads top=worst, bottom=best
@@ -53,7 +53,7 @@ ci_lo = np.array([c[3] for c in configs])
 ci_hi = np.array([c[4] for c in configs])
 pct_2fold = [c[5] for c in configs]
 
-full_aafe = 1.793  # baseline
+full_aafe = 1.747  # baseline (Phase 3a.1, 2026-03-18)
 delta = aafe - full_aafe  # positive = worse without component
 
 # ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ ax.axvline(
     linestyle="--",
     linewidth=1.5,
     zorder=2,
-    label=f"Full pipeline AAFE = {full_aafe:.3f}",
+    label=f"Full pipeline AAFE = {full_aafe:.3f} (Phase 3a.1)",
 )
 
 # 2-fold acceptability line
@@ -191,7 +191,7 @@ fig.text(
     0.33,
     0.01,
     "24-drug gold-tier benchmark (N=24).  Error bars = 95% bootstrap CI (N=10,000 resamples).  "
-    "Δ = AAFE change vs full pipeline (positive = component helps).",
+    "Δ = AAFE change vs full pipeline (positive = component helps).  Re-run 2026-03-18 with Phase 3a.1.",
     ha="left",
     va="bottom",
     fontsize=8,
