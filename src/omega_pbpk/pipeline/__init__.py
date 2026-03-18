@@ -52,6 +52,13 @@ _USE_FUINC_CORRECTION: bool = False
 # Kept for reproducibility; not used in production path.
 _USE_RIDGE_CORRECTION: bool = False  # no-op; ablation-confirmed inactive
 
+# Phase 4a: OATP1B1/3 hepatic uptake correction — DISABLED (wrong direction)
+# Atorvastatin AUC is UNDER-predicted (pred=0.048 vs obs=0.176, fe=3.64×).
+# CLint already >>QH (near-complete extraction); adding OATP clearance lowers AUC further.
+# Root cause is over-predicted CLint, not missing OATP uptake. (2026-03-18)
+_ENABLE_OATP_CORRECTION: bool = False
+_OATP_F_FRACTION: float = 0.11  # fraction of QH; archived for reference
+
 
 @dataclass(frozen=True)
 class CandidateReport:
@@ -1205,6 +1212,63 @@ class OmegaPipeline:
                 clint_L_per_h = clh_target * Q_H / (fup * (Q_H - clh_target))
             else:
                 clint_L_per_h = max(clh_target / max(fup, 0.001), 0.1)
+
+            # Phase 4a: OATP1B1/3 hepatic uptake correction.
+            # For OATP substrates (statins), hepatic uptake is transporter-mediated,
+            # not captured by CYP-based CLint → CLh under-predicted → AUC over-predicted.
+            # We add CLh_OATP = f_OATP × QH, then back-convert to a CLint_equiv via
+            # the inverse well-stirred model so the ODE engine sees a higher total CLint.
+            if _ENABLE_OATP_CORRECTION:
+                try:
+                    from omega_pbpk.ml.models.adme.transporter_lookup import (
+                        get_transporter_flags,
+                    )
+
+                    # The SMILES→name resolution uses reference_database.json which may
+                    # contain a different SMILES encoding than what the caller passes
+                    # (e.g., atorvastatin: ref DB has a non-stereo regioisomer while
+                    # benchmark uses the correct isomeric SMILES from cmax_training_set).
+                    # Fallback: try canonical SMILES lookup, then a direct drug_name
+                    # override for known OATP substrates whose canonical SMILES diverges.
+                    #
+                    # _OATP_SMILES_OVERRIDES: canonical SMILES → drug name
+                    # Populated with known OATP substrates that fail SMILES lookup.
+                    # Canonical generated via RDKit MolToSmiles.
+                    _OATP_SMILES_OVERRIDES: dict[str, str] = {
+                        # atorvastatin (cmax_training_set.csv SMILES, canonicalized):
+                        "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccc(F)cc2)c(-c2ccccc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O": "atorvastatin",
+                    }
+                    _t_flags = get_transporter_flags(smiles=smiles)
+                    if _t_flags is None:
+                        # Try canonical SMILES
+                        try:
+                            from rdkit import Chem as _Chem
+
+                            _mol_oatp = _Chem.MolFromSmiles(smiles)
+                            if _mol_oatp is not None:
+                                _canonical = _Chem.MolToSmiles(_mol_oatp)
+                                _override_name = _OATP_SMILES_OVERRIDES.get(_canonical)
+                                if _override_name:
+                                    _t_flags = get_transporter_flags(drug_name=_override_name)
+                                else:
+                                    _t_flags = get_transporter_flags(smiles=_canonical)
+                        except Exception:
+                            pass
+                    if _t_flags and _t_flags.get("oatp1b1_substrate", 0):
+                        _q_h = 90.0  # L/h — same Q_H as above
+                        _clh_oatp = _OATP_F_FRACTION * _q_h  # default 9.9 L/h
+                        # Inverse well-stirred: CLint = Q × CL / (fup × (Q - CL))
+                        _fup_safe = max(fup, 0.001)
+                        if _clh_oatp < _q_h:
+                            _clint_oatp_equiv = _q_h * _clh_oatp / (_fup_safe * (_q_h - _clh_oatp))
+                            clint_L_per_h = clint_L_per_h + _clint_oatp_equiv
+                            logger.debug(
+                                "OATP correction: CLint += %.1f L/h → clint_total=%.1f L/h",
+                                _clint_oatp_equiv,
+                                clint_L_per_h,
+                            )
+                except Exception as _e:
+                    logger.debug("OATP correction skipped: %s", _e)
 
             # Phase 3a.1: direct CLint_gut for XGBoost path.
             # self.clint dict is empty in this path, so gut_clint_scaled_L_per_h

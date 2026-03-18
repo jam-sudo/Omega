@@ -1,0 +1,20 @@
+{
+  "n_drugs": 66,
+  "n_features": 2057,
+  "cv_aafe": 13.2767,
+  "cv_rmse_log": 1.94,
+  "cv_pct_2fold": 33.3,
+  "cv_pct_3fold": 47.0,
+  "target": "log(obs_cmax / dose_mg)",
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": 3,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.3,
+    "min_child_weight": 5,
+    "reg_alpha": 1.0,
+    "reg_lambda": 5.0
+  },
+  "skipped_drugs": []
+}
