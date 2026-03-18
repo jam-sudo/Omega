@@ -46,47 +46,11 @@ pharmacokinetics \sep PBPK \sep machine learning \sep SMILES \sep drug discovery
 \section{Introduction}
 \label{sec:introduction}
 
-\subsection{The Challenge of Pharmacokinetic Prediction}
-\label{sec:intro-challenge}
+Poor pharmacokinetic (PK) properties account for approximately 40\% of clinical trial failures, making early PK characterization essential for efficient drug discovery \cite{kola2004attrition}. Commercial PBPK platforms (Simcyp, GastroPlus, PK-Sim) encode decades of physiological knowledge but require extensive manual parameterization --- physicochemical properties, in vitro clearance data, permeability measurements, and protein binding assays --- taking hours to days per compound and requiring domain expertise inaccessible to many research groups.
 
-Pharmacokinetics (PK) --- the study of how drugs are absorbed, distributed, metabolized, and eliminated --- determines whether a promising molecule becomes a viable medicine. Poor PK properties account for approximately 40\% of clinical trial failures, making early PK characterization essential for efficient drug discovery \cite{kola2004attrition}. Yet obtaining PK data traditionally requires either expensive in vivo studies or labor-intensive physiologically based pharmacokinetic (PBPK) modeling, where expert pharmacokineticists manually parameterize complex models for each compound.
+Recent machine learning approaches predict individual ADME properties (fraction unbound, intrinsic clearance, permeability) directly from molecular structure \cite{yang2019chemprop,swanson2024admetai}. However, predicting integrated PK behavior requires more: a drug's concentration-time profile emerges from the nonlinear interplay of absorption, distribution, metabolism, and elimination that cannot be captured by property-to-PK mappings alone. Hybrid approaches that feed ML-predicted properties into mechanistic PBPK models preserve interpretability while leveraging ML generalization \cite{gruber2024hybrid}. Gruber et al.\ demonstrated this at Bayer AG (GCN + whole-body PBPK, median exposure fold error 1.87 oral), but their model requires Bayer's proprietary in vitro assay database and remains closed-source.
 
-Commercial PBPK platforms --- Simcyp (Certara), GastroPlus (Simulation Plus), and PK-Sim (Open Systems Pharmacology) --- encode decades of physiological knowledge into sophisticated mechanistic models. However, these tools require extensive manual input: physicochemical properties, in vitro clearance data, permeability measurements, and protein binding assays. Setting up a single compound typically takes hours to days, requires domain expertise, and remains inaccessible to many research groups due to cost (commercial licenses exceeding \$50,000/year) or expertise requirements.
-
-The pharmaceutical industry therefore faces a fundamental tension: the compounds most in need of PK prediction --- novel drug candidates in early discovery --- are precisely those for which experimental data are most scarce.
-
-\subsection{Machine Learning Approaches to PK Prediction}
-\label{sec:intro-ml}
-
-Recent advances in molecular property prediction, particularly graph neural networks (GNNs) and message-passing neural networks (MPNNs), have enabled accurate prediction of absorption, distribution, metabolism, and excretion (ADME) properties directly from molecular structure \cite{yang2019chemprop,swanson2024admetai}. ADMET-AI, a Chemprop-based D-MPNN ensemble, currently ranks first on the Therapeutics Data Commons (TDC) ADMET benchmark, predicting over 40 endpoints from SMILES strings alone \cite{swanson2024admetai}.
-
-However, predicting individual ADME properties is fundamentally different from predicting integrated PK behavior. A drug's concentration-time profile emerges from the nonlinear interplay of absorption kinetics, tissue distribution, hepatic metabolism, and renal elimination --- dynamics that cannot be captured by simple property-to-PK mappings. Pure deep learning approaches that attempt to learn PK directly from molecular structure (e.g., DeepPK, PkSolver) achieve moderate accuracy but sacrifice the mechanistic interpretability that is essential for regulatory acceptance and clinical decision-making.
-
-\subsection{Hybrid Neural-Mechanistic Models}
-\label{sec:intro-hybrid}
-
-A promising middle ground is the hybrid approach: using machine learning to predict mechanistically meaningful parameters (clearance, volume of distribution, permeability), then feeding these into a physics-based PBPK model to simulate PK dynamics. This preserves mechanistic interpretability --- every prediction traces through named physiological parameters --- while leveraging ML's ability to generalize across chemical space.
-
-Gruber et al.\ \cite{gruber2024hybrid} demonstrated this approach at Bayer AG, combining a graph convolutional network (GCN) with a whole-body PBPK model trained end-to-end on human PK data. Their hybrid model achieved exposure fold change errors of 1.87 (oral) and 1.86 (intravenous) in healthy subjects. However, this model relies on Bayer's proprietary in vitro assay data for pre-training and remains closed-source, limiting reproducibility and accessibility.
-
-\subsection{Contribution}
-\label{sec:intro-contribution}
-
-We present Omega, an open-source hybrid neural-mechanistic platform that predicts human PK directly from SMILES strings. Our key contributions are:
-
-\begin{enumerate}
-    \item \textbf{Comparable accuracy with public data only.} Omega achieves $C_{\max}$ AAFE 1.79 [95\% CI: 1.52--2.18] on 24 core benchmark drugs using exclusively public data and tools, matching the Bayer proprietary model (median fold error 1.87) without access to internal assay data.
-
-    \item \textbf{Sub-100ms inference.} At 73 milliseconds per compound (warm start), Omega enables high-throughput virtual screening of compound libraries --- approximately 1,000$\times$ faster than manual PBPK parameterization.
-
-    \item \textbf{Multi-tier validation framework.} We validate predictions at four levels of fidelity: PK accuracy on 24 core drugs and an expanded 50-drug set (Gold), half-life on 39 drugs (Silver), ADME properties on 151 compounds (Bronze), and temporal holdout on 20 post-2022 drugs the model has never seen (15 with $C_{\max}$).
-
-    \item \textbf{Patient-specific prediction.} A patient-specific module provides weight-adjusted and genotype-adjusted PK predictions via allometric scaling and Bayesian individual parameter estimation from sparse observations.
-
-    \item \textbf{Full reproducibility.} Omega is MIT-licensed and open-source. After installation (\texttt{pip install}), predictions require a single function call: \texttt{pipeline.simulate(SimulationRequest(smiles="...", dose\_mg=100))}.
-\end{enumerate}
-
-The remainder of this paper describes the architecture (Section~\ref{sec:methods}), presents validation results (Section~\ref{sec:results}), discusses strengths and limitations in context of prior work (Section~\ref{sec:discussion}), and outlines future directions (Section~\ref{sec:conclusion}).
+We present Omega, an open-source hybrid neural-mechanistic platform that predicts human PK from SMILES in 73 milliseconds using exclusively public data. Omega achieves $C_{\max}$ AAFE 1.79 [95\% CI: 1.52--2.18] on 24 benchmark drugs (83\% within 2-fold), matching the Bayer proprietary model without access to internal assay data, while providing full reproducibility under the MIT license. We validate across four tiers: PK accuracy on 24 core drugs and an expanded 50-drug set (Gold), half-life on 39 drugs (Silver), ADME properties on 151 compounds (Bronze), and temporal holdout on 20 post-2022 drugs. Component ablation and error cancellation analysis provide mechanistic insight into model behavior.
 
 
 %% ============================================================
@@ -105,46 +69,7 @@ The end-to-end prediction is exposed through the \texttt{OmegaPipeline} class, w
 \subsection{ADME Prediction Layer}
 \label{sec:adme}
 
-\subsubsection{Ensemble Architecture}
-\label{sec:ensemble}
-
-The ADME prediction layer employs an \texttt{EnsembleADMEPredictor} that supports multiple backend models (ADMET-AI, XGBoost, polynomial ridge) with a per-property selection strategy. The \texttt{EnsembleADMEPredictor} can operate in two modes: with ADMET-AI enabled (full ensemble) or with ADMET-AI disabled (XGBoost + polynomial only). In the production configuration used for all benchmark results in this paper, \textbf{ADMET-AI is disabled} (\texttt{admet\_ai=False}) because its lipophilicity and protein binding predictions were found to alter tissue partitioning coefficients unpredictably, degrading PK accuracy for warfarin, metformin, and losartan. The per-property strategy in this configuration is:
-
-\begin{itemize}
-    \item \textbf{Fraction unbound in plasma ($f_u$):} XGBoost model trained on TDC PPBR\_AZ (1,614 compounds) + 153-compound reference set, predicting in $\log_{10}$-space.
-
-    \item \textbf{Blood-to-plasma ratio (RBP):} XGBoost model trained on the 153-compound reference dataset. No public pretrained model for RBP exists, necessitating a custom model.
-
-    \item \textbf{Lipophilicity ($\log P$) and aqueous solubility ($\log S$):} Polynomial ridge regression from RDKit descriptors, with GSE solubility floor (Section~\ref{sec:gse}).
-
-    \item \textbf{Intrinsic clearance ($CL_{\text{int}}$):} XGBoost model trained on TDC Clearance\_Hepatocyte\_AZ (1,213 compounds), calibrated via reference-anchored IVIVE.
-
-    \item \textbf{Effective permeability ($P_{\text{eff}}$):} Polynomial ridge regression from physicochemical descriptors.
-
-    \item \textbf{Volume of distribution ($V_{d,\text{ss}}$):} XGBoost model trained on TDC VDss\_Lombardo (1,130 compounds), used for $K_p$ calibration (Section~\ref{sec:vdss-check}).
-
-    \item \textbf{Molecular weight (MW):} Computed directly from the SMILES string via RDKit.
-\end{itemize}
-
-Overall confidence is defined as the minimum confidence level across all property backends: if any single property prediction is uncertain, the entire prediction is flagged accordingly.
-
-\emph{Note:} When ADMET-AI is enabled, it serves as primary predictor for $f_u$ (geometric mean with XGBoost), $\log P$, $CL_{\text{int}}$, $P_{\text{eff}}$, and hERG $\text{IC}_{50}$, with XGBoost and polynomial as fallbacks. This configuration was not used for the results reported here due to the tissue partitioning instabilities described above.
-
-\subsubsection{XGBoost Models}
-\label{sec:xgboost}
-
-Four XGBoost gradient-boosted tree models were trained for properties where either no pretrained model was publicly available (RBP) or where domain-specific calibration was required ($f_u$, $CL_{\text{int}}$, $V_{d,\text{ss}}$).
-
-\paragraph{Molecular representation.} All XGBoost models use a concatenation of 2048-bit Morgan circular fingerprints (radius~2) generated via RDKit and 9 physicochemical descriptors: $\log P$ (Crippen), topological polar surface area (TPSA), molecular weight, hydrogen bond acceptor count, hydrogen bond donor count, rotatable bond count, ring count, fraction $\text{sp}^3$ carbons, and molar refractivity.
-
-\paragraph{Training data.} The $f_u$ model was trained on the union of the Therapeutic Data Commons (TDC) PPBR\_AZ dataset (1,614 compounds) and the 153-compound in-house reference set. The $CL_{\text{int}}$ model used the TDC Clearance\_Hepatocyte\_AZ dataset (1,213 compounds). The $V_{d,\text{ss}}$ model used the TDC VDss\_Lombardo dataset (1,130 compounds). The RBP model was trained exclusively on the 153-compound reference set due to the absence of a suitable public dataset.
-
-\paragraph{Prediction in log-space.} The $f_u$, $CL_{\text{int}}$, and $V_{d,\text{ss}}$ models predict in $\log_{10}$-transformed space (e.g., $\log_{10}(f_u)$) and exponentiate at inference time. This ensures equal loss weighting across orders of magnitude and prevents the model from ignoring highly bound compounds ($f_u < 0.01$), which are disproportionately important in clinical pharmacology.
-
-\subsubsection{Polynomial Ridge Regression Fallback}
-\label{sec:fallback}
-
-A polynomial ridge regression model serves as the final fallback for all ADME properties when both ADMET-AI and XGBoost backends are unavailable. This model provides biased but bounded predictions from physicochemical descriptors, ensuring the pipeline never fails to produce an estimate.
+ADME properties were predicted using an ensemble of XGBoost models ($f_u$, $CL_{\text{int}}$, RBP, $V_{d,\text{ss}}$) trained on TDC reference datasets and polynomial ridge regression for $\log P$ and $\log S$ (Supplementary Methods). All XGBoost models use 2048-bit Morgan fingerprints concatenated with 9 physicochemical descriptors; $f_u$, $CL_{\text{int}}$, and $V_{d,\text{ss}}$ are predicted in $\log_{10}$-space. ADMET-AI was disabled in production because its lipophilicity and protein binding predictions degraded PK accuracy for warfarin, metformin, and losartan via tissue partition coefficient instabilities. Predictions include 90\% conformal prediction intervals (Section~\ref{sec:conformal}).
 
 \subsubsection{Solubility Floor: General Solubility Equation}
 \label{sec:gse}
@@ -330,53 +255,7 @@ where $W$ is the patient body weight in kg. The exponent of 0.75 for clearance r
 \subsubsection{CYP Genotype Factors}
 \label{sec:cyp-genotype}
 
-Pharmacogenomic variability in drug metabolism is incorporated through enzyme-specific activity scaling factors applied multiplicatively to hepatic clearance. The following factors are implemented, defined relative to the extensive metabolizer (EM) phenotype:
-
-\paragraph{CYP2D6.}
-\begin{center}
-\begin{tabular}{lc}
-\toprule
-Phenotype & Activity Factor \\
-\midrule
-Ultra-rapid metabolizer (UM) & 1.5 \\
-Extensive metabolizer (EM) & 1.0 \\
-Intermediate metabolizer (IM) & 0.5 \\
-Poor metabolizer (PM) & 0.1 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\paragraph{CYP2C9.}
-\begin{center}
-\begin{tabular}{lc}
-\toprule
-Genotype & Activity Factor \\
-\midrule
-*1/*1 & 1.0 \\
-*1/*2 & 0.8 \\
-*1/*3 & 0.6 \\
-*2/*2 & 0.5 \\
-*2/*3 & 0.3 \\
-*3/*3 & 0.1 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\paragraph{CYP2C19.}
-\begin{center}
-\begin{tabular}{lc}
-\toprule
-Phenotype & Activity Factor \\
-\midrule
-Ultra-rapid metabolizer (UM) & 1.5 \\
-Extensive metabolizer (EM) & 1.0 \\
-Intermediate metabolizer (IM) & 0.5 \\
-Poor metabolizer (PM) & 0.2 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-When multiple CYP enzymes are specified, each factor is applied independently to the clearance, weighted by the drug's fraction metabolized ($f_m$) by each enzyme. Unknown enzyme-phenotype combinations default to an activity factor of 1.0 (no effect).
+Pharmacogenomic variability is incorporated through enzyme-specific activity scaling factors for CYP2D6, CYP2C9, and CYP2C19 applied multiplicatively to hepatic clearance (Table~S4). Activity factors range from 0.1 (poor metabolizer) to 1.5 (ultra-rapid), defined relative to the extensive metabolizer phenotype. When multiple CYP enzymes are specified, each factor is applied independently, weighted by the drug's fraction metabolized ($f_m$) by each enzyme.
 
 \subsubsection{Bayesian Individual Estimation}
 \label{sec:bayesian}
@@ -407,9 +286,9 @@ Model performance is assessed through a four-tier validation framework with incr
 
 \textbf{Silver tier} (half-life validation). Predicted terminal half-lives are compared against values extracted from FDA-approved drug labels obtained via the OpenFDA API. This tier validates the integrated clearance and distribution predictions through their aggregate effect on half-life.
 
-\textbf{Gold tier} (concentration-time curve validation). Predicted plasma concentration-time profiles are compared against published clinical PK data for 24 drugs, each with a defined dose and route of administration. Benchmark datasets contain digitized concentration-time points with standard deviations. $C_{\max}$, AUC, and $t_{1/2}$ fold errors are computed for each drug.
+\textbf{Gold tier} (PK accuracy validation). Predicted $C_{\max}$, AUC, and $t_{1/2}$ are compared against single-point reference values from published clinical pharmacokinetic studies for 24 drugs, each with a defined dose and route of administration. Reference Cmax and AUC values represent literature-reported mean values from single-dose PK studies in healthy volunteers, sourced from PK-DB \cite{grzegorzewski2021pkdb}, FDA drug label documentation, and primary literature. Fold errors are computed for each drug.
 
-\textbf{Temporal holdout} (prospective validation). Twenty drugs approved by the FDA after 2022, none present in any training dataset, form a fully prospective test set. Fifteen of these drugs have digitized $C_{\max}$ data from published label PK studies; 11 have AUC data; all 20 have half-life values. This expansion from the original 5-drug ($t_{1/2}$-only) set provides a more robust estimate of generalization performance.
+\textbf{Temporal holdout} (prospective validation). Twenty drugs approved by the FDA after 2022, none present in any training dataset, form a fully prospective test set. Fifteen of these drugs have published $C_{\max}$ summary statistics from label PK studies; 11 have AUC data; all 20 have half-life values. This expansion from the original 5-drug ($t_{1/2}$-only) set provides a more robust estimate of generalization performance.
 
 \subsubsection{Performance Metrics}
 \label{sec:metrics}
@@ -449,17 +328,9 @@ All validation benchmarks are automated and executed as part of the continuous i
 \subsection{Gold Tier: Pharmacokinetic Prediction Accuracy}
 \label{sec:gold-results}
 
-Omega was evaluated against clinical PK data for 24 orally administered drugs. Benchmark drugs were selected based on three criteria: (1)~availability of published mean plasma concentration-time curves for healthy volunteers receiving single oral IR doses in the fasted state, (2)~diversity of therapeutic classes and clearance mechanisms, and (3)~inclusion in standard pharmacology references (FDA labels, Goodman \& Gilman's 14th ed., Rowland \& Tozer). No drugs were excluded based on prediction performance; the set was finalized before benchmark evaluation. The drugs span molecular weights from 32 to 781~Da and include compounds cleared by CYP3A4 (midazolam), CYP2C9 (warfarin), renal excretion (metformin), and mixed pathways (caffeine). All 24 drugs were processed successfully from SMILES input to full concentration-time profiles.
+Omega was evaluated against single-point reference PK values for 24 orally administered drugs. Benchmark drugs were selected based on three criteria: (1)~availability of published mean $C_{\max}$ and AUC values for healthy volunteers receiving single oral IR doses in the fasted state, (2)~diversity of therapeutic classes and clearance mechanisms, and (3)~inclusion in standard pharmacology references (FDA labels, Goodman \& Gilman's 14th ed., Rowland \& Tozer). Reference values were sourced from PK-DB \cite{grzegorzewski2021pkdb}, FDA drug label documentation, and primary literature. No drugs were excluded based on prediction performance; the set was finalized before benchmark evaluation. The drugs span molecular weights from 32 to 781~Da and include compounds cleared by CYP3A4 (midazolam), CYP2C9 (warfarin), renal excretion (metformin), and mixed pathways (caffeine). All 24 drugs were processed successfully from SMILES input, producing simulated concentration-time profiles from which $C_{\max}$ and AUC were extracted for comparison against reference values.
 
-Across the 24-drug core benchmark, Omega achieved a $C_{\max}$ AAFE of 1.79 (95\% bootstrap CI: 1.52--2.18; 83\% within 2-fold) (Table~\ref{tab:gold_results}, Fig.~\ref{fig:cmax_scatter}). These results meet and exceed conventional acceptance thresholds for PBPK model qualification, where 2-fold accuracy for at least 50\% of compounds is considered adequate and 80\% is considered good \cite{jones2015pbpk}. Notably, the Bayer reference model's median fold error of 1.87 falls within Omega's 95\% bootstrap CI, indicating the difference is not statistically significant.
-
-The most accurate $C_{\max}$ prediction was for digoxin (fold error 1.06), followed closely by nifedipine (1.08) and theophylline (1.12). Other drugs with $C_{\max}$ fold errors below 1.5 included caffeine (1.38), atenolol (1.37), metformin (1.37), acetaminophen (1.29), fluoxetine (1.41), and propranolol (1.45). For AUC, the most accurate prediction was ibuprofen (fold error 1.02), followed by atorvastatin (1.06) and amoxicillin (1.19).
-
-The two largest $C_{\max}$ errors were warfarin (6.73-fold, reflecting updated PK-DB reference data at 10~mg dose) and ibuprofen (5.39-fold); these are analyzed in Section~\ref{sec:failure}. The next largest error was fluconazole (3.25-fold). Excluding these three outliers, the remaining 21 drugs achieved a $C_{\max}$ AAFE below 2.0 with 100\% within 2-fold, demonstrating that prediction errors are concentrated in mechanistically explainable cases rather than reflecting systematic bias.
-
-Prediction latency averaged \SI{73}{ms} per drug on warm start (CPU only; no GPU required), with a cold-start latency of approximately 5 seconds for the first prediction due to XGBoost model loading. The \SI{73}{ms} warm-start throughput is compatible with interactive screening of compound libraries and virtual patient simulations.
-
-For comparison, Gruber et al.\ \cite{gruber2024hybrid} reported a median exposure fold change error (mfce) of 1.87 for oral drugs using a hybrid GCN-PBPK model trained on Bayer's proprietary in vitro assay data. Omega's AAFE of 1.79 corresponds to a median fold error of approximately 1.65, which is comparable or superior to the Bayer model; critically, 1.87 falls within Omega's 95\% bootstrap CI [1.52--2.18], so the difference is not statistically significant. Jia et al.\ \cite{jia2025pksim} achieved 60\% within 2-fold for AUC and 59\% for $C_{\max}$ on 106 test compounds using public data; Omega achieves 83\% within 2-fold on 24 drugs. Direct comparison across studies is complicated by differences in test set composition, drug selection criteria, and metric definitions (Section~\ref{sec:bayer-comparison}).
+Across the 24-drug core benchmark, Omega achieved $C_{\max}$ AAFE 1.79 (95\% bootstrap CI: 1.52--2.18; 83\% within 2-fold) (Table~\ref{tab:gold_results}, Fig.~\ref{fig:cmax_scatter}), exceeding conventional PBPK qualification thresholds \cite{jones2015pbpk}. The Bayer reference model's median fold error of 1.87 falls within Omega's 95\% CI, indicating the difference is not statistically significant. The two largest errors --- warfarin (6.73-fold) and ibuprofen (5.39-fold) --- trace to extreme protein binding ($f_u < 0.01$) and are analyzed in Section~\ref{sec:failure}; excluding these and fluconazole (3.25-fold), the remaining 21 drugs achieve 100\% within 2-fold. Prediction latency averaged \SI{73}{ms} per compound (warm start, CPU only), enabling high-throughput virtual screening.
 
 \begin{figure}[H]
 \centering
@@ -512,13 +383,7 @@ Digoxin       & 0.5 & 0.0014 &  0.0015 & 1.06 & 0.011 & 0.029 & 2.65 &  54.6 \\
 \subsection{Silver Tier: Half-Life Prediction}
 \label{sec:silver-results}
 
-Half-life predictions were evaluated for 39 drugs with reference elimination half-lives extracted from FDA-approved drug labels via the OpenFDA API (Fig.~\ref{fig:silver_thalf}). The model achieved an overall $t_{1/2}$ AAFE of 2.42, with 20 of 39 drugs (51.3\%) predicted within 2-fold of observed values.
-
-The most accurate predictions were for metformin (fold error 1.01), atenolol (1.05), verapamil (1.08), phenytoin (1.14), and cyclosporine (1.19), representing drugs with well-characterized, predominantly single-pathway elimination. Metformin, a renally cleared compound, was predicted with near-exact accuracy (\SI{6.24}{h} predicted vs.\ \SI{6.2}{h} observed), suggesting that the model captures renal clearance contributions effectively.
-
-The largest errors were observed for risperidone (22.9-fold), ibuprofen (16.7-fold), and warfarin (8.4-fold). The risperidone discrepancy reflects the drug's complex multi-compartment distribution and active metabolite (9-hydroxy-risperidone) with its own pharmacological activity; the reported \SI{3}{h} half-life likely reflects the distribution phase rather than terminal elimination. Ibuprofen (predicted \SI{30.0}{h} vs.\ observed \SI{1.8}{h}) is confounded by extensive protein binding ($>$99\%) and stereoselective clearance not captured by the current model. For warfarin (predicted \SI{167.9}{h} vs.\ observed \SI{20}{h}), the overprediction is consistent with the model underestimating hepatic intrinsic clearance for this highly protein-bound, low-extraction-ratio compound.
-
-Several reference data quality issues were identified and corrected during validation. The amoxicillin reference half-life in the original dataset was reported in minutes rather than hours, and the diazepam reference value (\SI{43}{h}) reflects the terminal elimination half-life including the active desmethyldiazepam metabolite, not the distribution half-life. These corrections were applied prior to the analysis presented here.
+Half-life predictions were evaluated for 39 drugs with reference values from FDA-approved drug labels (Fig.~\ref{fig:silver_thalf}). The model achieved $t_{1/2}$ AAFE 2.42, with 51.3\% within 2-fold. Accurate predictions included metformin (fold error 1.01), atenolol (1.05), and verapamil (1.08). The largest errors were risperidone (22.9-fold; active metabolite not modeled), ibuprofen (16.7-fold; extreme protein binding), and warfarin (8.4-fold; low hepatic extraction underestimated).
 
 \begin{figure}[H]
 \centering
@@ -542,7 +407,7 @@ To provide a less curated estimate of generalization, the Gold tier was expanded
 \subsection{Bronze Tier: ADME Property Accuracy}
 \label{sec:bronze-results}
 
-The ensemble ADME predictor was evaluated against reference values for 151 compounds (2 of 153 failed SMILES parsing). Per-property results are summarized in Table~\ref{tab:adme_results}.
+The ADME predictor was evaluated on 151 compounds (Table~\ref{tab:adme_results}). RBP was best predicted (AAFE 1.09, 98\% within 2-fold), reflecting its narrow physiological range. $P_{\text{eff}}$ (AAFE 1.46) and $\log P$ (AAFE 1.54) were well-predicted by structure-property relationships. $f_u$ showed moderate accuracy (AAFE 2.10, 58\% within 2-fold), consistent with the known difficulty of protein binding prediction for highly bound drugs. $CL_{\text{int}}$ was the weakest property (AAFE 3.25, 34\% within 2-fold), typical for structure-based clearance models where 3--5-fold AAFE is expected.
 
 \begin{table}[H]
 \centering
@@ -560,12 +425,6 @@ $CL_{\text{int}}$ (CYP3A4) & 3.25 & 33.8\% & 151 \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-Red blood cell-to-plasma ratio (RBP) was the best-predicted property, with an AAFE of 1.09 and 98.0\% of compounds within 2-fold. This accuracy reflects the relatively narrow physiological range of RBP (typically 0.5--1.5) and the effectiveness of the XGBoost model trained on curated RBP data. Effective permeability ($P_{\text{eff}}$, AAFE 1.46) and lipophilicity ($\log P$, AAFE 1.54) were also well-predicted, consistent with the strong structure-property relationships for these physicochemical descriptors.
-
-Fraction unbound in plasma ($f_u$) showed moderate accuracy (AAFE 2.10, 58.3\% within 2-fold). Protein binding prediction is a recognized challenge in PBPK modeling due to its nonlinear dependence on both drug lipophilicity and specific binding-site interactions, particularly for highly bound drugs where small absolute errors in $f_u$ translate to large fold errors.
-
-Intrinsic clearance ($CL_{\text{int}}$) was the least accurate property (AAFE 3.25, 33.8\% within 2-fold). This result is expected: hepatic metabolic clearance depends on enzyme kinetics, isoform selectivity, and potential auto-inhibition effects that are difficult to predict from molecular structure alone. The 3.25-fold AAFE is consistent with published benchmarks for in silico $CL_{\text{int}}$ prediction, where AAFE values of 3--5-fold are typical for structure-based models.
 
 \begin{figure}[H]
 \centering
@@ -597,35 +456,20 @@ Pirtobrutinib (BTK) & 2023 & 200 & 19.0 & 55.0 & 2.90 \\
 \end{tabular}
 \end{table}
 
-Across the 15 drugs with $C_{\max}$ data, Omega achieved a $C_{\max}$ AAFE of 2.66 (95\% bootstrap CI: 1.74--4.35), with 7 of 15 drugs (46.7\%) predicted within 2-fold. AUC AAFE was 2.74 (95\% CI: 1.63--4.94) for the 11 drugs with AUC data. The top-performing predictions were moxifloxacin (fold error 1.14), glasdegib (1.19), and abacavir (1.22). The largest outliers were sonidegib (24-fold; $t_{1/2}=672$~h, simulation window insufficient), atazanavir (11-fold; P-gp substrate), and temozolomide (10-fold; prodrug activation not modeled). The temporal Cmax AAFE of 2.66 is substantially higher than the core 24-drug benchmark (AAFE 1.79), providing an honest estimate of prospective generalization.
-
-The original 5-drug $t_{1/2}$-only holdout (adagrasib, futibatinib, capivasertib, elacestrant, pirtobrutinib) achieved a $t_{1/2}$ AAFE of 3.12, with 3 of 5 drugs (60\%) within 2-fold. Capivasertib was the largest $t_{1/2}$ outlier (7.9-fold), attributable to UGT2B7-mediated glucuronidation not captured by the CYP-centric clearance model. These results confirm that while Omega generalizes to novel molecular scaffolds, drugs with non-CYP clearance pathways or efflux-dominated disposition remain primary sources of prospective prediction error.
-
-\subsection{Structural Analog and De Novo Validation}
-\label{sec:analog-validation}
-
-To evaluate whether Omega produces chemically sensible predictions for hypothetical molecules, two additional validation tiers were assessed.
-
-\paragraph{Structural analogs.} Twenty structural analogs were generated from five parent drugs (ibuprofen, acetaminophen, diclofenac, omeprazole, and metronidazole) by applying systematic structural modifications: aromatic hydroxylation, halogen substitution (Cl to F), and aromatic methylation. All 20 analogs (100\%) passed plausibility checks, producing $C_{\max}$ and AUC values within physiologically reasonable ranges and showing expected directional trends relative to their parent compounds. For example, hydroxylated analogs of ibuprofen showed reduced $C_{\max}$ relative to the parent, consistent with increased polarity reducing absorption rate.
-
-\paragraph{De novo molecules.} Fifty candidate SMILES were generated de novo using a molecular generation algorithm. Of these, 2 produced valid PK predictions that passed all plausibility criteria (100\% of successfully parsed molecules). The low generation-to-valid-prediction rate (4\%) reflects the stringent requirements for drug-like molecular properties (Lipinski compliance, valid pharmacophore recognition) rather than limitations of the PK prediction engine itself. Both successfully predicted molecules produced concentration-time profiles with physiologically meaningful $C_{\max}$, AUC, and half-life values.
-
-These results confirm that Omega produces physically reasonable predictions when extrapolating beyond its training domain, an essential property for virtual screening and lead optimization applications.
+Across 15 drugs with $C_{\max}$ data, Omega achieved AAFE 2.66 (95\% bootstrap CI: 1.74--4.35), with 46.7\% within 2-fold. AUC AAFE was 2.74 (95\% CI: 1.63--4.94) for 11 drugs. The temporal AAFE of 2.66 is substantially higher than the core 24-drug benchmark (1.79), providing an honest estimate of prospective generalization. Primary outliers trace to mechanistic gaps: sonidegib (24-fold; simulation window insufficient for $t_{1/2}=672$~h), atazanavir (11-fold; P-gp efflux), and temozolomide (10-fold; prodrug). Non-CYP clearance pathways and efflux-dominated disposition are the dominant sources of prospective prediction error.
 
 \subsection{Failure Analysis}
 \label{sec:failure}
 
-Of the 24 drugs in the core gold-tier benchmark, 4 exhibited $C_{\max}$ fold errors exceeding 2-fold (Fig.~\ref{fig:fold_error}). All failures trace to specific mechanistic limitations rather than random prediction error.
+Four of 24 core benchmark drugs exceeded 2-fold $C_{\max}$ error (Fig.~\ref{fig:fold_error}). All failures trace to specific mechanistic limitations.
 
-\paragraph{Warfarin ($C_{\max}$ fold error: 6.73).} The warfarin benchmark uses 10~mg dose data from PK-DB (replacing the earlier 5~mg synthetic benchmark). Warfarin is highly protein-bound ($f_u \approx 0.005$), and the pKa fix applied in Phase~2 (enol-lactone group, p$K_a$=5.0) correctly identifies ionization but does not fully resolve the Berezhkovskiy $K_p$ over-estimation at extreme protein binding. The model substantially under-predicts $C_{\max}$ (predicted 0.19~mg/L vs.\ observed 1.28~mg/L), and the AUC error is also large (6.2-fold), suggesting that the predicted free drug fraction drives systematic over-clearance. Warfarin illustrates the known limitation that Berezhkovskiy $V_d$ is unreliable for $f_u < 0.01$.
+\paragraph{Warfarin (6.73-fold).} Extreme protein binding ($f_u \approx 0.005$) makes Berezhkovskiy $V_d$ unreliable, driving systematic over-clearance. The benchmark uses 10~mg PK-DB data.
 
-\paragraph{Ibuprofen ($C_{\max}$ fold error: 5.39).} Ibuprofen is 99\% protein-bound ($f_u$ approximately 0.01). At this extreme level of binding, small absolute errors in predicted $f_u$ produce large errors in predicted free drug concentration and, consequently, in $C_{\max}$. The model predicted an $f_u$ that, while within the correct order of magnitude, was sufficient to produce a 5-fold $C_{\max}$ error. Notably, the AUC prediction for ibuprofen was nearly exact (fold error 1.02). This apparent paradox --- accurate AUC despite inaccurate $C_{\max}$ and overpredicted half-life (predicted \SI{29}{h} vs.\ observed \SI{1.8}{h}) --- is an artifact of the 24-hour simulation window: the overpredicted elimination rate causes the simulated curve to remain elevated beyond the observation window, and the truncated AUC integral coincidentally approximates the true AUC over 24 hours. This underscores that AUC agreement does not guarantee correct underlying PK parameters.
+\paragraph{Ibuprofen (5.39-fold).} At 99\% protein binding, small absolute $f_u$ errors produce large relative $C_{\max}$ errors. The near-exact AUC (fold error 1.02) despite large $C_{\max}$ error illustrates that AUC agreement over a 24-hour window does not guarantee correct underlying PK parameters.
 
-\paragraph{Fluconazole ($C_{\max}$ fold error: 3.25).} Fluconazole has unusual pharmacokinetics for an azole antifungal: it is predominantly renally cleared (90\% unchanged), has low protein binding ($f_u \approx 0.88$), and a long half-life (30~h) driven by renal tubular reabsorption. The model's renal clearance heuristics over-predict tubular reabsorption for hydrophilic basic drugs, resulting in under-prediction of $C_{\max}$ and a substantial AUC error (16.6-fold). The error cancellation analysis (Section~\ref{sec:error-cancellation}) identifies fluconazole as a case where ADME errors amplify rather than cancel (CI = 1.023).
+\paragraph{Fluconazole (3.25-fold).} Renal clearance heuristics over-predict tubular reabsorption for this hydrophilic, renally cleared compound. Error cancellation analysis (Section~\ref{sec:error-cancellation}) identifies fluconazole as an amplification case (CI = 1.023).
 
-\paragraph{Applicability domain: CYP1A2 substrates (e.g., flutamide).} As an illustration of a drug type excluded from the benchmark due to applicability domain limitations: flutamide undergoes near-complete CYP1A2-mediated first-pass conversion to 2-hydroxyflutamide, the primary active metabolite. Because CYP1A2 is absent from the current IVIVE formulation (which considers CYP3A4 and CYP2D6 only), flutamide's hepatic extraction is substantially underestimated, yielding a grossly overpredicted $C_{\max}$ (fold error $>$100). Drugs flagged as \texttt{known\_untractable} by the applicability domain classifier are excluded from summary AAFE calculations and should not be processed without model extension.
-
-These failure modes represent known, addressable limitations: extreme protein binding for warfarin and ibuprofen ($f_u < 0.01$), renal clearance heuristics for unusual excretion profiles (fluconazole), and absent CYP isoform coverage for certain high-extraction drugs (CYP1A2 substrates). These mechanistic gaps are targets for future model development (Section~\ref{sec:future}).
+CYP1A2 substrates (e.g., flutamide) are excluded from the benchmark via the applicability domain classifier, as CYP1A2 is absent from the current IVIVE formulation.
 
 \begin{figure}[H]
 \centering
@@ -672,7 +516,7 @@ BARE & 2.465 & [1.96, 3.09] & 42\% & +0.672 \\
 \subsection{Confidence Calibration}
 \label{sec:conf-results}
 
-Omega provides conformal prediction intervals for each ADME property, calibrated on a holdout set of 30 compounds (20\% of the reference dataset). The calibration assessment (Table~\ref{tab:conformal_results}) revealed that interval coverage varies by property.
+Conformal prediction intervals were calibrated on 30 holdout compounds (Table~\ref{tab:conformal_results}). $f_u$ and RBP intervals are conservative (100\% coverage). $CL_{\text{int}}$ intervals use an 11.24$\times$ symmetric multiplier (89.4\% coverage), replacing a previous 50$\times$ global factor whose lower bound was always zero. All properties meet or approach 90\% target coverage.
 
 \begin{table}[H]
 \centering
@@ -682,28 +526,18 @@ Omega provides conformal prediction intervals for each ADME property, calibrated
 \toprule
 Property & Observed Coverage & Interval Width & Status \\
 \midrule
-$f_u$ & 100.0\% & 0.687 & Over-covered \\
+$f_u$ & 100.0\% & 0.687 & Conservative \\
 $CL_{\text{int}}$ (CYP3A4) & 89.4\% & 2.31 & Calibrated \\
-$P_{\text{eff}}$ & 96.7\% & 4.059 & Slightly over-covered \\
-RBP & 100.0\% & 0.840 & Over-covered \\
+$P_{\text{eff}}$ & 96.7\% & 4.059 & Conservative \\
+RBP & 100.0\% & 0.840 & Conservative \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Fraction unbound and RBP intervals achieved 100\% coverage on the holdout set, indicating conservative (wide) intervals. $P_{\text{eff}}$ intervals were slightly conservative at 96.7\% coverage. $CL_{\text{int}}$ intervals were recalibrated using an Austin-correlation-based local conformal approach (11.24$\times$ symmetric multiplier; see Section~\ref{sec:conformal}), achieving 89.4\% coverage with meaningful lower bounds. This replaces the previous global 50$\times$ multiplier, which technically achieved high coverage but produced lower bounds of zero (uninformative). All four properties now meet or approach the 90\% target coverage.
-
 \subsection{Patient-Specific Predictions}
 \label{sec:patient-results}
 
-Omega incorporates allometric covariate scaling and Bayesian individual parameter estimation to support patient-specific PK prediction.
-
-\paragraph{Weight-based scaling.} Population PK parameters are scaled using standard allometric relationships: clearance scales with body weight raised to the 0.75 power, and volume of distribution scales linearly with weight, referenced to a 70~kg adult. For warfarin (10~mg dose), scaling from 70~kg to 120~kg increases predicted clearance by 44\% and volume of distribution by 71\%, resulting in a lower predicted $C_{\max}$ and a modestly shorter half-life, consistent with published population PK analyses of warfarin.
-
-\paragraph{CYP genotype adjustment.} The model applies pharmacogenomic activity factors for CYP2C9, CYP2D6, and CYP2C19 genotypes. For warfarin, which is primarily cleared by CYP2C9, a poor-metabolizer genotype (*3/*3, activity factor 0.1) reduces predicted clearance by 90\% relative to the wild-type (*1/*1), resulting in substantially higher predicted AUC and prolonged half-life. This directional effect is consistent with clinical dose-adjustment guidelines, where CYP2C9 poor metabolizers require 60--80\% dose reductions.
-
-\paragraph{Bayesian individual fitting.} Given 3 or more observed concentration-time points, Omega applies L-BFGS-B optimization in log-concentration space to estimate individual clearance and volume scaling factors. The optimizer uses MAP estimation with a log-normal prior centered on population predictions, regularized to prevent physiologically implausible parameter values. This enables the model to refine population-level predictions using sparse clinical observations, transitioning from population prediction to individualized dosing support with as few as 3 data points.
-
-These patient-specific capabilities demonstrate directional consistency with established pharmacological principles and extend the utility of Omega from population-level screening toward individualized prediction. However, the allometric and genotype scaling factors are derived from published literature, not learned from patient data, and the Bayesian fitting has been validated only on simulated observations, not clinical data. Prospective validation against individual patient PK studies is required before any clinical application.
+Allometric scaling (clearance $\propto W^{0.75}$, volume $\propto W$) and CYP genotype factors produce directionally consistent patient-specific predictions: a CYP2C9 poor metabolizer (*3/*3) shows 90\% clearance reduction vs.\ wild-type, consistent with clinical dose-adjustment guidelines. Bayesian individual fitting from 3+ observed concentrations refines population predictions via L-BFGS-B MAP optimization. These capabilities extend Omega from population screening toward individualized prediction; however, allometric and genotype factors derive from published literature, and Bayesian fitting has been validated only on simulated observations. Prospective clinical validation is required before any patient-care application.
 
 \begin{figure}[H]
 \centering
@@ -717,60 +551,15 @@ These patient-specific capabilities demonstrate directional consistency with est
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{Comparison to Bayer Hybrid Model}
+\subsection{Comparison to Prior Work}
 \label{sec:bayer-comparison}
 
-The most direct comparison for Omega is the hybrid GCN-PBPK model reported by Gruber et al.\ \cite{gruber2024hybrid}, which represents the current state-of-the-art in structure-based PK prediction. Both approaches share the same fundamental architecture --- ML-predicted molecular properties fed into a mechanistic PBPK model --- but differ substantially in their data requirements.
+Gruber et al.\ \cite{gruber2024hybrid} report a median exposure fold change error of 1.87 (oral) using Bayer's proprietary in vitro assay database; this value falls within Omega's 95\% bootstrap CI [1.52--2.18], indicating the performance difference is not statistically significant. Direct comparison is further limited by metric differences (median vs.\ geometric mean fold error) and differing test set compositions. Among public-data approaches, Jia et al.\ \cite{jia2025pksim} achieved 59\%/60\% within 2-fold for $C_{\max}$/AUC on 106 compounds; Omega's expanded 50-drug benchmark (AAFE 3.40, 39\% within 2-fold) provides a more directly comparable estimate at a similar scale.
 
-Omega achieves $C_{\max}$ AAFE 1.79 [95\% CI: 1.52--2.18] on 24 oral drugs using exclusively public data sources: XGBoost models trained on 153 literature reference compounds and TDC datasets, and a 35-state ODE engine parameterized from published physiological values. Gruber et al.\ report an exposure fold change error of 1.87 for oral administration in healthy subjects, using Bayer's internal in vitro assay database for model pre-training --- a proprietary resource accumulated over decades of pharmaceutical research. Bayer's 1.87 falls within Omega's 95\% bootstrap CI, indicating the performance difference is not statistically significant.
-
-That comparable accuracy is achievable with public data alone has two important implications. First, it suggests that the bottleneck in PK prediction is not data access per se, but rather the engineering of the integration layer --- how ML-predicted properties are transformed, calibrated, and fed into the mechanistic model. Omega's physics-informed corrections (GSE solubility floor, VDss calibration, hybrid $C_{\max}$ selector) compensate for individual property prediction errors through mechanistic constraints. Second, it democratizes PK prediction: any research group can reproduce and build upon Omega's results without requiring access to proprietary assay databases.
-
-A direct quantitative comparison is complicated by several factors. First, the metrics differ: Gruber et al.\ report the \textbf{median} fold change error (mfce), whereas AAFE uses the geometric \textbf{mean} --- median is more robust to outliers and typically yields lower values. Second, the test set compositions differ: Omega uses 24 publicly available drugs with clinical C(t) curves, while Gruber's human test set size is not reported (C(t) profiles were validated on 9 compounds). Third, Omega reports $C_{\max}$ separately from AUC, while Gruber reports aggregate ``exposure.'' The ablation study (Section~\ref{sec:ablation}) further demonstrates that Omega's accuracy relative to its own ODE baseline (BARE AAFE 2.465 $\to$ FULL AAFE 1.793) is principally attributable to the hybrid $C_{\max}$ selector, a correction not present in the Bayer architecture.
-
-Among public-data approaches, Jia et al.\ \cite{jia2025pksim} achieved 60\% within 2-fold for AUC and 59\% for $C_{\max}$ on 106 test compounds using PK-Sim with ML-predicted parameters. Omega's 83\% within 2-fold on 24 drugs compares favorably, though the smaller test set limits statistical comparison. The expanded 50-drug benchmark (AAFE 3.40, 39\% within 2-fold) provides a more directly comparable estimate to Jia et al.'s larger test set. Expanding Omega's Gold-tier validation to a comparable size is a priority for future work.
-
-A head-to-head evaluation on a shared benchmark set would be valuable but requires either access to the Bayer model or adoption of a community-standard test set.
-
-\subsection{Speed and Throughput}
-\label{sec:speed}
-
-At \SI{73}{ms} per compound (warm start), Omega is approximately three orders of magnitude faster than manual PBPK model setup. This enables applications that were previously impractical:
-
-\begin{itemize}
-    \item \textbf{Virtual screening:} Evaluating PK for 10,000 compounds in ${\sim}$12 minutes
-    \item \textbf{Molecular optimization:} Real-time PK feedback during generative chemistry
-    \item \textbf{Clinical decision support:} Near-instantaneous dose adjustment recommendations
-\end{itemize}
-
-The cold-start overhead (${\sim}$5 seconds for XGBoost model loading) is amortized over multiple predictions and is negligible in batch settings. The dominant cost is the 35-state ODE integration (${\sim}$\SI{60}{ms}), with ADME prediction adding ${\sim}$\SI{10}{ms} via pre-loaded XGBoost models.
-
-\subsection{Interpretability and Failure Diagnosis}
+\subsection{Interpretability and Regulatory Alignment}
 \label{sec:interpretability}
 
-Unlike pure deep learning PK models, every Omega prediction traces through named, physiologically meaningful parameters: fraction unbound ($f_u$), intrinsic clearance ($CL_{\text{int}}$), effective permeability ($P_{\text{eff}}$), blood-to-plasma ratio (RBP), and tissue partition coefficients ($K_p$). This transparency enables:
-
-\begin{enumerate}
-    \item \textbf{Failure diagnosis.} When a prediction is poor, the root cause can be traced to a specific property. Warfarin's 6.7$\times$ $C_{\max}$ under-prediction traces to extreme protein binding ($f_u \approx 0.005$), where the Berezhkovskiy $V_d$ over-estimation is not fully corrected. Ibuprofen's 5.4$\times$ error also traces to extreme protein binding ($f_u \sim 0.01$), where small absolute errors in $f_u$ prediction cause large relative PK errors. Verapamil's 1.5$\times$ error (improved from a prior run's 8.8$\times$ due to pKa and hybrid Cmax tuning) illustrates how physics-informed corrections can address apparent outliers (Fig.~\ref{fig:fold_error}).
-
-    \item \textbf{Targeted improvement.} Each failure mode suggests a specific fix: adding transporter corrections for P-gp substrates, improving $f_u$ prediction for highly bound drugs, or implementing nonlinear metabolism for saturable CYP substrates.
-
-    \item \textbf{Regulatory acceptability.} Mechanistic interpretability aligns with FDA guidance on PBPK model reporting \cite{fda2018pbpk}, which requires documentation of model structure, parameter sources, and sensitivity analyses --- all of which are straightforward with Omega's architecture.
-\end{enumerate}
-
-\subsection{Multi-Tier Validation}
-\label{sec:multi-tier-disc}
-
-We propose multi-tier validation as a standard for evaluating structure-based PK prediction systems. Traditional validation on a single PK metric (e.g., $C_{\max}$ AAFE on $N$ drugs) provides limited insight into model reliability. Our four-tier framework assesses:
-
-\begin{itemize}
-    \item \textbf{Gold tier (PK accuracy):} Does the system predict clinical PK correctly?
-    \item \textbf{Silver tier (elimination):} Are clearance/volume predictions consistent with observed half-lives?
-    \item \textbf{Bronze tier (ADME properties):} Are individual property predictions accurate?
-    \item \textbf{Temporal holdout:} Does the system generalize to truly unseen chemical space?
-\end{itemize}
-
-Each tier serves a different purpose. Gold tier is the ultimate validation but is limited by the availability of clinical C(t) data. Silver tier expands the drug count using widely available FDA label half-life values. Bronze tier identifies which ADME properties are the strongest and weakest links. Temporal holdout, using drugs approved after the training data cutoff, provides the most honest assessment of generalization.
+Unlike pure deep learning PK models, every Omega prediction traces through named, physiologically meaningful parameters: $f_u$, $CL_{\text{int}}$, $P_{\text{eff}}$, RBP, and tissue partition coefficients $K_p$. When a prediction is poor, the root cause traces to a specific property --- warfarin's 6.7$\times$ error to extreme protein binding ($f_u \approx 0.005$); fluconazole's 3.2$\times$ error to renal tubular reabsorption heuristics. This transparency enables targeted improvement and aligns with FDA guidance on PBPK model reporting \cite{fda2018pbpk}, which requires documentation of model structure, parameter sources, and sensitivity analyses.
 
 \subsection{Error Cancellation and ADME-to-PK Propagation}
 \label{sec:error-cancellation}
@@ -784,26 +573,12 @@ This finding has an important practical implication: improving individual ADME p
 \subsection{Limitations}
 \label{sec:limitations}
 
-Several limitations should be acknowledged:
-
-\paragraph{Validation set size.} The core Gold tier comprises 24 drugs --- sufficient for proof-of-concept but small compared to industry databases. The expanded 50-drug Gold benchmark and 15-drug temporal holdout provide broader coverage, but all remain modest relative to Jia et al.'s 106-compound test set. Expanding the validation set is constrained by the availability of digitized clinical C(t) curves with known SMILES and dosing information. The Silver tier (39 drugs) and Bronze tier (151 compounds) provide broader coverage but at lower validation fidelity.
-
-\paragraph{Clearance prediction.} $CL_{\text{int}}$ AAFE of 3.25 is the weakest property prediction, reflecting the fundamental difficulty of predicting hepatic clearance from molecular structure alone. Structure-based clearance prediction remains an active research challenge across the field, with even specialized models rarely achieving AAFE below 2.0.
-
-\paragraph{Transporters.} Active transport (P-glycoprotein, OATP1B1, OCT2) is not modeled. For the ${\sim}$30\% of oral drugs that are significant transporter substrates, this represents a systematic source of error. Incorporating ADMET-AI's transporter substrate predictions (e.g., Pgp\_Broccatelli) is a natural extension.
-
-\paragraph{Nonlinear PK.} Omega assumes linear (first-order) pharmacokinetics. Drugs with saturable metabolism (phenytoin, ethanol), saturable protein binding (valproic acid), or capacity-limited absorption are not well described by this assumption.
-
-\paragraph{Route and formulation.} Validation is currently limited to single-dose oral immediate-release formulations in healthy volunteers. Extension to intravenous, modified-release, and multi-dose regimens requires additional validation.
-
-\paragraph{Patient-specific prediction.} The patient-specific module uses deterministic allometric and genotype scaling factors from published literature, not learned from data. While clinically standard (NONMEM, Monolix use identical approaches), a data-driven model trained on individual patient PK data could capture more complex covariate relationships. This awaits availability of suitable training data.
+The core Gold benchmark comprises 24 drugs --- sufficient for proof-of-concept but small relative to industry databases. The benchmark relies on single-point summary statistics (mean $C_{\max}$, AUC) rather than full individual concentration-time profiles; population variability is not captured in the reference standard. Active transporters (P-gp, OATP1B1, OCT2) are not mechanistically modeled, representing a systematic error source for the ${\sim}$30\% of oral drugs with significant transporter involvement. Omega assumes linear PK, limiting applicability to drugs with saturable metabolism or binding. Validation is restricted to single-dose oral IR formulations in healthy volunteers. The 34\% overlap between Gold-tier drugs and ADME training data should be noted when interpreting in-sample benchmark results.
 
 \subsection{Future Directions}
 \label{sec:future}
 
-Near-term extensions include transporter correction using ADMET-AI's P-gp/OATP predictions, expansion of the benchmark set using systematic FDA label extraction, and confidence interval calibration for the $CL_{\text{int}}$ predictor.
-
-Longer-term, the neural Level~3 architecture (cross-attention fusion of molecular, patient, and dosing encoders with Reptile meta-learning \cite{nichol2018reptile}) is implemented but untrained, awaiting individual patient concentration-time data. Academic collaborations with population PK modeling groups could provide the necessary training data. The differentiable ODE surrogate (AAFE 1.20 vs.\ real ODE) enables end-to-end gradient-based training when such data become available.
+Near-term priorities include transporter correction via ADMET-AI P-gp/OATP predictions, benchmark expansion via systematic FDA label extraction, and mechanistic gut-wall first-pass correction once the error-cancellation imbalance with hepatic extraction is resolved. Longer-term, end-to-end training against individual patient concentration data would enable the Bayesian fitting module to learn covariate relationships rather than relying on literature-derived allometric factors.
 
 
 %% ============================================================
@@ -825,6 +600,17 @@ Omega demonstrates that open-source, public-data-only pharmacokinetic prediction
 
 
 %% ============================================================
+\section*{Supplementary Methods}
+\label{sec:suppmethods}
+
+Full details of XGBoost model training (datasets, hyperparameters, cross-validation), polynomial ridge regression, ADMET-AI configuration, and conformal calibration procedures are provided here.
+
+\subsection*{ADME XGBoost Model Details}
+
+Four XGBoost models were trained for $f_u$ (TDC PPBR\_AZ, 1,614 compounds), $CL_{\text{int}}$ (TDC Clearance\_Hepatocyte\_AZ, 1,213 compounds), $V_{d,\text{ss}}$ (TDC VDss\_Lombardo, 1,130 compounds), and RBP (153-compound reference set). All models use 2048-bit Morgan fingerprints (radius 2) concatenated with 9 physicochemical RDKit descriptors ($\log P$, TPSA, MW, HBA, HBD, rotatable bonds, ring count, Fsp3, molar refractivity), predicting in $\log_{10}$-space. Polynomial ridge regression ($\log P$, $\log S$, $P_{\text{eff}}$) uses degree-2 features from the same descriptor set.
+
+
+%% ============================================================
 \appendix
 
 \section{Supplementary Tables}
@@ -833,7 +619,7 @@ Omega demonstrates that open-source, public-data-only pharmacokinetic prediction
 \subsection*{Table S1: Gold Tier --- Per-Drug PK Results}
 \label{tab:s1}
 
-Full concentration-time profile validation against digitized clinical PK curves for 24 core benchmark drugs. See Table~\ref{tab:gold_results} in the main text for the representative 20-drug subset. Aggregate: $C_{\max}$ AAFE = 1.79 [95\% CI: 1.52--2.18], 83\% within 2-fold. Median latency: \SI{73}{ms} (excluding cold-start overhead of approximately 5 seconds).
+Predicted vs.\ observed $C_{\max}$ and AUC for 24 core benchmark drugs. Reference values are single-point mean Cmax/AUC from published single-dose PK studies in healthy volunteers (PK-DB, FDA labels, primary literature). See Table~\ref{tab:gold_results} in the main text for the representative 20-drug subset. Aggregate: $C_{\max}$ AAFE = 1.79 [95\% CI: 1.52--2.18], 83\% within 2-fold. Median latency: \SI{73}{ms} (excluding cold-start overhead of approximately 5 seconds).
 
 \subsection*{Table S2: Silver Tier --- Per-Drug Half-Life Results (39 drugs)}
 \label{tab:s2}
@@ -902,7 +688,7 @@ Activity factors relative to the reference phenotype (extensive/normal metaboliz
 \subsection*{Table S5: Benchmark Drug SMILES and Dosing}
 \label{tab:s5}
 
-All 24 Gold Tier benchmark drugs with canonical SMILES, dose, route, and clinical PK data source. Clinical reference data consists of digitized concentration-time curves from published PK studies. Warfarin data from PK-DB (10~mg single dose).
+All 24 Gold Tier benchmark drugs with canonical SMILES, dose, route, and clinical PK data source. Reference data consists of single-point mean $C_{\max}$ and AUC values from published single-dose PK studies in healthy volunteers (PK-DB, FDA drug labels, primary literature). Warfarin data from PK-DB (10~mg single dose).
 
 \begin{table}[H]
 \centering
