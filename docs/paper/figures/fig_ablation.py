@@ -28,19 +28,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Data (from ablation run 2026-03-17)
+# Data (from ablation run 2026-03-18, Phase 3a.1 + acid-Kp D-fix)
 # ---------------------------------------------------------------------------
 
 # (internal_name, display_label, aafe, ci_lo, ci_hi, pct_2fold)
 configs_raw = [
-    ("BARE", "Raw ODE (no corrections)", 2.039, 1.72, 2.44, 54),
-    ("NO_HYBRID", "No hybrid Cmax selector", 1.941, 1.65, 2.30, 58),
-    ("NO_ENS_RIDGE", "No ensemble + no ridge", 1.857, 1.60, 2.20, 71),
-    ("NO_ENSEMBLE", "No PBPK/ML ensemble", 1.857, 1.60, 2.20, 71),
-    ("NO_VDSS", "No XGBoost VDss predictor", 1.783, 1.48, 2.21, 75),
-    ("NO_PGP", "No P-gp correction", 1.776, 1.49, 2.17, 79),
-    ("NO_RIDGE", "No ridge correction", 1.747, 1.48, 2.13, 83),
-    ("FULL", "Full pipeline (baseline)", 1.747, 1.48, 2.13, 83),
+    ("BARE", "Raw ODE (no corrections)", 2.041, 1.72, 2.44, 54),
+    ("NO_HYBRID", "No hybrid Cmax selector", 1.943, 1.65, 2.30, 58),
+    ("NO_ENS_RIDGE", "No ensemble + no ridge", 1.815, 1.57, 2.13, 71),
+    ("NO_ENSEMBLE", "No PBPK/ML ensemble", 1.815, 1.57, 2.13, 71),
+    ("NO_VDSS", "No XGBoost VDss predictor", 1.699, 1.44, 2.06, 79),
+    ("NO_PGP", "No P-gp correction", 1.692, 1.46, 2.02, 83),
+    ("NO_RIDGE", "No ridge correction", 1.665, 1.44, 1.98, 88),
+    ("FULL", "Full pipeline (baseline)", 1.665, 1.44, 1.98, 88),
 ]
 
 # Sort worst-to-best so the chart reads top=worst, bottom=best
@@ -53,7 +53,7 @@ ci_lo = np.array([c[3] for c in configs])
 ci_hi = np.array([c[4] for c in configs])
 pct_2fold = [c[5] for c in configs]
 
-full_aafe = 1.747  # baseline (Phase 3a.1, 2026-03-18)
+full_aafe = 1.665  # baseline (Phase 3a.1 + acid-Kp D-fix, 2026-03-18)
 delta = aafe - full_aafe  # positive = worse without component
 
 # ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ ax.axvline(
     linestyle="--",
     linewidth=1.5,
     zorder=2,
-    label=f"Full pipeline AAFE = {full_aafe:.3f} (Phase 3a.1)",
+    label=f"Full pipeline AAFE = {full_aafe:.3f} (Phase 3a.1 + acid-Kp)",
 )
 
 # 2-fold acceptability line
@@ -191,7 +191,7 @@ fig.text(
     0.33,
     0.01,
     "24-drug gold-tier benchmark (N=24).  Error bars = 95% bootstrap CI (N=10,000 resamples).  "
-    "Δ = AAFE change vs full pipeline (positive = component helps).  Re-run 2026-03-18 with Phase 3a.1.",
+    "Δ = AAFE change vs full pipeline (positive = component helps).  Re-run 2026-03-18 with Phase 3a.1 + acid-Kp D-fix.",
     ha="left",
     va="bottom",
     fontsize=8,

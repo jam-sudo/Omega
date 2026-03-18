@@ -1,6 +1,6 @@
 % Supplementary Table S2: Ablation Study Results
 % Omega PBPK — Phase 0.1 ablation, 24-drug gold-tier benchmark, 10,000-iteration bootstrap
-% Source: scripts/run_ablation.py, re-run 2026-03-18 with Phase 3a.1 (gut-wall threshold guard)
+% Source: scripts/run_ablation.py, re-run 2026-03-18 with Phase 3a.1 + acid-Kp D-fix
 
 \documentclass[12pt,a4paper]{article}
 \usepackage{booktabs}
@@ -13,11 +13,11 @@
 \begin{table}[ht]
 \centering
 \caption*{\textbf{Table S2.} Full ablation study results on the 24-drug gold-tier benchmark
-(10{,}000-iteration bootstrap resampling). Re-run 2026-03-18 with Phase 3a.1 pipeline (AAFE 1.747).
+(10{,}000-iteration bootstrap resampling). Re-run 2026-03-18 with Phase 3a.1 + acid-Kp D-fix pipeline (AAFE 1.665).
 $\Delta$ AAFE is relative to the FULL configuration.
 Configurations are ranked by AAFE ascending (best to worst).
 \textbf{Key finding:} The hybrid $C_{\max}$ selector is the single dominant component
-($\Delta$+0.194 AAFE; 83\%$\to$58\% within 2-fold without it).
+($\Delta$+0.278 AAFE; 88\%$\to$58\% within 2-fold without it).
 Ridge residual correction contributes exactly zero (NO\_RIDGE $=$ FULL),
 confirming it is dead code not active in the inference path.}
 \label{tab:s2_ablation}
@@ -25,17 +25,17 @@ confirming it is dead code not active in the inference path.}
 \toprule
 Config & Description & AAFE & 95\% CI & \%2-fold & $\Delta$ AAFE & Note \\
 \midrule
-FULL         & All components enabled          & 1.747 & [1.48, 2.13] & 83\% & --- & Reference \\
-NO\_RIDGE    & Ridge correction disabled       & 1.747 & [1.48, 2.13] & 83\% & +0.000 & \textbf{Dead code confirmed} \\
-NO\_PGP      & Binary P-gp correction removed  & 1.776 & [1.49, 2.17] & 79\% & +0.029 & Small but real \\
-NO\_VDSS     & XGBoost $V_{d,\text{ss}}$ check removed & 1.783 & [1.48, 2.21] & 75\% & +0.036 & \\
-NO\_ENSEMBLE & PBPK/ML ensemble $\to$ ODE only & 1.857 & [1.60, 2.20] & 71\% & +0.110 & \\
-NO\_ENS\_RIDGE & Ensemble + Ridge both removed & 1.857 & [1.60, 2.20] & 71\% & +0.110 & Confirms no interaction \\
-NO\_HYBRID   & Hybrid $C_{\max}$ selector removed & 1.941 & [1.65, 2.30] & 58\% & +0.194 & \textbf{Dominant component} \\
-BARE         & All corrections disabled (raw ODE) & 2.039 & [1.72, 2.44] & 54\% & +0.292 & ODE-only baseline \\
+FULL         & All components enabled          & 1.665 & [1.44, 1.98] & 88\% & --- & Reference \\
+NO\_RIDGE    & Ridge correction disabled       & 1.665 & [1.44, 1.98] & 88\% & +0.000 & \textbf{Dead code confirmed} \\
+NO\_PGP      & Binary P-gp correction removed  & 1.692 & [1.46, 2.02] & 83\% & +0.027 & Small but real \\
+NO\_VDSS     & XGBoost $V_{d,\text{ss}}$ check removed & 1.699 & [1.44, 2.06] & 79\% & +0.034 & \\
+NO\_ENSEMBLE & PBPK/ML ensemble $\to$ ODE only & 1.815 & [1.57, 2.13] & 71\% & +0.149 & \\
+NO\_ENS\_RIDGE & Ensemble + Ridge both removed & 1.815 & [1.57, 2.13] & 71\% & +0.149 & Confirms no interaction \\
+NO\_HYBRID   & Hybrid $C_{\max}$ selector removed & 1.943 & [1.65, 2.30] & 58\% & +0.278 & \textbf{Dominant component} \\
+BARE         & All corrections disabled (raw ODE) & 2.041 & [1.72, 2.44] & 54\% & +0.376 & ODE-only baseline \\
 \midrule
-\multicolumn{7}{l}{\small CIs for NO\_RIDGE [1.48, 2.13] are identical to FULL: no contribution, confirmed dead code.} \\
-\multicolumn{7}{l}{\small Note: Phase 3a.1 gut-wall fix improved raw ODE baseline (BARE 2.465$\to$2.039), reducing hybrid selector $\Delta$ from +0.553 to +0.194.} \\
+\multicolumn{7}{l}{\small CIs for NO\_RIDGE [1.44, 1.98] are identical to FULL: no contribution, confirmed dead code.} \\
+\multicolumn{7}{l}{\small Note: Phase 3a.1 gut-wall fix + acid-Kp D-fix improved FULL from 1.793 to 1.665 (BARE 2.465$\to$2.041), $\Delta$NO\_HYBRID from +0.553 to +0.278.} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -44,8 +44,9 @@ BARE         & All corrections disabled (raw ODE) & 2.039 & [1.72, 2.44] & 54\% 
 
 \noindent\textbf{Component descriptions:}
 \begin{itemize}
-  \item \textbf{FULL}: Full pipeline — XGBoost ADME, IVIVE, Berezhkovskiy $K_p$, renal CL,
-    binary P-gp correction, XGBoost $V_{d,\text{ss}}$ divergence check, hybrid $C_{\max}$ selector,
+  \item \textbf{FULL}: Full pipeline — XGBoost ADME, IVIVE, Berezhkovskiy $K_p$ with acid-ionization correction
+    (D at tissue pH for carboxylic acids), renal CL, binary P-gp correction,
+    XGBoost $V_{d,\text{ss}}$ divergence check, hybrid $C_{\max}$ selector,
     PBPK/ML ensemble, Ridge correction (loaded but inactive).
   \item \textbf{NO\_RIDGE}: Identical to FULL; Ridge correction file exists in \texttt{models/correction/}
     but is not loaded at inference. Ablation confirms $\Delta=0$.

@@ -28,8 +28,8 @@ SMILES → EnsembleADMEPredictor (XGBoost CLint/fup/rbp/VDss + polynomial)
        → SimulationResult
 ```
 
-### Honest Performance (2026-03-17, with bootstrap CI)
-- **In-sample (24 drugs):** Cmax AAFE 1.72 **[95% CI: 1.49, 2.04]**, 79% 2-fold — Bayer 1.87 falls inside CI (not significant)
+### Honest Performance (2026-03-18, with bootstrap CI)
+- **In-sample (24 drugs):** Cmax AAFE 1.665 **[95% CI: 1.44, 1.98]**, 88% 2-fold — Bayer 1.87 falls inside CI (not significant)
 - **External (8 drugs):** Cmax AAFE 2.95, 62% 2-fold — true out-of-sample performance
 - **Data leakage:** 36/107 (34%) gold tier drugs overlap with ADME training set
 - **Error cancellation confirmed:** predicted ADME (AAFE 2.46) beats measured ADME (2.69) — ML errors compensate ODE structural biases
@@ -55,7 +55,7 @@ Details + cross-review protocol: `.claude/commands/team.md`
 
 1. **ADMET-AI disabled in production** — fup/logP changes break warfarin/metformin/losartan via Kp/Vd
 2. **XGBoost CLint is primary** — 18 reference anchors at 50x weight (semi-supervised, partially circular)
-3. **Hybrid Cmax selector is essential** — ablation: +0.623 AAFE, 46% → 79% 2-fold (biggest single component)
+3. **Hybrid Cmax selector is essential** — ablation: +0.278 AAFE, 88% → 58% 2-fold (biggest single component)
 4. **Don't replace ODE with pure ML** — v1-v5 GNN all failed (distillation ceiling)
 5. **Don't touch phase files** — build ML alongside, deprecate later
 6. **PK-DB + FDA labels** for clinical data; ChEMBL deprioritized
@@ -66,12 +66,13 @@ Details + cross-review protocol: `.claude/commands/team.md`
 11. **Ridge correction is dead code** — not loaded in pipeline, zero contribution confirmed by ablation
 12. **Gut CLint drives Cmax, not hepatic CLint** — Sobol: gut CLint ST=0.470, hepatic CLint ST=0.000 for Cmax. Hepatic CLint only affects AUC.
 13. **Ridge correction is confirmed dead code** — ablation study (Phase 0.1) shows NO_RIDGE = FULL with Δ=0.000 AAFE. The ridge model file exists in models/correction/ but is never loaded at inference. Keep for reproducibility only.
-14. **Hybrid Cmax selector is the dominant component** — ablation Δ+0.194 AAFE without it (83%→58% 2-fold) with Phase 3a.1 pipeline. (Old value Δ+0.553 was pre-Phase-3a.1; gut wall fix improved the raw ODE baseline, reducing hybrid's relative contribution.) Don't remove or simplify it.
+14. **Hybrid Cmax selector is the dominant component** — ablation Δ+0.278 AAFE without it (88%→58% 2-fold) with Phase 3a.1 + acid-Kp pipeline. Don't remove or simplify it.
 15. **Error cancellation is systematic** — 79% of drugs (CI < 0.5), mean CI = 0.303. Fixing individual ADME params without joint balance will worsen aggregate AAFE.
-16. **Phase 3a blocker is fm_CYP3A4 false positives, NOT Fh** — Polynomial clint_3a4 assigns fm_CYP3A4=0.887 to propranolol, 0.939 to ibuprofen. Fix: threshold guard `clint_3a4 > 2.0 µL/min/pmol` → AAFE 1.747, 83% 2-fold (diagnostic: 2026-03-18).
+16. **Phase 3a blocker is fm_CYP3A4 false positives, NOT Fh** — Polynomial clint_3a4 assigns fm_CYP3A4=0.887 to propranolol, 0.939 to ibuprofen. Fix: threshold guard `clint_3a4 > 2.0 µL/min/pmol` → AAFE 1.747, 83% 2-fold (diagnostic: 2026-03-18). Combined with acid-Kp D-fix → AAFE 1.665, 88% 2-fold.
 17. **CLint_gut formula uses pre-inverted CLint** — `clint_L_per_h` is 22-223x larger than `CLh_target`; the 1.7× factor was calibrated for CLh_target. This is a known architectural bug, not a Phase 3a blocker. Fix in Phase 3b.
 18. **fup calibration for low-fup drugs WORSENS AAFE** — isotonic regression improved individual fup accuracy but degraded AAFE +0.088 (fluconazole/atenolol rely on XGBoost fup under-prediction via error cancellation). Do not apply global low-fup calibration.
 19. **CLint_gut K=1.7 is currently optimal — do NOT recalibrate to K=3.1** — Fitting K to Fg_lit data gives K_optimal=3.1 but AAFE worsens +0.094 (83%→79%). Root cause: pipeline fup_pred > fup_lit for CYP3A4 drugs (midazolam: 0.037 vs 0.024), so higher K is required to hit Fg_lit, but this over-corrects and breaks error cancellation. K recalibration requires fup fix first.
+21. **Berezhkovskiy acid-Kp D-fix is correct and safe** — Using D (distribution coefficient at tissue/plasma pH) instead of P (neutral partition coefficient) for the neutral-lipid term in Berezhkovskiy Kp for acids. Fix applies to `compound_type="acid"` only (NOT bases/zwitterions). Dramatically corrects strong acids (ibuprofen pKa=4: Kp_adipose 8.4→0.67, fe_cmax 5.39→1.55x). AAFE 1.747→1.665, %2-fold 83%→88%, confirmed no regression on bases/neutrals. Implementation: `heuristics.py` `berezhkovskiy_kp` + `rodgers_rowland_kp`.
 20. **OATP correction disabled — wrong direction for atorvastatin** — Atorvastatin AUC is UNDER-predicted (fe=3.64×; pred=0.048 vs obs=0.176 mg*h/L), meaning CLint is already over-predicted. OATP adds more clearance → makes AUC worse. CLint already >>QH (near-complete extraction), so any CLint addition has minimal but harmful effect. Root cause: CLint over-prediction, not missing uptake transporter. Code archived in pipeline with `_ENABLE_OATP_CORRECTION = False`.
 
 ## Codebase Rules
@@ -120,8 +121,8 @@ Details + cross-review protocol: `.claude/commands/team.md`
 
 | Level | Criteria | Status |
 |-------|---------|--------|
-| **1** | `omega predict <SMILES>` → PK profile. ADME AAFE<3.0. PK ≤2-fold for ≥70% of 20+ drugs | **PASS** (in-sample 1.72, 79%) |
-| **2** | SMILES→PK <500ms. AAFE<2.0 | **PASS** (73ms, 1.72 in-sample) |
+| **1** | `omega predict <SMILES>` → PK profile. ADME AAFE<3.0. PK ≤2-fold for ≥70% of 20+ drugs | **PASS** (in-sample 1.665, 88%) |
+| **2** | SMILES→PK <500ms. AAFE<2.0 | **PASS** (73ms, 1.665 in-sample) |
 | **3** | Patient covariates. Few-shot (<5 obs) | **Prototype** (allometric + Bayesian) |
 | **4** | Batch screening 1000+ molecules with UQ | **Done** (batch_predict + conformal CI) |
 | **Ext** | External validation AAFE<2.5 on unseen drugs | **NOT MET** (2.95 on 8 drugs) |

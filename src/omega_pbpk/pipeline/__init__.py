@@ -1040,7 +1040,9 @@ class OmegaPipeline:
                 # Basic amines (pKa~9-10) have enhanced tissue uptake via
                 # lysosomal trapping — critical for fluoxetine, propranolol, etc.
                 base_patt = Chem.MolFromSmarts("[NH2,NH1,NH0;!$(NC=O);!$(NS=O)]")
-                acid_patt = Chem.MolFromSmarts("[CX3](=O)[OX1H1,OX2H0-]")
+                acid_patt = Chem.MolFromSmarts(
+                    "[CX3](=O)[OX2H1]"
+                )  # neutral COOH; was [OX1H1,OX2H0-] (missed neutral form)
                 has_base = mol.HasSubstructMatch(base_patt)
                 has_acid = mol.HasSubstructMatch(acid_patt)
                 if has_base and has_acid:

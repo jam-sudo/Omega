@@ -14,6 +14,7 @@ References:
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
@@ -99,6 +100,27 @@ def _ionization_ratio(
     else:
         return 1.0
     return x_t / max(x_p, 1e-12)
+
+
+def _logD_at_pH(logP: float, pka: float | None, pH: float, compound_type: str) -> float:
+    """Distribution coefficient (logD) at a given pH.
+
+    For ionized acids/bases, only the neutral fraction partitions into neutral
+    lipids. Using D (not P) for lipid partition terms gives physically correct
+    Kp for strong acids like ibuprofen (pKa 4.0) at physiological pH 7.0,
+    where D_7.0 ≈ logP − 3.0 (1000-fold reduction vs P_ow).
+
+    For acids:     logD = logP − log10(1 + 10^(pH − pKa))
+    For bases:     logD = logP − log10(1 + 10^(pKa − pH))
+    For neutral:   logD = logP
+    """
+    if pka is None or compound_type == "neutral":
+        return logP
+    if compound_type == "acid":
+        return logP - math.log10(1.0 + 10.0 ** (pH - pka))
+    elif compound_type in ("base", "zwitterion"):
+        return logP - math.log10(1.0 + 10.0 ** (pka - pH))
+    return logP
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +274,6 @@ def rodgers_rowland_kp(
         return 1.0
 
     plasma = PLASMA_COMPOSITION
-    p_ow = 10.0**logP
 
     fw_t = tissue["fw"]
     fn_t = tissue["fn"]
@@ -264,16 +285,24 @@ def rodgers_rowland_kp(
     fp_p = plasma["fp"]
     pH_p = plasma["pH"]
 
+    # For acids only: use D instead of P for lipid partition terms.
+    # Same rationale as berezhkovskiy_kp — see comment there.
+    p_ow = 10.0**logP
+    if ct == "acid":
+        d_ow_t = 10.0 ** _logD_at_pH(logP, pka, pH_t, ct)
+        d_ow_p = 10.0 ** _logD_at_pH(logP, pka, pH_p, ct)
+    else:
+        d_ow_t = p_ow
+        d_ow_p = p_ow
+
     # Lipid partition terms
-    lipid_t = fn_t * p_ow + fp_t * (0.3 * p_ow + 0.7)
-    lipid_p = fn_p * p_ow + fp_p * (0.3 * p_ow + 0.7)
+    lipid_t = fn_t * d_ow_t + fp_t * (0.3 * d_ow_t + 0.7)
+    lipid_p = fn_p * d_ow_p + fp_p * (0.3 * d_ow_p + 0.7)
 
     ion = _ionization_ratio(pka, pH_t, pH_p, ct)
 
     if ct in ("neutral", "acid"):
         # Rodgers & Rowland Eq. 4 — neutral / acid
-        # Water partitioning scales with ionisation; lipid partitioning uses
-        # neutral species only (P, not D) but is attenuated by ionisation.
         kp = (fw_t * ion + lipid_t) / max(fw_p + lipid_p, 1e-12)
     else:
         # Rodgers & Rowland Eq. 5 — base / zwitterion
@@ -404,9 +433,25 @@ def berezhkovskiy_kp(
     fp_p = plasma["fp"]
     pH_p = plasma["pH"]
 
+    # For acids only: use D (distribution coefficient at pH) for lipid partition
+    # terms instead of P. Only the neutral fraction partitions into neutral lipids;
+    # for strong acids (pKa~4) at tissue pH 7.0, only ~0.1% is neutral →
+    # D_7.0 ≈ P/1000. This corrects Kp for ibuprofen, atorvastatin, warfarin, etc.
+    #
+    # For bases/zwitterions: keep P_ow. R&R Eq.5 for bases was calibrated
+    # assuming P for neutral lipid terms while the extra fp_t×(ion−1) term
+    # captures ionized-species phospholipid binding independently. Using D for
+    # bases over-reduces Kp (metoprolol actual Vd ~238L would drop too far).
+    if ct == "acid":
+        d_ow_t = 10.0 ** _logD_at_pH(logP, pka, pH_t, ct)
+        d_ow_p = 10.0 ** _logD_at_pH(logP, pka, pH_p, ct)
+    else:
+        d_ow_t = p_ow
+        d_ow_p = p_ow
+
     # Lipid partition terms
-    lipid_t = fn_t * p_ow + fp_t * (0.3 * p_ow + 0.7)
-    lipid_p = fn_p * p_ow + fp_p * (0.3 * p_ow + 0.7)
+    lipid_t = fn_t * d_ow_t + fp_t * (0.3 * d_ow_t + 0.7)
+    lipid_p = fn_p * d_ow_p + fp_p * (0.3 * d_ow_p + 0.7)
 
     ion = _ionization_ratio(pka, pH_t, pH_p, ct)
 
