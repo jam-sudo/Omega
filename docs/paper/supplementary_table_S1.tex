@@ -1,0 +1,59 @@
+% Supplementary Table S1: Per-Drug Gold Tier Cmax Results
+% Omega PBPK — 24 benchmark drugs (benchmark_2026-03-17.json)
+% Sorted by fold error (worst to best).
+% Aggregate: Cmax AAFE = 1.79 [95% CI: 1.52--2.18], 83% within 2-fold.
+
+\documentclass[12pt,a4paper]{article}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\begin{document}
+
+\begin{table}[ht]
+\centering
+\caption*{\textbf{Table S1.} Gold-tier $C_{\max}$ prediction results for all 24 benchmark drugs.
+Sorted by fold error (worst to best).
+Route = oral immediate-release, single dose, fasted, healthy volunteers.
+FE = $\max(\text{pred}/\text{obs},\ \text{obs}/\text{pred})$.
+Aggregate: $C_{\max}$ AAFE = 1.79 [95\% CI: 1.52--2.18], 83\% within 2-fold (20/24).
+Data source: \texttt{benchmark\_2026-03-17.json}.}
+\label{tab:s1_gold_tier}
+\small
+\begin{tabular}{lrllrrrr}
+\toprule
+Drug & Dose & Route & Pred $C_{\max}$ & Obs $C_{\max}$ & Fold & Within & Notes \\
+     & (mg) &       & (mg/L)          & (mg/L)         & Error & 2-fold & \\
+\midrule
+Warfarin        &  10 & Oral & 0.190  & 1.278 & 6.73 & $\times$ & PK-DB data; pKa fix applied \\
+Ibuprofen       & 400 & Oral & 3.53   & 19.03 & 5.39 & $\times$ & Extreme protein binding ($f_u \approx 0.01$) \\
+Fluconazole     & 200 & Oral & 2.21   &  7.20 & 3.25 & $\times$ & Renal CLint amplification \\
+Furosemide      &  40 & Oral & 0.754  &  2.00 & 2.65 & $\times$ & Active tubular secretion \\
+Midazolam       &   2 & Oral & 0.0114 &  0.0058 & 1.98 & \checkmark & CYP3A4 substrate \\
+Diazepam        &  10 & Oral & 0.120  &  0.236 & 1.97 & \checkmark & \\
+Metoprolol      & 100 & Oral & 0.127  &  0.066 & 1.92 & \checkmark & \\
+D-Amphetamine   &  20 & Oral & 0.095  &  0.050 & 1.89 & \checkmark & \\
+Omeprazole      &  20 & Oral & 0.325  &  0.595 & 1.83 & \checkmark & CYP2C19 substrate \\
+Atorvastatin    &  40 & Oral & 0.0207 &  0.0117 & 1.77 & \checkmark & \\
+Carbamazepine   & 200 & Oral & 0.805  &  1.364 & 1.69 & \checkmark & \\
+Amoxicillin     & 500 & Oral & 5.80   &  9.52 & 1.64 & \checkmark & \\
+Gabapentin      & 300 & Oral & 1.89   &  2.90 & 1.54 & \checkmark & \\
+Phenytoin       & 300 & Oral & 3.45   &  5.29 & 1.53 & \checkmark & \\
+Verapamil       &  80 & Oral & 0.0825 &  0.0556 & 1.48 & \checkmark & P-gp substrate \\
+Propranolol     &  80 & Oral & 0.0566 &  0.0822 & 1.45 & \checkmark & \\
+Fluoxetine      &  20 & Oral & 0.0212 &  0.0150 & 1.41 & \checkmark & \\
+Caffeine        & 100 & Oral & 1.48   &  2.04 & 1.38 & \checkmark & \\
+Atenolol        &  50 & Oral & 0.277  &  0.380 & 1.37 & \checkmark & \\
+Metformin       & 500 & Oral & 0.986  &  1.350 & 1.37 & \checkmark & \\
+Acetaminophen   &1000 & Oral & 14.10  & 10.96 & 1.29 & \checkmark & \\
+Theophylline    & 300 & Oral & 6.44   &  7.23 & 1.12 & \checkmark & \\
+Nifedipine      &  10 & Oral & 0.0695 &  0.0751 & 1.08 & \checkmark & CYP3A4 substrate \\
+Digoxin         & 0.5 & Oral & 0.0014 &  0.0015 & 1.06 & \checkmark & P-gp substrate \\
+\midrule
+\multicolumn{3}{l}{\textbf{Aggregate (N=24)}} & \multicolumn{5}{l}{AAFE = 1.79 [95\% CI: 1.52--2.18], 83\% within 2-fold (20/24)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}

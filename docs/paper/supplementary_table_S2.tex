@@ -1,0 +1,64 @@
+% Supplementary Table S2: Ablation Study Results
+% Omega PBPK — Phase 0.1 ablation, 24-drug gold-tier benchmark, 10,000-iteration bootstrap
+% Source: outputs/diagnostic_report_ablation.json, MEMORY.md 2026-03-17
+
+\documentclass[12pt,a4paper]{article}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\begin{document}
+
+\begin{table}[ht]
+\centering
+\caption*{\textbf{Table S2.} Full ablation study results on the 24-drug gold-tier benchmark
+(10{,}000-iteration bootstrap resampling).
+$\Delta$ AAFE is relative to the FULL configuration.
+Configurations are ranked by AAFE ascending (best to worst).
+\textbf{Key finding:} The hybrid $C_{\max}$ selector is the single dominant component
+($\Delta$+0.553 AAFE; 83\%$\to$46\% within 2-fold without it).
+Ridge residual correction contributes exactly zero (NO\_RIDGE $=$ FULL),
+confirming it is dead code not active in the inference path.}
+\label{tab:s2_ablation}
+\begin{tabular}{llccccc}
+\toprule
+Config & Description & AAFE & 95\% CI & \%2-fold & $\Delta$ AAFE & Note \\
+\midrule
+FULL         & All components enabled          & 1.793 & [1.52, 2.18] & 83\% & --- & Reference \\
+NO\_RIDGE    & Ridge correction disabled       & 1.793 & [1.52, 2.18] & 83\% & +0.000 & \textbf{Dead code confirmed} \\
+NO\_PGP      & Binary P-gp correction removed  & 1.818 & [1.54, 2.21] & 79\% & +0.025 & Small but real \\
+NO\_VDSS     & XGBoost $V_{d,\text{ss}}$ check removed & 1.836 & [1.53, 2.25] & 75\% & +0.043 & \\
+NO\_ENSEMBLE & PBPK/ML ensemble $\to$ ODE only & 1.875 & [1.62, 2.21] & 67\% & +0.082 & \\
+NO\_ENS\_RIDGE & Ensemble + Ridge both removed & 1.875 & [1.62, 2.21] & 67\% & +0.082 & Confirms no interaction \\
+NO\_HYBRID   & Hybrid $C_{\max}$ selector removed & 2.346 & [1.87, 2.96] & 46\% & +0.553 & \textbf{Dominant component} \\
+BARE         & All corrections disabled (raw ODE) & 2.465 & [1.96, 3.09] & 42\% & +0.672 & ODE-only baseline \\
+\midrule
+\multicolumn{7}{l}{\small CIs for NO\_HYBRID [1.87, 2.96] do not overlap with FULL [1.52, 2.18]: contribution is statistically reliable.} \\
+\multicolumn{7}{l}{\small CIs for NO\_RIDGE [1.52, 2.18] are identical to FULL: no contribution, confirmed dead code.} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\bigskip
+
+\noindent\textbf{Component descriptions:}
+\begin{itemize}
+  \item \textbf{FULL}: Full pipeline — XGBoost ADME, IVIVE, Berezhkovskiy $K_p$, renal CL,
+    binary P-gp correction, XGBoost $V_{d,\text{ss}}$ divergence check, hybrid $C_{\max}$ selector,
+    PBPK/ML ensemble, Ridge correction (loaded but inactive).
+  \item \textbf{NO\_RIDGE}: Identical to FULL; Ridge correction file exists in \texttt{models/correction/}
+    but is not loaded at inference. Ablation confirms $\Delta=0$.
+  \item \textbf{NO\_PGP}: Binary P-glycoprotein efflux correction ($\times 0.2$ permeability for P-gp
+    substrates) disabled.
+  \item \textbf{NO\_VDSS}: XGBoost $V_{d,\text{ss}}$ divergence check disabled; Berezhkovskiy $V_d$
+    used unconditionally.
+  \item \textbf{NO\_ENSEMBLE}: Direct $C_{\max}$ ML predictor (Morgan FP + RDKit descriptors $\to$
+    XGBoost) disabled; ODE $C_{\max}$ used without ensemble blending.
+  \item \textbf{NO\_ENS\_RIDGE}: Both ensemble and Ridge correction disabled simultaneously.
+  \item \textbf{NO\_HYBRID}: Hybrid $C_{\max}$ selector (geometric mean of ODE and analytical
+    1-compartment predictions) replaced by raw ODE $C_{\max}$.
+  \item \textbf{BARE}: All post-hoc corrections disabled; raw ODE output only.
+\end{itemize}
+
+\end{document}
