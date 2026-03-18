@@ -29,7 +29,7 @@ SMILES → EnsembleADMEPredictor (XGBoost CLint/fup/rbp/VDss + polynomial)
 ```
 
 ### Honest Performance (2026-03-18, with bootstrap CI)
-- **In-sample (24 drugs):** Cmax AAFE 1.665 **[95% CI: 1.44, 1.98]**, 88% 2-fold — Bayer 1.87 falls inside CI (not significant)
+- **In-sample (24 drugs):** Cmax AAFE 1.646 **[95% CI: 1.44, 1.92]**, 88% 2-fold — Bayer 1.87 falls inside CI (not significant)
 - **External (8 drugs):** Cmax AAFE 2.95, 62% 2-fold — true out-of-sample performance
 - **Data leakage:** 36/107 (34%) gold tier drugs overlap with ADME training set
 - **Error cancellation confirmed:** predicted ADME (AAFE 2.46) beats measured ADME (2.69) — ML errors compensate ODE structural biases
@@ -73,6 +73,8 @@ Details + cross-review protocol: `.claude/commands/team.md`
 18. **fup calibration for low-fup drugs WORSENS AAFE** — isotonic regression improved individual fup accuracy but degraded AAFE +0.088 (fluconazole/atenolol rely on XGBoost fup under-prediction via error cancellation). Do not apply global low-fup calibration.
 19. **CLint_gut K=1.7 is currently optimal — do NOT recalibrate to K=3.1** — Fitting K to Fg_lit data gives K_optimal=3.1 but AAFE worsens +0.094 (83%→79%). Root cause: pipeline fup_pred > fup_lit for CYP3A4 drugs (midazolam: 0.037 vs 0.024), so higher K is required to hit Fg_lit, but this over-corrects and breaks error cancellation. K recalibration requires fup fix first.
 21. **Berezhkovskiy acid-Kp D-fix is correct and safe** — Using D (distribution coefficient at tissue/plasma pH) instead of P (neutral partition coefficient) for the neutral-lipid term in Berezhkovskiy Kp for acids. Fix applies to `compound_type="acid"` only (NOT bases/zwitterions). Dramatically corrects strong acids (ibuprofen pKa=4: Kp_adipose 8.4→0.67, fe_cmax 5.39→1.55x). AAFE 1.747→1.665, %2-fold 83%→88%, confirmed no regression on bases/neutrals. Implementation: `heuristics.py` `berezhkovskiy_kp` + `rodgers_rowland_kp`.
+22. **Enol_lactone compound_type override works but limited by fup<0.01** — Warfarin enol_lactone→acid Kp fix: 6.95x→5.24x. Kp adipose dropped from 6.27→1.97 (correct), but overall Vd still inflated due to Berezhkovskiy overestimation at fup=0.009. AAFE 1.665→1.646.
+23. **Adaptive sim time improves AUC but CLint remains bottleneck** — Fluconazole AUC 13.7→17.7 (extended to 68h), but observed=227.8. Remaining 12.9x gap is CLint over-prediction, not sim time. Triggers when t½ > duration/3.
 20. **OATP correction disabled — wrong direction for atorvastatin** — Atorvastatin AUC is UNDER-predicted (fe=3.64×; pred=0.048 vs obs=0.176 mg*h/L), meaning CLint is already over-predicted. OATP adds more clearance → makes AUC worse. CLint already >>QH (near-complete extraction), so any CLint addition has minimal but harmful effect. Root cause: CLint over-prediction, not missing uptake transporter. Code archived in pipeline with `_ENABLE_OATP_CORRECTION = False`.
 
 ## Codebase Rules
