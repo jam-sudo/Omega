@@ -536,7 +536,10 @@ class OmegaPipeline:
                             0.85, 0.5 + 0.05 * np.log(_ratio)
                         )  # lowered 0.10→0.05 (LOO-CV 2026-03-17)
                     else:
-                        _w_ode = 0.5
+                        # Analytical > ODE: symmetric weight — increase analytical
+                        # weight when ODE significantly under-predicts (e.g.,
+                        # theophylline where ODE over-distributes to tissues).
+                        _w_ode = max(0.15, 0.5 + 0.05 * np.log(_ratio))
                     cmax_blend = float(cmax**_w_ode * _cmax_an ** (1 - _w_ode))
                     logger.debug(
                         "Blended Cmax: ODE=%.4f, analytical=%.4f, w_ode=%.2f, blend=%.4f",

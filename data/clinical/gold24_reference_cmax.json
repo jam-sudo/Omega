@@ -51,14 +51,14 @@
     "note": "Cmax=0.03435 at 2.5mg x0.8=0.02748. Midazolam PK is linear in 1-5mg range."
   },
   "caffeine": {
-    "cmax_mg_L": 4.7769,
+    "cmax_mg_L": 2.6035,
     "auc_mg_h_L": null,
     "dose_mg": 100.0,
     "tmax_h": 0.75,
-    "source": "PK-DB: Wahllaender1990 (PMID:2185297), 200mg oral, n=62. Dose-normalized: x0.5 (100/200mg).",
+    "source": "PK-DB: Edwards2017, 200mg oral, n=24, healthy volunteers. Dose-normalized: x0.5 (100/200mg). Cmax=5.207 at 200mg x0.5=2.6035.",
     "data_quality": "clinical_dose_normalized",
     "dose_ratio": 0.5,
-    "note": "Caffeine PK is linear in 50-400mg range. Best available study: n=62."
+    "note": "CORRECTED 2026-03-18: Wahllaender1990 was a LIVER DISEASE patient study (impaired CYP1A2 clearance → elevated Cmax=9.55 mg/L at 200mg → dose-norm 4.78). Replaced with Edwards2017 (healthy volunteers, DDI study context, n=24, 200mg, Cmax=5.207 → dose-norm 2.60). Caffeine PK is linear in 50-400mg range. Consistent with literature: typical 100mg Cmax 1.5-3 mg/L in healthy adults."
   },
   "theophylline": {
     "cmax_mg_L": 8.7247,
@@ -99,5 +99,25 @@
     "data_quality": "clinical_exact",
     "dose_ratio": 1.0,
     "note": "pk_cmax=0.077 consistent with literature 50-100 ng/mL for 80mg oral verapamil IR. Note: reference_database ct_curve_cmax=0.199 appears incorrect (likely different study arm or unit issue); using pk_cmax directly."
+  },
+  "amoxicillin": {
+    "cmax_mg_L": 7.5,
+    "auc_mg_h_L": null,
+    "dose_mg": 500.0,
+    "tmax_h": 2.0,
+    "source": "FDA label (Amoxil NDA 050821): 500mg oral capsule single dose fasted, Cmax≈7.5 µg/mL at 2h.",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Exact benchmark dose. Synthetic reference was 9.52 mg/L (27% too high). FDA label 7.5 µg/mL well-established for amoxicillin 500mg capsule."
+  },
+  "metformin": {
+    "cmax_mg_L": 1.03,
+    "auc_mg_h_L": null,
+    "dose_mg": 500.0,
+    "tmax_h": 2.5,
+    "source": "FDA label (Glucophage NDA 021202): 500mg single oral dose fasted, Cmax=1.03 µg/mL at 2.5h.",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Exact benchmark dose (500mg metformin HCl). Synthetic reference was 1.35 mg/L (31% too high). Standard FDA PK study value."
   }
 }

@@ -1,10 +1,10 @@
 {
-  "n_drugs": 66,
+  "n_drugs": 73,
   "n_features": 2057,
-  "cv_aafe": 13.2767,
-  "cv_rmse_log": 1.94,
-  "cv_pct_2fold": 33.3,
-  "cv_pct_3fold": 47.0,
+  "cv_aafe": 11.3472,
+  "cv_rmse_log": 1.8483,
+  "cv_pct_2fold": 31.5,
+  "cv_pct_3fold": 42.5,
   "target": "log(obs_cmax / dose_mg)",
   "hyperparameters": {
     "n_estimators": 100,
