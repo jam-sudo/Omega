@@ -1,7 +1,7 @@
 % Supplementary Table S1: Per-Drug Gold Tier Cmax Results
-% Omega PBPK — 24 benchmark drugs (benchmark_2026-03-17.json)
+% Omega PBPK — 24 benchmark drugs (benchmark_2026-03-18.json)
 % Sorted by fold error (worst to best).
-% Aggregate: Cmax AAFE = 1.79 [95% CI: 1.52--2.18], 83% within 2-fold.
+% Aggregate: Cmax AAFE = 1.51 [95% CI: 1.33--1.74], 88% within 2-fold.
 
 \documentclass[12pt,a4paper]{article}
 \usepackage{booktabs}
@@ -17,8 +17,8 @@
 Sorted by fold error (worst to best).
 Route = oral immediate-release, single dose, fasted, healthy volunteers.
 FE = $\max(\text{pred}/\text{obs},\ \text{obs}/\text{pred})$.
-Aggregate: $C_{\max}$ AAFE = 1.79 [95\% CI: 1.52--2.18], 83\% within 2-fold (20/24).
-Data source: \texttt{benchmark\_2026-03-17.json}.}
+Aggregate: $C_{\max}$ AAFE = 1.51 [95\% CI: 1.33--1.74], 88\% within 2-fold (21/24).
+Data source: \texttt{benchmark\_2026-03-18.json}. Reference values from FDA labels and PK-DB.}
 \label{tab:s1_gold_tier}
 \small
 \begin{tabular}{lrllrrrr}
@@ -26,32 +26,32 @@ Data source: \texttt{benchmark\_2026-03-17.json}.}
 Drug & Dose & Route & Pred $C_{\max}$ & Obs $C_{\max}$ & Fold & Within & Notes \\
      & (mg) &       & (mg/L)          & (mg/L)         & Error & 2-fold & \\
 \midrule
-Warfarin        &  10 & Oral & 0.190  & 1.278 & 6.73 & $\times$ & PK-DB data; pKa fix applied \\
-Ibuprofen       & 400 & Oral & 3.53   & 19.03 & 5.39 & $\times$ & Extreme protein binding ($f_u \approx 0.01$) \\
-Fluconazole     & 200 & Oral & 2.21   &  7.20 & 3.25 & $\times$ & Renal CLint amplification \\
-Furosemide      &  40 & Oral & 0.754  &  2.00 & 2.65 & $\times$ & Active tubular secretion \\
-Midazolam       &   2 & Oral & 0.0114 &  0.0058 & 1.98 & \checkmark & CYP3A4 substrate \\
-Diazepam        &  10 & Oral & 0.120  &  0.236 & 1.97 & \checkmark & \\
-Metoprolol      & 100 & Oral & 0.127  &  0.066 & 1.92 & \checkmark & \\
-D-Amphetamine   &  20 & Oral & 0.095  &  0.050 & 1.89 & \checkmark & \\
-Omeprazole      &  20 & Oral & 0.325  &  0.595 & 1.83 & \checkmark & CYP2C19 substrate \\
-Atorvastatin    &  40 & Oral & 0.0207 &  0.0117 & 1.77 & \checkmark & \\
-Carbamazepine   & 200 & Oral & 0.805  &  1.364 & 1.69 & \checkmark & \\
-Amoxicillin     & 500 & Oral & 5.80   &  9.52 & 1.64 & \checkmark & \\
-Gabapentin      & 300 & Oral & 1.89   &  2.90 & 1.54 & \checkmark & \\
-Phenytoin       & 300 & Oral & 3.45   &  5.29 & 1.53 & \checkmark & \\
-Verapamil       &  80 & Oral & 0.0825 &  0.0556 & 1.48 & \checkmark & P-gp substrate \\
-Propranolol     &  80 & Oral & 0.0566 &  0.0822 & 1.45 & \checkmark & \\
-Fluoxetine      &  20 & Oral & 0.0212 &  0.0150 & 1.41 & \checkmark & \\
-Caffeine        & 100 & Oral & 1.48   &  2.04 & 1.38 & \checkmark & \\
-Atenolol        &  50 & Oral & 0.277  &  0.380 & 1.37 & \checkmark & \\
-Metformin       & 500 & Oral & 0.986  &  1.350 & 1.37 & \checkmark & \\
-Acetaminophen   &1000 & Oral & 14.10  & 10.96 & 1.29 & \checkmark & \\
-Theophylline    & 300 & Oral & 6.44   &  7.23 & 1.12 & \checkmark & \\
-Nifedipine      &  10 & Oral & 0.0695 &  0.0751 & 1.08 & \checkmark & CYP3A4 substrate \\
-Digoxin         & 0.5 & Oral & 0.0014 &  0.0015 & 1.06 & \checkmark & P-gp substrate \\
+Midazolam       &   2 & Oral & 0.0069 &  0.0275 & 3.99 & $\times$ & CYP3A4 gut-wall formula bug \\
+Fluconazole     & 200 & Oral & 2.39   &  6.72 & 2.81 & $\times$ & Berezhkovskiy $V_d$ + CLh over-predicted \\
+Omeprazole      &  20 & Oral & 0.298  &  0.141 & 2.11 & $\times$ & CYP2C19 autoinhibition; ref dose-normalized \\
+Verapamil       &  80 & Oral & 0.0402 &  0.0770 & 1.91 & \checkmark & \\
+D-Amphetamine   &  20 & Oral & 0.0953 &  0.0504 & 1.89 & \checkmark & \\
+Warfarin        &  10 & Oral & 0.676  &  1.278 & 1.89 & \checkmark & VDss anchor applied (0.13 L/kg) \\
+Diazepam        &  10 & Oral & 0.136  &  0.236 & 1.73 & \checkmark & \\
+Caffeine        & 100 & Oral & 1.551  &  2.604 & 1.68 & \checkmark & \\
+Metoprolol      & 100 & Oral & 0.108  &  0.066 & 1.64 & \checkmark & \\
+Atorvastatin    &  40 & Oral & 0.0073 &  0.0117 & 1.61 & \checkmark & \\
+Carbamazepine   & 200 & Oral & 0.864  &  1.364 & 1.58 & \checkmark & \\
+Theophylline    & 300 & Oral & 5.630  &  8.725 & 1.55 & \checkmark & \\
+Propranolol     &  80 & Oral & 0.0551 &  0.0822 & 1.49 & \checkmark & \\
+Furosemide      &  40 & Oral & 0.769  &  1.110 & 1.44 & \checkmark & \\
+Metformin       & 500 & Oral & 1.443  &  1.030 & 1.40 & \checkmark & \\
+Fluoxetine      &  20 & Oral & 0.0116 &  0.0150 & 1.29 & \checkmark & \\
+Atenolol        &  50 & Oral & 0.265  &  0.300 & 1.13 & \checkmark & \\
+Nifedipine      &  10 & Oral & 0.0678 &  0.0751 & 1.11 & \checkmark & CYP3A4 substrate \\
+Digoxin         & 0.5 & Oral & 0.0014 &  0.0015 & 1.10 & \checkmark & P-gp substrate \\
+Gabapentin      & 300 & Oral & 3.201  &  2.900 & 1.10 & \checkmark & \\
+Acetaminophen   &1000 & Oral & 14.24  & 15.18 & 1.07 & \checkmark & \\
+Amoxicillin     & 500 & Oral & 6.983  &  7.500 & 1.07 & \checkmark & \\
+Phenytoin       & 300 & Oral & 5.231  &  5.290 & 1.01 & \checkmark & \\
+Ibuprofen       & 400 & Oral & 19.06  & 19.00 & 1.00 & \checkmark & Acid-Kp D-fix applied \\
 \midrule
-\multicolumn{3}{l}{\textbf{Aggregate (N=24)}} & \multicolumn{5}{l}{AAFE = 1.79 [95\% CI: 1.52--2.18], 83\% within 2-fold (20/24)} \\
+\multicolumn{3}{l}{\textbf{Aggregate (N=24)}} & \multicolumn{5}{l}{AAFE = 1.51 [95\% CI: 1.33--1.74], 88\% within 2-fold (21/24)} \\
 \bottomrule
 \end{tabular}
 \end{table}

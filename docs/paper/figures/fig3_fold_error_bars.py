@@ -27,36 +27,36 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 BENCHMARK_RAW = [
-    ("caffeine", 1.377),
-    ("metoprolol", 1.919),
-    ("midazolam", 1.978),
-    ("propranolol", 1.452),
-    ("warfarin", 6.735),
-    ("d-amphetamine", 1.890),
-    ("ibuprofen", 5.394),
-    ("acetaminophen", 1.287),
-    ("amoxicillin", 1.643),
-    ("atorvastatin", 1.772),
-    ("carbamazepine", 1.693),
-    ("diazepam", 1.968),
-    ("digoxin", 1.060),
-    ("fluoxetine", 1.415),
-    ("nifedipine", 1.081),
-    ("omeprazole", 1.830),
-    ("phenytoin", 1.531),
-    ("theophylline", 1.122),
-    ("verapamil", 1.483),
-    ("atenolol", 1.371),
-    ("fluconazole", 3.253),
-    ("furosemide", 2.652),
-    ("gabapentin", 1.536),
-    ("metformin", 1.370),
+    ("caffeine", 1.678),
+    ("metoprolol", 1.635),
+    ("midazolam", 3.986),
+    ("propranolol", 1.492),
+    ("warfarin", 1.889),
+    ("d-amphetamine", 1.891),
+    ("ibuprofen", 1.003),
+    ("acetaminophen", 1.066),
+    ("amoxicillin", 1.074),
+    ("atorvastatin", 1.607),
+    ("carbamazepine", 1.579),
+    ("diazepam", 1.734),
+    ("digoxin", 1.097),
+    ("fluoxetine", 1.293),
+    ("nifedipine", 1.108),
+    ("omeprazole", 2.109),
+    ("phenytoin", 1.011),
+    ("theophylline", 1.550),
+    ("verapamil", 1.915),
+    ("atenolol", 1.133),
+    ("fluconazole", 2.811),
+    ("furosemide", 1.444),
+    ("gabapentin", 1.104),
+    ("metformin", 1.401),
 ]
 
-AAFE = 1.793
-AAFE_CI_LO = 1.52
-AAFE_CI_HI = 2.18
-PCT_2FOLD = 83.3
+AAFE = 1.513
+AAFE_CI_LO = 1.33
+AAFE_CI_HI = 1.74
+PCT_2FOLD = 87.5
 
 # Sort best → worst
 BENCHMARK = sorted(BENCHMARK_RAW, key=lambda x: x[1])

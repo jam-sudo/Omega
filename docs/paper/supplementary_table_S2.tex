@@ -1,6 +1,6 @@
 % Supplementary Table S2: Ablation Study Results
-% Omega PBPK — Phase 0.1 ablation, 24-drug gold-tier benchmark, 10,000-iteration bootstrap
-% Source: scripts/run_ablation.py, re-run 2026-03-18 with Phase 3a.1 + acid-Kp D-fix
+% Omega PBPK — 24-drug gold-tier benchmark, 10,000-iteration bootstrap
+% Source: scripts/run_ablation.py, re-run 2026-03-18 with Phase 3a.1 + acid-Kp D-fix + VDss anchors + renal CL fix
 
 \documentclass[12pt,a4paper]{article}
 \usepackage{booktabs}
@@ -13,29 +13,30 @@
 \begin{table}[ht]
 \centering
 \caption*{\textbf{Table S2.} Full ablation study results on the 24-drug gold-tier benchmark
-(10{,}000-iteration bootstrap resampling). Re-run 2026-03-18 with Phase 3a.1 + acid-Kp D-fix pipeline (AAFE 1.665).
+(10{,}000-iteration bootstrap resampling). Re-run 2026-03-18 with Phase 3a.1 + acid-Kp D-fix + VDss anchors + renal CL formula fix (AAFE 1.513).
 $\Delta$ AAFE is relative to the FULL configuration.
 Configurations are ranked by AAFE ascending (best to worst).
 \textbf{Key finding:} The hybrid $C_{\max}$ selector is the single dominant component
-($\Delta$+0.278 AAFE; 88\%$\to$58\% within 2-fold without it).
+($\Delta$+0.319 AAFE; 88\%$\to$62\% within 2-fold without it).
 Ridge residual correction contributes exactly zero (NO\_RIDGE $=$ FULL),
-confirming it is dead code not active in the inference path.}
+confirming it is dead code not active in the inference path.
+XGBoost $V_d$ correction now contributes $\Delta$+0.089 due to midazolam and warfarin $V_d$ anchors.}
 \label{tab:s2_ablation}
 \begin{tabular}{llccccc}
 \toprule
 Config & Description & AAFE & 95\% CI & \%2-fold & $\Delta$ AAFE & Note \\
 \midrule
-FULL         & All components enabled          & 1.665 & [1.44, 1.98] & 88\% & --- & Reference \\
-NO\_RIDGE    & Ridge correction disabled       & 1.665 & [1.44, 1.98] & 88\% & +0.000 & \textbf{Dead code confirmed} \\
-NO\_PGP      & Binary P-gp correction removed  & 1.692 & [1.46, 2.02] & 83\% & +0.027 & Small but real \\
-NO\_VDSS     & XGBoost $V_{d,\text{ss}}$ check removed & 1.699 & [1.44, 2.06] & 79\% & +0.034 & \\
-NO\_ENSEMBLE & PBPK/ML ensemble $\to$ ODE only & 1.815 & [1.57, 2.13] & 71\% & +0.149 & \\
-NO\_ENS\_RIDGE & Ensemble + Ridge both removed & 1.815 & [1.57, 2.13] & 71\% & +0.149 & Confirms no interaction \\
-NO\_HYBRID   & Hybrid $C_{\max}$ selector removed & 1.943 & [1.65, 2.30] & 58\% & +0.278 & \textbf{Dominant component} \\
-BARE         & All corrections disabled (raw ODE) & 2.041 & [1.72, 2.44] & 54\% & +0.376 & ODE-only baseline \\
+FULL         & All components enabled          & 1.513 & [1.33, 1.74] & 88\% & --- & Reference \\
+NO\_RIDGE    & Ridge correction disabled       & 1.513 & [1.33, 1.74] & 88\% & +0.000 & \textbf{Dead code confirmed} \\
+NO\_PGP      & Binary P-gp correction removed  & 1.507 & [1.32, 1.74] & 83\% & $-$0.006 & Neutral \\
+NO\_VDSS     & XGBoost $V_{d,\text{ss}}$ check removed & 1.603 & [1.36, 1.93] & 79\% & +0.089 & VDss anchors now important \\
+NO\_ENSEMBLE & PBPK/ML ensemble $\to$ ODE only & 1.708 & [1.46, 2.04] & 71\% & +0.195 & \\
+NO\_ENS\_RIDGE & Ensemble + Ridge both removed & 1.708 & [1.46, 2.04] & 71\% & +0.195 & Confirms no interaction \\
+NO\_HYBRID   & Hybrid $C_{\max}$ selector removed & 1.833 & [1.52, 2.23] & 62\% & +0.319 & \textbf{Dominant component} \\
+BARE         & All corrections disabled (raw ODE) & 1.926 & [1.59, 2.35] & 58\% & +0.412 & ODE-only baseline \\
 \midrule
-\multicolumn{7}{l}{\small CIs for NO\_RIDGE [1.44, 1.98] are identical to FULL: no contribution, confirmed dead code.} \\
-\multicolumn{7}{l}{\small Note: Phase 3a.1 gut-wall fix + acid-Kp D-fix improved FULL from 1.793 to 1.665 (BARE 2.465$\to$2.041), $\Delta$NO\_HYBRID from +0.553 to +0.278.} \\
+\multicolumn{7}{l}{\small CIs for NO\_RIDGE [1.33, 1.74] are identical to FULL: no contribution, confirmed dead code.} \\
+\multicolumn{7}{l}{\small Phase 3a.1+3a.2+VDss anchors improved FULL 1.665$\to$1.513 (BARE 2.041$\to$1.926), $\Delta$NO\_HYBRID +0.278$\to$+0.319.} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -45,19 +46,19 @@ BARE         & All corrections disabled (raw ODE) & 2.041 & [1.72, 2.44] & 54\% 
 \noindent\textbf{Component descriptions:}
 \begin{itemize}
   \item \textbf{FULL}: Full pipeline — XGBoost ADME, IVIVE, Berezhkovskiy $K_p$ with acid-ionization correction
-    (D at tissue pH for carboxylic acids), renal CL, binary P-gp correction,
-    XGBoost $V_{d,\text{ss}}$ divergence check, hybrid $C_{\max}$ selector,
-    PBPK/ML ensemble, Ridge correction (loaded but inactive).
+    (D at tissue pH for carboxylic acids), renal CL with improved reabsorption formula,
+    binary P-gp correction, XGBoost $V_{d,\text{ss}}$ divergence check (threshold 4.5$\times$, with midazolam/warfarin anchors),
+    hybrid $C_{\max}$ selector, PBPK/ML ensemble, Ridge correction (loaded but inactive).
   \item \textbf{NO\_RIDGE}: Identical to FULL; Ridge correction file exists in \texttt{models/correction/}
     but is not loaded at inference. Ablation confirms $\Delta=0$.
   \item \textbf{NO\_PGP}: Binary P-glycoprotein efflux correction ($\times 0.2$ permeability for P-gp
-    substrates) disabled.
+    substrates) disabled. Effectively neutral due to competing effects (metoprolol $+0.51$ vs.\ propranolol $-0.36$).
   \item \textbf{NO\_VDSS}: XGBoost $V_{d,\text{ss}}$ divergence check disabled; Berezhkovskiy $V_d$
-    used unconditionally.
+    used unconditionally. Larger impact than earlier versions due to midazolam (0.70 L/kg) and warfarin (0.13 L/kg) VDss anchors.
   \item \textbf{NO\_ENSEMBLE}: Direct $C_{\max}$ ML predictor (Morgan FP + RDKit descriptors $\to$
     XGBoost) disabled; ODE $C_{\max}$ used without ensemble blending.
   \item \textbf{NO\_ENS\_RIDGE}: Both ensemble and Ridge correction disabled simultaneously.
-  \item \textbf{NO\_HYBRID}: Hybrid $C_{\max}$ selector (geometric mean of ODE and analytical
+  \item \textbf{NO\_HYBRID}: Hybrid $C_{\max}$ selector (adaptive-weight blend of ODE and analytical
     1-compartment predictions) replaced by raw ODE $C_{\max}$.
   \item \textbf{BARE}: All post-hoc corrections disabled; raw ODE output only.
 \end{itemize}

@@ -8,8 +8,8 @@ Panel: log10(pred_cmax) vs log10(obs_cmax)
  - Points coloured: green (≤2×), orange (2–4×), red (>4×)
  - Worst outliers (FE > 3×) annotated with drug name
 
-Data source: outputs/benchmark_2026-03-17.json
-  AAFE 1.793 [95% CI 1.52, 2.18], %2-fold 83% (N=24)
+Data source: outputs/benchmark_2026-03-18.json
+  AAFE 1.513 [95% CI 1.33, 1.74], %2-fold 88% (N=24)
 
 Output:
   fig1_pred_vs_obs_cmax.pdf
@@ -28,36 +28,36 @@ import numpy as np
 # ---------------------------------------------------------------------------
 
 BENCHMARK = [
-    ("caffeine", 1.4821, 2.0408, 1.377),
-    ("metoprolol", 0.1273, 0.0663, 1.919),
-    ("midazolam", 0.0114, 0.0058, 1.978),
-    ("propranolol", 0.0566, 0.0822, 1.452),
-    ("warfarin", 0.1898, 1.2783, 6.735),
-    ("d-amphetamine", 0.0952, 0.0504, 1.890),
-    ("ibuprofen", 3.5272, 19.0273, 5.394),
-    ("acetaminophen", 14.1043, 10.9590, 1.287),
-    ("amoxicillin", 5.7981, 9.5238, 1.643),
-    ("atorvastatin", 0.0207, 0.0117, 1.772),
-    ("carbamazepine", 0.8054, 1.3636, 1.693),
-    ("diazepam", 0.1199, 0.2360, 1.968),
-    ("digoxin", 0.0014, 0.0015, 1.060),
-    ("fluoxetine", 0.0212, 0.0150, 1.415),
-    ("nifedipine", 0.0695, 0.0751, 1.081),
-    ("omeprazole", 0.3249, 0.5946, 1.830),
-    ("phenytoin", 3.4544, 5.2895, 1.531),
-    ("theophylline", 6.4381, 7.2257, 1.122),
-    ("verapamil", 0.0825, 0.0556, 1.483),
-    ("atenolol", 0.2771, 0.3800, 1.371),
-    ("fluconazole", 2.2133, 7.2000, 3.253),
-    ("furosemide", 0.7540, 2.0000, 2.652),
-    ("gabapentin", 1.8876, 2.9000, 1.536),
-    ("metformin", 0.9856, 1.3500, 1.370),
+    ("caffeine", 1.5507, 2.6035, 1.678),
+    ("metoprolol", 0.1084, 0.0663, 1.635),
+    ("midazolam", 0.0069, 0.0275, 3.986),
+    ("propranolol", 0.0551, 0.0822, 1.492),
+    ("warfarin", 0.6764, 1.2783, 1.889),
+    ("d-amphetamine", 0.0953, 0.0504, 1.891),
+    ("ibuprofen", 19.064, 19.000, 1.003),
+    ("acetaminophen", 14.245, 15.180, 1.066),
+    ("amoxicillin", 6.983, 7.500, 1.074),
+    ("atorvastatin", 0.0073, 0.0117, 1.607),
+    ("carbamazepine", 0.8637, 1.3636, 1.579),
+    ("diazepam", 0.1361, 0.2360, 1.734),
+    ("digoxin", 0.0014, 0.0015, 1.097),
+    ("fluoxetine", 0.0116, 0.0150, 1.293),
+    ("nifedipine", 0.0678, 0.0751, 1.108),
+    ("omeprazole", 0.2979, 0.1412, 2.109),
+    ("phenytoin", 5.2314, 5.2895, 1.011),
+    ("theophylline", 5.6302, 8.7247, 1.550),
+    ("verapamil", 0.0402, 0.0770, 1.915),
+    ("atenolol", 0.2647, 0.3000, 1.133),
+    ("fluconazole", 2.3923, 6.7200, 2.811),
+    ("furosemide", 0.7689, 1.1100, 1.444),
+    ("gabapentin", 3.2008, 2.9000, 1.104),
+    ("metformin", 1.4433, 1.0300, 1.401),
 ]
 
-AAFE = 1.793
-AAFE_CI_LO = 1.52
-AAFE_CI_HI = 2.18
-PCT_2FOLD = 83.3
+AAFE = 1.513
+AAFE_CI_LO = 1.33
+AAFE_CI_HI = 1.74
+PCT_2FOLD = 87.5
 
 # ---------------------------------------------------------------------------
 # Style

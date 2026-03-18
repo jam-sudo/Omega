@@ -34,8 +34,8 @@ import numpy as np
 
 TIERS = [
     # Core gold
-    ("Core Gold — Cmax (N=24)", "Cmax", 24, 1.793, 1.52, 2.18, 83),
-    ("Core Gold — AUC (N=24)", "AUC", 24, 1.960, 1.56, 2.57, 63),
+    ("Core Gold — Cmax (N=24)", "Cmax", 24, 1.513, 1.33, 1.74, 88),
+    ("Core Gold — AUC (N=24)", "AUC", 24, 1.932, 1.54, 2.59, 62),
     # Expanded gold
     ("Expanded Gold — Cmax (N=51)", "Cmax", 51, 3.40, 2.42, 4.94, 39),
     # Temporal
