@@ -43,3 +43,28 @@ def test_acid_kp_lower_than_neutral():
     assert kp_acid < kp_neutral * 0.5, (
         f"Acid Kp ({kp_acid}) not sufficiently lower than neutral ({kp_neutral})"
     )
+
+
+@pytest.mark.slow
+def test_adaptive_sim_time_long_halflife():
+    """Simulation time should extend for long-half-life drugs."""
+    from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
+
+    pipeline = OmegaPipeline()
+    # Fluconazole: t½ ≈ 30h, needs > 24h simulation
+    smiles = "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F"  # fluconazole
+    result = pipeline.simulate(
+        SimulationRequest(smiles=smiles, dose_mg=200.0)
+        # duration_h defaults to 24.0 — adaptive should extend
+    )
+    # With adequate sim time, AUC should improve significantly.
+    # Without extension (24h only): AUC ≈ 13.7 mg*h/L
+    # After extension (~50h): AUC ≈ 17.7 mg*h/L (29% improvement)
+    # Observed: 227.8 (remaining gap is CL under-prediction, not sim time)
+    assert result.auc0t_mg_h_L > 15.0, (
+        f"Fluconazole AUC {result.auc0t_mg_h_L:.1f} too low — sim time likely not extended"
+    )
+    # Verify sim was actually extended (check time array)
+    assert result.time_h[-1] > 24.0, (
+        f"Simulation ended at {result.time_h[-1]:.1f}h — expected extension"
+    )

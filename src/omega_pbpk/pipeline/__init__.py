@@ -660,6 +660,50 @@ class OmegaPipeline:
                 and drug.logP > 2.0
             ):
                 t_half = t_half_analytical
+
+        # --- Phase 0.2: Adaptive simulation time ---
+        # If t½ is long relative to simulation duration, the AUC is severely
+        # underestimated because only a fraction of the elimination phase is
+        # captured.  Re-run ODE with an extended duration so that AUC and t½
+        # are computed from a curve that covers ≥5 half-lives.
+        # Cmax/tmax are unaffected (peak occurs in the first few hours).
+        _ADAPTIVE_SIM_MULTIPLIER = 5.0
+        _MAX_SIM_DURATION_H = 168.0  # 1-week cap
+        if request.duration_h <= 24.0 and not np.isnan(t_half) and t_half > request.duration_h / 3:
+            extended_h = min(t_half * _ADAPTIVE_SIM_MULTIPLIER, _MAX_SIM_DURATION_H)
+            if extended_h > request.duration_h * 1.5:
+                logger.debug(
+                    "Adaptive sim: t½=%.1fh, extending %dh → %dh",
+                    t_half,
+                    request.duration_h,
+                    extended_h,
+                )
+                extended_req = SimulationRequest(
+                    smiles=request.smiles,
+                    dose_mg=request.dose_mg,
+                    route=request.route,
+                    duration_h=extended_h,
+                    n_timepoints=max(request.n_timepoints, int(extended_h * 10)),
+                )
+                time_h_ext, cp_ext = self._run_simulation(drug, extended_req, warnings_list)
+                # AUC benefits from full curve; Cmax/tmax stay from original run
+                auc = float(np_trapz(cp_ext, time_h_ext))
+                # Re-estimate t_half from extended curve
+                _ext_cmax_idx = int(np.argmax(cp_ext))
+                _ext_post = cp_ext[_ext_cmax_idx + 1 :]
+                _ext_time = time_h_ext[_ext_cmax_idx + 1 :]
+                _ext_mask = _ext_post > cmax * 0.001
+                if np.sum(_ext_mask) >= 3:
+                    _ext_log = np.log(_ext_post[_ext_mask])
+                    _ext_t = _ext_time[_ext_mask]
+                    _ext_slope, _ = np.polyfit(_ext_t, _ext_log, 1)
+                    if _ext_slope < -1e-10:
+                        t_half = float(-np.log(2) / _ext_slope)
+                # Update time_h, cp for the return value (full curve)
+                time_h = time_h_ext
+                cp = cp_ext
+                warnings_list.append(f"Simulation extended to {extended_h:.0f}h (t½={t_half:.1f}h)")
+
         confidence = adme_props.get("confidence", "low")
 
         # Ensemble PBPK + Direct ML prediction
