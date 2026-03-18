@@ -277,6 +277,9 @@ class OmegaPipeline:
         self._vdss_predictor = None
         self._direct_cmax = None
         self._initialized = False
+        self.use_ml_corrections = False
+        self._pre_ode = None
+        self._post_ode = None
 
     def _ensure_initialized(self) -> None:
         if self._initialized:
@@ -343,6 +346,36 @@ class OmegaPipeline:
         self._ensure_initialized()
         warnings_list: list = []
         adme_props = self._predict_adme(request.smiles, warnings_list)
+
+        # --- ML Corrections: Pre-ODE ADME adjustment ---
+        if getattr(self, "use_ml_corrections", False):
+            try:
+                if self._pre_ode is None:
+                    from omega_pbpk.ml.corrections.pre_ode_corrector import PreODECorrector
+
+                    self._pre_ode = PreODECorrector()
+                if self._pre_ode.is_trained:
+                    delta = self._pre_ode.predict(request.smiles)
+                    # Apply corrections in log-space
+                    if "fup" in adme_props and delta["delta_log_fup"] != 0:
+                        adme_props["fup"] = float(adme_props["fup"]) * 10 ** delta["delta_log_fup"]
+                    if "clint_3a4" in adme_props and delta["delta_log_clint"] != 0:
+                        adme_props["clint_3a4"] = (
+                            float(adme_props["clint_3a4"]) * 10 ** delta["delta_log_clint"]
+                        )
+                    if "peff" in adme_props and delta["delta_log_peff"] != 0:
+                        adme_props["peff"] = (
+                            float(adme_props["peff"]) * 10 ** delta["delta_log_peff"]
+                        )
+                    logger.debug(
+                        "Pre-ODE corrections: δfup=%.3f δclint=%.3f δpeff=%.3f",
+                        delta["delta_log_fup"],
+                        delta["delta_log_clint"],
+                        delta["delta_log_peff"],
+                    )
+            except Exception as exc:
+                logger.debug("Pre-ODE corrector failed: %s", exc)
+
         drug = self._build_drug(request.smiles, adme_props, warnings_list)
 
         # Apply CYP genotype scaling to drug clearance if specified
@@ -710,6 +743,34 @@ class OmegaPipeline:
                 time_h = time_h_ext
                 cp = cp_ext
                 warnings_list.append(f"Simulation extended to {extended_h:.0f}h (t½={t_half:.1f}h)")
+
+        # --- ML Corrections: Post-ODE residual correction ---
+        if getattr(self, "use_ml_corrections", False):
+            try:
+                if self._post_ode is None:
+                    from omega_pbpk.ml.corrections.post_ode_corrector import PostODECorrector
+
+                    self._post_ode = PostODECorrector()
+                if self._post_ode.is_trained:
+                    correction = self._post_ode.predict(
+                        smiles=request.smiles,
+                        ode_cmax=cmax,
+                        ode_auc=auc,
+                        adme_pred=adme_props,
+                    )
+                    cmax_corr = correction["cmax_correction_log"]
+                    auc_corr = correction["auc_correction_log"]
+                    if abs(cmax_corr) <= 1.0 and cmax_corr != 0:
+                        cmax *= 10**cmax_corr
+                    if abs(auc_corr) <= 1.0 and auc_corr != 0:
+                        auc *= 10**auc_corr
+                    logger.debug(
+                        "Post-ODE corrections: Δlog_cmax=%.3f Δlog_auc=%.3f",
+                        cmax_corr,
+                        auc_corr,
+                    )
+            except Exception as exc:
+                logger.debug("Post-ODE corrector failed: %s", exc)
 
         confidence = adme_props.get("confidence", "low")
 

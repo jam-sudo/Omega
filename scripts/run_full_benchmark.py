@@ -53,9 +53,11 @@ def bootstrap_aafe_ci(
     return float(np.percentile(boot_aafes, 2.5)), float(np.percentile(boot_aafes, 97.5))
 
 
-def run_benchmark() -> dict:
+def run_benchmark(ml_corrections: bool = False) -> dict:
     """Run the full benchmark and return structured results."""
     pipeline = OmegaPipeline()
+    if ml_corrections:
+        pipeline.use_ml_corrections = True
 
     per_drug_results = []
     cmax_fold_errors = []
@@ -247,10 +249,15 @@ def main() -> int:
         default=None,
         help="Path to previous benchmark JSON for regression comparison",
     )
+    parser.add_argument(
+        "--ml-corrections",
+        action="store_true",
+        help="Enable ML correction layers (Pre-ODE + Post-ODE)",
+    )
     args = parser.parse_args()
 
     # Run benchmark
-    result = run_benchmark()
+    result = run_benchmark(ml_corrections=args.ml_corrections)
 
     # Save output
     today = datetime.now().strftime("%Y-%m-%d")
