@@ -39,6 +39,11 @@ _ENABLE_GUT_WALL_FIX = False  # Phase 3a.1: disabled (error cancellation risk: F
 # Enable only after Phase 3a (gut wall) is stable.
 _USE_FUINC_CORRECTION: bool = False
 
+# Ridge correction: CONFIRMED DEAD CODE (ablation Phase 0.1: NO_RIDGE = FULL, Δ=0.000)
+# The ridge model file (models/correction/) exists but is NOT loaded at inference time.
+# Kept for reproducibility; not used in production path.
+_USE_RIDGE_CORRECTION: bool = False  # no-op; ablation-confirmed inactive
+
 
 @dataclass(frozen=True)
 class CandidateReport:

@@ -25,6 +25,7 @@ import numpy as np
 repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 
+from omega_pbpk.ml.applicability import check_applicability  # noqa: E402
 from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest  # noqa: E402
 
 
@@ -137,7 +138,13 @@ def run_temporal_validation(csv_path: Path, verbose: bool = False) -> dict:
             )
             continue
 
-        print(f"\n--- {name} (dose={dose_mg}mg) ---")
+        # --- Applicability domain check ---
+        ad_result = check_applicability(smiles=smiles, drug_name=name)
+        ad_status = "in-scope" if ad_result.tractable else "out-of-scope"
+
+        print(
+            f"\n--- {name} (dose={dose_mg}mg) [AD: {ad_status} | flags: {', '.join(ad_result.flags) or 'none'}] ---"
+        )
 
         entry: dict = {
             "drug": name,
@@ -147,6 +154,8 @@ def run_temporal_validation(csv_path: Path, verbose: bool = False) -> dict:
             "obs_auc": obs_auc,
             "obs_thalf": obs_thalf,
             "success": False,
+            "ad_tractable": ad_result.tractable,
+            "ad_flags": list(ad_result.flags),
         }
 
         try:
@@ -208,7 +217,7 @@ def run_temporal_validation(csv_path: Path, verbose: bool = False) -> dict:
 
         per_drug_results.append(entry)
 
-    # Aggregate metrics
+    # Aggregate metrics — full set
     valid_cmax = [fe for fe in cmax_fold_errors if not np.isnan(fe)]
     valid_auc = [fe for fe in auc_fold_errors if not np.isnan(fe)]
 
@@ -220,33 +229,97 @@ def run_temporal_validation(csv_path: Path, verbose: bool = False) -> dict:
     ci_cmax = bootstrap_aafe_ci(valid_cmax) if len(valid_cmax) >= 3 else (None, None)
     ci_auc = bootstrap_aafe_ci(valid_auc) if len(valid_auc) >= 3 else (None, None)
 
-    # Summary table
+    # In-scope metrics (AD tractable=True only)
+    cmax_entries_all = [
+        e for e in per_drug_results if e.get("success") and e.get("fe_cmax") is not None
+    ]
+    inscope_cmax_fes = [e["fe_cmax"] for e in cmax_entries_all if e.get("ad_tractable", True)]
+    outscope_drugs_cmax = [e["drug"] for e in cmax_entries_all if not e.get("ad_tractable", True)]
+
+    aafe_cmax_inscope = compute_aafe(inscope_cmax_fes) if inscope_cmax_fes else float("nan")
+    pct_2fold_cmax_inscope = (
+        sum(1 for fe in inscope_cmax_fes if fe <= 2.0) / max(len(inscope_cmax_fes), 1) * 100
+    )
+    ci_cmax_inscope = (
+        bootstrap_aafe_ci(inscope_cmax_fes) if len(inscope_cmax_fes) >= 3 else (None, None)
+    )
+
+    # Summary table — per-drug (sorted by fold error)
     print("\n" + "=" * 80)
     print("TEMPORAL HOLDOUT SUMMARY")
     print("=" * 80)
-    print(f"  N scored (Cmax): {len(valid_cmax)}")
-    if not np.isnan(aafe_cmax):
-        ci_str = f"  [95% CI: {ci_cmax[0]:.2f}, {ci_cmax[1]:.2f}]" if ci_cmax[0] is not None else ""
-        print(f"  Cmax AAFE : {aafe_cmax:.2f}{ci_str}")
-        print(f"  Cmax %2-fold: {pct_2fold_cmax:.1f}%")
+    print()
+    print("  Per-drug Cmax fold-errors (sorted by fold-error):")
+    print(f"  {'Drug':<22s}  {'FE':>6s}  {'Pred':>8s}  {'Obs':>8s}  AD")
+    print("  " + "-" * 60)
+    for e in sorted(cmax_entries_all, key=lambda x: x["fe_cmax"]):
+        within = "OK  " if e["fe_cmax"] <= 2.0 else "MISS"
+        scope = "in-scope " if e.get("ad_tractable", True) else "OUT-SCOPE"
+        flags_str = ", ".join(e.get("ad_flags", [])) or "none"
+        print(
+            f"  [{within}] {e['drug']:<20s}  {e['fe_cmax']:>6.2f}x  "
+            f"{e['pred_cmax']:>8.3f}  {e['obs_cmax']:>8.3f}  {scope} [{flags_str}]"
+        )
 
-    print(f"\n  N scored (AUC): {len(valid_auc)}")
+    print()
+    print("=" * 80)
+    print(f"=== FULL temporal holdout (N={len(valid_cmax)}) ===")
+    print("=" * 80)
+    if not np.isnan(aafe_cmax):
+        ci_str = f" [95% CI: {ci_cmax[0]:.2f}, {ci_cmax[1]:.2f}]" if ci_cmax[0] is not None else ""
+        print(f"  Cmax AAFE   : {aafe_cmax:.2f}{ci_str}")
+        print(f"  Cmax %2-fold: {pct_2fold_cmax:.1f}%")
     if not np.isnan(aafe_auc):
-        ci_str = f"  [95% CI: {ci_auc[0]:.2f}, {ci_auc[1]:.2f}]" if ci_auc[0] is not None else ""
-        print(f"  AUC AAFE  : {aafe_auc:.2f}{ci_str}")
+        ci_str = f" [95% CI: {ci_auc[0]:.2f}, {ci_auc[1]:.2f}]" if ci_auc[0] is not None else ""
+        print(f"  AUC AAFE    : {aafe_auc:.2f}{ci_str}  (N={len(valid_auc)})")
         print(f"  AUC %2-fold : {pct_2fold_auc:.1f}%")
 
     print()
-    print("  Per-drug Cmax fold-errors (sorted):")
-    cmax_entries = [
-        e for e in per_drug_results if e.get("success") and e.get("fe_cmax") is not None
-    ]
-    for e in sorted(cmax_entries, key=lambda x: x["fe_cmax"]):
-        within = "OK" if e["fe_cmax"] <= 2.0 else "MISS"
-        print(
-            f"    [{within}] {e['drug']:<20s}  FE={e['fe_cmax']:.2f}x  "
-            f"pred={e['pred_cmax']:.3f}  obs={e['obs_cmax']:.3f}"
+    excl_str = ", ".join(outscope_drugs_cmax) if outscope_drugs_cmax else "none"
+    print(f"=== IN-SCOPE temporal holdout (N={len(inscope_cmax_fes)}, excl. {excl_str}) ===")
+    print("=" * 80)
+    print(
+        "  Exclusion criterion: tractable=False from applicability domain module "
+        "(known_untractable, prodrug ester/phosphonate/carbamate, or invalid SMILES)."
+    )
+    if not np.isnan(aafe_cmax_inscope):
+        ci_str = (
+            f" [95% CI: {ci_cmax_inscope[0]:.2f}, {ci_cmax_inscope[1]:.2f}]"
+            if ci_cmax_inscope[0] is not None
+            else ""
         )
+        print(f"  Cmax AAFE   : {aafe_cmax_inscope:.2f}{ci_str}")
+        print(f"  Cmax %2-fold: {pct_2fold_cmax_inscope:.1f}%")
+
+    # Sensitivity analysis: exclude sonidegib + atazanavir regardless of AD status
+    # (atazanavir flagged by structural SMARTS as prodrug_ester/carbamate but the
+    # primary reason for exclusion is P-gp substrate + pH-dependent BCS II solubility)
+    _BORDERLINE = {"sonidegib", "atazanavir"}
+    borderline_excl = [
+        e["fe_cmax"] for e in cmax_entries_all if e["drug"].lower() not in _BORDERLINE
+    ]
+    aafe_borderline = compute_aafe(borderline_excl) if borderline_excl else float("nan")
+    pct_2fold_borderline = (
+        sum(1 for fe in borderline_excl if fe <= 2.0) / max(len(borderline_excl), 1) * 100
+    )
+    ci_borderline = (
+        bootstrap_aafe_ci(borderline_excl) if len(borderline_excl) >= 3 else (None, None)
+    )
+    print()
+    print(f"=== SENSITIVITY: excl. sonidegib + atazanavir (N={len(borderline_excl)}) ===")
+    print("=" * 80)
+    print(
+        "  Note: atazanavir is a P-gp substrate with pH-dependent BCS II solubility — "
+        "borderline exclusion."
+    )
+    if not np.isnan(aafe_borderline):
+        ci_str = (
+            f" [95% CI: {ci_borderline[0]:.2f}, {ci_borderline[1]:.2f}]"
+            if ci_borderline[0] is not None
+            else ""
+        )
+        print(f"  Cmax AAFE   : {aafe_borderline:.2f}{ci_str}")
+        print(f"  Cmax %2-fold: {pct_2fold_borderline:.1f}%")
 
     summary = {
         "n_cmax_scored": len(valid_cmax),
@@ -259,6 +332,25 @@ def run_temporal_validation(csv_path: Path, verbose: bool = False) -> dict:
         "aafe_auc_ci95_hi": round(ci_auc[1], 4) if ci_auc[1] is not None else None,
         "pct_2fold_cmax": round(pct_2fold_cmax, 2),
         "pct_2fold_auc": round(pct_2fold_auc, 2),
+        # In-scope
+        "n_cmax_inscope": len(inscope_cmax_fes),
+        "aafe_cmax_inscope": round(aafe_cmax_inscope, 4)
+        if not np.isnan(aafe_cmax_inscope)
+        else None,
+        "aafe_cmax_inscope_ci95_lo": round(ci_cmax_inscope[0], 4)
+        if ci_cmax_inscope[0] is not None
+        else None,
+        "aafe_cmax_inscope_ci95_hi": round(ci_cmax_inscope[1], 4)
+        if ci_cmax_inscope[1] is not None
+        else None,
+        "pct_2fold_cmax_inscope": round(pct_2fold_cmax_inscope, 2),
+        "excluded_drugs": outscope_drugs_cmax,
+        # Sensitivity (excl. sonidegib + atazanavir)
+        "n_cmax_sensitivity": len(borderline_excl),
+        "aafe_cmax_sensitivity": round(aafe_borderline, 4)
+        if not np.isnan(aafe_borderline)
+        else None,
+        "pct_2fold_cmax_sensitivity": round(pct_2fold_borderline, 2),
         "per_drug": per_drug_results,
     }
     return summary

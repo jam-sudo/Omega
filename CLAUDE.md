@@ -65,6 +65,9 @@ Details + cross-review protocol: `.claude/commands/team.md`
 10. **Error cancellation is real** — predicted ADME beats measured ADME (2.46 vs 2.69). Fix ODE structure BEFORE improving ADME.
 11. **Ridge correction is dead code** — not loaded in pipeline, zero contribution confirmed by ablation
 12. **Gut CLint drives Cmax, not hepatic CLint** — Sobol: gut CLint ST=0.470, hepatic CLint ST=0.000 for Cmax. Hepatic CLint only affects AUC.
+13. **Ridge correction is confirmed dead code** — ablation study (Phase 0.1) shows NO_RIDGE = FULL with Δ=0.000 AAFE. The ridge model file exists in models/correction/ but is never loaded at inference. Keep for reproducibility only.
+14. **Hybrid Cmax selector is the dominant component** — ablation Δ+0.553 AAFE without it (83%→46% 2-fold). Don't remove or simplify it.
+15. **Error cancellation is systematic** — 79% of drugs (CI < 0.5), mean CI = 0.303. Fixing individual ADME params without joint balance will worsen aggregate AAFE.
 
 ## Codebase Rules
 
@@ -91,7 +94,7 @@ Details + cross-review protocol: `.claude/commands/team.md`
 ### IVIVE & CLint Issues
 - **CLint partially circular**: 12/24 benchmark drugs have 50x-weighted anchors back-calculated from clinical CL using same IVIVE formula
 - **No fuinc correction**: Microsomal non-specific binding not accounted for → lipophilic CLint systematically underpredicted
-- **Conformal CLint coverage 37%** (target 90%): global 50x multiplier is too crude; needs local (k-NN) intervals
+- **CLint conformal coverage 89.4%** — improved with 11.24× calibrated multiplier (local conformal; Phase 3b.4 done)
 
 ### Statistical Issues (Phase 0 resolved, 2026-03-17)
 - **Bootstrap CI now in benchmark**: AAFE 1.72 [1.49, 2.04] — Bayer 1.87 inside CI, comparison NOT significant ✓
