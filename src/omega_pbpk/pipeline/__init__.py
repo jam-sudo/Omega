@@ -684,6 +684,13 @@ class OmegaPipeline:
                     route=request.route,
                     duration_h=extended_h,
                     n_timepoints=max(request.n_timepoints, int(extended_h * 10)),
+                    species=request.species,
+                    subject_age_years=request.subject_age_years,
+                    subject_weight_kg=request.subject_weight_kg,
+                    cyp2d6_phenotype=request.cyp2d6_phenotype,
+                    cyp2c9_genotype=request.cyp2c9_genotype,
+                    cyp2c19_phenotype=request.cyp2c19_phenotype,
+                    egfr_ml_min=request.egfr_ml_min,
                 )
                 time_h_ext, cp_ext = self._run_simulation(drug, extended_req, warnings_list)
                 # AUC benefits from full curve; Cmax/tmax stay from original run
