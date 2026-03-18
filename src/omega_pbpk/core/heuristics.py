@@ -136,6 +136,7 @@ _DRUG_TYPE_MAP: dict[str, str] = {
     "base": "base",
     "diprotic": "zwitterion",
     "zwitterion": "zwitterion",
+    "enol_lactone": "acid",  # Phase 0.1: warfarin, 4-hydroxycoumarin (pKa ~5)
 }
 
 

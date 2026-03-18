@@ -1113,6 +1113,32 @@ class OmegaPipeline:
             except Exception as exc:
                 logger.debug("pKa prediction failed: %s", exc)
 
+        # --- Phase 0.1: Override compound_type for enol_lactone (warfarin fix) ---
+        # The pKa predictor detects enol_lactone (pKa~5.0) but compound_type was
+        # set to "neutral" by SMARTS (which misses enol OH). Must override BOTH
+        # compound_type and drug_type, then recompute Kp with acid logD correction.
+        if (
+            _USE_PREDICTED_PKA
+            and "pka_result" in dir()
+            and hasattr(pka_result, "detected_group")
+            and pka_result.detected_group == "enol_lactone"
+            and compound_type == "neutral"  # only override if SMARTS missed it
+        ):
+            compound_type = "acid"
+            drug_type = "acid"
+            # Recompute Kp with acid compound_type (logD correction now applies)
+            try:
+                for t in TISSUE_COMPOSITION:
+                    kp_dict[t] = berezhkovskiy_kp(
+                        logP=logP_kp,
+                        fup=fup,
+                        tissue_name=t,
+                        pka=pka_val,
+                        compound_type="acid",
+                    )
+            except Exception as exc:
+                logger.debug("Kp recomputation for enol_lactone failed: %s", exc)
+
         # --- Phase 2.2: Salt-form solubility correction ---
         # Only apply when solubility is actually limiting absorption (low solubility).
         # For drugs with adequate solubility, salt form doesn't change oral PK.
