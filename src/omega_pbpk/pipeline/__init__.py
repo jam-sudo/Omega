@@ -31,7 +31,15 @@ _USE_PREDICTED_PKA = (
 _USE_SALT_CORRECTION = (
     True  # Phase 2.2: salt-form solubility enhancement (enabled with pKa fix 2026-03-17)
 )
-_ENABLE_GUT_WALL_FIX = False  # Phase 3a.1: disabled (error cancellation risk: Fg fix breaks Fg×Fh balance — investigate separately)
+_ENABLE_GUT_WALL_FIX = (
+    True  # Phase 3a.1: enabled with CYP3A4 threshold guard (Option C, 2026-03-18)
+)
+# Only apply gut wall metabolism for genuine CYP3A4 substrates.
+# The polynomial clint_3a4 predictor assigns non-zero values to non-CYP3A4 drugs
+# (propranolol fm_CYP3A4=0.887, ibuprofen=0.939) causing false-positive gut extraction.
+# Threshold 2.0 µL/min/pmol excludes 15/17 non-CYP3A4 benchmark drugs while
+# preserving gut wall correction for midazolam, verapamil, atorvastatin, nifedipine.
+_GUT_WALL_CLint3A4_THRESHOLD: float = 2.0  # µL/min/pmol
 
 # Phase 3b: fuinc correction for microsomal nonspecific binding
 # Disabled: error cancellation analysis shows predicted ADME already beats
@@ -1001,7 +1009,7 @@ class OmegaPipeline:
         total_cl = clint_3a4 + clint_2d6
         fm_cyp3a4 = clint_3a4 / total_cl if total_cl > 0 else 0.0
         gut_clint_mult = 1.0
-        if _ENABLE_GUT_WALL_FIX and fm_cyp3a4 > 0:
+        if _ENABLE_GUT_WALL_FIX and clint_3a4 > _GUT_WALL_CLint3A4_THRESHOLD:
             gut_clint_mult = max(1.0, 50.0 * fm_cyp3a4)  # legacy path only
             logger.debug(
                 "Gut wall fm_CYP3A4=%.2f (direct CLint_gut set in XGBoost path)", fm_cyp3a4
@@ -1202,7 +1210,9 @@ class OmegaPipeline:
             # self.clint dict is empty in this path, so gut_clint_scaled_L_per_h
             # must be set via clint_gut_L_per_h field (bypasses CYP dict fallback).
             _clint_gut_direct = (
-                fm_cyp3a4 * 1.7 * clint_L_per_h if (_ENABLE_GUT_WALL_FIX and fm_cyp3a4 > 0) else 0.0
+                fm_cyp3a4 * 1.7 * clint_L_per_h
+                if (_ENABLE_GUT_WALL_FIX and clint_3a4 > _GUT_WALL_CLint3A4_THRESHOLD)
+                else 0.0
             )
             if _clint_gut_direct > 0:
                 logger.debug(
