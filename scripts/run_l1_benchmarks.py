@@ -62,10 +62,9 @@ BENCHMARK_DRUGS = {
 }
 
 
-def load_observed_pk(drug_name: str) -> dict:
-    """Load observed Cmax and AUC from benchmark CSV dataset."""
+def _load_csv_observed_pk(drug_name: str) -> dict:
+    """Load observed PK from synthetic benchmark CSV (fallback)."""
     datasets_dir = repo_root / "benchmarks" / "datasets"
-    # Find matching CSV
     for csv_file in datasets_dir.glob("*.csv"):
         if drug_name.replace("_", "") in csv_file.stem.replace("_", "").lower():
             data = np.genfromtxt(csv_file, delimiter=",", skip_header=1)
@@ -75,8 +74,47 @@ def load_observed_pk(drug_name: str) -> dict:
             auc = float(np.trapz(conc, time_h))
             tmax_idx = int(np.argmax(conc))
             tmax = float(time_h[tmax_idx])
-            return {"cmax": cmax, "auc": auc, "tmax": tmax, "file": str(csv_file.name)}
+            return {
+                "cmax": cmax,
+                "auc": auc,
+                "tmax": tmax,
+                "file": str(csv_file.name),
+                "data_source": "synthetic",
+                "data_quality": "synthetic",
+            }
     return {}
+
+
+def load_observed_pk(drug_name: str) -> dict:
+    """Load observed Cmax and AUC.
+
+    Priority:
+      1. Real clinical reference (data/clinical/gold24_reference_cmax.json)
+      2. Synthetic benchmark CSV (benchmarks/datasets/*.csv)
+
+    The clinical reference contains PK-DB / FDA-label Cmax values where available.
+    Drugs without a clinical reference entry fall back to the 1-cpt synthetic CSV.
+    """
+    clinical_ref_file = repo_root / "data" / "clinical" / "gold24_reference_cmax.json"
+    if clinical_ref_file.exists():
+        with open(clinical_ref_file) as _f:
+            clinical_refs = json.load(_f)
+        if drug_name in clinical_refs and not drug_name.startswith("_"):
+            ref = clinical_refs[drug_name]
+            cmax_ref = ref.get("cmax_mg_L")
+            if cmax_ref is not None:
+                # Use CSV for AUC/tmax (secondary metric, OK to keep synthetic for now)
+                csv_data = _load_csv_observed_pk(drug_name)
+                result = csv_data.copy()
+                result["cmax"] = cmax_ref
+                result["data_source"] = ref.get("source", "clinical")
+                result["data_quality"] = ref.get("data_quality", "clinical")
+                # Override AUC if reference provides it
+                if ref.get("auc_mg_h_L") is not None:
+                    result["auc"] = ref["auc_mg_h_L"]
+                return result
+
+    return _load_csv_observed_pk(drug_name)
 
 
 def compute_fold_error(pred, obs):

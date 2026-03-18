@@ -1,0 +1,103 @@
+{
+  "_metadata": {
+    "created": "2026-03-18",
+    "description": "Best available clinical Cmax/AUC reference values for gold-24 benchmark drugs. Replaces synthetic 1-cpt benchmark CSVs for drugs with real clinical data. See 'data_quality' field: 'clinical' = real C(t) study, 'clinical_dose_normalized' = scaled from nearby dose, 'fda_label' = from FDA label pk_params, 'synthetic' = 1-cpt generated (not real).",
+    "priority": ["fda_label_exact", "clinical_exact", "clinical_dose_normalized"],
+    "data_quality_codes": {
+      "fda_label_exact": "Directly from FDA label at exact benchmark dose — highest confidence",
+      "clinical_exact": "Real PK-DB C(t) study at exact or near-exact benchmark dose",
+      "clinical_dose_normalized": "Real PK-DB C(t) dose-normalized — assume linear PK, moderate confidence",
+      "fda_label_dose_normalized": "FDA label scaled to benchmark dose — moderate confidence"
+    }
+  },
+  "warfarin": {
+    "cmax_mg_L": 1.2783,
+    "auc_mg_h_L": null,
+    "dose_mg": 10.0,
+    "tmax_h": 2.0,
+    "source": "PK-DB: Baekdal2019 (PMID:30945118), 10mg oral, n=52. Already in benchmark CSV.",
+    "data_quality": "clinical_exact",
+    "dose_ratio": 1.0,
+    "note": "Already replaced in benchmarks/datasets/warfarin_oral_10mg.csv"
+  },
+  "fluconazole": {
+    "cmax_mg_L": 6.72,
+    "auc_mg_h_L": 76.4,
+    "dose_mg": 200.0,
+    "tmax_h": 1.5,
+    "source": "FDA label (NDA 019949): 200mg single oral dose",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Exact benchmark dose. High confidence."
+  },
+  "ibuprofen": {
+    "cmax_mg_L": 19.0,
+    "auc_mg_h_L": null,
+    "dose_mg": 400.0,
+    "tmax_h": 1.2,
+    "source": "FDA label (NDA 019842): 400mg single oral dose fasted",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Exact benchmark dose. High confidence."
+  },
+  "midazolam": {
+    "cmax_mg_L": 0.02748,
+    "auc_mg_h_L": null,
+    "dose_mg": 2.0,
+    "tmax_h": 0.5,
+    "source": "PK-DB: Gorski2003 (PMID:12966371), 2.5mg oral, n=52. Dose-normalized: x0.8 (2.0/2.5mg). Linear PK assumption validated.",
+    "data_quality": "clinical_dose_normalized",
+    "dose_ratio": 0.8,
+    "note": "Cmax=0.03435 at 2.5mg x0.8=0.02748. Midazolam PK is linear in 1-5mg range."
+  },
+  "caffeine": {
+    "cmax_mg_L": 4.7769,
+    "auc_mg_h_L": null,
+    "dose_mg": 100.0,
+    "tmax_h": 0.75,
+    "source": "PK-DB: Wahllaender1990 (PMID:2185297), 200mg oral, n=62. Dose-normalized: x0.5 (100/200mg).",
+    "data_quality": "clinical_dose_normalized",
+    "dose_ratio": 0.5,
+    "note": "Caffeine PK is linear in 50-400mg range. Best available study: n=62."
+  },
+  "theophylline": {
+    "cmax_mg_L": 8.7247,
+    "auc_mg_h_L": null,
+    "dose_mg": 300.0,
+    "tmax_h": 1.5,
+    "source": "PK-DB: Becker1984 (PMID:6700656), 250mg oral. Dose-normalized: x1.2 (300/250mg). Consistent with reference_database pk_cmax=14.5 at unknown dose.",
+    "data_quality": "clinical_dose_normalized",
+    "dose_ratio": 1.2,
+    "note": "Theophylline PK is linear at therapeutic doses. Consistent with FDA label range 10-20mcg/mL."
+  },
+  "acetaminophen": {
+    "cmax_mg_L": 15.18,
+    "auc_mg_h_L": null,
+    "dose_mg": 1000.0,
+    "tmax_h": 1.0,
+    "source": "PK-DB: Prescott1993 (PMID:9114910) via reference_database. Curve Cmax=15.18 mg/L at 1000mg oral.",
+    "data_quality": "clinical_exact",
+    "dose_ratio": 1.0,
+    "note": "Reference_database dose_mg field shows 20mg (likely unit error — concentrations are physiological for 1000mg). Cmax=15.18 consistent with literature 10-25 mg/L for 1000mg oral acetaminophen."
+  },
+  "omeprazole": {
+    "cmax_mg_L": 0.1412,
+    "auc_mg_h_L": null,
+    "dose_mg": 20.0,
+    "tmax_h": 1.5,
+    "source": "PK-DB: Elkoshi2002 (PMID:29492852), 40mg oral, n=40. Dose-normalized: x0.5 (20/40mg). Non-linear PK caution.",
+    "data_quality": "clinical_dose_normalized",
+    "dose_ratio": 0.5,
+    "note": "Omeprazole has dose-dependent PK due to CYP2C19 autoinhibition. First-dose normalization may underestimate 20mg Cmax. Use with lower confidence. Consistent with reference_database curve_cmax=0.282 at 40mg x0.5."
+  },
+  "verapamil": {
+    "cmax_mg_L": 0.077,
+    "auc_mg_h_L": null,
+    "dose_mg": 80.0,
+    "tmax_h": 1.5,
+    "source": "PK-DB: Rebello2011 (PMID:20413453) via reference_database pk_params.cmax_mg_L=0.077. Exact benchmark dose.",
+    "data_quality": "clinical_exact",
+    "dose_ratio": 1.0,
+    "note": "pk_cmax=0.077 consistent with literature 50-100 ng/mL for 80mg oral verapamil IR. Note: reference_database ct_curve_cmax=0.199 appears incorrect (likely different study arm or unit issue); using pk_cmax directly."
+  }
+}
