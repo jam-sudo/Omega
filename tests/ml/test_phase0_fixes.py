@@ -1,8 +1,10 @@
 # tests/ml/test_phase0_fixes.py
 """Phase 0 bug fixes: compound_type mapping and adaptive simulation."""
 
+import pytest
 
 
+@pytest.mark.slow
 def test_warfarin_treated_as_acid():
     """Warfarin (enol-lactone, pKa=5.0) must be treated as 'acid' in Kp calculation."""
     from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest
@@ -14,7 +16,7 @@ def test_warfarin_treated_as_acid():
     # With correct acid Kp, Cmax should be > 0.2 mg/L (was 0.184 as neutral, observed: 1.278)
     # Acid logD correction reduces Kp → lower Vd → higher Cmax
     # Remaining gap (0.24 vs 1.28) is due to fup=0.009 and Vd issues (separate from compound_type)
-    assert result.cmax_mg_L > 0.2, (
+    assert result.cmax_mg_L > 0.22, (
         f"Warfarin Cmax {result.cmax_mg_L:.4f} too low — compound_type likely still 'neutral'"
     )
 

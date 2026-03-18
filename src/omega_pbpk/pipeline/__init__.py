@@ -1119,7 +1119,7 @@ class OmegaPipeline:
         # compound_type and drug_type, then recompute Kp with acid logD correction.
         if (
             _USE_PREDICTED_PKA
-            and "pka_result" in dir()
+            and "pka_result" in locals()
             and hasattr(pka_result, "detected_group")
             and pka_result.detected_group == "enol_lactone"
             and compound_type == "neutral"  # only override if SMARTS missed it
