@@ -23,8 +23,8 @@ import numpy as np
 
 # Benchmark tiers — (label, N, AAFE, ci_lo, ci_hi, pct_2fold)
 tiers = [
-    ("Core Gold (N=24)", 24, 1.79, 1.52, 2.18, 83),
-    ("Expanded Gold (N=50)", 50, 2.88, 2.18, 3.94, 42),
+    ("Core Gold (N=24)", 24, 1.793, 1.52, 2.18, 83),
+    ("Expanded Gold (N=51)", 51, 3.40, 2.42, 4.94, 39),
     ("Temporal Holdout (N=15)", 15, 2.66, 1.74, 4.35, 47),
     ("External Validation (N=8)", 8, 2.95, 1.80, 4.60, 62),
 ]
