@@ -37,9 +37,10 @@ _ENABLE_GUT_WALL_FIX = (
 # Only apply gut wall metabolism for genuine CYP3A4 substrates.
 # The polynomial clint_3a4 predictor assigns non-zero values to non-CYP3A4 drugs
 # (propranolol fm_CYP3A4=0.887, ibuprofen=0.939) causing false-positive gut extraction.
-# Threshold 2.0 µL/min/pmol excludes 15/17 non-CYP3A4 benchmark drugs while
-# preserving gut wall correction for midazolam, verapamil, atorvastatin, nifedipine.
-_GUT_WALL_CLint3A4_THRESHOLD: float = 2.0  # µL/min/pmol
+# Threshold 2.6 µL/min/pmol excludes warfarin (2.553, CYP2C9 substrate) as false positive
+# while preserving gut wall correction for midazolam (3.096), verapamil (4.767),
+# fluoxetine (3.481), atorvastatin. Raised from 2.0 → 2.6 on 2026-03-18.
+_GUT_WALL_CLint3A4_THRESHOLD: float = 2.6  # µL/min/pmol
 
 # Phase 3b: fuinc correction for microsomal nonspecific binding
 # Disabled: error cancellation analysis shows predicted ADME already beats
@@ -478,8 +479,8 @@ class OmegaPipeline:
                             _vd_xgb_L = self._vdss_predictor.predict_vdss(request.smiles) * _bw
                             _vd_xgb_L = max(_vd_xgb_L, 0.043 * _bw)
                             if (
-                                _vd_berez > _vd_xgb_L * 4.0
-                            ):  # raised 2.0→4.0 (LOO-CV sweep 2026-03-17)
+                                _vd_berez > _vd_xgb_L * 4.5
+                            ):  # raised 2.0→4.0 (LOO-CV 2026-03-17), 4.0→4.5 (2026-03-18)
                                 _vd_correction = True
                                 _vd_xgb = _vd_xgb_L
                                 logger.debug(
@@ -1026,8 +1027,11 @@ class OmegaPipeline:
             # of TPSA. Amphetamine (TPSA=26), pseudoephedrine, etc.
             cl_renal = cl_filt * 2.0
         elif logP < 2.0 and tpsa > 74.0:
-            # Moderately polar → GFR-based filtration with reabsorption
-            reabsorption = min(0.8, logP / 2.0) if logP > 0 else 0.0
+            # Moderately polar → GFR-based filtration with reabsorption.
+            # Improved formula: base reabsorption 0.35 + logP×0.5 (calibrated
+            # on fluconazole: logP=0.74, real reabsorption=0.70 vs old 0.37).
+            # Capped at 0.85; floor at 0.05 for near-zero logP.
+            reabsorption = min(0.85, max(0.05, 0.35 + logP * 0.50)) if logP > 0 else 0.05
             cl_renal = cl_filt * (1.0 - reabsorption)
         else:
             # Lipophilic or low PSA → negligible renal clearance

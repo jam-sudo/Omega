@@ -98,6 +98,10 @@ def _get_clint_reference_anchors() -> list[tuple[str, float]]:
         ("Cn1cnc2c1c(=O)n(C)c(=O)n2C", 15.0),  # caffeine CL≈3.7 (incl CYP1A2+NAT2)
         ("CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21", 6.2),  # diazepam CL=1.5
         ("CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O", 1.0),  # warfarin CL=0.18 (clipped to min)
+        # Primarily renally-eliminated — hepatic CLint must be anchored low
+        # Fluconazole: CL_total≈2.36 L/h, 80% renal → CLh_hepatic≈0.47 L/h
+        # back-calc: (0.47/0.3)^(10/9) ≈ 1.8; anchor at 2.0 (triazole antifungal)
+        ("OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F", 2.0),  # fluconazole CLh_hep≈0.47 L/h
     ]
 
 
