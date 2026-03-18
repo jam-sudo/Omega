@@ -119,5 +119,25 @@
     "data_quality": "fda_label_exact",
     "dose_ratio": 1.0,
     "note": "Exact benchmark dose (500mg metformin HCl). Synthetic reference was 1.35 mg/L (31% too high). Standard FDA PK study value."
+  },
+  "atenolol": {
+    "cmax_mg_L": 0.30,
+    "auc_mg_h_L": null,
+    "dose_mg": 50.0,
+    "tmax_h": 3.0,
+    "source": "FDA label (Tenormin NDA 018240): 50mg oral single dose, Cmax approximately 300 ng/mL at 2-4h.",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Exact benchmark dose. Synthetic reference was 0.38 mg/L (27% too high). Atenolol has linear PK."
+  },
+  "furosemide": {
+    "cmax_mg_L": 1.110,
+    "auc_mg_h_L": null,
+    "dose_mg": 40.0,
+    "tmax_h": 1.0,
+    "source": "Mehanna et al. (2003) Biopharm Drug Dispos 24(8):343-350 (PMID 12973821). Healthy volunteers n=24, fasted, single 40mg oral Lasix tablet. Cmax=1109.71 ng/mL for reference (Lasix) brand.",
+    "data_quality": "clinical_exact",
+    "dose_ratio": 1.0,
+    "note": "Synthetic reference was 2.0 mg/L (80% too high). Multiple bioequivalence studies confirm 1.1-1.6 mg/L range for 40mg oral fasted. Using Lasix reference arm (n=24). Walsh 2014 study: 1315-1584 ng/mL. Model predicts 0.77 mg/L: still under-predicts 1.4x but accurate relative to synthetic 2.6x error."
   }
 }
