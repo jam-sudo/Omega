@@ -1,0 +1,169 @@
+{
+  "analysis": "error_cancellation_v2",
+  "date": "2026-03-17",
+  "version": 2,
+  "notes": "CI computed using 3 ADME params: fup, clint_3a4, logP (via 10^logP ratio)",
+  "n_gold_tier_total": 51,
+  "n_with_measured_adme": 14,
+  "n_strong_cancellation": 11,
+  "pct_strong_cancellation": 78.6,
+  "n_weak_cancellation": 1,
+  "n_amplification": 2,
+  "mean_ci": 0.303,
+  "results": [
+    {
+      "drug": "clopidogrel",
+      "fe_fup": 1.135,
+      "fe_clint": 0.327,
+      "fe_logP": 28.84,
+      "fe_cmax": 1.002,
+      "aafe_cmax": 1.002,
+      "ci": 0.0004,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "tamoxifen",
+      "fe_fup": 0.61,
+      "fe_clint": 0.587,
+      "fe_logP": 0.501,
+      "fe_cmax": 0.945,
+      "aafe_cmax": 1.058,
+      "ci": 0.0329,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "clozapine",
+      "fe_fup": 1.392,
+      "fe_clint": 0.35,
+      "fe_logP": 3.09,
+      "fe_cmax": 1.125,
+      "aafe_cmax": 1.125,
+      "ci": 0.0471,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "sertraline",
+      "fe_fup": 0.78,
+      "fe_clint": 1.037,
+      "fe_logP": 1.622,
+      "fe_cmax": 1.067,
+      "aafe_cmax": 1.067,
+      "ci": 0.0845,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "clarithromycin",
+      "fe_fup": 0.287,
+      "fe_clint": 0.798,
+      "fe_logP": 4.074,
+      "fe_cmax": 1.286,
+      "aafe_cmax": 1.286,
+      "ci": 0.0874,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "azithromycin",
+      "fe_fup": 0.326,
+      "fe_clint": 6.904,
+      "fe_logP": 0.269,
+      "fe_cmax": 1.687,
+      "aafe_cmax": 1.687,
+      "ci": 0.1198,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "oseltamivir",
+      "fe_fup": 0.897,
+      "fe_clint": 5.83,
+      "fe_logP": 8.511,
+      "fe_cmax": 1.629,
+      "aafe_cmax": 1.629,
+      "ci": 0.1216,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "losartan",
+      "fe_fup": 0.7,
+      "fe_clint": 0.957,
+      "fe_logP": 13.183,
+      "fe_cmax": 0.678,
+      "aafe_cmax": 1.474,
+      "ci": 0.1303,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "itraconazole",
+      "fe_fup": 3.04,
+      "fe_clint": 0.398,
+      "fe_logP": 0.832,
+      "fe_cmax": 0.708,
+      "aafe_cmax": 1.413,
+      "ci": 0.1559,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "ciprofloxacin",
+      "fe_fup": 0.779,
+      "fe_clint": 16.06,
+      "fe_logP": 19.953,
+      "fe_cmax": 0.25,
+      "aafe_cmax": 3.999,
+      "ci": 0.2303,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "efavirenz",
+      "fe_fup": 5.9,
+      "fe_clint": 0.447,
+      "fe_logP": 0.295,
+      "fe_cmax": 0.329,
+      "aafe_cmax": 3.038,
+      "ci": 0.2923,
+      "status": "STRONG_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "diclofenac",
+      "fe_fup": 1.76,
+      "fe_clint": 1.329,
+      "fe_logP": 0.708,
+      "fe_cmax": 2.543,
+      "aafe_cmax": 2.543,
+      "ci": 0.781,
+      "status": "WEAK_CANCEL",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "fluconazole",
+      "fe_fup": 0.679,
+      "fe_clint": 0.865,
+      "fe_logP": 1.738,
+      "fe_cmax": 0.329,
+      "aafe_cmax": 3.036,
+      "ci": 1.0235,
+      "status": "AMPLIFY",
+      "n_adme_params": 3
+    },
+    {
+      "drug": "tramadol",
+      "fe_fup": 0.406,
+      "fe_clint": 0.878,
+      "fe_logP": 0.724,
+      "fe_cmax": 4.649,
+      "aafe_cmax": 4.649,
+      "ci": 1.1345,
+      "status": "AMPLIFY",
+      "n_adme_params": 3
+    }
+  ]
+}

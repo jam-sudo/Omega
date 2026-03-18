@@ -25,6 +25,18 @@ repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 sys.path.insert(0, str(repo_root / "scripts"))
 
+
+def bootstrap_aafe_ci(fold_errors, n_boot=10000, seed=42):
+    """Compute 95% bootstrap CI for AAFE."""
+    log_fe = np.log10(np.array(fold_errors))
+    rng = np.random.default_rng(seed)
+    n = len(log_fe)
+    boot_aafes = [
+        float(10 ** np.mean(np.abs(log_fe[rng.integers(0, n, n)]))) for _ in range(n_boot)
+    ]
+    return float(np.percentile(boot_aafes, 2.5)), float(np.percentile(boot_aafes, 97.5))
+
+
 from run_l1_benchmarks import (  # noqa: E402
     BENCHMARK_DRUGS,
     compute_aafe,
@@ -70,16 +82,21 @@ def run_benchmark_with_config(config_name, pipeline):
     median_cmax = float(np.median(cmax_fes)) if cmax_fes else float("nan")
     median_auc = float(np.median(auc_fes)) if auc_fes else float("nan")
 
+    ci_cmax = bootstrap_aafe_ci(cmax_fes) if len(cmax_fes) >= 3 else (float("nan"), float("nan"))
+
     return {
         "config": config_name,
         "aafe_cmax": aafe_cmax,
         "aafe_auc": aafe_auc,
+        "ci_lo": ci_cmax[0],
+        "ci_hi": ci_cmax[1],
         "median_cmax": median_cmax,
         "median_auc": median_auc,
         "pct_2fold": pct_2fold,
         "gt3fold": gt3,
         "n_valid": len(cmax_fes),
         "per_drug": per_drug,
+        "cmax_fes": cmax_fes,
     }
 
 
@@ -307,17 +324,18 @@ def main():
     print(f"  Done in {time.time() - t0:.1f}s")
 
     # ---- Print results table ----
-    print("\n" + "=" * 100)
+    print("\n" + "=" * 120)
     print("ABLATION RESULTS SUMMARY")
-    print("=" * 100)
+    print("=" * 120)
     print(
-        f"{'Config':20s} {'Cmax AAFE':>10s} {'Med Cmax':>10s} {'%2-fold':>8s} "
+        f"{'Config':20s} {'Cmax AAFE':>10s} {'95% CI':>18s} {'Med Cmax':>10s} {'%2-fold':>8s} "
         f"{'>3-fold':>8s} {'AUC AAFE':>10s} {'Med AUC':>10s} {'N':>4s}"
     )
-    print("-" * 100)
+    print("-" * 120)
     for name, result in configs.items():
+        ci_str = f"[{result['ci_lo']:.2f}, {result['ci_hi']:.2f}]"
         print(
-            f"{name:20s} {result['aafe_cmax']:10.3f} {result['median_cmax']:10.3f} "
+            f"{name:20s} {result['aafe_cmax']:10.3f} {ci_str:>18s} {result['median_cmax']:10.3f} "
             f"{result['pct_2fold']:7.0f}% {result['gt3fold']:8d} "
             f"{result['aafe_auc']:10.3f} {result['median_auc']:10.3f} {result['n_valid']:4d}"
         )
