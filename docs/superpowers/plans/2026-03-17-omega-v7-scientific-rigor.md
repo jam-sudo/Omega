@@ -301,17 +301,19 @@ python -m omega_pbpk.ml.training.train_clint \
 
 **Depends on:** Phases 1-4 stabilized
 
-### 5.1 Gold Tier N=50+
+### 5.1 Gold Tier N=50+ — **DONE** (N=51, cleanup ongoing)
 
-- Select from 285 drugs: Platinum+Gold tier, non-overlapping with ADME training
-- Single-dose data only (exclude steady-state references)
-- Balanced by BCS class, ER, drug_type
+- Expanded to 51 drugs; `run_expanded_benchmark.py` fixed (null dose bug, bootstrap CI added)
+- Results: Cmax AAFE = **3.40 [2.42, 4.94]**, %2-fold = **39%**
+- Problematic entries: lanthanum carbonate (inorganic), sodium oxybate, serdexmethylphenidate (prodrug)
 
-### 5.2 Temporal Holdout N=15-20
+### 5.2 Temporal Holdout N=15-20 — **DONE** (N=20, 15 with Cmax)
 
-- FDA 2023-2025 approved drugs with label PK data
-- SMILES from PubChem/DrugBank
-- Must be post-training-cutoff
+- `scripts/run_temporal_validation.py` added; `temporal_holdout.csv` expanded to N=20
+- Results: Cmax AAFE = **2.66 [1.74, 4.35]**, %2-fold = **46.7%** (7/15)
+- AUC AAFE = 2.74 [1.63, 4.94] (N=11)
+- Outliers: sonidegib 24x (sim window), atazanavir 11x (P-gp), temozolomide 10x (prodrug)
+- Top: moxifloxacin 1.14x, glasdegib 1.19x, abacavir 1.22x
 
 ### 5.3 Error Cancellation Formal Analysis
 
@@ -368,12 +370,12 @@ Phase 0 (Diagnostic)
   │     ├── OATP liver
   │     └── Renal transport
   │
-  └──→ Phase 5 (Validation)   ── after all phases
-        ├── Gold N=50+
-        ├── Temporal N=15+
-        ├── Cancellation analysis
-        ├── Population simulation
-        └── Paper rewrite
+  └──→ Phase 5 (Validation)   ── partial DONE
+        ├── Gold N=50+ ✓ (N=51, AAFE 3.40)
+        ├── Temporal N=15+ ✓ (N=20/15 Cmax, AAFE 2.66)
+        ├── Cancellation analysis (script exists, not formally run)
+        ├── Population simulation (not started)
+        └── Paper rewrite (in progress)
 ```
 
 ## Success Metrics
@@ -382,7 +384,7 @@ Phase 0 (Diagnostic)
 |--------|---------|-----------|-----------|-----------|-------|
 | Gold AAFE (N=25) | 1.70 | ≤1.70 | ≤1.60 | ≤1.55 | ≤1.50 |
 | Gold %2-fold | 80% | ≥80% | ≥85% | ≥85% | ≥85% |
-| External/Temporal AAFE | 2.95/3.12 | ≤3.00 | ≤2.50 | ≤2.30 | ≤2.50 |
+| External/Temporal AAFE | 2.95/2.66 | ≤3.00 | ≤2.50 | ≤2.30 | ≤2.50 |
 | CLint coverage | 37% | 37% | ≥60% | ≥70% | ≥75% |
 | Gold N | 25 | 25 | 25 | 25 | 50+ |
 | Bootstrap CI | N/A | reported | narrower | narrower | published |

@@ -163,6 +163,30 @@ def hepatocyte_clint_scale(
     return float(clint_liver)
 
 
+def fuinc_from_logp(logP: float) -> float:
+    """Fraction unbound in microsomal incubation. Austin et al. 2002.
+
+    Empirical correlation for predicting fu_mic from logP.
+    Used to correct CLint_apparent → CLint_true when fu_mic is unknown.
+
+    Parameters
+    ----------
+    logP : float
+        Octanol-water partition coefficient.
+
+    Returns
+    -------
+    float
+        Predicted fu_mic in range (0, 1]. Lower for lipophilic compounds.
+
+    References
+    ----------
+    Austin et al. (2002) Drug Metab Dispos 30(12):1497-1503.
+    """
+    log_ratio = 0.072 * logP**2 + 0.067 * logP - 1.126
+    return 1.0 / (1.0 + 10**log_ratio)
+
+
 def fu_mic_correction(clint_obs: float, fu_mic: float) -> float:
     """Correct observed CLint for nonspecific microsomal binding.
 

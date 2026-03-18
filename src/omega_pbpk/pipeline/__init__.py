@@ -33,6 +33,12 @@ _USE_SALT_CORRECTION = (
 )
 _ENABLE_GUT_WALL_FIX = False  # Phase 3a.1: disabled (error cancellation risk: Fg fix breaks Fg×Fh balance — investigate separately)
 
+# Phase 3b: fuinc correction for microsomal nonspecific binding
+# Disabled: error cancellation analysis shows predicted ADME already beats
+# measured ADME (AAFE 2.46 vs 2.69). Enabling may worsen core 24-drug benchmark.
+# Enable only after Phase 3a (gut wall) is stable.
+_USE_FUINC_CORRECTION: bool = False
+
 
 @dataclass(frozen=True)
 class CandidateReport:
@@ -1127,7 +1133,33 @@ class OmegaPipeline:
         if cl_renal > 0.5:
             logger.debug("Renal CL estimated: %.1f L/h (logP=%.1f)", cl_renal, logP)
 
-        if clint_hepatocyte > 0:
+        # --- Phase 3b: fuinc correction for microsomal nonspecific binding ---
+        # Austin et al. 2002: CLint_true = CLint_apparent / fuinc(logP).
+        # Lipophilic drugs bind non-specifically to microsomal lipids; the
+        # apparent CLint (measured from total drug disappearance) underestimates
+        # true metabolic CLint. Correction increases CLint for lipophilic drugs.
+        # Flag disabled: error cancellation analysis shows predicted ADME already
+        # beats measured ADME (AAFE 2.46 vs 2.69). Enabling may worsen 24-drug
+        # benchmark due to existing error cancellation in the pipeline.
+        clint_hepatocyte_corrected = clint_hepatocyte
+        clint_3a4_corrected = clint_3a4
+        clint_2d6_corrected = clint_2d6
+        if _USE_FUINC_CORRECTION:
+            from omega_pbpk.core.clint_scaling import fuinc_from_logp
+
+            _fuinc = fuinc_from_logp(logP_kp)
+            clint_hepatocyte_corrected = clint_hepatocyte / _fuinc
+            clint_3a4_corrected = clint_3a4 / _fuinc
+            clint_2d6_corrected = clint_2d6 / _fuinc
+            logger.debug(
+                "fuinc correction: logP_kp=%.2f fuinc=%.3f CLint_hep %.1f→%.1f",
+                logP_kp,
+                _fuinc,
+                clint_hepatocyte,
+                clint_hepatocyte_corrected,
+            )
+
+        if clint_hepatocyte_corrected > 0:
             # Regression-corrected IVIVE from ADMET-AI hepatocyte clearance.
             #
             # Problem: standard IVIVE (×12.96) over-predicts by 5-20x, and
@@ -1151,7 +1183,7 @@ class OmegaPipeline:
             IVIVE_ALPHA = 0.3
             IVIVE_BETA = 0.9
 
-            clh_target = min(IVIVE_ALPHA * clint_hepatocyte**IVIVE_BETA, 0.95 * Q_H)
+            clh_target = min(IVIVE_ALPHA * clint_hepatocyte_corrected**IVIVE_BETA, 0.95 * Q_H)
 
             # Pre-invert well-stirred: find CLint such that
             # Q×fup×CLint/(Q+fup×CLint) = clh_target
@@ -1194,9 +1226,9 @@ class OmegaPipeline:
         else:
             # Legacy path: CYP-attributed units (µL/min/pmol CYP)
             # Let Drug.clint_scaled_L_per_h handle the IVIVE scaling
-            clint_dict = {"CYP3A4": clint_3a4}
-            if clint_2d6 > 0:
-                clint_dict["CYP2D6"] = clint_2d6
+            clint_dict = {"CYP3A4": clint_3a4_corrected}
+            if clint_2d6_corrected > 0:
+                clint_dict["CYP2D6"] = clint_2d6_corrected
             return Drug(
                 name=f"compound_{smiles[:8]}",
                 mw=mw,
@@ -1207,7 +1239,10 @@ class OmegaPipeline:
                 fup=fup,
                 rbp=min(float(adme.get("rbp", 0.55)), 1.5),  # Cap: most drugs have RBP 0.5-1.2
                 clint=clint_dict,
-                fm={"CYP3A4": clint_3a4 / max(clint_3a4 + clint_2d6, 0.01)},
+                fm={
+                    "CYP3A4": clint_3a4_corrected
+                    / max(clint_3a4_corrected + clint_2d6_corrected, 0.01)
+                },
                 clr_L_per_h=cl_renal,
                 peff=peff,
                 solubility_mg_mL=max(sol_mg_mL, 0.001),

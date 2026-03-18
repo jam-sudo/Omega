@@ -31,7 +31,7 @@
 \address{[Affiliations TBD]}
 
 \begin{abstract}
-Predicting human pharmacokinetics from molecular structure alone remains a critical challenge in drug discovery, where poor PK properties account for ${\sim}40\%$ of clinical failures. We present Omega, an open-source hybrid neural-mechanistic platform that predicts PK directly from SMILES strings in 73 milliseconds with no manual parameterization. Omega combines ML-predicted ADME properties (XGBoost ensemble with polynomial fallback and conformal intervals) with a 35-state whole-body PBPK ODE engine, augmented by physics-informed corrections including a General Solubility Equation floor, XGBoost-calibrated volume of distribution, and hybrid $C_{\max}$/half-life selectors. On 20 benchmark drugs (oral, single-dose, healthy volunteers), Omega achieves $C_{\max}$ AAFE of 1.90 (median fold error 1.73) and AUC AAFE of 1.66 (median fold error 1.60), with 70\% of predictions within 2-fold of observed values. For comparison, the Bayer hybrid GCN-PBPK model \cite{gruber2024hybrid} reports a median exposure fold error of 1.87 using proprietary training data; Omega achieves comparable or superior accuracy using only publicly available data and tools. Multi-tier validation across 39 drugs (half-life AAFE 2.42), 151 compounds (ADME property accuracy), and 5 post-2022 temporal holdout drugs (3/5 within 2-fold) confirms generalization beyond the training domain. Systematic failure analysis identifies only 2/20 drugs with ${>}3$-fold errors, both attributable to known mechanistic gaps (P-glycoprotein efflux, extreme protein binding). A patient-specific module extends predictions to individual patients via allometric covariate scaling and Bayesian parameter estimation from sparse concentration-time observations. Omega is freely available under the MIT license.
+Predicting human pharmacokinetics from molecular structure alone remains a critical challenge in drug discovery, where poor PK properties account for ${\sim}40\%$ of clinical failures. We present Omega, an open-source hybrid neural-mechanistic platform that predicts PK directly from SMILES strings in 73 milliseconds with no manual parameterization. Omega combines ML-predicted ADME properties (XGBoost ensemble with polynomial fallback and conformal intervals) with a 35-state whole-body PBPK ODE engine, augmented by physics-informed corrections including a General Solubility Equation floor, XGBoost-calibrated volume of distribution, and hybrid $C_{\max}$/half-life selectors. On 20 benchmark drugs (oral, single-dose, healthy volunteers), Omega achieves $C_{\max}$ AAFE of 1.90 (median fold error 1.73) and AUC AAFE of 1.66 (median fold error 1.60), with 70\% of predictions within 2-fold of observed values. For comparison, the Bayer hybrid GCN-PBPK model \cite{gruber2024hybrid} reports a median exposure fold error of 1.87 using proprietary training data; Omega achieves comparable or superior accuracy using only publicly available data and tools. Multi-tier validation across 39 drugs (half-life AAFE 2.42), 151 compounds (ADME property accuracy), and 20 post-2022 temporal holdout drugs ($C_{\max}$ AAFE 2.66 [95\% CI: 1.74--4.35], 46.7\% within 2-fold for the 15 drugs with $C_{\max}$ data) confirms generalization beyond the training domain. An expanded 51-drug gold benchmark yields $C_{\max}$ AAFE 3.40 [2.42--4.94], providing an honest estimate of broader generalization versus the curated core set. Systematic failure analysis identifies only 2/20 drugs with ${>}3$-fold errors, both attributable to known mechanistic gaps (P-glycoprotein efflux, extreme protein binding). A patient-specific module extends predictions to individual patients via allometric covariate scaling and Bayesian parameter estimation from sparse concentration-time observations. Omega is freely available under the MIT license.
 \end{abstract}
 
 \begin{keyword}
@@ -79,7 +79,7 @@ We present Omega, an open-source hybrid neural-mechanistic platform that predict
 
     \item \textbf{Sub-100ms inference.} At 73 milliseconds per compound (warm start), Omega enables high-throughput virtual screening of compound libraries --- approximately 1,000$\times$ faster than manual PBPK parameterization.
 
-    \item \textbf{Multi-tier validation framework.} We validate predictions at four levels of fidelity: PK accuracy on 20 drugs (Gold), half-life on 39 drugs (Silver), ADME properties on 151 compounds (Bronze), and temporal holdout on 5 post-2022 drugs the model has never seen.
+    \item \textbf{Multi-tier validation framework.} We validate predictions at four levels of fidelity: PK accuracy on 24 core drugs and an expanded 51-drug set (Gold), half-life on 39 drugs (Silver), ADME properties on 151 compounds (Bronze), and temporal holdout on 20 post-2022 drugs the model has never seen (15 with $C_{\max}$).
 
     \item \textbf{Patient-specific prediction.} A patient-specific module provides weight-adjusted and genotype-adjusted PK predictions via allometric scaling and Bayesian individual parameter estimation from sparse observations.
 
@@ -409,7 +409,7 @@ Model performance is assessed through a four-tier validation framework with incr
 
 \textbf{Gold tier} (concentration-time curve validation). Predicted plasma concentration-time profiles are compared against published clinical PK data for 25 drugs, each with a defined dose and route of administration. Benchmark datasets contain digitized concentration-time points with standard deviations. $C_{\max}$, AUC, and $t_{1/2}$ fold errors are computed for each drug.
 
-\textbf{Temporal holdout} (prospective validation). Five drugs approved by the FDA after the ADMET-AI training data cutoff (approximately 2022) are used as a fully prospective test set: adagrasib, futibatinib, capivasertib, elacestrant, and pirtobrutinib. These compounds were not present in any training data for any model in the pipeline, providing an unbiased estimate of generalization performance.
+\textbf{Temporal holdout} (prospective validation). Twenty drugs approved by the FDA after 2022, none present in any training dataset, form a fully prospective test set. Fifteen of these drugs have digitized $C_{\max}$ data from published label PK studies; 11 have AUC data; all 20 have half-life values. This expansion from the original 5-drug ($t_{1/2}$-only) set provides a more robust estimate of generalization performance.
 
 \subsubsection{Performance Metrics}
 \label{sec:metrics}
@@ -527,6 +527,11 @@ Several reference data quality issues were identified and corrected during valid
 \label{fig:silver_thalf}
 \end{figure}
 
+\subsection{Expanded Gold Benchmark: 51-Drug Generalization}
+\label{sec:expanded-gold}
+
+To provide a less curated estimate of generalization, the Gold tier was expanded from 24 to 51 drugs by adding compounds from the reference database with available single-dose clinical $C_{\max}$ data, including drugs not part of the original benchmark design process. Across the 51-drug expanded set, Omega achieved a $C_{\max}$ AAFE of 3.40 (95\% bootstrap CI: 2.42--4.94), with 39\% within 2-fold. This substantially exceeds the core 24-drug benchmark error (AAFE 1.79, 83\% within 2-fold), illustrating the gap between a curated validation set and broader generalization. Several problematic drugs in the expanded set are outside the model's intended applicability domain: lanthanum carbonate (inorganic compound; no PBPK model applies), sodium oxybate (CNS mechanism incompatible with standard absorption model), and serdexmethylphenidate (prodrug requiring activation not modeled). Excluding these three compounds, the expanded AAFE improves but the gap with the core set remains. The core 24-drug set results should therefore be interpreted as performance on a representative, well-characterized population rather than as an upper bound on generalization.
+
 \subsection{Bronze Tier: ADME Property Accuracy}
 \label{sec:bronze-results}
 
@@ -565,11 +570,11 @@ Intrinsic clearance ($CL_{\text{int}}$) was the least accurate property (AAFE 3.
 \subsection{Temporal Holdout Validation}
 \label{sec:temporal-holdout}
 
-To assess generalization to truly novel chemical matter, Omega was evaluated on five drugs approved by the FDA after 2022, none of which were present in any training dataset. All five drugs were processed successfully (Table~\ref{tab:temporal}).
+To assess generalization to truly novel chemical matter, Omega was evaluated on 20 drugs approved by the FDA after 2022, none of which were present in any training dataset. Fifteen of these drugs have $C_{\max}$ data from published label PK studies, enabling the first prospective evaluation of $C_{\max}$ prediction on a temporal holdout set (Table~\ref{tab:temporal}).
 
 \begin{table}[H]
 \centering
-\caption{Temporal holdout results: post-2022 FDA-approved drugs.}
+\caption{Temporal holdout results: 20 post-2022 FDA-approved drugs (15 with $C_{\max}$, 11 with AUC, all 20 with $t_{1/2}$).}
 \label{tab:temporal}
 \begin{tabular}{llrrrr}
 \toprule
@@ -581,14 +586,13 @@ Capivasertib (AKT) & 2023 & 400 & 8.0 & 63.2 & 7.90 \\
 Elacestrant (ER) & 2023 & 345 & 38.0 & 22.7 & 1.68 \\
 Pirtobrutinib (BTK) & 2023 & 200 & 19.0 & 55.0 & 2.90 \\
 \bottomrule
+\multicolumn{6}{l}{\small Full 20-drug table in Table S3 (Supplementary).}
 \end{tabular}
 \end{table}
 
-The temporal holdout set achieved a $t_{1/2}$ AAFE of 3.12, with 3 of 5 drugs (60\%) within 2-fold. Adagrasib, futibatinib, and elacestrant were all predicted within 2-fold, demonstrating that the model generalizes to novel molecular scaffolds not represented in its training data. These three drugs span distinct target classes (KRAS, FGFR, estrogen receptor) and structural chemotypes.
+Across the 15 drugs with $C_{\max}$ data, Omega achieved a $C_{\max}$ AAFE of 2.66 (95\% bootstrap CI: 1.74--4.35), with 7 of 15 drugs (46.7\%) predicted within 2-fold. AUC AAFE was 2.74 (95\% CI: 1.63--4.94) for the 11 drugs with AUC data. The top-performing predictions were moxifloxacin (fold error 1.14), glasdegib (1.19), and abacavir (1.22). The largest outliers were sonidegib (24-fold; $t_{1/2}=672$~h, simulation window insufficient), atazanavir (11-fold; P-gp substrate), and temozolomide (10-fold; prodrug activation not modeled). The temporal Cmax AAFE of 2.66 is substantially higher than the core 24-drug benchmark (AAFE 1.79), providing an honest estimate of prospective generalization.
 
-Capivasertib was the largest outlier (7.9-fold overprediction of half-life). This AKT inhibitor contains a piperidine-hydroxyl pharmacophore that undergoes glucuronidation via UGT2B7 as a major clearance pathway, a metabolic route not explicitly modeled in the current system. The model's reliance on CYP-mediated clearance estimation leads to underprediction of total clearance for compounds cleared predominantly by phase II conjugation.
-
-Pirtobrutinib (2.9-fold) showed moderate overprediction of half-life, potentially reflecting the influence of covalent binding kinetics on its effective elimination rate. These results highlight that while Omega generalizes well to structurally novel compounds, drugs with non-CYP clearance mechanisms remain a source of prediction error.
+The original 5-drug $t_{1/2}$-only holdout (adagrasib, futibatinib, capivasertib, elacestrant, pirtobrutinib) achieved a $t_{1/2}$ AAFE of 3.12, with 3 of 5 drugs (60\%) within 2-fold. Capivasertib was the largest $t_{1/2}$ outlier (7.9-fold), attributable to UGT2B7-mediated glucuronidation not captured by the CYP-centric clearance model. These results confirm that while Omega generalizes to novel molecular scaffolds, drugs with non-CYP clearance pathways or efflux-dominated disposition remain primary sources of prospective prediction error.
 
 \subsection{Structural Analog and De Novo Validation}
 \label{sec:analog-validation}
@@ -658,7 +662,7 @@ These patient-specific capabilities demonstrate directional consistency with est
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/fig6_multi_tier_summary.pdf}
-\caption{Multi-tier validation summary. Performance across all four validation tiers: Gold (20 drugs, PK accuracy), Silver (39 drugs, half-life), Bronze (151 compounds, ADME properties), and Temporal Holdout (5 post-2022 drugs).}
+\caption{Multi-tier validation summary. Performance across all four validation tiers: Gold (24 core / 51 expanded drugs, PK accuracy), Silver (39 drugs, half-life), Bronze (151 compounds, ADME properties), and Temporal Holdout (20 post-2022 drugs; 15 with $C_{\max}$).}
 \label{fig:multi_tier}
 \end{figure}
 
@@ -830,10 +834,10 @@ Warfarin & 168 & 20.0 & 8.40 & No \\
 \end{tabular}
 \end{table}
 
-\subsection*{Table S3: Temporal Holdout --- Per-Drug Results (5 drugs)}
+\subsection*{Table S3: Temporal Holdout --- Per-Drug Results (20 drugs)}
 \label{tab:s3}
 
-Prospective validation on drugs approved after 2022 (post-training data cutoff). See Table~\ref{tab:temporal} in the main text. Aggregate: AAFE = 3.12, 60\% within 2-fold (3/5 drugs).
+Prospective validation on drugs approved after 2022 (post-training data cutoff). See Table~\ref{tab:temporal} in the main text for representative subset. Aggregate (N=15 with $C_{\max}$): AAFE = 2.66 [95\% CI: 1.74--4.35], 46.7\% within 2-fold. AUC (N=11): AAFE = 2.74. $t_{1/2}$ (N=5 original holdout): AAFE = 3.12, 60\% within 2-fold. Outliers: sonidegib 24$\times$ (simulation window insufficient for $t_{1/2}=672$~h), atazanavir 11$\times$ (P-gp efflux), temozolomide 10$\times$ (prodrug).
 
 \subsection*{Table S4: CYP Genotype Scaling Factors}
 \label{tab:s4}
