@@ -1,0 +1,4 @@
+drug,smiles,dose_mg,obs_cmax,pred_cmax_pbpk,log_obs_cmax_per_mg,tier,source_study
+simvastatin,CCC(C)(C)C(=O)OC1CC(O)C=C2C=CC(C)C(CCC3CC(O)CC(=O)O3)C21,40.0,0.0125,,-8.070906088787817,pkdb_expanded,MockStudy_simvastatin
+naproxen,COc1ccc2cc(CC(C)C(=O)O)ccc2c1,500.0,95.2,,-1.658628156624872,pkdb_expanded,MockStudy_naproxen
+codeine,COc1ccc2CC3N(C)CCC4=CC1OC24C3O,60.0,0.22871104,,-5.569640468494075,pkdb_expanded,MockStudy_codeine
