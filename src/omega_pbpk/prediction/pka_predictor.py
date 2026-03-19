@@ -52,54 +52,107 @@ def _estimate_mw_from_smiles(smiles: str) -> float:
     return max(mw, 50.0)
 
 
+# ---------------------------------------------------------------------------
+# RDKit SMARTS patterns for functional group detection
+# Priority order: first match wins. Checked in order defined below.
+# ---------------------------------------------------------------------------
+# Each entry: (group_name, smarts_string, pka_key_in_GROUP_PKA)
+_SMARTS_PRIORITY: list[tuple[str, str, str]] = [
+    # Carboxylic acid: neutral COOH (not carboxylate anion)
+    ("carboxylic_acid", "[CX3](=O)[OX2H1]", "carboxylic_acid"),
+    # Sulfonamide: S(=O)2-NH (acidic)
+    ("sulfonamide", "[SX4](=O)(=O)[NX3H1,NX3H2]", "sulfonamide"),
+    # Imidazole: 5-membered aromatic ring with free NH (e.g., histidine)
+    # [nH] = aromatic N with H; adjacent aromatic N in 5-ring
+    ("imidazole", "[nH]1ccnc1", "imidazole"),
+    # Pyridine: aromatic 6-ring N, NOT an NH, NOT in amide, NOT adjacent to another aromatic N
+    ("pyridine", "[$([n;r6;!$([nH]);!$(n~C=O);!$(n~c=O);!$(n~n)])]", "pyridine"),
+    # Phenol: aromatic C-OH (weak acid, pKa~9.5)
+    ("phenol", "[OX2H1]c", "phenol"),
+    # Secondary amine: NH not in amide/sulfonamide/imine/aromatic context
+    (
+        "amine_secondary",
+        "[NH1;!$(NC=O);!$(NS=O);!$([N]=[*]);!$([n])]",
+        "amine_secondary",
+    ),
+    # Primary amine: NH2 not in amide/sulfonamide/imine context
+    (
+        "amine_primary",
+        "[NH2;!$(NC=O);!$(NS=O);!$([N]=[*]);!$([n])]",
+        "amine_primary",
+    ),
+]
+
+# Cache compiled patterns (populated on first call)
+_COMPILED_SMARTS: list[tuple[str, object, str]] | None = None
+
+
+def _get_compiled_smarts() -> list[tuple[str, object, str]]:
+    """Lazily compile SMARTS patterns; returns [] if RDKit unavailable."""
+    global _COMPILED_SMARTS
+    if _COMPILED_SMARTS is None:
+        try:
+            from rdkit import Chem
+
+            _COMPILED_SMARTS = [
+                (name, Chem.MolFromSmarts(smarts), pka_key)
+                for name, smarts, pka_key in _SMARTS_PRIORITY
+            ]
+        except ImportError:
+            _COMPILED_SMARTS = []
+    return _COMPILED_SMARTS
+
+
 def _detect_functional_group(smiles: str) -> tuple[str | None, float | None]:
-    """Detect the primary ionizable functional group from SMILES patterns.
+    """Detect the primary ionizable functional group from SMILES.
+
+    Strategy (in priority order):
+    1. Enol-lactone (4-hydroxycoumarin): string pattern — tautomer-sensitive,
+       more reliable than SMARTS for warfarin's specific substructure.
+    2. RDKit SMARTS — robust structural matching for all other groups.
+    3. String fallback — only when RDKit is unavailable (should not happen
+       in production where rdkit is a required dep).
 
     Returns (group_name, base_pka) or (None, None) if no pattern matched.
     """
     s = smiles.lower()
 
-    # Carboxylic acid: C(=O)O or COOH patterns
-    if "c(=o)o" in s or "c(o)=o" in s or "oc(=o)" in s or "cooh" in s or "c(=o)oh" in s:
-        return "carboxylic_acid", _GROUP_PKA["carboxylic_acid"]
-
-    # Sulfonamide: S(=O)(=O)N
-    if "s(=o)(=o)n" in s or "s(=o)(=o)[nh" in s:
-        return "sulfonamide", _GROUP_PKA["sulfonamide"]
-
-    # Imidazole ring: c1cnc or n1cnc patterns
-    if "c1cnc" in s or "n1cnc" in s or "cnc" in s and "n" in s:
-        # Check specifically for imidazole (not just any CNc pattern)
-        if "c1cnc" in s or "n1cnc" in s or "[nH]1ccnc1" in smiles or "cnch" in s:
-            return "imidazole", _GROUP_PKA["imidazole"]
-
-    # Pyridine ring: n1cccc or c1ccnc patterns
-    if "n1cccc" in s or "c1ccnc" in s or "c1ccccn1" in s or "c1ccncc1" in s:
-        return "pyridine", _GROUP_PKA["pyridine"]
-
-    # Enol-lactone (e.g. 4-hydroxycoumarin, warfarin): aromatic OH + ring C=O
-    # Distinguished from phenol by the presence of a ring-closing C=O bond (cN=o pattern),
-    # which indicates a lactone or coumarin carbonyl that phenols lack.
+    # --- Priority 0: Enol-lactone (warfarin fix) ---
+    # 4-OH-coumarin skeleton: aromatic OH adjacent to ring-fused C=O (lactone).
+    # The tautomeric nature of 4-OH-coumarin makes SMARTS unreliable here.
     if ("oc1" in s or "c1o" in s or "c(o)" in s) and any(ch.isdigit() for ch in s):
         if any(f"c{d}=o" in s for d in "123456789"):
             return "enol_lactone", _GROUP_PKA["enol_lactone"]
 
-    # Phenol: aromatic C-OH (oc1 or c1o followed by ring closure)
-    if ("oc1" in s or "c1o" in s) and ("c" in s):
-        # Distinguish from aliphatic OH by checking for ring indicators
-        if any(ch.isdigit() for ch in s):
-            return "phenol", _GROUP_PKA["phenol"]
+    # --- Priority 1: RDKit SMARTS (primary path) ---
+    compiled = _get_compiled_smarts()
+    if compiled:
+        try:
+            from rdkit import Chem
 
-    # Primary amine: CN or NC patterns (aliphatic, not amide/imine)
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is not None:
+                for group_name, patt, pka_key in compiled:
+                    if patt is not None and mol.HasSubstructMatch(patt):
+                        return group_name, _GROUP_PKA[pka_key]
+                return None, None  # RDKit succeeded, no ionizable group found
+        except Exception:
+            pass  # fall through to string fallback
+
+    # --- Priority 2: String fallback (RDKit unavailable) ---
+    if "c(=o)o" in s or "c(o)=o" in s or "oc(=o)" in s or "cooh" in s:
+        return "carboxylic_acid", _GROUP_PKA["carboxylic_acid"]
+    if "s(=o)(=o)n" in s or "s(=o)(=o)[nh" in s:
+        return "sulfonamide", _GROUP_PKA["sulfonamide"]
+    if "[nh]1ccnc1" in s or "c1cnc[nh]1" in s:
+        return "imidazole", _GROUP_PKA["imidazole"]
+    if "n1cccc" in s or "c1ccnc" in s or "c1ccccn1" in s or "c1ccncc1" in s:
+        return "pyridine", _GROUP_PKA["pyridine"]
     if "cn" in s or "nc" in s:
-        # Guard: exclude benzodiazepine-like molecules where all N are non-basic.
-        # Imine (N=C, azomethine) has pKa < 4 — effectively neutral at pH 7.4.
-        # Combined with amide/lactam N (C(=O)...N), all N are non-basic.
-        has_imine = "n=c" in s  # azomethine/imine N
+        has_imine = "n=c" in s
         has_amide_n = "c(=o)n" in s or "nc(=o)" in s or "c(=o)cn" in s
         if has_imine and has_amide_n:
-            return None, None  # all N are non-basic (e.g. diazepam, lorazepam)
-        # Check for secondary vs primary: look for N with 2 C neighbors
+            return None, None
         if "n(" in s or "n[" in s:
             return "amine_secondary", _GROUP_PKA["amine_secondary"]
         return "amine_primary", _GROUP_PKA["amine_primary"]
