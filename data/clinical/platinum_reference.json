@@ -1,9 +1,10 @@
 {
   "metadata": {
     "version": "2.0",
-    "n_drugs": 150,
+    "n_drugs": 147,
     "created": "2026-03-19",
-    "inclusion_standard": "oral_IR_fasted_healthy_single_dose"
+    "inclusion_standard": "oral_IR_fasted_healthy_single_dose",
+    "notes": "Cleaned: removed 3 inorganics/prodrugs, fixed 3 extraction artifacts"
   },
   "drugs": {
     "acetaminophen": {
@@ -933,21 +934,6 @@
       "nonlinear_pk": false,
       "data_quality": "fda_label_exact"
     },
-    "fesoterodine": {
-      "smiles": "CC(C)C(=O)OC1=C(C=C(C=C1)CO)C(CCN(C(C)C)C(C)C)C2=CC=CC=C2",
-      "dose_mg": 8.0,
-      "cmax_mg_L": 0.00189,
-      "source_type": "literature",
-      "source_id": "gold",
-      "fasted_confidence": "assumed_fasted",
-      "formulation": "IR",
-      "route": "oral",
-      "population": "healthy",
-      "single_dose": true,
-      "tuning_contaminated": false,
-      "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
-    },
     "flutamide": {
       "smiles": "CC(C)C(=O)NC1=CC(=C(C=C1)[N+](=O)[O-])C(F)(F)F",
       "dose_mg": 200.0,
@@ -1102,21 +1088,6 @@
       "smiles": "C1C(OC(S1)CO)N2C=CC(=NC2=O)N",
       "dose_mg": 300.0,
       "cmax_mg_L": 3.17,
-      "source_type": "fda_label",
-      "source_id": "fda_expanded",
-      "fasted_confidence": "assumed_fasted",
-      "formulation": "IR",
-      "route": "oral",
-      "population": "healthy",
-      "single_dose": true,
-      "tuning_contaminated": false,
-      "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
-    },
-    "lanthanum carbonate": {
-      "smiles": "C(=O)([O-])[O-].C(=O)([O-])[O-].C(=O)([O-])[O-].[La+3].[La+3]",
-      "dose_mg": 87.0,
-      "cmax_mg_L": 0.001,
       "source_type": "fda_label",
       "source_id": "fda_expanded",
       "fasted_confidence": "assumed_fasted",
@@ -1446,9 +1417,9 @@
     "primaquine": {
       "smiles": "CC(CCCN)NC1=C2C(=CC(=C1)OC)C=CC=N2",
       "dose_mg": 30.0,
-      "cmax_mg_L": 0.001,
+      "cmax_mg_L": 0.15,
       "source_type": "literature",
-      "source_id": "gold",
+      "source_id": "PMID:6093303",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -1456,7 +1427,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "Fixed from 0.001 (extraction artifact). 30mg oral single dose, fasted."
     },
     "progesterone": {
       "smiles": "CC(=O)C1CCC2C1(CCC3C2CCC4=CC(=O)CCC34C)C",
@@ -1502,21 +1474,6 @@
       "tuning_contaminated": false,
       "nonlinear_pk": false,
       "data_quality": "fda_label_exact"
-    },
-    "serdexmethylphenidate": {
-      "smiles": "COC(=O)C(C1CCCCN1C(=O)OC[N+]2=CC=CC(=C2)C(=O)NC(CO)C(=O)[O-])C3=CC=CC=C3",
-      "dose_mg": 52.3,
-      "cmax_mg_L": 0.014,
-      "source_type": "literature",
-      "source_id": "gold",
-      "fasted_confidence": "assumed_fasted",
-      "formulation": "IR",
-      "route": "oral",
-      "population": "healthy",
-      "single_dose": true,
-      "tuning_contaminated": false,
-      "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
     },
     "sertraline": {
       "smiles": "CNC1CCC(C2=CC=CC=C12)C3=CC(=C(C=C3)Cl)Cl",
@@ -1941,9 +1898,9 @@
     "metoclopramide": {
       "smiles": "CCN(CC)CCNC(=O)C1=CC(=C(C=C1OC)N)Cl",
       "dose_mg": 10.0,
-      "cmax_mg_L": 0.001,
+      "cmax_mg_L": 0.045,
       "source_type": "fda_label",
-      "source_id": "DailyMed SPL",
+      "source_id": "FDA label Reglan (NDA 017854)",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -1951,14 +1908,15 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "fda_label_exact",
+      "notes": "Fixed from 0.001 (extraction artifact). Reglan 10mg IR, fasted, healthy."
     },
     "buspirone": {
       "smiles": "C1CCC2(C1)CC(=O)N(C(=O)C2)CCCCN3CCN(CC3)C4=NC=CC=N4",
       "dose_mg": 10.0,
-      "cmax_mg_L": 0.001,
+      "cmax_mg_L": 0.003,
       "source_type": "fda_label",
-      "source_id": "DailyMed SPL (text)",
+      "source_id": "PMID:3521461",
       "fasted_confidence": "confirmed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -1966,7 +1924,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "clinical_exact",
+      "notes": "Fixed from 0.001 (extraction artifact). Buspirone F~4% (extensive first-pass)."
     },
     "colchicine": {
       "smiles": "CC(=O)NC1CCC2=CC(=C(C(=C2C3=CC=C(C(=O)C=C13)OC)OC)OC)OC",
