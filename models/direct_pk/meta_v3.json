@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "trained_on": "mmpk_expanded_full.csv",
+  "n_entries": 3682,
+  "n_unique_drugs": 1239,
+  "target": "log10(cmax_mg_L / dose_mg)",
+  "cv_aafe": 1.8814,
+  "cv_pct_2fold": 68.6,
+  "n_features": 2057
+}
