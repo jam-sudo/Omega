@@ -821,10 +821,24 @@ class OmegaPipeline:
             except Exception as exc:
                 logger.debug("Ensemble prediction failed: %s", exc)
 
-        # Compute conformal UQ intervals from ADME parameter bounds
+        # Compute UQ intervals: adaptive conformal (Cmax) + fixed-width (AUC, t½)
         _cmax_ci = None
         _auc_ci = None
         _thalf_ci = None
+
+        # Try adaptive conformal for Cmax (k-NN local, 150-drug calibration)
+        try:
+            from omega_pbpk.ml.corrections.adaptive_conformal import AdaptiveConformal
+
+            _ac = AdaptiveConformal()
+            if _ac.is_fitted:
+                _interval = _ac.predict_interval(request.smiles, cmax)
+                if _interval is not None:
+                    _cmax_ci = (_interval["lower"], _interval["upper"])
+        except Exception as exc:
+            logger.debug("Adaptive conformal failed: %s", exc)
+
+        # Fixed-width conformal fallback for Cmax (if adaptive unavailable) + AUC/t½
         try:
             from omega_pbpk.uncertainty.conformal_uq import (
                 ParameterBounds,
@@ -852,7 +866,8 @@ class OmegaPipeline:
                 bounds=_bounds,
                 n_samples=200,
             )
-            _cmax_ci = (_uq.cmax_p5, _uq.cmax_p95)
+            if _cmax_ci is None:
+                _cmax_ci = (_uq.cmax_p5, _uq.cmax_p95)
             _auc_ci = (_uq.auc_p5, _uq.auc_p95)
             _thalf_ci = (_uq.t_half_p5, _uq.t_half_p95)
         except Exception as exc:
