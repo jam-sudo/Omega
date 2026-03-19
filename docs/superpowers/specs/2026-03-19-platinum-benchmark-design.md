@@ -21,7 +21,7 @@ Drug in Platinum  <=>  has {
     cmax_mg_L         : observed Cmax (mg/L)
     source            : PMID or FDA NDA number
     fasted_confidence : confirmed_fasted | assumed_fasted
-    data_quality      : fda_label | literature_exact | dose_normalized
+    data_quality      : fda_label_exact | clinical_exact | clinical_dose_normalized | fda_label_dose_normalized | fda_label_median
 }
 ```
 
@@ -334,7 +334,7 @@ CORE24_MAX_SINGLE_FE = 6.0   # current: max 3.99 (midazolam)
 **Level 2: Full Platinum (looser — catastrophic regression prevention)**
 
 ```python
-PLATINUM_AAFE_MAX = 2.50      # expected: ~2.0-2.5 initially
+PLATINUM_AAFE_MAX = 3.50      # start loose; tighten after baseline run
 PLATINUM_PCT2FOLD_MIN = 40.0  # expected: ~40-55% initially
 PLATINUM_MAX_SINGLE_FE = 10.0 # some drugs will be far off
 ```
