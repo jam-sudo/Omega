@@ -18,13 +18,11 @@ from __future__ import annotations
 
 import json
 import math
-import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "scripts"))  # for run_l1_benchmarks import
 
 GOLD_REF_PATH = REPO_ROOT / "data" / "clinical" / "gold24_reference_cmax.json"
 
@@ -53,8 +51,8 @@ def gold_reference() -> dict:
 
 @pytest.fixture(scope="module")
 def benchmark_drugs() -> dict:
-    """Load canonical drug SMILES/doses from run_l1_benchmarks.py."""
-    from run_l1_benchmarks import BENCHMARK_DRUGS  # noqa: PLC0415
+    """Load canonical drug SMILES/doses from drug registry."""
+    from omega_pbpk.data.drug_registry import BENCHMARK_DRUGS
 
     return BENCHMARK_DRUGS
 

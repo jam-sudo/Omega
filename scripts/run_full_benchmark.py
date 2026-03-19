@@ -24,12 +24,12 @@ sys.path.insert(0, str(repo_root / "src"))
 sys.path.insert(0, str(repo_root / "scripts"))
 
 from run_l1_benchmarks import (  # noqa: E402
-    BENCHMARK_DRUGS,
     compute_aafe,
     compute_fold_error,
     load_observed_pk,
 )
 
+from omega_pbpk.data.drug_registry import BENCHMARK_DRUGS  # noqa: E402
 from omega_pbpk.pipeline import OmegaPipeline, SimulationRequest  # noqa: E402
 
 
