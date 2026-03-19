@@ -69,6 +69,62 @@ _OATP_F_FRACTION: float = 0.11  # fraction of QH; archived for reference
 _USE_META_LEARNER: bool = True
 
 
+def _check_applicability_domain(smiles: str) -> tuple[bool, list[str]]:
+    """Check if a drug is within the pipeline's applicability domain.
+
+    Returns (in_domain, flags) where flags explain why a drug is out-of-domain.
+    """
+    try:
+        from rdkit import Chem
+        from rdkit.Chem import Descriptors
+    except ImportError:
+        return True, []
+
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return False, ["INVALID_SMILES"]
+
+    flags: list[str] = []
+    mw = Descriptors.MolWt(mol)
+    logp = Descriptors.MolLogP(mol)
+    tpsa = Descriptors.TPSA(mol)
+
+    # Prodrug detection: amino acid ester (val-ester), thienopyridine
+    _PRODRUG_SMARTS = [
+        "[OX2]C(=O)[CH]([NH2,NH])",  # val-ester (valacyclovir, valganciclovir)
+        "c1cc2c(s1)CCN2",  # thienopyridine (clopidogrel, prasugrel)
+    ]
+    for sma in _PRODRUG_SMARTS:
+        pat = Chem.MolFromSmarts(sma)
+        if pat and mol.HasSubstructMatch(pat):
+            flags.append("PRODRUG")
+            break
+
+    # Quaternary ammonium (from existing AD)
+    _QUAT_N = Chem.MolFromSmarts("[N+]([C,c])([C,c])([C,c])[C,c]")
+    if _QUAT_N and mol.HasSubstructMatch(_QUAT_N):
+        flags.append("QUATERNARY_AMINE")
+
+    # Inorganic metal
+    _METALS = Chem.MolFromSmarts("[Li,Na,K,Ca,Fe,La,Pt,Au,Gd,Ba]")
+    if _METALS and mol.HasSubstructMatch(_METALS):
+        flags.append("INORGANIC")
+
+    # Extreme lipophilicity → BCS II/IV, poor predictability
+    if logp > 6.0:
+        flags.append("EXTREME_LIPOPHILIC")
+
+    # Very high MW → poor oral absorption, P-gp efflux likely
+    if mw > 700:
+        flags.append("HIGH_MW")
+
+    # P-gp efflux risk: high MW + lipophilic + high TPSA
+    if mw > 500 and logp > 3.5 and tpsa > 100:
+        flags.append("PGP_EFFLUX_RISK")
+
+    return len(flags) == 0, flags
+
+
 @dataclass(frozen=True)
 class CandidateReport:
     """Comprehensive drug candidate evaluation report.
@@ -277,6 +333,8 @@ class SimulationResult:
     cmax_ci90: tuple[float, float] | None = None
     auc_ci90: tuple[float, float] | None = None
     thalf_ci90: tuple[float, float] | None = None
+    in_applicability_domain: bool = True
+    ad_flags: list[str] = field(default_factory=list)
 
 
 class OmegaPipeline:
@@ -935,6 +993,11 @@ class OmegaPipeline:
         except Exception as exc:
             logger.debug("UQ computation failed: %s", exc)
 
+        # --- Applicability domain check ---
+        _in_ad, _ad_flags = _check_applicability_domain(request.smiles)
+        if not _in_ad:
+            warnings_list.append(f"Outside applicability domain: {', '.join(_ad_flags)}")
+
         return SimulationResult(
             time_h=time_h,
             cp_mg_L=cp,
@@ -948,6 +1011,8 @@ class OmegaPipeline:
             cmax_ci90=_cmax_ci,
             auc_ci90=_auc_ci,
             thalf_ci90=_thalf_ci,
+            in_applicability_domain=_in_ad,
+            ad_flags=_ad_flags,
         )
 
     def fit_individual(
