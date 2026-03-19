@@ -23,7 +23,7 @@
       "tuning_contaminated": true,
       "nonlinear_pk": false,
       "data_quality": "clinical_exact",
-      "notes": "Reference_database dose_mg field shows 20mg (likely unit error — concentrations are physiological for 1000mg). Cmax=15.18 consistent with literature 10-25 mg/L for 1000mg oral acetaminophen."
+      "notes": "Reference_database dose_mg field shows 20mg (likely unit error \u2014 concentrations are physiological for 1000mg). Cmax=15.18 consistent with literature 10-25 mg/L for 1000mg oral acetaminophen."
     },
     "amoxicillin": {
       "smiles": "CC1(C)SC2C(NC(=O)C(N)c3ccc(O)cc3)C(=O)N2C1C(=O)O",
@@ -32,7 +32,7 @@
       "auc_mg_h_L": null,
       "tmax_h": 2.0,
       "source_type": "fda_label",
-      "source_id": "FDA label (Amoxil NDA 050821): 500mg oral capsule single dose fasted, Cmax≈7.5 µg/mL at 2h.",
+      "source_id": "FDA label (Amoxil NDA 050821): 500mg oral capsule single dose fasted, Cmax\u22487.5 \u00b5g/mL at 2h.",
       "fasted_confidence": "confirmed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -41,7 +41,7 @@
       "tuning_contaminated": false,
       "nonlinear_pk": false,
       "data_quality": "fda_label_exact",
-      "notes": "Exact benchmark dose. Synthetic reference was 9.52 mg/L (27% too high). FDA label 7.5 µg/mL well-established for amoxicillin 500mg capsule."
+      "notes": "Exact benchmark dose. Synthetic reference was 9.52 mg/L (27% too high). FDA label 7.5 \u00b5g/mL well-established for amoxicillin 500mg capsule."
     },
     "atenolol": {
       "smiles": "CC(C)NCC(O)COc1ccc(CC(N)=O)cc1",
@@ -95,7 +95,7 @@
       "tuning_contaminated": true,
       "nonlinear_pk": false,
       "data_quality": "clinical_dose_normalized",
-      "notes": "CORRECTED 2026-03-18: Wahllaender1990 was a LIVER DISEASE patient study (impaired CYP1A2 clearance → elevated Cmax=9.55 mg/L at 200mg → dose-norm 4.78). Replaced with Edwards2017 (healthy volunteers, DDI study context, n=24, 200mg, Cmax=5.207 → dose-norm 2.60). Caffeine PK is linear in 50-400mg range. Consistent with literature: typical 100mg Cmax 1.5-3 mg/L in healthy adults."
+      "notes": "CORRECTED 2026-03-18: Wahllaender1990 was a LIVER DISEASE patient study (impaired CYP1A2 clearance \u2192 elevated Cmax=9.55 mg/L at 200mg \u2192 dose-norm 4.78). Replaced with Edwards2017 (healthy volunteers, DDI study context, n=24, 200mg, Cmax=5.207 \u2192 dose-norm 2.60). Caffeine PK is linear in 50-400mg range. Consistent with literature: typical 100mg Cmax 1.5-3 mg/L in healthy adults."
     },
     "carbamazepine": {
       "smiles": "NC(=O)N1c2ccccc2C=Cc2ccccc21",
@@ -266,7 +266,7 @@
       "auc_mg_h_L": null,
       "tmax_h": 2.5,
       "source_type": "fda_label",
-      "source_id": "FDA label (Glucophage NDA 021202): 500mg single oral dose fasted, Cmax=1.03 µg/mL at 2.5h.",
+      "source_id": "FDA label (Glucophage NDA 021202): 500mg single oral dose fasted, Cmax=1.03 \u00b5g/mL at 2.5h.",
       "fasted_confidence": "confirmed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -471,7 +471,7 @@
     },
     "alosetron": {
       "smiles": "CC1=C(N=CN1)CN2CCC3=C(C2=O)C4=CC=CC=C4N3C",
-      "dose_mg": 4.0,
+      "dose_mg": 1.0,
       "cmax_mg_L": 0.005,
       "source_type": "literature",
       "source_id": "gold",
@@ -482,7 +482,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "Fixed: dose was 4mg (2x BID total). Cmax=5 ng/mL matches 1mg single dose from FDA label."
     },
     "amphetamine": {
       "smiles": "CC(CC1=CC=CC=C1)N",
@@ -651,7 +652,7 @@
     },
     "ciprofloxacin": {
       "smiles": "C1CC1N2C=C(C(=O)C3=CC(=C(C=C32)N4CCNCC4)F)C(=O)O",
-      "dose_mg": 50.0,
+      "dose_mg": 500.0,
       "cmax_mg_L": 2.97,
       "source_type": "literature",
       "source_id": "gold",
@@ -662,7 +663,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "Fixed: dose was 50mg (likely 10x extraction error). Cmax=2.97 mg/L matches ciprofloxacin 500mg IR from FDA label."
     },
     "clarithromycin": {
       "smiles": "CCC1C(C(C(C(=O)C(CC(C(C(C(C(C(=O)O1)C)OC2CC(C(C(O2)C)O)(C)OC)C)OC3C(C(CC(O3)C)N(C)C)O)(C)OC)C)C)O)(C)O",
@@ -766,8 +768,9 @@
       "population": "healthy",
       "single_dose": true,
       "tuning_contaminated": false,
-      "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "nonlinear_pk": true,
+      "data_quality": "fda_label_exact",
+      "notes": "WARNING: Cmax 7.32 mg/L likely includes ritonavir boosting (CYP3A4 inhibition). Pipeline predicts unboosted single-drug PK. Flag as DDI-contaminated."
     },
     "dasatinib": {
       "smiles": "CC1=C(C(=CC=C1)Cl)NC(=O)C2=CN=C(S2)NC3=CC(=NC(=N3)C)N4CCN(CC4)CCO",
@@ -1883,7 +1886,7 @@
     "venlafaxine": {
       "smiles": "CN(C)CC(C1=CC=C(C=C1)OC)C2(CCCCC2)O",
       "dose_mg": 75.0,
-      "cmax_mg_L": 0.0055,
+      "cmax_mg_L": 0.15,
       "source_type": "fda_label",
       "source_id": "DailyMed SPL",
       "fasted_confidence": "confirmed_fasted",
@@ -1893,7 +1896,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "fda_label_exact",
+      "notes": "Fixed: Cmax was 0.0055 (extraction error). Correct: 0.150 mg/L (150 ng/mL) from Effexor IR 75mg FDA label."
     },
     "metoclopramide": {
       "smiles": "CCN(CC)CCNC(=O)C1=CC(=C(C=C1OC)N)Cl",
