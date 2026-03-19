@@ -105,6 +105,57 @@ def _get_clint_reference_anchors() -> list[tuple[str, float]]:
     ]
 
 
+# Map from anchor SMILES → drug name for decontamination
+_ANCHOR_DRUG_NAMES: dict[str, str] = {
+    "CC(C)NCC(O)COc1cccc2ccccc12": "propranolol",
+    "COc1ccc(CCN(C)CCCC(C#N)(c2ccc(OC)c(OC)c2)C(C)C)cc1OC": "verapamil",
+    "COCCc1ccc(OCC(O)CNC(C)C)cc1": "metoprolol",
+    "CC(C)c1n(CC(O)CC(O)CC(=O)O)c(-c2ccccc2)c(-c2ccc(F)cc2)c1C(=O)Nc1ccccc1": "atorvastatin",
+    "CCC(C)(C)C(=O)OC1CC(O)C=C2C=CC(C)C(CCC3CC(O)CC(=O)O3)C21": "simvastatin",
+    "CNCCC(Oc1ccc(C(F)(F)F)cc1)c1ccccc1": "fluoxetine",
+    "Clc1ccc2c(c1)C(=NCc1nccn1C)c1ccccc1-2": "midazolam",
+    "COc1ccc2[nH]c(S(=O)Cc3ncc(C)c(OC)c3C)nc2c1": "omeprazole",
+    "CCCCc1nc(Cl)c(CO)n1Cc1ccc(-c2ccccc2-c2nn[nH]n2)cc1": "losartan",
+    "CCOC(=O)C1=C(COCCN)NC(C)=C(C(=O)OC)C1c1ccccc1Cl": "amlodipine",
+    "CC(=O)Nc1ccc(O)cc1": "acetaminophen",
+    "CNC(/N=C/[N+](=O)[O-])NCCSCc1ccc(CN(C)C)o1": "ranitidine",
+    "O=C(O)c1cn(C2CC2)c2cc(N3CCNCC3)c(F)cc2c1=O": "ciprofloxacin",
+    "CC(C)Cc1ccc(cc1)C(C)C(=O)O": "ibuprofen",
+    "Cn1c(=O)c2[nH]cnc2n(C)c1=O": "theophylline",
+    "Cn1cnc2c1c(=O)n(C)c(=O)n2C": "caffeine",
+    "CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21": "diazepam",
+    "CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O": "warfarin",
+    "OC(Cn1cncn1)(Cn1cncn1)c1ccc(F)cc1F": "fluconazole",
+}
+
+
+def get_decontaminated_anchors(
+    exclude_drugs: set[str] | None = None,
+) -> list[tuple[str, float]]:
+    """Return CLint anchors with specified drugs removed.
+
+    Args:
+        exclude_drugs: Drug names to exclude (e.g., holdout set drugs).
+            If None, returns full anchor set (production behavior).
+    """
+    if exclude_drugs is None:
+        return _get_clint_reference_anchors()
+
+    all_anchors = _get_clint_reference_anchors()
+    filtered = []
+    removed = []
+    for smiles, clint in all_anchors:
+        drug_name = _ANCHOR_DRUG_NAMES.get(smiles, "unknown")
+        if drug_name in exclude_drugs:
+            removed.append(drug_name)
+        else:
+            filtered.append((smiles, clint))
+
+    if removed:
+        logger.info("Decontaminated anchors: removed %s", removed)
+    return filtered
+
+
 def _enhanced_features(smiles: str) -> np.ndarray | None:
     """Enhanced feature vector: Morgan + RDKit descriptors + transporter flags.
 
