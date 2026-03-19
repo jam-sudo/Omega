@@ -63,6 +63,11 @@ _USE_RIDGE_CORRECTION: bool = False  # no-op; ablation-confirmed inactive
 _ENABLE_OATP_CORRECTION: bool = False
 _OATP_F_FRACTION: float = 0.11  # fraction of QH; archived for reference
 
+# Phase 5: trained MetaLearner replaces fixed-weight ensemble_cmax().
+# Uses 12-feature XGBoost to blend PBPK + ML predictions adaptively.
+# Trained on 1128-drug MMPK dataset (CV AAFE 1.974).
+_USE_META_LEARNER: bool = True
+
 
 @dataclass(frozen=True)
 class CandidateReport:
@@ -798,15 +803,72 @@ class OmegaPipeline:
                 # blending makes the better prediction worse.
                 _ens_ratio = max(cmax / max(cmax_ml, 1e-12), cmax_ml / max(cmax, 1e-12))
                 if _ens_ratio <= 10.0:
-                    cmax_ens = ensemble_cmax(cmax, cmax_ml, ens_conf)
-                    logger.debug(
-                        "Ensemble: PBPK=%.4f ML=%.4f conf=%s → %.4f",
-                        cmax,
-                        cmax_ml,
-                        ens_conf,
-                        cmax_ens,
-                    )
-                    cmax = cmax_ens
+                    _used_meta = False
+                    if _USE_META_LEARNER:
+                        try:
+                            from omega_pbpk.ml.models.direct_pk.meta_learner import (
+                                CmaxMetaLearner,
+                                MetaFeatures,
+                            )
+
+                            _meta_inst = getattr(self, "_meta_learner", None)
+                            if _meta_inst is None:
+                                _meta_inst = CmaxMetaLearner()
+                                self._meta_learner = _meta_inst
+
+                            if _meta_inst.is_loaded:
+                                from rdkit import Chem
+                                from rdkit.Chem import Descriptors as _MDesc
+
+                                _mol_meta = Chem.MolFromSmiles(request.smiles)
+                                # Detect compound type for is_acid / is_base
+                                _is_acid_flag = 0.0
+                                _is_base_flag = 0.0
+                                if _mol_meta is not None:
+                                    _acid_p = Chem.MolFromSmarts("[CX3](=O)[OX2H1]")
+                                    _base_p = Chem.MolFromSmarts(
+                                        "[NH2,NH1,NH0;!$(NC=O);!$(NS=O);!$([N]=[C])]"
+                                    )
+                                    if _mol_meta.HasSubstructMatch(_acid_p):
+                                        _is_acid_flag = 1.0
+                                    if _mol_meta.HasSubstructMatch(_base_p):
+                                        _is_base_flag = 1.0
+
+                                _mf = MetaFeatures(
+                                    cmax_pbpk=cmax,
+                                    cmax_ml=cmax_ml,
+                                    dose_mg=request.dose_mg,
+                                    logP=_MDesc.MolLogP(_mol_meta) if _mol_meta else 0.0,
+                                    TPSA_norm=_MDesc.TPSA(_mol_meta) / 200.0 if _mol_meta else 0.0,
+                                    MW_norm=_MDesc.MolWt(_mol_meta) / 600.0 if _mol_meta else 0.0,
+                                    fup=float(adme_props.get("fup", 0.1)),
+                                    clint=float(adme_props.get("clint_3a4", 5.0)),
+                                    is_acid=_is_acid_flag,
+                                    is_base=_is_base_flag,
+                                    pgp_flag=1.0 if adme_props.get("pgp_substrate", False) else 0.0,
+                                )
+                                cmax_meta = _meta_inst.predict(_mf)
+                                logger.debug(
+                                    "MetaLearner: PBPK=%.4f ML=%.4f → %.4f",
+                                    cmax,
+                                    cmax_ml,
+                                    cmax_meta,
+                                )
+                                cmax = cmax_meta
+                                _used_meta = True
+                        except Exception as exc:
+                            logger.debug("MetaLearner failed, falling back to ensemble: %s", exc)
+
+                    if not _used_meta:
+                        cmax_ens = ensemble_cmax(cmax, cmax_ml, ens_conf)
+                        logger.debug(
+                            "Ensemble: PBPK=%.4f ML=%.4f conf=%s → %.4f",
+                            cmax,
+                            cmax_ml,
+                            ens_conf,
+                            cmax_ens,
+                        )
+                        cmax = cmax_ens
                 else:
                     logger.debug(
                         "Ensemble skipped: PBPK=%.4f ML=%.4f ratio=%.1fx",

@@ -3,7 +3,11 @@
 Predicts log(Cmax/dose_mg) from Morgan fingerprints + RDKit descriptors,
 then converts back via exp(pred) * dose_mg to get Cmax in ug/mL.
 
-Training data: clinical Cmax observations from benchmark datasets (~66 drugs).
+V1 model: trained on benchmark data with natural-log target → math.exp()
+V2 model: trained on MMPK data (1128 drugs) with log10 target → 10**
+
+Training data: clinical Cmax observations from benchmark datasets (~66 drugs)
+and MMPK oral PK database (~1128 drugs for V2).
 """
 
 from __future__ import annotations
@@ -18,9 +22,10 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Paths
+# Paths — V2 preferred when available (trained on 1128-drug MMPK dataset)
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _MODEL_PATH = _REPO_ROOT / "models" / "direct_pk" / "xgboost_cmax.json"
+_MODEL_PATH_V2 = _REPO_ROOT / "models" / "direct_pk" / "xgboost_cmax_v2.json"
 _META_PATH = _REPO_ROOT / "models" / "direct_pk" / "meta.json"
 
 # Feature parameters
@@ -78,7 +83,13 @@ class DirectCmaxPredictor:
         self,
         model_path: Path | None = None,
     ) -> None:
-        self._model_path = model_path or _MODEL_PATH
+        if model_path is not None:
+            self._model_path = model_path
+        elif _MODEL_PATH_V2.exists():
+            self._model_path = _MODEL_PATH_V2
+        else:
+            self._model_path = _MODEL_PATH
+        self._is_v2 = "v2" in self._model_path.name
         self._model: Any = None
         self._meta: dict = {}
 
@@ -97,12 +108,20 @@ class DirectCmaxPredictor:
         self._model = xgb.XGBRegressor()
         self._model.load_model(str(self._model_path))
 
-        meta_path = self._model_path.parent / "meta.json"
+        # V2 model has meta_v2.json; V1 has meta.json
+        if self._is_v2:
+            meta_path = self._model_path.parent / "meta_v2.json"
+        else:
+            meta_path = self._model_path.parent / "meta.json"
         if meta_path.exists():
             with open(meta_path) as f:
                 self._meta = json.load(f)
 
-        logger.info("DirectCmaxPredictor loaded from %s", self._model_path)
+        logger.info(
+            "DirectCmaxPredictor loaded from %s (v2=%s)",
+            self._model_path,
+            self._is_v2,
+        )
 
     def predict(self, smiles: str, dose_mg: float) -> float:
         """Predict Cmax (ug/mL) for a single compound.
@@ -124,6 +143,9 @@ class DirectCmaxPredictor:
             return dose_mg * 0.5 / 100.0
 
         log_cmax_per_mg = float(self._model.predict(feat.reshape(1, -1))[0])
+        if self._is_v2:
+            # V2 trained on log10(cmax/dose) from MMPK data
+            return (10.0**log_cmax_per_mg) * dose_mg
         return math.exp(log_cmax_per_mg) * dose_mg
 
     def predict_batch(self, smiles_list: list[str], dose_mg: float) -> list[float]:
