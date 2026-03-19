@@ -122,11 +122,12 @@ class TestPredictPKa:
         assert abs(r.pka_predicted - 10.5) < 0.1
 
     def test_imidazole_detected(self):
-        r = predict_pka("c1cncc1", "base")
+        # "c1cncc1" is invalid aromatic SMILES (can't kekulize); use valid imidazole
+        r = predict_pka("c1cnc[nH]1", "base")
         assert r.detected_group == "imidazole"
 
     def test_imidazole_pka_range(self):
-        r = predict_pka("c1cncc1", "base")
+        r = predict_pka("c1cnc[nH]1", "base")
         assert r.pka_predicted is not None
         assert 6.0 <= r.pka_predicted <= 7.5
 
