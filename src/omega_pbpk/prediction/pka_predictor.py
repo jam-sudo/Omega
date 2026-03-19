@@ -90,8 +90,15 @@ def _detect_functional_group(smiles: str) -> tuple[str | None, float | None]:
         if any(ch.isdigit() for ch in s):
             return "phenol", _GROUP_PKA["phenol"]
 
-    # Primary amine: CN or NC patterns (aliphatic)
+    # Primary amine: CN or NC patterns (aliphatic, not amide/imine)
     if "cn" in s or "nc" in s:
+        # Guard: exclude benzodiazepine-like molecules where all N are non-basic.
+        # Imine (N=C, azomethine) has pKa < 4 — effectively neutral at pH 7.4.
+        # Combined with amide/lactam N (C(=O)...N), all N are non-basic.
+        has_imine = "n=c" in s  # azomethine/imine N
+        has_amide_n = "c(=o)n" in s or "nc(=o)" in s or "c(=o)cn" in s
+        if has_imine and has_amide_n:
+            return None, None  # all N are non-basic (e.g. diazepam, lorazepam)
         # Check for secondary vs primary: look for N with 2 C neighbors
         if "n(" in s or "n[" in s:
             return "amine_secondary", _GROUP_PKA["amine_secondary"]

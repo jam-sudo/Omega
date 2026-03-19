@@ -2,12 +2,16 @@
   "_metadata": {
     "created": "2026-03-18",
     "description": "Best available clinical Cmax/AUC reference values for gold-24 benchmark drugs. Replaces synthetic 1-cpt benchmark CSVs for drugs with real clinical data. See 'data_quality' field: 'clinical' = real C(t) study, 'clinical_dose_normalized' = scaled from nearby dose, 'fda_label' = from FDA label pk_params, 'synthetic' = 1-cpt generated (not real).",
-    "priority": ["fda_label_exact", "clinical_exact", "clinical_dose_normalized"],
+    "priority": [
+      "fda_label_exact",
+      "clinical_exact",
+      "clinical_dose_normalized"
+    ],
     "data_quality_codes": {
-      "fda_label_exact": "Directly from FDA label at exact benchmark dose — highest confidence",
+      "fda_label_exact": "Directly from FDA label at exact benchmark dose \u2014 highest confidence",
       "clinical_exact": "Real PK-DB C(t) study at exact or near-exact benchmark dose",
-      "clinical_dose_normalized": "Real PK-DB C(t) dose-normalized — assume linear PK, moderate confidence",
-      "fda_label_dose_normalized": "FDA label scaled to benchmark dose — moderate confidence"
+      "clinical_dose_normalized": "Real PK-DB C(t) dose-normalized \u2014 assume linear PK, moderate confidence",
+      "fda_label_dose_normalized": "FDA label scaled to benchmark dose \u2014 moderate confidence"
     }
   },
   "warfarin": {
@@ -58,7 +62,7 @@
     "source": "PK-DB: Edwards2017, 200mg oral, n=24, healthy volunteers. Dose-normalized: x0.5 (100/200mg). Cmax=5.207 at 200mg x0.5=2.6035.",
     "data_quality": "clinical_dose_normalized",
     "dose_ratio": 0.5,
-    "note": "CORRECTED 2026-03-18: Wahllaender1990 was a LIVER DISEASE patient study (impaired CYP1A2 clearance → elevated Cmax=9.55 mg/L at 200mg → dose-norm 4.78). Replaced with Edwards2017 (healthy volunteers, DDI study context, n=24, 200mg, Cmax=5.207 → dose-norm 2.60). Caffeine PK is linear in 50-400mg range. Consistent with literature: typical 100mg Cmax 1.5-3 mg/L in healthy adults."
+    "note": "CORRECTED 2026-03-18: Wahllaender1990 was a LIVER DISEASE patient study (impaired CYP1A2 clearance \u2192 elevated Cmax=9.55 mg/L at 200mg \u2192 dose-norm 4.78). Replaced with Edwards2017 (healthy volunteers, DDI study context, n=24, 200mg, Cmax=5.207 \u2192 dose-norm 2.60). Caffeine PK is linear in 50-400mg range. Consistent with literature: typical 100mg Cmax 1.5-3 mg/L in healthy adults."
   },
   "theophylline": {
     "cmax_mg_L": 8.7247,
@@ -78,7 +82,7 @@
     "source": "PK-DB: Prescott1993 (PMID:9114910) via reference_database. Curve Cmax=15.18 mg/L at 1000mg oral.",
     "data_quality": "clinical_exact",
     "dose_ratio": 1.0,
-    "note": "Reference_database dose_mg field shows 20mg (likely unit error — concentrations are physiological for 1000mg). Cmax=15.18 consistent with literature 10-25 mg/L for 1000mg oral acetaminophen."
+    "note": "Reference_database dose_mg field shows 20mg (likely unit error \u2014 concentrations are physiological for 1000mg). Cmax=15.18 consistent with literature 10-25 mg/L for 1000mg oral acetaminophen."
   },
   "omeprazole": {
     "cmax_mg_L": 0.1412,
@@ -105,23 +109,23 @@
     "auc_mg_h_L": null,
     "dose_mg": 500.0,
     "tmax_h": 2.0,
-    "source": "FDA label (Amoxil NDA 050821): 500mg oral capsule single dose fasted, Cmax≈7.5 µg/mL at 2h.",
+    "source": "FDA label (Amoxil NDA 050821): 500mg oral capsule single dose fasted, Cmax\u22487.5 \u00b5g/mL at 2h.",
     "data_quality": "fda_label_exact",
     "dose_ratio": 1.0,
-    "note": "Exact benchmark dose. Synthetic reference was 9.52 mg/L (27% too high). FDA label 7.5 µg/mL well-established for amoxicillin 500mg capsule."
+    "note": "Exact benchmark dose. Synthetic reference was 9.52 mg/L (27% too high). FDA label 7.5 \u00b5g/mL well-established for amoxicillin 500mg capsule."
   },
   "metformin": {
     "cmax_mg_L": 1.03,
     "auc_mg_h_L": null,
     "dose_mg": 500.0,
     "tmax_h": 2.5,
-    "source": "FDA label (Glucophage NDA 021202): 500mg single oral dose fasted, Cmax=1.03 µg/mL at 2.5h.",
+    "source": "FDA label (Glucophage NDA 021202): 500mg single oral dose fasted, Cmax=1.03 \u00b5g/mL at 2.5h.",
     "data_quality": "fda_label_exact",
     "dose_ratio": 1.0,
     "note": "Exact benchmark dose (500mg metformin HCl). Synthetic reference was 1.35 mg/L (31% too high). Standard FDA PK study value."
   },
   "atenolol": {
-    "cmax_mg_L": 0.30,
+    "cmax_mg_L": 0.3,
     "auc_mg_h_L": null,
     "dose_mg": 50.0,
     "tmax_h": 3.0,
@@ -131,7 +135,7 @@
     "note": "Exact benchmark dose. Synthetic reference was 0.38 mg/L (27% too high). Atenolol has linear PK."
   },
   "furosemide": {
-    "cmax_mg_L": 1.110,
+    "cmax_mg_L": 1.11,
     "auc_mg_h_L": null,
     "dose_mg": 40.0,
     "tmax_h": 1.0,
@@ -139,5 +143,115 @@
     "data_quality": "clinical_exact",
     "dose_ratio": 1.0,
     "note": "Synthetic reference was 2.0 mg/L (80% too high). Multiple bioequivalence studies confirm 1.1-1.6 mg/L range for 40mg oral fasted. Using Lasix reference arm (n=24). Walsh 2014 study: 1315-1584 ng/mL. Model predicts 0.77 mg/L: still under-predicts 1.4x but accurate relative to synthetic 2.6x error."
+  },
+  "metoprolol": {
+    "cmax_mg_L": 0.065,
+    "auc_mg_h_L": null,
+    "dose_mg": 100.0,
+    "tmax_h": 1.5,
+    "source": "FDA label NDA 019962 Lopressor 100mg IR oral; median across studies 50-120 ng/mL",
+    "data_quality": "fda_label_median",
+    "dose_ratio": 1.0,
+    "note": "High inter-individual variability (~50% CV). Median ~65 ng/mL."
+  },
+  "propranolol": {
+    "cmax_mg_L": 0.08,
+    "auc_mg_h_L": null,
+    "dose_mg": 80.0,
+    "tmax_h": 1.5,
+    "source": "FDA label NDA 016418 Inderal 80mg oral IR; Shand 1970 Clin Pharmacol Ther, range 30-200 ng/mL",
+    "data_quality": "fda_label_median",
+    "dose_ratio": 1.0,
+    "note": "Extreme first-pass variability (~70% CV). Median ~80 ng/mL for 80mg oral fasted."
+  },
+  "d_amphetamine": {
+    "cmax_mg_L": 0.058,
+    "auc_mg_h_L": null,
+    "dose_mg": 20.0,
+    "tmax_h": 3.0,
+    "source": "FDA label Adderall (mixed amphetamine salts) dose-proportional; 10mg -> ~29 ng/mL, 20mg -> ~58 ng/mL. PMID:12818571",
+    "data_quality": "fda_label_dose_normalized",
+    "dose_ratio": 1.0,
+    "note": "d-amphetamine component of Adderall. Linear PK at this dose range."
+  },
+  "atorvastatin": {
+    "cmax_mg_L": 0.0053,
+    "auc_mg_h_L": 0.0176,
+    "dose_mg": 40.0,
+    "tmax_h": 1.5,
+    "source": "FDA label NDA 020702 Lipitor 40mg oral; Table 1: Cmax 5.3 ng/mL = 0.0053 mg/L",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Parent atorvastatin acid only (not total including metabolites). FDA Lipitor label exact."
+  },
+  "carbamazepine": {
+    "cmax_mg_L": 1.0,
+    "auc_mg_h_L": null,
+    "dose_mg": 200.0,
+    "tmax_h": 6.0,
+    "source": "FDA label Tegretol 200mg single dose; Levy 1975 Neurology, Eichelbaum 1975; range 0.7-1.6 mg/L",
+    "data_quality": "fda_label_median",
+    "dose_ratio": 1.0,
+    "note": "Single dose only (before autoinduction). Slow absorption: tmax 4-8h."
+  },
+  "diazepam": {
+    "cmax_mg_L": 0.3,
+    "auc_mg_h_L": null,
+    "dose_mg": 10.0,
+    "tmax_h": 1.5,
+    "source": "FDA label Valium 10mg oral; Klotz 1975 J Pharmacol Exp Ther (0.35 mg/L); Reidenberg 1972 (0.30-0.50 mg/L)",
+    "data_quality": "fda_label_median",
+    "dose_ratio": 1.0,
+    "note": "Fasted oral administration. High variability but consistently ~0.30-0.40 mg/L for 10mg."
+  },
+  "digoxin": {
+    "cmax_mg_L": 0.0015,
+    "auc_mg_h_L": null,
+    "dose_mg": 0.5,
+    "tmax_h": 2.0,
+    "source": "FDA label NDA 009460 Lanoxin 0.5mg oral tablet; PK Table: Cmax 1.5 ng/mL = 0.0015 mg/L",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Tablet formulation. Confirmed by multiple studies."
+  },
+  "fluoxetine": {
+    "cmax_mg_L": 0.02,
+    "auc_mg_h_L": null,
+    "dose_mg": 20.0,
+    "tmax_h": 6.0,
+    "source": "FDA label NDA 018936 Prozac 20mg single dose; range 15-55 ng/mL, typical ~20 ng/mL. Lemberger 1985",
+    "data_quality": "fda_label_median",
+    "dose_ratio": 1.0,
+    "note": "Parent fluoxetine only (not norfluoxetine). Single dose. High variability (CV~40%)."
+  },
+  "nifedipine": {
+    "cmax_mg_L": 0.069,
+    "auc_mg_h_L": null,
+    "dose_mg": 10.0,
+    "tmax_h": 0.5,
+    "source": "FDA label NDA 018276 Procardia 10mg IR capsule fasted; mean Cmax 69 ng/mL = 0.069 mg/L",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Immediate-release capsule only (NOT XL). Fasted. Half-life ~2h."
+  },
+  "phenytoin": {
+    "cmax_mg_L": 5.0,
+    "auc_mg_h_L": null,
+    "dose_mg": 300.0,
+    "tmax_h": 8.0,
+    "source": "FDA label Dilantin 300mg sodium (=276mg free acid); Yukawa 1993 J Clin Pharmacol; range 4-6 mg/L",
+    "data_quality": "fda_label_median",
+    "dose_ratio": 1.0,
+    "note": "Single dose. Saturable absorption at higher doses. tmax highly variable (4-12h)."
+  },
+  "gabapentin": {
+    "cmax_mg_L": 2.99,
+    "auc_mg_h_L": null,
+    "dose_mg": 300.0,
+    "tmax_h": 3.0,
+    "source": "FDA label NDA 021435 Neurontin 300mg single dose; Table 1: Cmax = 2.99 microg/mL = 2.99 mg/L",
+    "data_quality": "fda_label_exact",
+    "dose_ratio": 1.0,
+    "note": "Saturable absorption (decreasing bioavailability at higher doses). 300mg: F~60%."
   }
 }

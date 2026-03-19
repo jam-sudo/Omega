@@ -1158,7 +1158,7 @@ class OmegaPipeline:
                 # Detect compound type for ionization correction in Kp.
                 # Basic amines (pKa~9-10) have enhanced tissue uptake via
                 # lysosomal trapping — critical for fluoxetine, propranolol, etc.
-                base_patt = Chem.MolFromSmarts("[NH2,NH1,NH0;!$(NC=O);!$(NS=O)]")
+                base_patt = Chem.MolFromSmarts("[NH2,NH1,NH0;!$(NC=O);!$(NS=O);!$([N]=[C])]")
                 acid_patt = Chem.MolFromSmarts(
                     "[CX3](=O)[OX2H1]"
                 )  # neutral COOH; was [OX1H1,OX2H0-] (missed neutral form)
