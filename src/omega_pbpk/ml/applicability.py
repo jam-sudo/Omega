@@ -27,6 +27,19 @@ _PRODRUG_PATTERNS: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
+# SMARTS patterns for structurally untractable compounds
+# ---------------------------------------------------------------------------
+
+_STRUCTURAL_HARD_PATTERNS: dict[str, str] = {
+    # Quaternary ammonium: permanently charged N+ with 4 substituents.
+    # Extremely low oral bioavailability (F < 10%), violates neutral Kp models.
+    # Examples: trospium, ipratropium, glycopyrrolate
+    "quaternary_amine": "[N+;!$([N+]-[O-]);!$([N+]#*)]([C,c])([C,c])([C,c])[C,c]",
+    # Inorganic metals — pipeline assumes organic small molecules
+    "inorganic_metal": "[Li,Be,Na,Mg,Al,K,Ca,Sc,Ti,V,Cr,Mn,Fe,Co,Ni,Cu,Zn,Ga,Sr,Y,Zr,Ag,Ba,La,Pt,Au]",
+}
+
+# ---------------------------------------------------------------------------
 # Manually curated untractable drugs
 # ---------------------------------------------------------------------------
 
@@ -48,6 +61,8 @@ _HARD_FLAGS: frozenset[str] = frozenset(
         "prodrug_carbamate",
         "known_untractable",
         "invalid_smiles",
+        "quaternary_amine",
+        "inorganic_metal",
     }
 )
 
@@ -129,6 +144,12 @@ def check_applicability(
 
     # -- SMARTS prodrug checks --------------------------------------------
     for flag_name, smarts in _PRODRUG_PATTERNS.items():
+        pattern = Chem.MolFromSmarts(smarts)
+        if pattern is not None and mol.HasSubstructMatch(pattern):
+            flags.append(flag_name)
+
+    # -- Structural untractability checks -----------------------------------
+    for flag_name, smarts in _STRUCTURAL_HARD_PATTERNS.items():
         pattern = Chem.MolFromSmarts(smarts)
         if pattern is not None and mol.HasSubstructMatch(pattern):
             flags.append(flag_name)
