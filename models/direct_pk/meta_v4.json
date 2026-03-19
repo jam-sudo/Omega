@@ -1,0 +1,6 @@
+{
+  "version": 4,
+  "n_train": 1091,
+  "cv_aafe": 3.194,
+  "cv_pct_2fold": 40.3
+}
