@@ -39,6 +39,8 @@ dev = [
   "xgboost>=2.0",
   "rdkit>=2023.0",
   "scikit-learn>=1.3",
+  "pint>=0.24",
+  "pytest-benchmark~=5.0",
 ]
 ml-new = [
     "admet-ai>=1.0",

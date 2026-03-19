@@ -16,7 +16,10 @@ from numpy.typing import NDArray
 
 from omega_pbpk._compat import np_trapz
 from omega_pbpk.core.body import WholeBodyPBPK
-from omega_pbpk.drugs.drug import Drug
+from omega_pbpk.drugs.drug import (
+    _IVIVE_HEPATIC,
+    Drug,
+)  # IVIVE scaling: CLint [uL/min/pmol] -> [L/h]
 from omega_pbpk.risk import RiskFlags, compute_risk_flags
 from omega_pbpk.uncertainty import DistributionSpec, monte_carlo_propagation
 
@@ -885,8 +888,7 @@ class OmegaPipeline:
         # Compute population CL via well-stirred model
         fup = adme.get("fup", 0.1)
         clint_3a4 = adme.get("clint_3a4", 10.0)
-        ivive_factor = 40.0 * 45.0 * 1800.0 / 1e6 / 60.0
-        clint_L_h = clint_3a4 * ivive_factor
+        clint_L_h = clint_3a4 * _IVIVE_HEPATIC
         q_h = 90.0
         cl_pop = (q_h * fup * clint_L_h) / (q_h + fup * clint_L_h) if clint_L_h > 0 else 5.0
 

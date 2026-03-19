@@ -8,6 +8,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# ---------------------------------------------------------------------------
+# IVIVE (In Vitro -> In Vivo Extrapolation) physical constants
+# Units encoded in names to prevent silent conversion errors.
+# Reference: Houston 1994; Davies & Morris 1993 (70 kg reference human)
+# ---------------------------------------------------------------------------
+_CYP_CONTENT_pmol_per_mg: float = 40.0  # pmol CYP per mg microsomal protein
+_MPPGL_mg_per_g: float = 45.0  # mg microsomal protein per g liver (MPPGL)
+_LIVER_WEIGHT_g: float = 1800.0  # g (70 kg adult reference liver)
+_GUT_WEIGHT_g: float = 18.0  # g CYP3A4-rich intestinal epithelium (~1% liver)
+_uL_PER_L: float = 1e6  # uL -> L unit conversion
+_MIN_PER_H: float = 60.0  # min -> h unit conversion
+
+# Derived IVIVE scaling factors
+# Usage: CLint [uL/min/pmol] x _IVIVE_HEPATIC -> whole-liver CLint [L/h]
+_IVIVE_HEPATIC: float = (
+    _CYP_CONTENT_pmol_per_mg * _MPPGL_mg_per_g * _LIVER_WEIGHT_g / _uL_PER_L / _MIN_PER_H
+)  # = 40 x 45 x 1800 / 1e6 / 60 = 0.054
+
+# Usage: CYP3A4_CLint [uL/min/pmol] x gut_multiplier x _IVIVE_GUT -> gut-wall CLint [L/h]
+_IVIVE_GUT: float = (
+    _CYP_CONTENT_pmol_per_mg * _MPPGL_mg_per_g * _GUT_WEIGHT_g / _uL_PER_L / _MIN_PER_H
+)  # = 40 x 45 x 18 / 1e6 / 60 = 0.00054
+
 
 @dataclass(frozen=True)
 class Drug:
@@ -102,7 +125,7 @@ class Drug:
         """
         if self.clint_hepatic_L_per_h > 0:
             return self.clint_hepatic_L_per_h
-        return self.total_clint * 40.0 * 45.0 * 1800.0 / 1e6 / 60.0
+        return self.total_clint * _IVIVE_HEPATIC
 
     @property
     def gut_clint_scaled_L_per_h(self) -> float:
@@ -114,7 +137,7 @@ class Drug:
         if self.clint_gut_L_per_h > 0:
             return self.clint_gut_L_per_h
         cyp3a4_clint = self.clint.get("CYP3A4", 0.0)
-        return cyp3a4_clint * self.gut_clint_multiplier * 40.0 * 45.0 * 18.0 / 1e6 / 60.0
+        return cyp3a4_clint * self.gut_clint_multiplier * _IVIVE_GUT
 
     def default_kp(self, organ: str) -> float:
         """Return Kp for an organ.
