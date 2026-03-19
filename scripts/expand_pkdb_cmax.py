@@ -223,65 +223,10 @@ DRUG_ALIASES = {
 }
 
 # ---------------------------------------------------------------------------
-# Mock data for --dry-run mode
+# PK-DB timecourse-based Cmax extraction
 # ---------------------------------------------------------------------------
 
-MOCK_TSV_CONTENT = (
-    "study\tgroup\tintervention\tmeasurement_type\tsubstance\ttissue\t"
-    "time\ttime_unit\tunit\tmean\tmin\tmax\n"
-    "MockStudy2020\tall\toral\tcmax\tsimvastatin\tplasma\t0\thr\tng/ml\t12.5\t8.0\t17.0\n"
-    "MockStudy2020\tall\toral\ttmax\tsimvastatin\tplasma\t0\thr\thr\t1.4\t0.5\t3.0\n"
-    "MockStudy2021\tall\toral\tcmax\tnaproxen\tplasma\t0\thr\tug/ml\t95.2\t70.0\t120.0\n"
-    "MockStudy2022\tall\toral\tcmax\tcodeine\tserum\t0\thr\tpmol/ml\t764.0\t602.0\t924.0\n"
-)
-
-MOCK_STUDIES = {
-    "simvastatin": [
-        {
-            "sid": "MOCK001",
-            "name": "MockStudy2020",
-            "output_count": 5,
-            "timecourse_count": 2,
-            "files": [
-                "https://pk-db.com/media/data/.MockStudy2020_Tab1.tsv",
-            ],
-        }
-    ],
-    "naproxen": [
-        {
-            "sid": "MOCK002",
-            "name": "MockStudy2021",
-            "output_count": 3,
-            "timecourse_count": 1,
-            "files": [
-                "https://pk-db.com/media/data/.MockStudy2021_Tab1.tsv",
-            ],
-        }
-    ],
-    "codeine": [
-        {
-            "sid": "MOCK003",
-            "name": "MockStudy2022",
-            "output_count": 10,
-            "timecourse_count": 4,
-            "files": [
-                "https://pk-db.com/media/data/.MockStudy2022_Tab1.tsv",
-            ],
-        }
-    ],
-}
-
-MOCK_SMILES = {
-    "simvastatin": "CCC(C)(C)C(=O)OC1CC(O)C=C2C=CC(C)C(CCC3CC(O)CC(=O)O3)C21",
-    "naproxen": "COc1ccc2cc(CC(C)C(=O)O)ccc2c1",
-    "codeine": "COc1ccc2CC3N(C)CCC4=CC1OC24C3O",
-}
-
-MOCK_DOSES = {
-    "simvastatin": 40.0,
-    "naproxen": 500.0,
-    "codeine": 60.0,
-}
+TIMECOURSE_PATH = Path("data/clinical/pkdb_timecourses.json")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -821,40 +766,102 @@ def select_best_cmax(records: list[dict]) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def run_dry_run() -> list[dict]:
-    """Run with mock data -- no network calls."""
-    print("[DRY-RUN] Using mock PK-DB data (no network calls)")
+def cmax_from_timecourse(studies: list[dict], drug_name: str) -> dict | None:
+    """Extract best Cmax from PK-DB timecourse records for a drug.
 
-    existing = load_existing_drugs(TRAINING_CSV)
-    print(f"  Existing drugs in training set: {len(existing)}")
+    Filters for oral route, reasonable dose, and selects the study with the
+    most plausible Cmax (median across studies to avoid outliers).
+    """
+    oral_cmax_records = []
+    std_dose = STANDARD_DOSES.get(drug_name.lower())
 
-    # Parse mock TSV
-    all_cmax = []
-    for drug in ["simvastatin", "naproxen", "codeine"]:
-        if drug in existing:
-            print(f"  SKIP (already in training): {drug}")
+    for s in studies:
+        route = (s.get("route") or "").lower()
+        # Accept oral and unknown (many PK-DB studies don't specify route)
+        if route not in ("oral", "unknown", "po", ""):
             continue
 
-        records = parse_cmax_from_tsv(MOCK_TSV_CONTENT, drug, f"MockStudy_{drug}")
-        for rec in records:
-            rec["dose_mg"] = MOCK_DOSES.get(drug)
-            rec["route"] = "oral"
-        all_cmax.extend(records)
+        tps = s.get("timepoints", [])
+        if not tps:
+            continue
+
+        concs = [
+            p.get("mean", 0) for p in tps if p.get("mean") is not None and p.get("mean", 0) > 0
+        ]
+        if not concs:
+            continue
+
+        cmax = max(concs)
+        dose = s.get("dose_mg")
+        unit = s.get("unit", "mg/L")
+
+        # Sanity check: skip obviously wrong values
+        # Cmax/dose ratio should be < 1.0 mg/L per mg (most drugs)
+        if dose and dose > 0 and cmax / dose > 1.0:
+            continue  # likely wrong route or unit
+
+        oral_cmax_records.append(
+            {
+                "cmax_mg_L": cmax,
+                "dose_mg": dose or std_dose,
+                "study": s.get("study", "unknown"),
+                "pmid": s.get("pmid", ""),
+                "unit": unit,
+                "n_subjects": s.get("n_subjects"),
+            }
+        )
+
+    if not oral_cmax_records:
+        return None
+
+    # If multiple studies, take the median Cmax (more robust than max)
+    cmax_values = [r["cmax_mg_L"] for r in oral_cmax_records]
+    if len(cmax_values) >= 3:
+        import statistics
+
+        median_cmax = statistics.median(cmax_values)
+        # Pick the record closest to the median
+        best = min(oral_cmax_records, key=lambda r: abs(r["cmax_mg_L"] - median_cmax))
+    else:
+        # With few studies, prefer one with known dose
+        with_dose = [r for r in oral_cmax_records if r.get("dose_mg")]
+        best = with_dose[0] if with_dose else oral_cmax_records[0]
+
+    return best
+
+
+def run_from_timecourses() -> list[dict]:
+    """Extract Cmax from local PK-DB timecourse data (no API calls needed)."""
+    import json
+
+    if not TIMECOURSE_PATH.exists():
+        print(f"  ERROR: {TIMECOURSE_PATH} not found")
+        return []
+
+    with open(TIMECOURSE_PATH) as f:
+        timecourse_data = json.load(f)
+
+    print(f"  PK-DB timecourse drugs: {len(timecourse_data)}")
 
     results = []
-    seen_drugs = set()
-
-    for rec in all_cmax:
-        drug = rec["drug"].lower()
-        if drug in seen_drugs or drug in existing:
+    for drug_name, studies in sorted(timecourse_data.items()):
+        best = cmax_from_timecourse(studies, drug_name)
+        if best is None:
+            print(f"  SKIP {drug_name}: no valid oral Cmax in timecourses")
             continue
 
-        cmax_mg_L = rec["cmax_mg_L"]
-        dose_mg = rec.get("dose_mg")
+        cmax_mg_L = best["cmax_mg_L"]
+        dose_mg = best.get("dose_mg")
+        study = best.get("study", "unknown")
+        pmid = best.get("pmid", "")
 
-        smiles = MOCK_SMILES.get(drug)
-        if smiles and not validate_smiles(smiles):
-            print(f"  SKIP (invalid SMILES): {drug}")
+        # Look up SMILES
+        smiles = fetch_smiles_pubchem(drug_name)
+        if smiles is None:
+            print(f"  SKIP {drug_name}: no PubChem SMILES")
+            continue
+        if not validate_smiles(smiles):
+            print(f"  SKIP {drug_name}: invalid SMILES")
             continue
 
         log_obs = (
@@ -863,20 +870,18 @@ def run_dry_run() -> list[dict]:
 
         results.append(
             {
-                "drug": drug,
-                "smiles": smiles or "",
+                "drug": drug_name,
+                "smiles": smiles,
                 "dose_mg": dose_mg,
                 "obs_cmax": cmax_mg_L,
                 "pred_cmax_pbpk": "",
                 "log_obs_cmax_per_mg": log_obs if log_obs is not None else "",
-                "tier": "pkdb_expanded",
-                "source_study": rec.get("study", ""),
+                "tier": "pkdb_timecourse",
+                "source_study": f"{study} (PMID:{pmid})" if pmid else study,
             }
         )
-        seen_drugs.add(drug)
-        print(f"  ADDED: {drug} (Cmax={cmax_mg_L:.4f} mg/L, dose={dose_mg} mg)")
+        print(f"  ADDED {drug_name}: Cmax={cmax_mg_L:.4f} mg/L, dose={dose_mg} mg, study={study}")
 
-    print(f"\n[DRY-RUN] {len(results)} new drugs found from mock data")
     return results
 
 
@@ -1016,33 +1021,55 @@ def save_results(results: list[dict], output_path: Path) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Expand Cmax reference dataset from PK-DB")
     parser.add_argument(
-        "--dry-run",
+        "--timecourses-only",
         action="store_true",
-        help="Use mock data, no network calls",
+        help="Extract Cmax from local timecourse data only (no API calls)",
     )
     parser.add_argument(
         "--max-drugs",
         type=int,
         default=None,
-        help="Maximum number of new drugs to query",
+        help="Maximum number of new drugs to query via API",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output CSV path (overrides default)",
     )
     args = parser.parse_args()
+
+    output_path = Path(args.output) if args.output else OUTPUT_CSV
 
     print("=" * 60)
     print("PK-DB Cmax Expansion Pipeline")
     print("=" * 60)
 
-    if args.dry_run:
-        results = run_dry_run()
-    else:
-        results = run_real(max_drugs=args.max_drugs)
+    # Step 1: Extract from local timecourses (always)
+    print("\n--- Step 1: Local timecourse extraction ---")
+    tc_results = run_from_timecourses()
+    print(f"  Timecourse results: {len(tc_results)} drugs")
 
-    if results:
-        save_results(results, OUTPUT_CSV)
+    # Step 2: Query API for additional drugs (unless timecourses-only)
+    api_results = []
+    if not args.timecourses_only:
+        print("\n--- Step 2: PK-DB API queries ---")
+        # Exclude drugs already found in timecourses
+        tc_drugs = {r["drug"].lower() for r in tc_results}
+        api_results = run_real(max_drugs=args.max_drugs)
+        # Deduplicate
+        api_results = [r for r in api_results if r["drug"].lower() not in tc_drugs]
+        print(f"  API results (new): {len(api_results)} drugs")
+
+    # Combine
+    all_results = tc_results + api_results
+    print(f"\n  Total: {len(all_results)} drugs")
+
+    if all_results:
+        save_results(all_results, output_path)
     else:
-        print("\nNo new drugs found. Output file not created.")
-        # Still create an empty CSV with headers so downstream tools don't break
-        save_results([], OUTPUT_CSV)
+        print("\nNo new drugs found.")
+        save_results([], output_path)
 
     return 0
 
