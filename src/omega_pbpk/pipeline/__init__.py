@@ -92,7 +92,7 @@ def _check_applicability_domain(smiles: str) -> tuple[bool, list[str]]:
     # Prodrug detection: amino acid ester (val-ester), thienopyridine
     _PRODRUG_SMARTS = [
         "[OX2]C(=O)[CH]([NH2,NH])",  # val-ester (valacyclovir, valganciclovir)
-        "c1cc2c(s1)CCN2",  # thienopyridine (clopidogrel, prasugrel)
+        "[#7]1[#6][#6]c2[#16]ccc2[#6]1",  # thienopyridine (clopidogrel)
     ]
     for sma in _PRODRUG_SMARTS:
         pat = Chem.MolFromSmarts(sma)
@@ -111,7 +111,7 @@ def _check_applicability_domain(smiles: str) -> tuple[bool, list[str]]:
         flags.append("INORGANIC")
 
     # Extreme lipophilicity → BCS II/IV, poor predictability
-    if logp > 6.0:
+    if logp > 5.5:
         flags.append("EXTREME_LIPOPHILIC")
 
     # Very high MW → poor oral absorption, P-gp efflux likely
