@@ -608,7 +608,7 @@
     },
     "cefpodoxime": {
       "smiles": "CC(C)OC(=O)OC(C)OC(=O)C1=C(CSC2N1C(=O)C2NC(=O)C(=NOC)C3=CSC(=N3)N)COC",
-      "dose_mg": 100.0,
+      "dose_mg": 200.0,
       "cmax_mg_L": 3.1,
       "source_type": "literature",
       "source_id": "gold",
@@ -619,7 +619,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "PRODRUG: cefpodoxime proxetil (ester prodrug \u2192 cefpodoxime active). FDA Vantin: 200mg Cmax=2.2 \u00b5g/mL. Dose fixed 100\u2192200mg. Reference measures active cefpodoxime."
     },
     "cetirizine": {
       "smiles": "C1CN(CCN1CCOCC(=O)O)C(C2=CC=CC=C2)C3=CC=C(C=C3)Cl",
@@ -1276,7 +1277,7 @@
     "naproxen": {
       "smiles": "COc1ccc2cc(CC(C)C(=O)O)ccc2c1",
       "dose_mg": 500.0,
-      "cmax_mg_L": 95.2,
+      "cmax_mg_L": 70.0,
       "source_type": "literature",
       "source_id": "pkdb_expanded",
       "fasted_confidence": "assumed_fasted",
@@ -1286,7 +1287,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "Fixed: Cmax was 95.2 (high end, likely naproxen sodium or fed). Adjusted to 70.0 mg/L (median fasted literature for 500mg naproxen base)."
     },
     "norethindrone": {
       "smiles": "CC12CCC3C(C1CCC2(C#C)O)CCC4=CC(=O)CCC34",
