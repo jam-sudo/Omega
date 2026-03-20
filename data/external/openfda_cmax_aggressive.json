@@ -1,0 +1,887 @@
+[
+  {
+    "name": "glimepiride",
+    "cmax_mg_L": 0.547,
+    "dose_mg": 1.0
+  },
+  {
+    "name": "etodolac",
+    "cmax_mg_L": 37.0,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "sertraline hydrochloride",
+    "cmax_mg_L": 0.142,
+    "dose_mg": 100.0
+  },
+  {
+    "name": "famotidine",
+    "cmax_mg_L": 0.113,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "azithromycin",
+    "cmax_mg_L": 0.383,
+    "dose_mg": 15.0
+  },
+  {
+    "name": "bupropion hydrochloride",
+    "cmax_mg_L": 200.0,
+    "dose_mg": 50.0
+  },
+  {
+    "name": "tramadol hydrochloride",
+    "cmax_mg_L": 0.162,
+    "dose_mg": 50.0
+  },
+  {
+    "name": "lorlatinib",
+    "cmax_mg_L": 0.577,
+    "dose_mg": 2.0
+  },
+  {
+    "name": "oseltamivir phosphate",
+    "cmax_mg_L": 0.551,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "entecavir",
+    "cmax_mg_L": 0.0042,
+    "dose_mg": 0.5
+  },
+  {
+    "name": "indomethacin",
+    "cmax_mg_L": 2.0,
+    "dose_mg": 50.0
+  },
+  {
+    "name": "ranolazine",
+    "cmax_mg_L": 6.1,
+    "dose_mg": 1000.0
+  },
+  {
+    "name": "serdexmethylphenidate and dexmethylphenidate",
+    "cmax_mg_L": 0.0282,
+    "dose_mg": 52.3
+  },
+  {
+    "name": "sildenafil citrate",
+    "cmax_mg_L": 0.2,
+    "dose_mg": 25.0
+  },
+  {
+    "name": "guanfacine",
+    "cmax_mg_L": 0.01,
+    "dose_mg": null
+  },
+  {
+    "name": "mesalamine",
+    "cmax_mg_L": 0.208,
+    "dose_mg": 400.0
+  },
+  {
+    "name": "amoxicillin",
+    "cmax_mg_L": 13.8,
+    "dose_mg": 875.0
+  },
+  {
+    "name": "solifenacin succinate",
+    "cmax_mg_L": 0.0629,
+    "dose_mg": 0.25
+  },
+  {
+    "name": "cyclobenzaprine hydrochloride",
+    "cmax_mg_L": 0.0461,
+    "dose_mg": 5.0
+  },
+  {
+    "name": "propranolol hydrochloride",
+    "cmax_mg_L": 0.047,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "carbidopa and levodopa",
+    "cmax_mg_L": 3.256,
+    "dose_mg": 50.0
+  },
+  {
+    "name": "pomalidomide",
+    "cmax_mg_L": 0.0531,
+    "dose_mg": 4.0
+  },
+  {
+    "name": "pravastatin sodium",
+    "cmax_mg_L": 0.0265,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "penicillamine",
+    "cmax_mg_L": 2.0,
+    "dose_mg": 250.0
+  },
+  {
+    "name": "zolpidem tartrate",
+    "cmax_mg_L": 0.499,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "fluoxetine hydrochloride",
+    "cmax_mg_L": 0.055,
+    "dose_mg": 40.0
+  },
+  {
+    "name": "hydrocodone bitartrate and acetaminophen",
+    "cmax_mg_L": 0.0236,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "sonidegib",
+    "cmax_mg_L": 1.03,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "rucaparib",
+    "cmax_mg_L": 1.94,
+    "dose_mg": null
+  },
+  {
+    "name": "ezetimibe",
+    "cmax_mg_L": 0.071,
+    "dose_mg": 0.5
+  },
+  {
+    "name": "dasatinib",
+    "cmax_mg_L": 0.397,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "moxifloxacin hydrochloride",
+    "cmax_mg_L": 4.1,
+    "dose_mg": 25.0
+  },
+  {
+    "name": "metaxalone",
+    "cmax_mg_L": 2.115,
+    "dose_mg": 400.0
+  },
+  {
+    "name": "carbinoxamine maleate",
+    "cmax_mg_L": 0.024,
+    "dose_mg": 8.0
+  },
+  {
+    "name": "vilazodone hydrochloride",
+    "cmax_mg_L": 0.156,
+    "dose_mg": null
+  },
+  {
+    "name": "atovaquone",
+    "cmax_mg_L": 16.8,
+    "dose_mg": 750.0
+  },
+  {
+    "name": "pantoprazole sodium",
+    "cmax_mg_L": 2.5,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "hydroxychloroquine sulfate",
+    "cmax_mg_L": 0.0503,
+    "dose_mg": 155.0
+  },
+  {
+    "name": "temozolomide",
+    "cmax_mg_L": 7.3,
+    "dose_mg": 150.0
+  },
+  {
+    "name": "montelukast sodium",
+    "cmax_mg_L": 0.562,
+    "dose_mg": 4.0
+  },
+  {
+    "name": "ketorolac tromethamine",
+    "cmax_mg_L": 2.52,
+    "dose_mg": 0.5
+  },
+  {
+    "name": "moxifloxacin hydrochloride tablets, 400 mg",
+    "cmax_mg_L": 4.1,
+    "dose_mg": 25.0
+  },
+  {
+    "name": "theophylline anhydrous",
+    "cmax_mg_L": 9.3,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "febuxostat",
+    "cmax_mg_L": 2.6,
+    "dose_mg": 40.0
+  },
+  {
+    "name": "sildenafil",
+    "cmax_mg_L": 0.2,
+    "dose_mg": 25.0
+  },
+  {
+    "name": "cetirizine hydrochloride",
+    "cmax_mg_L": 0.311,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "secnidazole",
+    "cmax_mg_L": 22.1,
+    "dose_mg": null
+  },
+  {
+    "name": "fluoxetine",
+    "cmax_mg_L": 0.055,
+    "dose_mg": 40.0
+  },
+  {
+    "name": "levofloxacin",
+    "cmax_mg_L": 11.5,
+    "dose_mg": 250.0
+  },
+  {
+    "name": "paroxetine",
+    "cmax_mg_L": 0.0617,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "zonisamide",
+    "cmax_mg_L": 5.0,
+    "dose_mg": 400.0
+  },
+  {
+    "name": "cefixime",
+    "cmax_mg_L": 4.6,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "pilocarpine hydrochloride",
+    "cmax_mg_L": 0.041,
+    "dose_mg": 5.0
+  },
+  {
+    "name": "verapamil hydrochloride",
+    "cmax_mg_L": 0.077,
+    "dose_mg": 240.0
+  },
+  {
+    "name": "dimethyl fumarate",
+    "cmax_mg_L": 1.87,
+    "dose_mg": null
+  },
+  {
+    "name": "venlafaxine",
+    "cmax_mg_L": 0.225,
+    "dose_mg": null
+  },
+  {
+    "name": "morphine sulfate",
+    "cmax_mg_L": 0.058,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "brincidofovir",
+    "cmax_mg_L": 0.48,
+    "dose_mg": 600.0
+  },
+  {
+    "name": "valganciclovir hydrochloride",
+    "cmax_mg_L": 51.0,
+    "dose_mg": 900.0
+  },
+  {
+    "name": "pantoprazole",
+    "cmax_mg_L": 2.5,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "sumatriptan",
+    "cmax_mg_L": 0.071,
+    "dose_mg": 25.0
+  },
+  {
+    "name": "minocycline hydrochloride",
+    "cmax_mg_L": 2.92,
+    "dose_mg": null
+  },
+  {
+    "name": "isotretinoin",
+    "cmax_mg_L": 0.369,
+    "dose_mg": 40.0
+  },
+  {
+    "name": "paroxetine hydrochloride",
+    "cmax_mg_L": 0.02,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "minocycline hydrochloride extended-release",
+    "cmax_mg_L": 0.38283,
+    "dose_mg": null
+  },
+  {
+    "name": "tenofovir disoproxil fumarate",
+    "cmax_mg_L": 0.33,
+    "dose_mg": 300.0
+  },
+  {
+    "name": "famciclovir",
+    "cmax_mg_L": 4.0,
+    "dose_mg": 500.0
+  },
+  {
+    "name": "tacrolimus extended-release capsules",
+    "cmax_mg_L": 0.0362,
+    "dose_mg": null
+  },
+  {
+    "name": "adefovir dipivoxil",
+    "cmax_mg_L": 0.0233,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "clozapine",
+    "cmax_mg_L": 0.854,
+    "dose_mg": 75.0
+  },
+  {
+    "name": "odevixibat",
+    "cmax_mg_L": 0.00047,
+    "dose_mg": 3.0
+  },
+  {
+    "name": "methadone hydrochloride",
+    "cmax_mg_L": 1.255,
+    "dose_mg": null
+  },
+  {
+    "name": "oseltamavir phosphate",
+    "cmax_mg_L": 0.551,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "mercaptopurine",
+    "cmax_mg_L": 0.204,
+    "dose_mg": null
+  },
+  {
+    "name": "tacrolimus",
+    "cmax_mg_L": 0.0362,
+    "dose_mg": 0.5
+  },
+  {
+    "name": "fluvoxamine maleate",
+    "cmax_mg_L": 0.161,
+    "dose_mg": 100.0
+  },
+  {
+    "name": "oseltamivir",
+    "cmax_mg_L": 0.551,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "progesterone",
+    "cmax_mg_L": 0.00227,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "nifedipine",
+    "cmax_mg_L": 0.115,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "clarithromycin",
+    "cmax_mg_L": 5.0,
+    "dose_mg": 250.0
+  },
+  {
+    "name": "entacapone",
+    "cmax_mg_L": 1.2,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "acamprosate calcium",
+    "cmax_mg_L": 0.35,
+    "dose_mg": 333.0
+  },
+  {
+    "name": "sodium phenylbutyrate",
+    "cmax_mg_L": 218.0,
+    "dose_mg": null
+  },
+  {
+    "name": "gepirone",
+    "cmax_mg_L": 0.00963,
+    "dose_mg": null
+  },
+  {
+    "name": "abiraterone acetate",
+    "cmax_mg_L": 0.226,
+    "dose_mg": 100.0
+  },
+  {
+    "name": "azithromycin dihydrate",
+    "cmax_mg_L": 0.383,
+    "dose_mg": 15.0
+  },
+  {
+    "name": "pindolol",
+    "cmax_mg_L": 0.167,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "butalbital, aspirin, and caffeine",
+    "cmax_mg_L": 8.8,
+    "dose_mg": 80.0
+  },
+  {
+    "name": "azacitidine",
+    "cmax_mg_L": 0.145,
+    "dose_mg": 300.0
+  },
+  {
+    "name": "dextroamphetamine sulfate",
+    "cmax_mg_L": 0.0366,
+    "dose_mg": 5.0
+  },
+  {
+    "name": "glycopyrrolate",
+    "cmax_mg_L": 0.000318,
+    "dose_mg": null
+  },
+  {
+    "name": "colchicine",
+    "cmax_mg_L": 0.0044,
+    "dose_mg": 0.6
+  },
+  {
+    "name": "amantadine hydrochloride",
+    "cmax_mg_L": 0.32,
+    "dose_mg": 100.0
+  },
+  {
+    "name": "desloratadine",
+    "cmax_mg_L": 0.004,
+    "dose_mg": 1.0
+  },
+  {
+    "name": "alendronate sodium and cholecalciferol",
+    "cmax_mg_L": 0.0108,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "budesonide",
+    "cmax_mg_L": 0.00228,
+    "dose_mg": 9.0
+  },
+  {
+    "name": "sumatriptan succinate",
+    "cmax_mg_L": 0.071,
+    "dose_mg": 25.0
+  },
+  {
+    "name": "alvimopan",
+    "cmax_mg_L": 0.03573,
+    "dose_mg": 12.0
+  },
+  {
+    "name": "aspirin and extended-release dipyridamole",
+    "cmax_mg_L": 1.01,
+    "dose_mg": 400.0
+  },
+  {
+    "name": "dalfampridine",
+    "cmax_mg_L": 0.0216,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "pazopanib",
+    "cmax_mg_L": 100.0,
+    "dose_mg": 800.0
+  },
+  {
+    "name": "metformin hydrochloride",
+    "cmax_mg_L": 0.6,
+    "dose_mg": 500.0
+  },
+  {
+    "name": "fluconazole",
+    "cmax_mg_L": 8.08,
+    "dose_mg": 50.0
+  },
+  {
+    "name": "nilotinib",
+    "cmax_mg_L": 2.26,
+    "dose_mg": 400.0
+  },
+  {
+    "name": "deflazacort",
+    "cmax_mg_L": 0.381,
+    "dose_mg": null
+  },
+  {
+    "name": "levocetirizine dihydrochloride",
+    "cmax_mg_L": 0.45,
+    "dose_mg": 5.0
+  },
+  {
+    "name": "atazanavir",
+    "cmax_mg_L": 3.19,
+    "dose_mg": 4.0
+  },
+  {
+    "name": "lanthanum carbonate",
+    "cmax_mg_L": 0.001,
+    "dose_mg": null
+  },
+  {
+    "name": "ponatinib hydrochloride",
+    "cmax_mg_L": 0.073,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "clomipramine hydrochloride",
+    "cmax_mg_L": 0.154,
+    "dose_mg": 50.0
+  },
+  {
+    "name": "fruquintinib",
+    "cmax_mg_L": 0.3,
+    "dose_mg": null
+  },
+  {
+    "name": "pantoprazole sodium granules",
+    "cmax_mg_L": 2.5,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "llevofloxacin",
+    "cmax_mg_L": 11.5,
+    "dose_mg": 250.0
+  },
+  {
+    "name": "lofexidine hydrochloride",
+    "cmax_mg_L": 0.00082,
+    "dose_mg": null
+  },
+  {
+    "name": "bexagliflozin",
+    "cmax_mg_L": 0.134,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "vortioxetine",
+    "cmax_mg_L": 0.033,
+    "dose_mg": null
+  },
+  {
+    "name": "darolutamide",
+    "cmax_mg_L": 4.79,
+    "dose_mg": 600.0
+  },
+  {
+    "name": "desloratadine and pseudoephedrine sulfate",
+    "cmax_mg_L": 0.263,
+    "dose_mg": 5.0
+  },
+  {
+    "name": "letermovir",
+    "cmax_mg_L": 13.0,
+    "dose_mg": 0.5
+  },
+  {
+    "name": "ciprofloxacin hydrochloride",
+    "cmax_mg_L": 4.7,
+    "dose_mg": 4.0
+  },
+  {
+    "name": "efavirenz, emtricitabine and tenofovir disoproxil fumarate",
+    "cmax_mg_L": 1.8,
+    "dose_mg": 6.0
+  },
+  {
+    "name": "butalbital, aspirin, cafeine, and codeine phosphate",
+    "cmax_mg_L": 2.02,
+    "dose_mg": 60.0
+  },
+  {
+    "name": "sebetralstat",
+    "cmax_mg_L": 6.08,
+    "dose_mg": 600.0
+  },
+  {
+    "name": "ibuprofen and famotidine",
+    "cmax_mg_L": 0.113,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "valganciclovir hydrochloride powder,",
+    "cmax_mg_L": 51.0,
+    "dose_mg": 900.0
+  },
+  {
+    "name": "ensartinib",
+    "cmax_mg_L": 0.292,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "moxifloxacin",
+    "cmax_mg_L": 4.1,
+    "dose_mg": 25.0
+  },
+  {
+    "name": "tamoxifen citrate",
+    "cmax_mg_L": 0.04,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "mefenamic acid",
+    "cmax_mg_L": 4.0,
+    "dose_mg": 500.0
+  },
+  {
+    "name": "efavirenz, lamivudine and tenofovir disoproxil fumarate",
+    "cmax_mg_L": 0.296,
+    "dose_mg": 2.0
+  },
+  {
+    "name": "glasdegib",
+    "cmax_mg_L": 1.252,
+    "dose_mg": 100.0
+  },
+  {
+    "name": "tenapanor hydrochloride",
+    "cmax_mg_L": 0.015,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "methylphenidate hydrochloride",
+    "cmax_mg_L": 0.0098,
+    "dose_mg": 20.0
+  },
+  {
+    "name": "carisoprodol",
+    "cmax_mg_L": 8.0,
+    "dose_mg": 350.0
+  },
+  {
+    "name": "paroxetine hydrochloride hemihydrate",
+    "cmax_mg_L": 0.0617,
+    "dose_mg": 30.0
+  },
+  {
+    "name": "lorazepam",
+    "cmax_mg_L": 0.035,
+    "dose_mg": 3.0
+  },
+  {
+    "name": "aspirin and extended - release dipyridamole",
+    "cmax_mg_L": 1.01,
+    "dose_mg": 400.0
+  },
+  {
+    "name": "metronidazole oral",
+    "cmax_mg_L": 12.0,
+    "dose_mg": 500.0
+  },
+  {
+    "name": "butalbital, aspirin, caffeine and codeine phosphate",
+    "cmax_mg_L": 2.02,
+    "dose_mg": 60.0
+  },
+  {
+    "name": "amphetamine",
+    "cmax_mg_L": 0.003,
+    "dose_mg": 18.8
+  },
+  {
+    "name": "pazopanib hydrochloride",
+    "cmax_mg_L": 58.1,
+    "dose_mg": 800.0
+  },
+  {
+    "name": "sulfasalazine",
+    "cmax_mg_L": 6.0,
+    "dose_mg": null
+  },
+  {
+    "name": "rifabutin",
+    "cmax_mg_L": 1.033,
+    "dose_mg": 300.0
+  },
+  {
+    "name": "theophylline",
+    "cmax_mg_L": 6.69,
+    "dose_mg": 300.0
+  },
+  {
+    "name": "phentermine and topiramate extended-release",
+    "cmax_mg_L": 1.02,
+    "dose_mg": 15.0
+  },
+  {
+    "name": "everolimus",
+    "cmax_mg_L": 0.0046,
+    "dose_mg": null
+  },
+  {
+    "name": "cyclobenzaprine",
+    "cmax_mg_L": 0.0461,
+    "dose_mg": null
+  },
+  {
+    "name": "alosetron",
+    "cmax_mg_L": 0.009,
+    "dose_mg": 16.0
+  },
+  {
+    "name": "darifenacin",
+    "cmax_mg_L": 0.0589,
+    "dose_mg": 15.0
+  },
+  {
+    "name": "alosetron hydrochloride",
+    "cmax_mg_L": 0.009,
+    "dose_mg": 16.0
+  },
+  {
+    "name": "upadacitinib",
+    "cmax_mg_L": 0.0718,
+    "dose_mg": 45.0
+  },
+  {
+    "name": "abacavir sulfate, dolutegravir sodium, lamivudine",
+    "cmax_mg_L": 2.04,
+    "dose_mg": 50.0
+  },
+  {
+    "name": "fesoterodine fumarate",
+    "cmax_mg_L": 0.0046,
+    "dose_mg": 8.0
+  },
+  {
+    "name": "tafenoquine",
+    "cmax_mg_L": 0.147,
+    "dose_mg": null
+  },
+  {
+    "name": "quizartinib",
+    "cmax_mg_L": 0.204,
+    "dose_mg": 53.0
+  },
+  {
+    "name": "hydralazine hydrochloride and isosorbide dinitrate",
+    "cmax_mg_L": 0.088,
+    "dose_mg": 0.3
+  },
+  {
+    "name": "erdafitinib",
+    "cmax_mg_L": 1.399,
+    "dose_mg": null
+  },
+  {
+    "name": "ulipristal acetate",
+    "cmax_mg_L": 0.069,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "venlafaxine hydrochloride",
+    "cmax_mg_L": 0.225,
+    "dose_mg": null
+  },
+  {
+    "name": "ramelteon",
+    "cmax_mg_L": 0.0116,
+    "dose_mg": 16.0
+  },
+  {
+    "name": "diroximel fumarate",
+    "cmax_mg_L": 2.11,
+    "dose_mg": null
+  },
+  {
+    "name": "trospium chloride",
+    "cmax_mg_L": 0.0027,
+    "dose_mg": 0.5
+  },
+  {
+    "name": "olanzapine and fuoxetine",
+    "cmax_mg_L": 0.055,
+    "dose_mg": 5.0
+  },
+  {
+    "name": "deflazacort oral",
+    "cmax_mg_L": 0.381,
+    "dose_mg": null
+  },
+  {
+    "name": "lapatinib",
+    "cmax_mg_L": 3.77,
+    "dose_mg": null
+  },
+  {
+    "name": "itraconazole",
+    "cmax_mg_L": 1.7,
+    "dose_mg": 40.0
+  },
+  {
+    "name": "vorasidenib",
+    "cmax_mg_L": 0.133,
+    "dose_mg": null
+  },
+  {
+    "name": "hydrocodone bitartrate and homatropine methylbromide",
+    "cmax_mg_L": 0.0236,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "olanzapine and samidorphan l-malate",
+    "cmax_mg_L": 0.016,
+    "dose_mg": 10.0
+  },
+  {
+    "name": "lofexidine",
+    "cmax_mg_L": 0.00082,
+    "dose_mg": null
+  },
+  {
+    "name": "berotralstat hydrochloride",
+    "cmax_mg_L": 0.234,
+    "dose_mg": 150.0
+  },
+  {
+    "name": "ketoconazole",
+    "cmax_mg_L": 3.5,
+    "dose_mg": 200.0
+  },
+  {
+    "name": "aprepitant",
+    "cmax_mg_L": 1.3,
+    "dose_mg": 2.0
+  },
+  {
+    "name": "cobicistat",
+    "cmax_mg_L": 0.99,
+    "dose_mg": null
+  },
+  {
+    "name": "selegiline hydrochloride",
+    "cmax_mg_L": 0.00112,
+    "dose_mg": 1.25
+  },
+  {
+    "name": "valganciclovir",
+    "cmax_mg_L": 51.0,
+    "dose_mg": 900.0
+  },
+  {
+    "name": "venlafaxine hydrochloride, extended release",
+    "cmax_mg_L": 0.225,
+    "dose_mg": null
+  }
+]

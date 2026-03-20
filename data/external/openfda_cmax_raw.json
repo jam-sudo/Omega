@@ -1,0 +1,50 @@
+{
+  "extractions": [
+    {
+      "name": "cyclobenzaprine hydrochloride",
+      "brand": "Cyclobenzaprine Hydrochloride",
+      "cmax_mg_L": 0.0259,
+      "cmax_raw": 25.9,
+      "cmax_unit": "ng/ml",
+      "dose_mg": 5.0,
+      "substance": "CYCLOBENZAPRINE HYDROCHLORIDE"
+    },
+    {
+      "name": "hydroxychloroquine sulfate",
+      "brand": "HYDROXYCHLOROQUINE SULFATE",
+      "cmax_mg_L": 0.1296,
+      "cmax_raw": 129.6,
+      "cmax_unit": "ng/ml",
+      "dose_mg": 155.0,
+      "substance": "HYDROXYCHLOROQUINE SULFATE"
+    },
+    {
+      "name": "pantoprazole",
+      "brand": "Pantoprazole",
+      "cmax_mg_L": 2.5,
+      "cmax_raw": 2.5,
+      "cmax_unit": "mcg/ml",
+      "dose_mg": 20.0,
+      "substance": "PANTOPRAZOLE SODIUM"
+    },
+    {
+      "name": "clozapine",
+      "brand": "Clozapine",
+      "cmax_mg_L": 0.413,
+      "cmax_raw": 413.0,
+      "cmax_unit": "ng/ml",
+      "dose_mg": 75.0,
+      "substance": "CLOZAPINE"
+    },
+    {
+      "name": "butalbital, aspirin, and caffeine",
+      "brand": "Butalbital, aspirin, and caffeine",
+      "cmax_mg_L": 8.8,
+      "cmax_raw": 8.8,
+      "cmax_unit": "mcg/ml",
+      "dose_mg": 650.0,
+      "substance": "ASPIRIN"
+    }
+  ],
+  "n_total": 5
+}
