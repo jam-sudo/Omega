@@ -1,0 +1,17 @@
+{
+  "clint_v2": {
+    "n_train": 1453,
+    "cv_r2": 0.316,
+    "cv_mae": 0.39,
+    "sources": "hepatocyte_1213 + microsome_420 + anchors_19"
+  },
+  "bioavailability": {
+    "n_train": 640,
+    "cv_accuracy": 0.788,
+    "cv_f1": 0.871
+  },
+  "cyp1a2": {
+    "n_known_substrates": 15,
+    "n_smarts": 4
+  }
+}
