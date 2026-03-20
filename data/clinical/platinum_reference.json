@@ -454,21 +454,6 @@
       "nonlinear_pk": false,
       "data_quality": "clinical_exact"
     },
-    "adefovir": {
-      "smiles": "CC(C)(C)C(=O)OCOP(=O)(COCCN1C=NC2=C(N=CN=C21)N)OCOC(=O)C(C)(C)C",
-      "dose_mg": 10.0,
-      "cmax_mg_L": 0.0233,
-      "source_type": "fda_label",
-      "source_id": "fda_expanded",
-      "fasted_confidence": "assumed_fasted",
-      "formulation": "IR",
-      "route": "oral",
-      "population": "healthy",
-      "single_dose": true,
-      "tuning_contaminated": false,
-      "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
-    },
     "alosetron": {
       "smiles": "CC1=C(N=CN1)CN2CCC3=C(C2=O)C4=CC=CC=C4N3C",
       "dose_mg": 1.0,
@@ -747,7 +732,7 @@
     "darolutamide": {
       "smiles": "CC(CN1C=CC(=N1)C2=CC(=C(C=C2)C#N)Cl)NC(=O)C3=NNC(=C3)C(C)O",
       "dose_mg": 600.0,
-      "cmax_mg_L": 4.79,
+      "cmax_mg_L": 2.2,
       "source_type": "literature",
       "source_id": "gold",
       "fasted_confidence": "assumed_fasted",
@@ -757,7 +742,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "Fixed: Cmax was 4.79 (fed data from FDA Nubeqa). Darolutamide Cmax is 2-2.5x higher with food. Fasted Cmax \u2248 2.2 \u00b5g/mL estimated from food effect ratio."
     },
     "darunavir ethanolate": {
       "smiles": "CCO.CC(C)CN(CC(C(CC1=CC=CC=C1)NC(=O)OC2COC3C2CCO3)O)S(=O)(=O)C4=CC=C(C=C4)N",
@@ -1254,7 +1240,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "fda_label_exact",
+      "notes": "PRODRUG: molnupiravir \u2192 NHC (beta-D-N4-hydroxycytidine). FDA Lagevrio measures NHC metabolite Cmax. Pipeline predicts parent ester."
     },
     "morphine": {
       "smiles": "CN1CCC23C4C1CC5=C2C(=C(C=C5)O)OC3C(C=C4)O",
@@ -2288,6 +2275,21 @@
       "cmax_mg_L": 1.0,
       "source_type": "fda_label",
       "source_id": "FDA label methotrexate 15mg oral",
+      "fasted_confidence": "assumed_fasted",
+      "formulation": "IR",
+      "route": "oral",
+      "population": "healthy",
+      "single_dose": true,
+      "tuning_contaminated": false,
+      "nonlinear_pk": false,
+      "data_quality": "fda_label_exact"
+    },
+    "adefovir dipivoxil": {
+      "smiles": "CC(C)(C)C(=O)OCOP(=O)(COCCN1C=NC2=C(N=CN=C21)N)OCOC(=O)C(C)(C)C",
+      "dose_mg": 10.0,
+      "cmax_mg_L": 0.0233,
+      "source_type": "fda_label",
+      "source_id": "fda_expanded",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",

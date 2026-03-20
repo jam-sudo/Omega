@@ -93,6 +93,8 @@ def _check_applicability_domain(smiles: str) -> tuple[bool, list[str]]:
     _PRODRUG_SMARTS = [
         "[OX2]C(=O)[CH]([NH2,NH])",  # val-ester (valacyclovir, valganciclovir)
         "[#7]1[#6][#6]c2[#16]ccc2[#6]1",  # thienopyridine (clopidogrel)
+        "[OX2]C(=O)OC(C)(C)C",  # pivoxil ester (adefovir dipivoxil)
+        "OC(=O)C(CO)OC(=O)",  # isopropyl ester prodrug (molnupiravir-like)
     ]
     for sma in _PRODRUG_SMARTS:
         pat = Chem.MolFromSmarts(sma)
