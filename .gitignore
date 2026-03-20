@@ -42,3 +42,4 @@ models/**/*.pt
 *.spl
 *.synctex.gz
 .superpowers/
+data/external/mmpk/zenodo_download/
