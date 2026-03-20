@@ -1,0 +1,22 @@
+{
+  "phase": 1,
+  "model": "1-compartment analytical multi-task",
+  "best_epoch": 5,
+  "best_val_loss": 0.320718,
+  "best_val_aafe": 3.6654,
+  "n_train_mmpk": 878,
+  "n_val_mmpk": 219,
+  "n_tdc_clint": 1213,
+  "n_tdc_fup": 1614,
+  "n_params": 134086,
+  "hyperparams": {
+    "epochs": 150,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "lambda_clint": 0.1,
+    "lambda_fup": 0.1,
+    "batch_size": 64,
+    "patience": 20,
+    "seed": 42
+  }
+}

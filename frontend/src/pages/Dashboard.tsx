@@ -4,7 +4,7 @@ import { FlaskConical, ArrowRight, Trash2 } from "lucide-react";
 import PageShell from "../components/layout/PageShell";
 import SmilesInput from "../components/SmilesInput";
 import { getHistory, clearHistory, type HistoryEntry } from "../lib/history";
-import { formatNum } from "../lib/utils";
+import { formatNum, formatTime } from "../lib/utils";
 
 const EXAMPLE_DRUGS = [
   { name: "Caffeine", smiles: "Cn1c(=O)c2c(ncn2C)n(C)c1=O", dose: 200 },
@@ -123,7 +123,7 @@ export default function Dashboard() {
                       {formatNum(h.auc)}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-[var(--text)]">
-                      {formatNum(h.thalf)}h
+                      {formatTime(h.thalf)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <ArrowRight size={14} className="text-[var(--text-muted)]" />

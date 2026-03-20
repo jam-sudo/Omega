@@ -9,6 +9,7 @@ interface CardData {
   reference?: number;
   foldError?: number;
   referenceLabel?: string;
+  isTime?: boolean;
 }
 
 interface Props {
@@ -53,10 +54,18 @@ export default function PKCards({ cards }: Props) {
               {c.label}
             </div>
             <div className="flex items-baseline gap-1.5 mt-1.5">
-              <span className="text-[32px] font-light text-[#fafafa] tabular-nums tracking-tight font-mono">
-                {formatNum(c.value)}
-              </span>
-              <span className="text-xs text-[#52525b]">{c.unit}</span>
+              {c.isTime ? (
+                <span className="text-[28px] font-light text-[#fafafa] tracking-tight font-mono">
+                  {c.unit}
+                </span>
+              ) : (
+                <>
+                  <span className="text-[32px] font-light text-[#fafafa] tabular-nums tracking-tight font-mono">
+                    {formatNum(c.value)}
+                  </span>
+                  <span className="text-xs text-[#52525b]">{c.unit}</span>
+                </>
+              )}
             </div>
             {/* Range bar */}
             <div className="w-full h-[3px] bg-[#27272a] rounded-full mt-3 overflow-hidden">

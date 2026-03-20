@@ -11,6 +11,7 @@ import ErrorAlert from "../components/ErrorAlert";
 import { api } from "../api/client";
 import { addToHistory } from "../lib/history";
 import { findReference } from "../lib/referenceMatch";
+import { formatTime } from "../lib/utils";
 import type { CardData } from "../components/charts/PKCards";
 import type { Dataset } from "../components/charts/PKCurve";
 import type { PredictRequest } from "../api/types";
@@ -83,9 +84,17 @@ export default function Predict() {
     }
   }, [data?.smiles]);
 
-  function foldError(pred: number, obs: number | undefined): number | undefined {
+  const predDose = Number(dose) || 100;
+  const refDose = ref?.dose_mg;
+  const rawDoseRatio = refDose && refDose > 0 ? refDose / predDose : 1;
+  // Dose-adjustment only valid under linear PK assumption (≤10x ratio)
+  const doseRatioTooLarge = Math.max(rawDoseRatio, 1 / rawDoseRatio) > 10;
+  const doseScale = doseRatioTooLarge ? 1 : rawDoseRatio;
+
+  function foldError(pred: number, obs: number | undefined, scale = 1): number | undefined {
     if (obs == null || obs === 0) return undefined;
-    return Math.max(pred / obs, obs / pred);
+    const adjusted = pred * scale;
+    return Math.max(adjusted / obs, obs / adjusted);
   }
 
   const refLabel = ref?.tier === "platinum" ? "PK-DB" : ref?.tier === "gold" || ref?.tier === "silver" ? "FDA" : "ref";
@@ -96,19 +105,19 @@ export default function Predict() {
           label: "Cmax", value: data.cmax_mg_L, unit: "mg/L",
           p5: data.cmax_p5, p95: data.cmax_p95,
           reference: ref?.pk_params?.cmax_mg_L,
-          foldError: foldError(data.cmax_mg_L, ref?.pk_params?.cmax_mg_L),
+          foldError: foldError(data.cmax_mg_L, ref?.pk_params?.cmax_mg_L, doseScale),
           referenceLabel: refLabel,
         },
-        { label: "Tmax", value: data.tmax_h, unit: "h" },
+        { label: "Tmax", value: data.tmax_h, unit: formatTime(data.tmax_h), isTime: true },
         {
           label: "AUC\u2080\u208B\u209C", value: data.auc0t_mg_h_L, unit: "mg\u00B7h/L",
           p5: data.auc_p5, p95: data.auc_p95,
           reference: ref?.pk_params?.auc_mg_h_L,
-          foldError: foldError(data.auc0t_mg_h_L, ref?.pk_params?.auc_mg_h_L),
+          foldError: foldError(data.auc0t_mg_h_L, ref?.pk_params?.auc_mg_h_L, doseScale),
           referenceLabel: refLabel,
         },
         {
-          label: "t\u00BD", value: data.t_half_h, unit: "h",
+          label: "t\u00BD", value: data.t_half_h, unit: formatTime(data.t_half_h), isTime: true,
           reference: ref?.pk_params?.thalf_h,
           foldError: foldError(data.t_half_h, ref?.pk_params?.thalf_h),
           referenceLabel: refLabel,
@@ -116,14 +125,28 @@ export default function Predict() {
       ]
     : null;
 
+  // Scale reference C(t) curve to match prediction dose (linear PK assumption)
+  // Skip scaling when dose ratio is too extreme (>10x) — linear PK won't hold
+  const curveScale = doseRatioTooLarge ? 1 : (refDose && refDose > 0 ? predDose / refDose : 1);
+
   const datasets: Dataset[] | null = data
     ? [
         { time: data.time_h, conc: data.cp_mg_L, label: data.drug_name || "Compound", color: "#3b82f6" },
         ...(ref?.ct_curve ? [{
           time: ref.ct_curve.time_h,
-          conc: ref.ct_curve.conc_mg_L,
-          sd: ref.ct_curve.sd_mg_L,
-          label: `Reference (${ref.source})`,
+          conc: curveScale !== 1
+            ? ref.ct_curve.conc_mg_L.map((c) => c * curveScale)
+            : ref.ct_curve.conc_mg_L,
+          sd: ref.ct_curve.sd_mg_L
+            ? (curveScale !== 1
+              ? ref.ct_curve.sd_mg_L.map((s) => s * curveScale)
+              : ref.ct_curve.sd_mg_L)
+            : undefined,
+          label: doseRatioTooLarge
+            ? `Reference (${refDose}mg — dose mismatch)`
+            : curveScale !== 1
+              ? `Reference (scaled to ${predDose}mg)`
+              : `Reference (${ref.source})`,
           color: "#f97316",
           isReference: true,
         }] : []),
@@ -217,6 +240,13 @@ export default function Predict() {
           {ref && (
             <div className="px-3 py-2 border-l-2 border-orange-500 text-sm text-[var(--text-muted)] animate-fade-in">
               {ref.tier === "platinum" ? "PK-DB clinical data" : "FDA reference"}: <strong className="text-[var(--text)]">{ref.name}</strong> — {ref.source}
+              {refDose && rawDoseRatio !== 1 && (
+                <span className={`ml-2 ${doseRatioTooLarge ? "text-red-400" : "text-yellow-400"}`}>
+                  {doseRatioTooLarge
+                    ? `(ref dose ${refDose}mg vs predicted ${predDose}mg — ${Math.round(Math.max(rawDoseRatio, 1/rawDoseRatio))}x mismatch, set dose to ${refDose}mg for valid comparison)`
+                    : `(ref dose ${refDose}mg, predicted ${predDose}mg — fold-errors dose-adjusted)`}
+                </span>
+              )}
             </div>
           )}
 

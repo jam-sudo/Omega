@@ -1,0 +1,9 @@
+{
+  "model": "mechanistic_1cpt_ivive",
+  "best_epoch": 8,
+  "best_val_loss": 0.332,
+  "best_val_aafe": 3.7327,
+  "n_params": 134152,
+  "n_train": 878,
+  "n_val": 219
+}

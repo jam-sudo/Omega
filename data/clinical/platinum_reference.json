@@ -1240,7 +1240,7 @@
       "population": "healthy",
       "single_dose": true,
       "tuning_contaminated": false,
-      "nonlinear_pk": false,
+      "nonlinear_pk": true,
       "data_quality": "fda_label_exact",
       "notes": "PRODRUG: molnupiravir \u2192 NHC (beta-D-N4-hydroxycytidine). FDA Lagevrio measures NHC metabolite Cmax. Pipeline predicts parent ester."
     },

@@ -5,6 +5,17 @@ export function formatNum(n: number, decimals = 2): string {
   return n.toFixed(decimals);
 }
 
+/** Format hours as human-readable "Xhr Ymin" string. */
+export function formatTime(hours: number): string {
+  if (hours <= 0) return "0min";
+  const totalMin = Math.round(hours * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}min`;
+  if (m === 0) return `${h}hr`;
+  return `${h}hr ${m}min`;
+}
+
 export function confidenceColor(level: string): string {
   switch (level) {
     case "high": return "var(--success)";

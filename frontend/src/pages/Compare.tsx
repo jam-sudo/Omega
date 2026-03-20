@@ -5,7 +5,7 @@ import SmilesInput from "../components/SmilesInput";
 import PKCurve from "../components/charts/PKCurve";
 import ErrorAlert from "../components/ErrorAlert";
 import { api } from "../api/client";
-import { formatNum } from "../lib/utils";
+import { formatNum, formatTime } from "../lib/utils";
 
 const COLORS = ["#3b82f6", "#f97316", "#22c55e"];
 const MAX_DRUGS = 3;
@@ -76,15 +76,18 @@ export default function Compare() {
                 </tr>
               </thead>
               <tbody>
-                {[{ label: "Cmax (mg/L)", key: "cmax_mg_L" }, { label: "AUC (mg·h/L)", key: "auc0t_mg_h_L" },
-                  { label: "t½ (h)", key: "t_half_h" }, { label: "Tmax (h)", key: "tmax_h" }].map((row) => (
+                {[{ label: "Cmax (mg/L)", key: "cmax_mg_L", isTime: false }, { label: "AUC (mg·h/L)", key: "auc0t_mg_h_L", isTime: false },
+                  { label: "t½", key: "t_half_h", isTime: true }, { label: "Tmax", key: "tmax_h", isTime: true }].map((row) => (
                   <tr key={row.key} className="border-b last:border-0">
                     <td className="px-4 py-2 text-[var(--text-muted)]">{row.label}</td>
-                    {results.map((r, idx) => (
-                      <td key={idx} className="px-4 py-2 text-right tabular-nums font-medium">
-                        {formatNum((r as unknown as Record<string, number>)[row.key])}
-                      </td>
-                    ))}
+                    {results.map((r, idx) => {
+                      const val = (r as unknown as Record<string, number>)[row.key];
+                      return (
+                        <td key={idx} className="px-4 py-2 text-right tabular-nums font-medium">
+                          {row.isTime ? formatTime(val) : formatNum(val)}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

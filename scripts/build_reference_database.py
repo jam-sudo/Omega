@@ -21,6 +21,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 PKDB_PATH = ROOT / "data" / "clinical" / "pkdb_timecourses.json"
 FDA_PATH = ROOT / "data" / "clinical" / "fda_pk_reference.json"
+GOLD24_PATH = ROOT / "data" / "clinical" / "gold24_reference_cmax.json"
+PLATINUM_PATH = ROOT / "data" / "clinical" / "platinum_reference.json"
 OUTPUT_JSON = ROOT / "data" / "clinical" / "reference_database.json"
 OUTPUT_TS = ROOT / "frontend" / "src" / "data" / "referenceData.ts"
 
@@ -313,6 +315,164 @@ def build_database() -> dict:
         drugs_output[name_lower] = entry
         tier_counts[tier] += 1
 
+    # --- Pass 3: Supplement dose_mg from gold24, platinum, and manual lookup ---
+    dose_supplement: dict[str, float] = {}
+
+    # Manual doses for FDA drugs where dose_mg is missing from all sources.
+    # Values are the standard single-dose PK study dose from FDA labels.
+    _MANUAL_DOSES: dict[str, float] = {
+        "aspirin": 500.0,  # standard OTC single dose
+        "benzhydrocodone": 4.08,  # Apadaz (4.08 mg benzhydrocodone component)
+        "dimethyl": 240.0,  # dimethyl fumarate (Tecfidera 240 mg)
+        "glycopyrrolate": 1.0,  # oral glycopyrrolate (Cuvposa 1 mg)
+        "guanfacine er": 1.0,  # Intuniv 1 mg
+        "lanthanum carbonate": 500.0,  # Fosrenol 500 mg
+        "lofexidine": 0.18,  # Lucemyra 0.18 mg
+        "naproxen oral": 500.0,  # standard single dose
+        "paricalcitol": 0.004,  # Zemplar 4 mcg oral
+        "pregabalin": 300.0,  # Lyrica 300 mg
+        "ranolazine": 500.0,  # Ranexa 500 mg
+    }
+    dose_supplement.update(_MANUAL_DOSES)
+
+    if GOLD24_PATH.exists():
+        with open(GOLD24_PATH) as f:
+            gold24 = json.load(f)
+        for name, d in gold24.items():
+            if name.startswith("_") or not isinstance(d, dict):
+                continue
+            if d.get("dose_mg"):
+                dose_supplement[name.lower().strip()] = d["dose_mg"]
+    if PLATINUM_PATH.exists():
+        with open(PLATINUM_PATH) as f:
+            plat = json.load(f)
+        plat_drugs = plat.get("drugs", {})
+        for name, d in plat_drugs.items():
+            if isinstance(d, dict) and d.get("dose_mg"):
+                dose_supplement[name.lower().strip()] = d["dose_mg"]
+
+    for name, entry in drugs_output.items():
+        if not entry.get("dose_mg") and name in dose_supplement:
+            entry["dose_mg"] = dose_supplement[name]
+
+    # --- Pass 4: Override/add gold-24 curated data ---
+    # Gold-24 values are manually verified and take priority over auto-extracted
+    # FDA/PK-DB values for Cmax, dose_mg, and other PK params.
+    # Standard t½ from FDA labels for gold-24 drugs missing thalf everywhere.
+    _GOLD24_THALF: dict[str, float] = {
+        "warfarin": 40.0,
+        "atenolol": 6.5,
+        "diazepam": 43.0,
+        "digoxin": 39.0,
+        "furosemide": 1.5,
+        "d_amphetamine": 10.0,
+        "fluoxetine": 48.0,
+        "nifedipine": 2.0,
+        "phenytoin": 22.0,
+    }
+
+    if GOLD24_PATH.exists():
+        # Get SMILES from platinum for drugs missing from FDA
+        plat_smiles: dict[str, str] = {}
+        if PLATINUM_PATH.exists():
+            for pname, pd in plat_drugs.items():
+                if isinstance(pd, dict) and pd.get("smiles"):
+                    plat_smiles[pname.lower().strip()] = pd["smiles"]
+
+        for gname, gdata in gold24.items():
+            if gname.startswith("_") or not isinstance(gdata, dict):
+                continue
+            gname_lower = gname.lower().strip()
+            gcmax = gdata.get("cmax_mg_L")
+            gdose = gdata.get("dose_mg")
+            gauc = gdata.get("auc_mg_h_L")
+            gsource = gdata.get("source", "gold-24 curated")
+
+            if gname_lower in drugs_output:
+                entry = drugs_output[gname_lower]
+                # Override dose_mg with gold-24 curated value
+                if gdose:
+                    entry["dose_mg"] = gdose
+                # Override pk_params with curated values
+                pk = entry.get("pk_params", {})
+                if gcmax:
+                    pk["cmax_mg_L"] = gcmax
+                if gauc:
+                    pk["auc_mg_h_L"] = gauc
+                # Add thalf from lookup if missing
+                if not pk.get("thalf_h") and gname_lower in _GOLD24_THALF:
+                    pk["thalf_h"] = _GOLD24_THALF[gname_lower]
+                entry["pk_params"] = pk
+                # Add SMILES from platinum if missing
+                if not entry.get("smiles") and gname_lower in plat_smiles:
+                    entry["smiles"] = plat_smiles[gname_lower]
+                # Regenerate C(t) curve if we now have Cmax + thalf
+                thalf = pk.get("thalf_h")
+                if gcmax and thalf and thalf > 0:
+                    use_dose = gdose if gdose else 100.0
+                    bio = (
+                        pk.get("bioavailability_pct", 70)
+                        if isinstance(pk.get("bioavailability_pct"), (int, float))
+                        else 70
+                    )
+                    F = bio / 100.0
+                    time_h, conc_mg_l = generate_ct_curve(
+                        cmax=gcmax,
+                        thalf_h=thalf,
+                        dose_mg=use_dose,
+                        F=F,
+                    )
+                    entry["ct_curve"] = {
+                        "time_h": time_h,
+                        "conc_mg_L": conc_mg_l,
+                    }
+                    if entry["tier"] == "silver":
+                        entry["tier"] = "gold"
+                        tier_counts["silver"] -= 1
+                        tier_counts["gold"] += 1
+            else:
+                # Drug not in refdb at all — add it with platinum SMILES
+                smiles = plat_smiles.get(gname_lower)
+                if not smiles:
+                    continue  # Can't add without SMILES
+
+                pk_params_new: dict = {}
+                if gcmax:
+                    pk_params_new["cmax_mg_L"] = gcmax
+                if gauc:
+                    pk_params_new["auc_mg_h_L"] = gauc
+
+                # Get thalf from lookup
+                thalf_new = _GOLD24_THALF.get(gname_lower)
+                if thalf_new:
+                    pk_params_new["thalf_h"] = thalf_new
+
+                # Generate C(t) curve
+                ct_curve_new = None
+                tier_new = "gold"
+                if gcmax and thalf_new and thalf_new > 0:
+                    use_dose = gdose if gdose else 100.0
+                    time_h, conc_mg_l = generate_ct_curve(
+                        cmax=gcmax,
+                        thalf_h=thalf_new,
+                        dose_mg=use_dose,
+                    )
+                    ct_curve_new = {"time_h": time_h, "conc_mg_L": conc_mg_l}
+
+                new_entry: dict = {
+                    "name": gname_lower,
+                    "smiles": smiles,
+                    "tier": tier_new,
+                    "source": f"Gold-24 curated ({gsource})",
+                    "dose_mg": gdose,
+                    "route": "oral",
+                    "pk_params": pk_params_new,
+                }
+                if ct_curve_new:
+                    new_entry["ct_curve"] = ct_curve_new
+                drugs_output[gname_lower] = new_entry
+                tier_counts[tier_new] += 1
+
     # Sort by name
     drugs_sorted = dict(sorted(drugs_output.items()))
 
@@ -370,6 +530,7 @@ def generate_typescript(db: dict) -> str:
         "  smiles: string;",
         "  tier: 'platinum' | 'gold' | 'silver';",
         "  source: string;",
+        "  dose_mg?: number;",
         "  pk_params: {",
         "    cmax_mg_L?: number;",
         "    auc_mg_h_L?: number;",
@@ -424,11 +585,15 @@ def generate_typescript(db: dict) -> str:
         # Escape the key if it contains special chars
         key = json.dumps(name)
 
+        dose_mg = drug.get("dose_mg")
+
         lines.append(f"  {key}: {{")
         lines.append(f"    name: {json.dumps(name)},")
         lines.append(f"    smiles: {json.dumps(smiles)},")
         lines.append(f"    tier: {json.dumps(tier)},")
         lines.append(f"    source: {json.dumps(source)},")
+        if dose_mg is not None:
+            lines.append(f"    dose_mg: {dose_mg},")
         lines.append(f"    pk_params: {pk_str},")
         if ct_str != "undefined":
             lines.append(f"    ct_curve: {ct_str},")

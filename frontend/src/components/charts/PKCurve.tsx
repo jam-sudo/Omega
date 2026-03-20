@@ -11,7 +11,7 @@ import {
   ErrorBar,
   ComposedChart,
 } from "recharts";
-import { exportCSV, formatNum } from "../../lib/utils";
+import { exportCSV, formatNum, formatTime } from "../../lib/utils";
 
 interface Dataset {
   time: number[];
@@ -43,7 +43,7 @@ function CustomTooltip({
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[#18181b] px-3 py-2 shadow-xl">
-      <div className="text-xs text-[var(--text-muted)] mb-1">{formatNum(label ?? 0)} h</div>
+      <div className="text-xs text-[var(--text-muted)] mb-1">{formatTime(label ?? 0)}</div>
       {payload.map((p) => (
         <div key={p.name} className="flex items-center gap-2 text-sm">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
