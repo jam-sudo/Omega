@@ -1,0 +1,29 @@
+{
+  "n_trials": 80,
+  "baseline_train_aafe": 2.3977,
+  "baseline_val_aafe": 2.5265,
+  "best_train_aafe": 2.0627,
+  "best_params": {
+    "clint_propranolol": 2.111339,
+    "clint_verapamil": 2.370882,
+    "clint_metoprolol": 3.248512,
+    "clint_atorvastatin": 3.576661,
+    "clint_simvastatin": 3.12934,
+    "clint_fluoxetine": 1.80719,
+    "clint_midazolam": 1.560215,
+    "clint_omeprazole": 2.188088,
+    "clint_losartan": 2.95765,
+    "clint_amlodipine": 2.500282,
+    "clint_acetaminophen": 2.079561,
+    "clint_ranitidine": 1.180212,
+    "clint_ciprofloxacin": 1.632089,
+    "clint_ibuprofen": 0.842134,
+    "clint_theophylline": 1.904692,
+    "clint_caffeine": 0.964706,
+    "clint_diazepam": 0.95684,
+    "clint_warfarin": -0.997233,
+    "clint_fluconazole": 0.799879,
+    "ka_scale": 0.000412,
+    "gut_threshold": 1.434538
+  }
+}
