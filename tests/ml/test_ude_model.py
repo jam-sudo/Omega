@@ -1,6 +1,8 @@
 """Tests for UDE multi-task PK model."""
 
-import torch
+import pytest
+
+torch = pytest.importorskip("torch")
 
 
 def test_model_forward():
