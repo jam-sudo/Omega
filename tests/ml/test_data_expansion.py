@@ -2,6 +2,8 @@
 
 import pytest
 
+pytest.importorskip("requests")
+
 
 def test_pkdb_expansion_script_runs():
     """PK-DB expansion script should run without crashing in dry-run mode."""
