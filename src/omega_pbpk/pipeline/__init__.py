@@ -43,9 +43,13 @@ _ENABLE_GUT_WALL_FIX = (
 # Threshold 2.6 µL/min/pmol excludes warfarin (2.553, CYP2C9 substrate) as false positive
 # while preserving gut wall correction for midazolam (3.096), verapamil (4.767),
 # fluoxetine (3.481), atorvastatin. Raised from 2.0 → 2.6 on 2026-03-18.
-_GUT_WALL_CLint3A4_THRESHOLD: float = (
-    1.43  # recalibrated by Optuna E2E on 1,020 MMPK drugs (was 2.6)
-)
+_GUT_WALL_CLint3A4_THRESHOLD: float = 0.97  # Optuna E2E round 2 (was 2.6 → 1.43 → 0.97)
+
+# --- Global calibration constants (Optuna E2E on 1,020 MMPK drugs) ---
+_PEFF_MIN: float = 0.76  # absorption floor (was 0.5)
+_PGP_REDUCTION: float = 0.34  # P-gp peff multiplier (was 0.5; stronger efflux)
+_GSE_INTERCEPT: float = 1.11  # GSE solubility floor (was 0.5; higher floor)
+_HYBRID_BLEND_RATIO: float = 3.0  # ODE/analytical divergence threshold (unchanged)
 
 # Phase 3b: fuinc correction for microsomal nonspecific binding
 # Disabled: error cancellation analysis shows predicted ADME already beats
@@ -1196,7 +1200,7 @@ class OmegaPipeline:
         # ML peff underestimates drugs with active transport (e.g. PepT1
         # substrates like amoxicillin: predicted 0.1, actual F~90%).
         # Floor of 0.5 × 10^-4 cm/s ≈ moderate absorption (~50% F_oral).
-        peff = max(peff, 0.5)
+        peff = max(peff, _PEFF_MIN)
 
         # P-gp efflux correction: reduce effective permeability for known
         # P-gp substrates. P-gp pumps drug back into gut lumen, reducing
@@ -1221,9 +1225,11 @@ class OmegaPipeline:
                         "P-gp substrate+inhibitor: no efflux correction (self-inhibiting)"
                     )
                 else:
-                    peff *= 0.5  # 50% reduction for pure P-gp substrates
-                    warnings_list.append("P-gp substrate: peff reduced by 50% for efflux")
-                    logger.info("P-gp efflux correction applied: peff *= 0.5")
+                    peff *= _PGP_REDUCTION
+                    warnings_list.append(
+                        f"P-gp substrate: peff reduced by {(1 - _PGP_REDUCTION) * 100:.0f}% for efflux"
+                    )
+                    logger.info("P-gp efflux correction applied: peff *= %.2f", _PGP_REDUCTION)
         except ImportError:
             pass
         adme["pgp_substrate"] = pgp_substrate
@@ -1265,7 +1271,7 @@ class OmegaPipeline:
         # lipophilic drugs. Without this, drugs like fluoxetine (logP=4.4) get
         # dose_number >70 and fa <2%, causing 10-15x Cmax under-prediction.
         # GSE: logS ≈ 0.5 - 0.01*(MP-25) - logP. Without MP, use simplified:
-        logS_gse = 0.5 - logP
+        logS_gse = _GSE_INTERCEPT - logP
         logS = max(logS, logS_gse)
 
         sol_mol_L = 10.0**logS

@@ -1,0 +1,10 @@
+{
+  "baseline": 2.3318,
+  "best": 2.2172,
+  "params": {
+    "peff_min": 0.7569,
+    "pgp_reduction": 0.3377,
+    "gse_intercept": 1.1094,
+    "gut_threshold": 0.9684
+  }
+}
