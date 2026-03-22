@@ -31,6 +31,8 @@ ai/logs/*
 !ai/logs/.gitkeep
 ai/codex_last_message.txt
 models/**/*.pt
+models/**/*.joblib
+.claude/settings.local.json
 .obsidian/
 
 # LaTeX build artifacts
@@ -43,3 +45,9 @@ models/**/*.pt
 *.synctex.gz
 .superpowers/
 data/external/mmpk/zenodo_download/
+data/external/chembl/
+data/external/pkdb_alpha.zip
+pkdb_data*/
+data/hydrationfreeenergy_freesolv.tab
+*.tab
+*:Zone.Identifier
