@@ -43,7 +43,9 @@ _ENABLE_GUT_WALL_FIX = (
 # Threshold 2.6 µL/min/pmol excludes warfarin (2.553, CYP2C9 substrate) as false positive
 # while preserving gut wall correction for midazolam (3.096), verapamil (4.767),
 # fluoxetine (3.481), atorvastatin. Raised from 2.0 → 2.6 on 2026-03-18.
-_GUT_WALL_CLint3A4_THRESHOLD: float = 2.6  # µL/min/pmol
+_GUT_WALL_CLint3A4_THRESHOLD: float = (
+    1.43  # recalibrated by Optuna E2E on 1,020 MMPK drugs (was 2.6)
+)
 
 # Phase 3b: fuinc correction for microsomal nonspecific binding
 # Disabled: error cancellation analysis shows predicted ADME already beats
