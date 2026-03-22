@@ -1,7 +1,9 @@
 {
+  "drug": "midazolam",
+  "dose_mg": 100.0,
+  "route": "oral",
   "metrics": {
-    "Cmax": 0.3583649262334937,
-    "AUC": 1.025475414955817
-  },
-  "note": "Updated after absorption rate calibration (ka scaling 0.0007)"
+    "Cmax": 0.260999,
+    "AUC": 0.8828
+  }
 }

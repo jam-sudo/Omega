@@ -78,7 +78,6 @@
     "warfarin"
   ],
   "holdout": [
-    "adefovir",
     "alosetron",
     "apixaban",
     "azacitidine",
@@ -177,7 +176,8 @@
     "ulipristal",
     "ramelteon",
     "ketoconazole",
-    "selegiline"
+    "selegiline",
+    "adefovir dipivoxil"
   ],
   "metadata": {
     "n_train": 76,

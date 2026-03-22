@@ -1,7 +1,9 @@
 {
+  "drug": "warfarin",
+  "dose_mg": 100.0,
+  "route": "oral",
   "metrics": {
-    "Cmax": 4.938420695687359,
-    "AUC": 51.00107413032865
-  },
-  "note": "Updated after absorption rate calibration (ka scaling 0.0007)"
+    "Cmax": 3.458106,
+    "AUC": 37.503484
+  }
 }

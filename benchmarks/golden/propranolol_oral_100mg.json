@@ -1,7 +1,9 @@
 {
+  "drug": "propranolol",
+  "dose_mg": 100.0,
+  "route": "oral",
   "metrics": {
-    "Cmax": 0.169638,
-    "AUC": 0.700311
-  },
-  "note": "Regenerated with current ODE engine after first-pass metabolism validation. Values confirmed clinically reasonable (F~25-30%)."
+    "Cmax": 0.120805,
+    "AUC": 0.571963
+  }
 }

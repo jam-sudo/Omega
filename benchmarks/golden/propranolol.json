@@ -1,11 +1,9 @@
 {
   "drug": "propranolol",
-  "generated_by": "ODE WholeBodyPBPK v1.0.0 (CLint=850 L/h, EH~0.55)",
-  "note": "Golden snapshot for regression testing. Regenerated after first-pass metabolism fix. Previous v0.9.0 had Cmax=0.326 (3-7x too high).",
-  "tolerance": {"auc_relative_error_max": 0.10, "cmax_relative_error_max": 0.10, "tmax_abs_error_h_max": 1.0},
-  "simulated": {
-    "cmax_mg_L": 0.184486,
-    "auc_mg_h_L": 0.7091,
-    "tmax_h": 1.7
+  "dose_mg": 100.0,
+  "route": "oral",
+  "metrics": {
+    "Cmax": 0.120805,
+    "AUC": 0.571963
   }
 }

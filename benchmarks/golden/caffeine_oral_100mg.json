@@ -1,7 +1,9 @@
 {
+  "drug": "caffeine",
+  "dose_mg": 100.0,
+  "route": "oral",
   "metrics": {
-    "Cmax": 1.7212161642900883,
-    "AUC": 12.676050858058534
-  },
-  "note": "Updated after absorption rate calibration (ka scaling 0.0007)"
+    "Cmax": 1.326093,
+    "AUC": 11.365422
+  }
 }
