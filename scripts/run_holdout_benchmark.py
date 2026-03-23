@@ -49,9 +49,12 @@ def main():
     with open(PLATINUM_PATH) as f:
         plat = json.load(f)
 
+    from omega_pbpk.pipeline import _check_applicability_domain  # noqa: E402
+
     pipeline = OmegaPipeline()
     results = []
     fold_errors = []
+    in_domain_fe = []  # excludes prodrugs, DDI-boosted, AD-flagged
     strat_errors = defaultdict(list)  # stratification key -> [fold_errors]
 
     print(f"Running holdout benchmark on {len(holdout_drugs)} drugs")
@@ -67,6 +70,10 @@ def main():
         dose_mg = entry["dose_mg"]
         obs_cmax = entry["cmax_mg_L"]
         data_quality = entry.get("data_quality", "unknown")
+        ddi_boosted = entry.get("ddi_boosted", False)
+
+        # Check applicability domain
+        in_ad, ad_flags = _check_applicability_domain(smiles)
 
         try:
             sim = pipeline.simulate(SimulationRequest(smiles=smiles, dose_mg=dose_mg, route="oral"))
@@ -86,6 +93,17 @@ def main():
         fold_errors.append(fe)
         strat_errors[data_quality].append(fe)
 
+        # In-domain: not DDI-boosted and passes AD filter
+        is_in_domain = in_ad and not ddi_boosted
+        if is_in_domain:
+            in_domain_fe.append(fe)
+
+        exclusion_reason = []
+        if ddi_boosted:
+            exclusion_reason.append("DDI_BOOSTED")
+        if not in_ad:
+            exclusion_reason.extend(ad_flags)
+
         results.append(
             {
                 "drug": drug_name,
@@ -97,12 +115,15 @@ def main():
                 "fold_error": round(fe, 4),
                 "data_quality": data_quality,
                 "source_type": entry.get("source_type"),
+                "in_domain": is_in_domain,
+                "exclusion_reason": exclusion_reason if exclusion_reason else None,
             }
         )
 
+        flag_str = f" [{','.join(exclusion_reason)}]" if exclusion_reason else ""
         symbol = "v" if fe <= 2.0 else ("~" if fe <= 3.0 else "x")
         print(
-            f"  {symbol} {drug_name:25s} FE={fe:6.2f}x  pred={pred_cmax:.4f}  obs={obs_cmax:.4f}  [{data_quality}]"
+            f"  {symbol} {drug_name:25s} FE={fe:6.2f}x  pred={pred_cmax:.4f}  obs={obs_cmax:.4f}  [{data_quality}]{flag_str}"
         )
 
     # Aggregate
@@ -134,6 +155,27 @@ def main():
         reverse=True,
     )
 
+    # In-domain metrics
+    in_domain_summary = {}
+    if in_domain_fe:
+        id_valid = [fe for fe in in_domain_fe if not np.isnan(fe)]
+        id_log = np.log10(id_valid)
+        id_aafe = float(10 ** np.mean(np.abs(id_log)))
+        id_2f = sum(1 for fe in id_valid if fe <= 2.0) / len(id_valid) * 100
+        id_3f = sum(1 for fe in id_valid if fe <= 3.0) / len(id_valid) * 100
+        id_ci = bootstrap_aafe_ci(id_valid)
+        in_domain_summary = {
+            "n": len(id_valid),
+            "aafe": round(id_aafe, 4),
+            "ci95_lo": round(id_ci[0], 4),
+            "ci95_hi": round(id_ci[1], 4),
+            "pct_2fold": round(id_2f, 1),
+            "pct_3fold": round(id_3f, 1),
+        }
+
+    # Excluded drugs summary
+    excluded = [r for r in results if r.get("success") and not r.get("in_domain")]
+
     output = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "n_holdout": len(holdout_drugs),
@@ -143,6 +185,11 @@ def main():
         "ci95_hi": round(ci_hi, 4),
         "pct_2fold": round(pct_2fold, 1),
         "pct_3fold": round(pct_3fold, 1),
+        "in_domain": in_domain_summary,
+        "n_excluded": len(excluded),
+        "excluded_drugs": [
+            {"drug": r["drug"], "reason": r.get("exclusion_reason")} for r in excluded
+        ],
         "stratified_by_quality": strat_summary,
         "top_10_errors": [
             {"drug": r["drug"], "fold_error": r["fold_error"]} for r in sorted_results[:10]
@@ -151,10 +198,20 @@ def main():
     }
 
     print("\n" + "=" * 70)
-    print(f"HOLDOUT BASELINE ({len(valid_fe)} drugs)")
+    print(f"HOLDOUT ALL ({len(valid_fe)} drugs)")
     print(f"  AAFE:    {aafe:.3f}  [95% CI: {ci_lo:.3f}, {ci_hi:.3f}]")
     print(f"  %2-fold: {pct_2fold:.1f}%")
     print(f"  %3-fold: {pct_3fold:.1f}%")
+    if in_domain_summary:
+        print(f"\nHOLDOUT IN-DOMAIN ({in_domain_summary['n']} drugs)")
+        print(
+            f"  AAFE:    {in_domain_summary['aafe']:.3f}  [95% CI: {in_domain_summary['ci95_lo']:.3f}, {in_domain_summary['ci95_hi']:.3f}]"
+        )
+        print(f"  %2-fold: {in_domain_summary['pct_2fold']:.1f}%")
+        print(f"  %3-fold: {in_domain_summary['pct_3fold']:.1f}%")
+        print(f"  Excluded: {len(excluded)} drugs")
+        for r in excluded:
+            print(f"    - {r['drug']}: {r.get('exclusion_reason')}")
     print("\nStratified by quality:")
     for key, s in sorted(strat_summary.items()):
         print(

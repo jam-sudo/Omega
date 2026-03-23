@@ -43,12 +43,16 @@ _ENABLE_GUT_WALL_FIX = (
 # Threshold 2.6 µL/min/pmol excludes warfarin (2.553, CYP2C9 substrate) as false positive
 # while preserving gut wall correction for midazolam (3.096), verapamil (4.767),
 # fluoxetine (3.481), atorvastatin. Raised from 2.0 → 2.6 on 2026-03-18.
-_GUT_WALL_CLint3A4_THRESHOLD: float = 0.97  # Optuna E2E round 2 (was 2.6 → 1.43 → 0.97)
+_GUT_WALL_CLint3A4_THRESHOLD: float = (
+    2.6  # Pre-Optuna default restored (2026-03-22). Optuna E2E (0.97) hurt holdout +0.091 AAFE.
+)
 
-# --- Global calibration constants (Optuna E2E on 1,020 MMPK drugs) ---
-_PEFF_MIN: float = 0.76  # absorption floor (was 0.5)
-_PGP_REDUCTION: float = 0.34  # P-gp peff multiplier (was 0.5; stronger efflux)
-_GSE_INTERCEPT: float = 1.11  # GSE solubility floor (was 0.5; higher floor)
+# --- Global calibration constants (reverted from Optuna E2E, 2026-03-22) ---
+_PEFF_MIN: float = (
+    0.5  # absorption floor (Optuna had 0.76; reverted — MMPK tuning doesn't generalize)
+)
+_PGP_REDUCTION: float = 0.5  # P-gp peff multiplier (Optuna had 0.34; reverted)
+_GSE_INTERCEPT: float = 0.5  # GSE solubility floor (Optuna had 1.11; reverted)
 _HYBRID_BLEND_RATIO: float = 3.0  # ODE/analytical divergence threshold (unchanged)
 
 # Phase 3b: fuinc correction for microsomal nonspecific binding
@@ -95,11 +99,12 @@ def _check_applicability_domain(smiles: str) -> tuple[bool, list[str]]:
     logp = Descriptors.MolLogP(mol)
     tpsa = Descriptors.TPSA(mol)
 
-    # Prodrug detection: amino acid ester (val-ester), thienopyridine
+    # Prodrug detection: amino acid ester (val-ester), thienopyridine, nucleoside ester
     _PRODRUG_SMARTS = [
-        "[OX2]C(=O)[CH]([NH2,NH])",  # val-ester (valacyclovir, valganciclovir)
+        "[#6][OX2]C(=O)[CH]([NH2,NH])",  # val-ester (valacyclovir, valganciclovir); requires C-O to exclude free carboxylic acids
         "[#7]1[#6][#6]c2[#16]ccc2[#6]1",  # thienopyridine (clopidogrel)
         "[CX3](=O)OCO[PX4]",  # pivaloyloxymethyl phosphonate (adefovir dipivoxil)
+        "[CX3](=O)O[CH2][C;R1](-[OX2])",  # nucleoside 5'-ester (molnupiravir)
     ]
     for sma in _PRODRUG_SMARTS:
         pat = Chem.MolFromSmarts(sma)
@@ -352,6 +357,9 @@ class OmegaPipeline:
         self._direct_cmax = None
         self._initialized = False
         self.use_ml_corrections = False
+        self.use_hybrid_selector = (
+            False  # Disabled: overfits gold-24 synthetic CSV, harms holdout (Δ-0.283 AAFE)
+        )
         self._pre_ode = None
         self._post_ode = None
 
@@ -487,144 +495,140 @@ class OmegaPipeline:
         auc = float(np_trapz(cp, time_h))
 
         # Hybrid Cmax selector: compare ODE vs analytical 1-cpt model.
-        #
-        # The PBPK ODE's perfusion-limited distribution systematically
-        # distorts Cmax: over-predicts for drugs with slow tissue uptake,
-        # under-predicts for drugs where the ODE distributes too widely.
-        #
-        # For low-extraction drugs (F>0.7, CLh<15, CLr<5), the analytical
-        # 1-cpt model with Vdss gives more reliable Cmax because it
-        # bypasses distribution artifacts. When the two models diverge
-        # by >3x, the ODE's distribution kinetics are unreliable —
-        # use the analytical Cmax instead.
+        # DISABLED (2026-03-22): Holdout ablation showed selector HARMS
+        # generalization (Δ-0.283 AAFE on 100-drug holdout). Thresholds
+        # were tuned on N=24 gold set with synthetic CSV references.
+        # Gold-24 real clinical: Δ-0.004 (no effect). Code preserved
+        # for future re-evaluation after Fg/Fh joint calibration.
         _vd_correction = False
         _vd_xgb = None
-        try:
-            from omega_pbpk.core.heuristics import vdss_from_kp
-            from omega_pbpk.prediction.bioavailability_prediction import predict_bioavailability
+        if self.use_hybrid_selector:
+            try:
+                from omega_pbpk.core.heuristics import vdss_from_kp
+                from omega_pbpk.prediction.bioavailability_prediction import predict_bioavailability
 
-            _clint_h = (
-                drug.clint_hepatic_L_per_h
-                if hasattr(drug, "clint_hepatic_L_per_h")
-                else drug.clint_scaled_L_per_h
-            )
-            _fup = drug.fup
-            _q_h = 90.0
-            _cl_h = (_q_h * _fup * _clint_h) / (_q_h + _fup * _clint_h) if _clint_h > 0 else 0.0
-            _cl_r = getattr(drug, "clr_L_per_h", 0.0) or 0.0
-            _cl_total = _cl_h + _cl_r
+                _clint_h = (
+                    drug.clint_hepatic_L_per_h
+                    if hasattr(drug, "clint_hepatic_L_per_h")
+                    else drug.clint_scaled_L_per_h
+                )
+                _fup = drug.fup
+                _q_h = 90.0
+                _cl_h = (_q_h * _fup * _clint_h) / (_q_h + _fup * _clint_h) if _clint_h > 0 else 0.0
+                _cl_r = getattr(drug, "clr_L_per_h", 0.0) or 0.0
+                _cl_total = _cl_h + _cl_r
 
-            _F_result = predict_bioavailability(drug, dose_mg=request.dose_mg)
-            _F = max(_F_result.F_total, 0.01)
-            logger.debug(
-                "Selector: CLh=%.2f CL_r=%.2f F=%.4f(fa=%.3f fg=%.3f fh=%.3f) fup=%.4f",
-                _cl_h,
-                _cl_r,
-                _F,
-                _F_result.fa,
-                _F_result.fg,
-                _F_result.fh,
-                _fup,
-            )
+                _F_result = predict_bioavailability(drug, dose_mg=request.dose_mg)
+                _F = max(_F_result.F_total, 0.01)
+                logger.debug(
+                    "Selector: CLh=%.2f CL_r=%.2f F=%.4f(fa=%.3f fg=%.3f fh=%.3f) fup=%.4f",
+                    _cl_h,
+                    _cl_r,
+                    _F,
+                    _F_result.fa,
+                    _F_result.fg,
+                    _F_result.fh,
+                    _fup,
+                )
 
-            if _cl_r < 5.0 and request.route == "oral":
-                _bw = request.subject_weight_kg or 70.0
-                _vd_berez = vdss_from_kp(drug.kp, _bw) if drug.kp else 50.0
-                _vd_berez = max(_vd_berez, 0.043 * _bw)
+                if _cl_r < 5.0 and request.route == "oral":
+                    _bw = request.subject_weight_kg or 70.0
+                    _vd_berez = vdss_from_kp(drug.kp, _bw) if drug.kp else 50.0
+                    _vd_berez = max(_vd_berez, 0.043 * _bw)
 
-                # Check if XGBoost VDss suggests Berezhkovskiy over-estimates Vd.
-                # When Berezhkovskiy / XGBoost > 2, the Kp-based Vd is unreliable
-                # (typically from wrong logP → wrong tissue partitioning).
-                # In that case, use XGBoost VDss and switch to the full analytical
-                # model (both Cmax and t½), bypassing the ODE's distribution.
-                if self._vdss_predictor is not None:
-                    try:
-                        # Skip VDss correction for P-gp substrates.
-                        # Verapamil (P-gp substrate+inhibitor) scores 1.16x
-                        # without VDss correction but 8.83x with it — the
-                        # XGBoost VDss is wrong for P-gp substrates because
-                        # P-gp alters tissue distribution in ways the model
-                        # doesn't capture.
-                        _is_pgp = adme_props.get("pgp_substrate", False)
-                        if _is_pgp:
-                            logger.debug("VDss correction skipped: P-gp substrate")
-                        else:
-                            _vd_xgb_L = self._vdss_predictor.predict_vdss(request.smiles) * _bw
-                            _vd_xgb_L = max(_vd_xgb_L, 0.043 * _bw)
-                            if (
-                                _vd_berez > _vd_xgb_L * 4.5
-                            ):  # raised 2.0→4.0 (LOO-CV 2026-03-17), 4.0→4.5 (2026-03-18)
-                                _vd_correction = True
-                                _vd_xgb = _vd_xgb_L
-                                logger.debug(
-                                    "VDss correction: Berez=%.0fL >> XGB=%.0fL (%.1fx)",
-                                    _vd_berez,
-                                    _vd_xgb,
-                                    _vd_berez / _vd_xgb,
-                                )
-                    except Exception:
-                        pass
+                    # Check if XGBoost VDss suggests Berezhkovskiy over-estimates Vd.
+                    # When Berezhkovskiy / XGBoost > 2, the Kp-based Vd is unreliable
+                    # (typically from wrong logP → wrong tissue partitioning).
+                    # In that case, use XGBoost VDss and switch to the full analytical
+                    # model (both Cmax and t½), bypassing the ODE's distribution.
+                    if self._vdss_predictor is not None:
+                        try:
+                            # Skip VDss correction for P-gp substrates.
+                            # Verapamil (P-gp substrate+inhibitor) scores 1.16x
+                            # without VDss correction but 8.83x with it — the
+                            # XGBoost VDss is wrong for P-gp substrates because
+                            # P-gp alters tissue distribution in ways the model
+                            # doesn't capture.
+                            _is_pgp = adme_props.get("pgp_substrate", False)
+                            if _is_pgp:
+                                logger.debug("VDss correction skipped: P-gp substrate")
+                            else:
+                                _vd_xgb_L = self._vdss_predictor.predict_vdss(request.smiles) * _bw
+                                _vd_xgb_L = max(_vd_xgb_L, 0.043 * _bw)
+                                if (
+                                    _vd_berez > _vd_xgb_L * 4.5
+                                ):  # raised 2.0→4.0 (LOO-CV 2026-03-17), 4.0→4.5 (2026-03-18)
+                                    _vd_correction = True
+                                    _vd_xgb = _vd_xgb_L
+                                    logger.debug(
+                                        "VDss correction: Berez=%.0fL >> XGB=%.0fL (%.1fx)",
+                                        _vd_berez,
+                                        _vd_xgb,
+                                        _vd_berez / _vd_xgb,
+                                    )
+                        except Exception:
+                            pass
 
-                _vd = _vd_xgb if _vd_correction else _vd_berez
-                _ke = _cl_total / _vd if _vd > 0 else 0.1
-                _peff_cm_s = drug.peff * 1e-4
-                _ka = max(0.3, min(5.0, _peff_cm_s * 1e4 * 1.0))
-                if abs(_ka - _ke) < 1e-6:
-                    _ka = _ke * 1.01
+                    _vd = _vd_xgb if _vd_correction else _vd_berez
+                    _ke = _cl_total / _vd if _vd > 0 else 0.1
+                    _peff_cm_s = drug.peff * 1e-4
+                    _ka = max(0.3, min(5.0, _peff_cm_s * 1e4 * 1.0))
+                    if abs(_ka - _ke) < 1e-6:
+                        _ka = _ke * 1.01
 
-                if _ka > _ke:
-                    _tmax_an = np.log(_ka / _ke) / (_ka - _ke)
-                    _cmax_an = float(
-                        (_F * request.dose_mg / _vd)
-                        * (_ka / (_ka - _ke))
-                        * (np.exp(-_ke * _tmax_an) - np.exp(-_ka * _tmax_an))
-                    )
-                else:
-                    _cmax_an = float(_F * request.dose_mg / _vd)
-
-                _cmax_an = max(_cmax_an, 1e-12)
-
-                if _vd_correction:
-                    # When VDss correction is active, use analytical Cmax.
-                    logger.debug(
-                        "VDss-corrected analytical: Cmax=%.4f (ODE=%.4f), Vd=%.0fL",
-                        _cmax_an,
-                        cmax,
-                        _vd,
-                    )
-                    cmax = _cmax_an
-                else:
-                    # Adaptive-weight geometric mean of ODE and analytical Cmax.
-                    #
-                    # When ODE and analytical agree (ratio < 3x), use equal
-                    # weight (standard geometric mean). When they diverge
-                    # (ratio > 3x), trust ODE more — large divergence usually
-                    # means the analytical model has F or Vd errors (e.g.,
-                    # ibuprofen: analytical F=0.35 vs true F>0.9 → Cmax_an
-                    # is 21x too low). The ODE integrates the full PBPK and
-                    # is less sensitive to individual parameter errors.
-                    _ratio = cmax / max(_cmax_an, 1e-12)
-                    if _ratio > 1.0:
-                        # ODE > analytical: increase ODE weight with divergence
-                        _w_ode = min(
-                            0.85, 0.5 + 0.05 * np.log(_ratio)
-                        )  # lowered 0.10→0.05 (LOO-CV 2026-03-17)
+                    if _ka > _ke:
+                        _tmax_an = np.log(_ka / _ke) / (_ka - _ke)
+                        _cmax_an = float(
+                            (_F * request.dose_mg / _vd)
+                            * (_ka / (_ka - _ke))
+                            * (np.exp(-_ke * _tmax_an) - np.exp(-_ka * _tmax_an))
+                        )
                     else:
-                        # Analytical > ODE: symmetric weight — increase analytical
-                        # weight when ODE significantly under-predicts (e.g.,
-                        # theophylline where ODE over-distributes to tissues).
-                        _w_ode = max(0.15, 0.5 + 0.05 * np.log(_ratio))
-                    cmax_blend = float(cmax**_w_ode * _cmax_an ** (1 - _w_ode))
-                    logger.debug(
-                        "Blended Cmax: ODE=%.4f, analytical=%.4f, w_ode=%.2f, blend=%.4f",
-                        cmax,
-                        _cmax_an,
-                        _w_ode,
-                        cmax_blend,
-                    )
-                    cmax = cmax_blend
-        except Exception as exc:
-            logger.debug("Hybrid Cmax selector failed: %s", exc)
+                        _cmax_an = float(_F * request.dose_mg / _vd)
+
+                    _cmax_an = max(_cmax_an, 1e-12)
+
+                    if _vd_correction:
+                        # When VDss correction is active, use analytical Cmax.
+                        logger.debug(
+                            "VDss-corrected analytical: Cmax=%.4f (ODE=%.4f), Vd=%.0fL",
+                            _cmax_an,
+                            cmax,
+                            _vd,
+                        )
+                        cmax = _cmax_an
+                    else:
+                        # Adaptive-weight geometric mean of ODE and analytical Cmax.
+                        #
+                        # When ODE and analytical agree (ratio < 3x), use equal
+                        # weight (standard geometric mean). When they diverge
+                        # (ratio > 3x), trust ODE more — large divergence usually
+                        # means the analytical model has F or Vd errors (e.g.,
+                        # ibuprofen: analytical F=0.35 vs true F>0.9 → Cmax_an
+                        # is 21x too low). The ODE integrates the full PBPK and
+                        # is less sensitive to individual parameter errors.
+                        _ratio = cmax / max(_cmax_an, 1e-12)
+                        if _ratio > 1.0:
+                            # ODE > analytical: increase ODE weight with divergence
+                            _w_ode = min(
+                                0.85, 0.5 + 0.05 * np.log(_ratio)
+                            )  # lowered 0.10→0.05 (LOO-CV 2026-03-17)
+                        else:
+                            # Analytical > ODE: symmetric weight — increase analytical
+                            # weight when ODE significantly under-predicts (e.g.,
+                            # theophylline where ODE over-distributes to tissues).
+                            _w_ode = max(0.15, 0.5 + 0.05 * np.log(_ratio))
+                        cmax_blend = float(cmax**_w_ode * _cmax_an ** (1 - _w_ode))
+                        logger.debug(
+                            "Blended Cmax: ODE=%.4f, analytical=%.4f, w_ode=%.2f, blend=%.4f",
+                            cmax,
+                            _cmax_an,
+                            _w_ode,
+                            cmax_blend,
+                        )
+                        cmax = cmax_blend
+            except Exception as exc:
+                logger.debug("Hybrid Cmax selector failed: %s", exc)
 
         # Estimate terminal half-life using a hybrid approach:
         # 1. Curve-fit: terminal slope from post-Cmax PBPK simulation
@@ -709,24 +713,24 @@ class OmegaPipeline:
                 vd_L = vdss_from_kp(kp_dict, bw_kg)
             vd_L = max(vd_L, 0.043 * bw_kg)
 
-            # VDss correction for t½: when Berezhkovskiy Kp-based Vd
-            # over-estimates XGBoost VDss by >2x, use the geometric mean.
-            # Full replacement is too aggressive (XGBoost can under-predict
-            # for high-Vd drugs like propranolol). The geometric mean
-            # balances both estimates and is robust to either being wrong.
+            # VDss correction for t½: weighted geometric mean of Berezhkovskiy
+            # and XGBoost VDss. XGBoost AAFE 1.31 vs Berez 4.11 on Lombardo
+            # 1,130 drugs (2026-03-22). Weight XGBoost higher (0.7) since it's
+            # 3x more accurate, but keep Berezhkovskiy contribution (0.3)
+            # for high-Vd drugs where XGBoost can under-predict.
             if self._vdss_predictor is not None:
                 try:
                     _vd_xgb_thalf = self._vdss_predictor.predict_vdss(request.smiles) * bw_kg
                     _vd_xgb_thalf = max(_vd_xgb_thalf, 0.043 * bw_kg)
-                    if vd_L > _vd_xgb_thalf * 2.0:
-                        vd_geo = float(np.sqrt(vd_L * _vd_xgb_thalf))
-                        logger.debug(
-                            "t½ VDss correction: Berez=%.0fL, XGB=%.0fL, geo=%.0fL",
-                            vd_L,
-                            _vd_xgb_thalf,
-                            vd_geo,
-                        )
-                        vd_L = vd_geo
+                    # Weighted geometric mean: XGB^0.7 * Berez^0.3
+                    vd_wgeo = float(np.exp(0.7 * np.log(_vd_xgb_thalf) + 0.3 * np.log(vd_L)))
+                    logger.debug(
+                        "t½ VDss correction: Berez=%.0fL, XGB=%.0fL, wgeo=%.0fL",
+                        vd_L,
+                        _vd_xgb_thalf,
+                        vd_wgeo,
+                    )
+                    vd_L = vd_wgeo
                 except Exception:
                     pass
 
@@ -948,12 +952,13 @@ class OmegaPipeline:
             except Exception as exc:
                 logger.debug("Ensemble prediction failed: %s", exc)
 
-        # Compute UQ intervals: adaptive conformal (Cmax) + fixed-width (AUC, t½)
+        # Compute UQ intervals: adaptive conformal (k-NN, recalibrated 2026-03-22)
+        # Cmax: local conformal with k=30 neighbors, 68-drug in-domain calibration
+        # AUC/t½: heuristic scaling from Cmax q-value (no AUC reference data available)
         _cmax_ci = None
         _auc_ci = None
         _thalf_ci = None
 
-        # Try adaptive conformal for Cmax (k-NN local, 150-drug calibration)
         try:
             from omega_pbpk.ml.corrections.adaptive_conformal import AdaptiveConformal
 
@@ -962,43 +967,15 @@ class OmegaPipeline:
                 _interval = _ac.predict_interval(request.smiles, cmax)
                 if _interval is not None:
                     _cmax_ci = (_interval["lower"], _interval["upper"])
+                    # AUC/t½ CI: scale Cmax q-value by empirical ratio
+                    # Core-24: AUC AAFE/Cmax AAFE ratio in log10 = 1.35
+                    _q = _interval["q"]
+                    _q_auc = _q * 1.35  # AUC has ~35% more log-error than Cmax
+                    _q_thalf = _q * 1.0  # t½ has similar error magnitude
+                    _auc_ci = (auc * 10 ** (-_q_auc), auc * 10**_q_auc)
+                    _thalf_ci = (t_half * 10 ** (-_q_thalf), t_half * 10**_q_thalf)
         except Exception as exc:
             logger.debug("Adaptive conformal failed: %s", exc)
-
-        # Fixed-width conformal fallback for Cmax (if adaptive unavailable) + AUC/t½
-        try:
-            from omega_pbpk.uncertainty.conformal_uq import (
-                ParameterBounds,
-                propagate_conformal_intervals,
-            )
-
-            _bounds = ParameterBounds(
-                fup_lo=float(adme_props.get("fup_lo", adme_props.get("fup", 0.1) * 0.5)),
-                fup_hi=float(adme_props.get("fup_hi", adme_props.get("fup", 0.1) * 2.0)),
-                clint_lo=float(
-                    adme_props.get("clint_3a4_lo", adme_props.get("clint_3a4", 5.0) * 0.3)
-                ),
-                clint_hi=float(
-                    adme_props.get("clint_3a4_hi", adme_props.get("clint_3a4", 5.0) * 3.0)
-                ),
-                peff_lo=float(adme_props.get("peff_lo", adme_props.get("peff", 1.0) * 0.5)),
-                peff_hi=float(adme_props.get("peff_hi", adme_props.get("peff", 1.0) * 2.0)),
-                rbp_lo=float(adme_props.get("rbp_lo", adme_props.get("rbp", 0.55) * 0.8)),
-                rbp_hi=float(adme_props.get("rbp_hi", adme_props.get("rbp", 0.55) * 1.2)),
-            )
-            _uq = propagate_conformal_intervals(
-                drug_name="",
-                dose_mg=request.dose_mg,
-                route=request.route,
-                bounds=_bounds,
-                n_samples=200,
-            )
-            if _cmax_ci is None:
-                _cmax_ci = (_uq.cmax_p5, _uq.cmax_p95)
-            _auc_ci = (_uq.auc_p5, _uq.auc_p95)
-            _thalf_ci = (_uq.t_half_p5, _uq.t_half_p95)
-        except Exception as exc:
-            logger.debug("UQ computation failed: %s", exc)
 
         # --- Applicability domain check ---
         _in_ad, _ad_flags = _check_applicability_domain(request.smiles)

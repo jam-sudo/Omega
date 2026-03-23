@@ -760,7 +760,8 @@
       "tuning_contaminated": false,
       "nonlinear_pk": true,
       "data_quality": "fda_label_exact",
-      "notes": "WARNING: Cmax 7.32 mg/L likely includes ritonavir boosting (CYP3A4 inhibition). Pipeline predicts unboosted single-drug PK. Flag as DDI-contaminated."
+      "notes": "DDI-BOOSTED: Cmax 7.32 mg/L from ritonavir-boosted steady-state (Prezista 600mg + ritonavir 100mg BID). Dose=100mg is error (possibly from 100mg/mL suspension concentration). Pipeline predicts unboosted single-drug PK.",
+      "ddi_boosted": true
     },
     "dasatinib": {
       "smiles": "CC1=C(C(=CC=C1)Cl)NC(=O)C2=CN=C(S2)NC3=CC(=NC(=N3)C)N4CCN(CC4)CCO",
@@ -810,9 +811,9 @@
     "diclofenac": {
       "smiles": "C1=CC=C(C(=C1)CC(=O)O)NC2=C(C=CC=C2Cl)Cl",
       "dose_mg": 25.0,
-      "cmax_mg_L": 0.024,
+      "cmax_mg_L": 1.0,
       "source_type": "literature",
-      "source_id": "gold",
+      "source_id": "FDA label diclofenac sodium DR tablets",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -820,7 +821,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "FIXED 2026-03-22: Cmax was 0.024 (unit error). FDA label: ~1.0 mcg/mL for 25mg delayed-release tablet."
     },
     "efavirenz": {
       "smiles": "C1CC1C#CC2(C3=C(C=CC(=C3)Cl)NC(=O)O2)C(F)(F)F",
@@ -1095,10 +1097,10 @@
     },
     "lenacapavir": {
       "smiles": "CC(C)(C#CC1=NC(=C(C=C1)C2=C3C(=C(C=C2)Cl)C(=NN3CC(F)(F)F)NS(=O)(=O)C)C(CC4=CC(=CC(=C4)F)F)NC(=O)CN5C6=C(C7CC7C6(F)F)C(=N5)C(F)(F)F)S(=O)(=O)C",
-      "dose_mg": 927.0,
-      "cmax_mg_L": 0.0738,
+      "dose_mg": 600.0,
+      "cmax_mg_L": 0.101,
       "source_type": "fda_label",
-      "source_id": "fda_expanded",
+      "source_id": "FDA Sunlenca label (oral loading dose)",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -1106,7 +1108,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "fda_label_exact",
+      "notes": "FIXED 2026-03-22: Was 927mg SubQ dose (Cmax 0.0738). Corrected to 600mg oral loading (2x300mg tablets). Cmax ~101.4 ng/mL from Sunlenca FDA label. Low oral F (6-10%)."
     },
     "levocetirizine": {
       "smiles": "C1CN(CCN1CCOCC(=O)O)C(C2=CC=CC=C2)C3=CC=C(C=C3)Cl",
@@ -1136,7 +1139,9 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "fda_label_exact",
+      "ddi_boosted": true,
+      "notes": "DDI-BOOSTED: Cmax 9.8 mg/L is from Kaletra (lopinavir 400mg + ritonavir 100mg) steady-state. Unboosted lopinavir has ~1/10 exposure. Never used without ritonavir clinically. Dose also wrong (200 vs 400mg in label). Pipeline predicts unboosted single-drug PK."
     },
     "lorlatinib": {
       "smiles": "CC1C2=C(C=CC(=C2)F)C(=O)N(CC3=NN(C(=C3C4=CC(=C(N=C4)N)O1)C#N)C)C",
@@ -1398,9 +1403,9 @@
     "posaconazole": {
       "smiles": "CCC(C(C)O)N1C(=O)N(C=N1)C2=CC=C(C=C2)N3CCN(CC3)C4=CC=C(C=C4)OCC5CC(OC5)(CN6C=NC=N6)C7=C(C=C(C=C7)F)F",
       "dose_mg": 300.0,
-      "cmax_mg_L": 0.014,
+      "cmax_mg_L": 0.893,
       "source_type": "fda_label",
-      "source_id": "fda_expanded",
+      "source_id": "PMC4432131 Fang 2015",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -1408,7 +1413,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "fda_label_exact",
+      "notes": "FIXED 2026-03-22: Cmax was 0.014 (extraction error). Correct: 893 ng/mL fasted, DR tablet 300mg single dose (PMC4432131 Fang 2015)."
     },
     "primaquine": {
       "smiles": "CC(CCCN)NC1=C2C(=CC(=C1)OC)C=CC=N2",
@@ -1701,9 +1707,9 @@
     "valganciclovir": {
       "smiles": "CC(C)C(C(=O)OCC(CO)OCN1C=NC2=C1N=C(NC2=O)N)N",
       "dose_mg": 900.0,
-      "cmax_mg_L": 58.0,
+      "cmax_mg_L": 5.61,
       "source_type": "literature",
-      "source_id": "gold",
+      "source_id": "PMID 10496303 (Valcyte PK)",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -1711,7 +1717,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "clinical_exact"
+      "data_quality": "clinical_exact",
+      "notes": "FIXED 2026-03-22: Cmax was 58.0 (decimal error, 10x too high). Correct: ganciclovir Cmax 5.61 mcg/mL after 900mg valganciclovir oral with food (PMID 10496303). PRODRUG: valganciclovir\u2192ganciclovir. Pipeline predicts parent."
     },
     "vilazodone": {
       "smiles": "C1CN(CCN1CCCCC2=CNC3=C2C=C(C=C3)C#N)C4=CC5=C(C=C4)OC(=C5)C(=O)N",
@@ -2499,9 +2506,9 @@
     "pindolol": {
       "smiles": "CC(C)NCC(O)COc1cccc2[nH]ccc12",
       "dose_mg": 20.0,
-      "cmax_mg_L": 0.167,
+      "cmax_mg_L": 0.087,
       "source_type": "fda_label",
-      "source_id": "OpenFDA automated extraction (2026-03-20)",
+      "source_id": "FDA label pindolol (DailyMed) geometric mean",
       "fasted_confidence": "assumed_fasted",
       "formulation": "IR",
       "route": "oral",
@@ -2509,7 +2516,8 @@
       "single_dose": true,
       "tuning_contaminated": false,
       "nonlinear_pk": false,
-      "data_quality": "fda_label_exact"
+      "data_quality": "fda_label_exact",
+      "notes": "FIXED 2026-03-22: Cmax was 0.167 (upper bound of 4-fold range). FDA label: 45-167 ng/mL for 20mg. Geometric mean sqrt(45*167) = 87 ng/mL = 0.087 mg/L."
     },
     "amantadine": {
       "smiles": "NC12CC3CC(CC(C3)C1)C2",

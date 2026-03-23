@@ -37,7 +37,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DEFAULT_MODEL_DIR = _REPO_ROOT / "models" / "corrections" / "conformal"
 
 # Defaults
-_DEFAULT_K = 10  # number of nearest neighbors
+_DEFAULT_K = 30  # number of nearest neighbors (recalibrated 2026-03-22)
 _DEFAULT_ALPHA = 0.10  # 90 % prediction interval
 _FP_RADIUS = 2
 _FP_NBITS = 2048
