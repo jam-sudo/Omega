@@ -28,11 +28,14 @@ SMILES → EnsembleADMEPredictor (XGBoost CLint/fup/rbp/VDss + polynomial)
 ```
 
 ### Honest Performance (2026-03-22, scaffold-stratified holdout)
-- **Core-24 (clinical ref, selector OFF):** Cmax AAFE **1.977** [1.65, 2.43], 58% 2-fold
-- **Holdout ALL (100 drugs):** Cmax AAFE **2.520** [2.14, 3.00], 49% 2-fold, 72% 3-fold
-- **Holdout IN-DOMAIN (79 drugs):** Cmax AAFE **1.987** [1.79, 2.22], 57% 2-fold, **82% 3-fold**
-- **Out-of-domain (21 drugs):** prodrugs, extreme lipophilic, P-gp efflux, DDI-boosted, HIGH_MW
-- **Spearman ρ = 0.9379** (in-domain ranking correlation) — excellent for screening
+
+**HEADLINE NUMBERS (read CLAUDE.md KD#42-44 for bias caveats):**
+- **Pre-curation honest baseline (99 drugs, 2026-03-20):** Cmax AAFE **2.903** [2.34, 3.67] — most defensible prospective estimate
+- **Post-curation ALL (100 drugs, decontaminated CLint, 2026-04-22):** Cmax AAFE **2.452** [2.09, 2.89], 48% 2-fold, 76% 3-fold — has test-set leakage from 12+ curation iterations
+- **Post-curation IN-DOMAIN (79 drugs):** Cmax AAFE **1.978** [1.77, 2.23], 57% 2-fold, 84% 3-fold — also excludes 21 drugs identified RETROSPECTIVELY as failing
+- **Core-24 (in-sample, selector OFF, decontaminated CLint):** Cmax AAFE 1.875 [1.64, 2.20], 58% 2-fold — NOT a generalization metric
+- **Out-of-domain (21 drugs):** AAFE 5.50, ρ=0.46 — sets the lower bound on hard-drug performance
+- **Spearman ρ ALL 100 = 0.86**; in-domain 79 = 0.94 (in-domain is a biased subset)
 - **CLint anchors NOT inflating:** ANCHORED 1.813 vs CLEAN 1.736 (delta +0.078)
 - **Data leakage:** 36/107 (34%) gold tier drugs overlap with ADME training set
 - **Error cancellation confirmed:** predicted ADME beats measured ADME — structural, not CLint-specific
@@ -99,6 +102,9 @@ Details + cross-review protocol: `.claude/commands/team.md`
 37. **AD filter catches prodrugs + DDI-boosted** — SMARTS: val-ester, thienopyridine, pivoxil phosphonate, nucleoside 5'-ester. Flags: PRODRUG, DDI_BOOSTED, EXTREME_LIPOPHILIC, HIGH_MW, PGP_EFFLUX_RISK, QUATERNARY_AMINE, INORGANIC. 21/100 holdout excluded.
 40. **AUC AAFE 3.2 on holdout (32 drugs)** — 2x worse than Cmax (1.7). AUC Spearman ρ=0.77 (vs Cmax 0.94). Root cause: VDss over-prediction + CLint error compounding through ODE. AUC improvement requires better CL prediction, not Cmax tuning.
 41. **VDss systematically over-predicted** — Lombardo cross-validation (17 drugs): VDss AAFE 3.71, Spearman ρ=0.27. XGBoost VDss AAFE 1.31 (94% 2-fold) vs Berezhkovskiy 4.11. Fix: weighted geometric mean (XGB^0.7 × Berez^0.3) for t½ → Core-24 AUC improved 2.344→2.142 (-8.6%). Cmax unchanged (ODE Kp preserved).
+42. **CLint anchors decontaminated (FIXED 2026-04-22)** — `xgboost_clint.py.train(exclude_holdout=True)` now reads `holdout_split.json` and excludes ciprofloxacin/losartan/ranitidine from anchor training (19→16 anchors). Measured impact on aggregate metrics: Holdout ALL AAFE 2.440→2.452 (+0.012), in-domain 1.966→1.978 (+0.012), Core-24 1.879→1.875 (no change). Per-drug post-fix: ciprofloxacin FE=1.30x, losartan FE=1.54x, ranitidine FE=2.42x. Architectural leak removed; aggregate inflation was small (consistent with KD#25 anchor ablation Δ+0.08).
+43. **Pre-curation honest holdout AAFE = 2.90** [2.34, 3.67] on 99 drugs (commit f59fd9c, 2026-03-20, post-OpenFDA-expansion). Current 2.44 reflects 12+ data fixes + 4 AD-filter SMARTS additions made in response to observed holdout failures. README "Scientific Integrity Disclosure" section enumerates this. Do NOT report 2.44 (or 1.97 in-domain) as "fully prospective".
+44. **Spearman ρ on ALL 100 holdout = 0.86** (not 0.94). The 0.94 figure is on the 79-drug in-domain subset only. OOD 21 drugs: ρ=0.46, AAFE 5.50, MW median 561 vs in-domain 327. The AD filter retrospectively excludes hard drugs.
 
 ## Codebase Rules
 
@@ -150,10 +156,11 @@ Details + cross-review protocol: `.claude/commands/team.md`
 | **2** | SMILES→PK <500ms. AAFE<2.0 | **PASS** (73ms, core-24 1.977 in-sample) |
 | **3** | Patient covariates. Few-shot (<5 obs) | **Prototype** (allometric + Bayesian) |
 | **4** | Batch screening 1000+ molecules with UQ | **Done** (batch_predict + conformal CI, but UQ intervals over-wide) |
-| **Ext** | External validation AAFE<2.5 on unseen drugs | **PASS** (holdout in-domain 79 drugs: AAFE 1.987) |
+| **Ext** | External validation AAFE<2.5 on unseen drugs | **CONDITIONAL PASS** (post-curation 2.44 ALL / 1.97 in-domain; pre-curation honest 2.90 — fails strict criterion. KD#43) |
 | **v7** | Bootstrap CI, ER-stratified, N=50+ holdout, scaffold-split | **PASS** (100-drug holdout, scaffold-stratified, bootstrap CI) |
-| **v8** | Holdout in-domain AAFE<1.7, %2-fold>70% | **NOT MET** (1.987, 57.0%) |
-| **v9** | Spearman ρ>0.90, UQ coverage 85-95% | **PARTIAL** (ρ=0.94 PASS, UQ 97% over-covered) |
+| **v8** | Holdout in-domain AAFE<1.7, %2-fold>70% | **NOT MET** (1.97, 58%) |
+| **v9** | Spearman ρ>0.90, UQ coverage 85-95% | **PARTIAL** (ρ=0.94 in-domain PASS / 0.86 ALL marginal; UQ 94% PASS, width 21x) |
+| **v10** | Curation-blind prospective AAFE <2.5 on N≥50 unseen drugs | **NOT YET ATTEMPTED** — requires fresh, never-touched holdout |
 
 ## Tech Stack
 

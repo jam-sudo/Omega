@@ -1,8 +1,16 @@
 # Omega PBPK — Benchmark Suite
 
+> [!WARNING]
+> **Deprecated for headline accuracy claims (2026-03-22, CLAUDE.md KD#32).**
+> The 5-drug suite in this directory uses **synthetic 1-compartment-back-calculated** time courses (parameters → 1-cpt absorption model → ±15% lognormal noise). Reporting AAFE on these CSVs inflated accuracy by ~0.5 vs. the clinical reference and overfitted the hybrid C<sub>max</sub> selector via LOO-CV.
+>
+> **Use for:** quick smoke testing, reproducibility of legacy results, CLI demonstration.
+> **Do not use for:** headline accuracy claims, model selection, hyperparameter tuning.
+> **For honest accuracy:** run `python scripts/run_full_benchmark.py` (core-24 with clinical reference) and `python scripts/run_holdout_benchmark.py` (100-drug scaffold-stratified holdout).
+
 ## Overview
 
-This benchmark suite validates the Omega PBPK model against real, published human pharmacokinetic data for five well-characterised reference compounds. It replaces the earlier synthetic datasets (which were generated from model output ± 8% noise) with literature-derived clinical concentration–time profiles.
+This benchmark suite validates the Omega PBPK model against five well-characterised reference compounds. The original literature parameters (C<sub>max</sub>, T<sub>max</sub>, t&frac12;, AUC) are sourced from peer-reviewed clinical studies and FDA labels, but the time-course CSVs are reconstructed via a 1-compartment oral absorption model with added noise — they are **not** raw clinical observations.
 
 ## What the Benchmark Validates
 
