@@ -220,8 +220,17 @@ class XGBoostCLintPredictor:
             else:
                 self.train()
 
-    def train(self, n_folds: int = 5) -> dict[str, float]:
-        """Train on TDC Clearance_Hepatocyte_AZ + reference CLint anchors."""
+    def train(self, n_folds: int = 5, exclude_holdout: bool = True) -> dict[str, float]:
+        """Train on TDC Clearance_Hepatocyte_AZ + reference CLint anchors.
+
+        Args:
+            n_folds: CV folds.
+            exclude_holdout: If True (default), exclude any anchor drugs that appear
+                in the scaffold-stratified holdout (`data/clinical/holdout_split.json`)
+                to prevent test-set leakage. Set False only for diagnostic ablations.
+        """
+        import json as _json
+
         import xgboost as xgb
 
         tdc_smiles, tdc_clint = _load_tdc_clearance()
@@ -241,20 +250,34 @@ class XGBoostCLintPredictor:
                 valid_y.append(np.log10(max(clint, 1.0)))
                 sample_weights.append(1.0)
 
-        # Add reference CLint anchors (weighted 10x to anchor predictions)
-        ref_anchors = _get_clint_reference_anchors()
+        # Add reference CLint anchors. By default exclude holdout drugs (decontaminated)
+        # to prevent leakage of clinical-CL-derived anchors into the held-out test set.
+        if exclude_holdout:
+            holdout_path = _REPO_ROOT / "data" / "clinical" / "holdout_split.json"
+            holdout_drugs: set[str] = set()
+            if holdout_path.exists():
+                try:
+                    holdout_drugs = set(_json.loads(holdout_path.read_text()).get("holdout", []))
+                except Exception as exc:  # pragma: no cover
+                    logger.warning("Failed to load holdout_split.json: %s", exc)
+            ref_anchors = get_decontaminated_anchors(exclude_drugs=holdout_drugs)
+        else:
+            ref_anchors = _get_clint_reference_anchors()
+
         n_anchors = 0
         for smi, clint in ref_anchors:
             feat = _smiles_to_features(smi)
             if feat is not None:
                 valid_X.append(feat)
                 valid_y.append(np.log10(max(clint, 1.0)))
-                sample_weights.append(
-                    5.0
-                )  # 5x weight for reference anchors (reduced from 50x to prevent memorization)
+                sample_weights.append(5.0)  # 5x weight for reference anchors
                 n_anchors += 1
 
-        logger.info("Added %d reference CLint anchors (50x weight)", n_anchors)
+        logger.info(
+            "Added %d reference CLint anchors (5x weight, exclude_holdout=%s)",
+            n_anchors,
+            exclude_holdout,
+        )
 
         X = np.array(valid_X)
         y = np.array(valid_y, dtype=np.float64)

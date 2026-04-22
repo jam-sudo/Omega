@@ -1,6 +1,6 @@
 {
-  "mae_log10": 0.4101,
-  "r2": 0.2364,
-  "n_compounds": 1232,
-  "n_anchors": 19
+  "mae_log10": 0.404,
+  "r2": 0.2569,
+  "n_compounds": 1229,
+  "n_anchors": 16
 }

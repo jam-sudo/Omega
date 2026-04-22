@@ -51,3 +51,7 @@ pkdb_data*/
 data/hydrationfreeenergy_freesolv.tab
 *.tab
 *:Zone.Identifier
+
+# Local model rollback artifacts (kept locally only)
+models/**/*.contaminated_backup
+.claude/scheduled_tasks.lock
